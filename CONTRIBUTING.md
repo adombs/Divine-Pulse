@@ -1,6 +1,11 @@
 # Working on Divine Pulse
 
 For player-facing behavior see [README](README.md); for technical guides by audience see [docs](docs/README.md).
+Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md). Divine Pulse is GPL-3.0: by contributing, you
+agree that your work is released under that license.
+
+Found a bug or have an idea? Open an issue first, so nobody spends time on something that won't fit. Security problems
+go through [the security policy](SECURITY.md), not an issue.
 
 ## Prerequisites
 
@@ -46,25 +51,47 @@ files page or `python -m app.gamefiles extract "<dump folder>"` from `backend/`;
 
 ## Optional test inputs
 
-Public checks need no game files. Two environment variables enable more tests; without them those tests skip:
+Public checks need no game files. Three environment variables enable more tests; without them those tests skip:
 
 | Variable | Points at |
 |---|---|
 | `DIVINE_PULSE_GAME_ASSETS` | an import of your own game (the folder the importer wrote) |
+| `DIVINE_PULSE_GAME_DUMP` | a dump of your own game |
 | `DIVINE_PULSE_CAPTURES` | memory captures taken from your own game |
 
 `DIVINE_PULSE_DATA_DIR` moves the data folder, which keeps experiments away from your real runs. Keep captures and
 imports outside the repository.
 
+## Naming
+
+Every branch and pull request has one of these types:
+
+| Type | For |
+|---|---|
+| `feature` | Something new a player can use |
+| `fix` | Something that was wrong and now works |
+| `docs` | Documentation only |
+| `refactor` | Code changes that don't change behavior |
+| `test` | Tests only |
+| `chore` | Dependencies, build, release and repository upkeep |
+
+| What | Form | Example |
+|---|---|---|
+| Branch | `<type>/<issue number>-<short-description>`, lower case with hyphens; leave out the number if there's no issue | `fix/42-hp-after-level-up` |
+| Pull request title | `<type>: <what it does>`, starting with a verb, lower case | `fix: keep the HP after a level-up` |
+| Bug issue title | What goes wrong | `Roster shows the wrong HP after a level-up` |
+| Feature issue title | The change, starting with a verb | `Add a filter for units in reserve` |
+
+Pull requests are squash-merged, so the title becomes the commit on `main`. Put `Closes #42` in the description to
+close the issue when it merges. Commits on your branch can be worded however helps you.
+
 ## Day to day
 
-1. Ordinary changes go on a branch and are proposed to `main` in a pull request. Maintainers may run the controlled
-   release process directly on `main` only when the release is authorized; the release script requires a clean,
-   current `main`. Get explicit release authorization before starting it. Never push an ordinary change or release
-   without authorization.
+1. Ordinary changes go on a branch and are proposed to `main` in a pull request. Only a maintainer runs a release,
+   which commits directly to a clean, current `main`; see [RELEASING](RELEASING.md).
 2. Add a line under `## Unreleased` in `CHANGELOG.md` for anything a player would notice.
-3. Run the local checks before opening or merging a pull request. Use the project venv explicitly so the commands
-   do not depend on whichever Python happens to be on `PATH`:
+3. Run the local checks before opening or merging a pull request. There is no CI, so these are the only checks a change
+   gets. Use the project venv explicitly so the commands do not depend on whichever Python happens to be on `PATH`:
 
 ```
 cd backend

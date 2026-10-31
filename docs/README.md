@@ -9,6 +9,8 @@ Start here based on what you need:
 - **Game files from your own dump:** dump them with the [dumping guide](game-assets/dumping.md), extract and check
   them with the [importer guide](game-assets/README.md), and see [generated files](generated-assets.md).
 - **Maintainers preparing a release:** use the [release guide](../RELEASING.md).
+- **Maintainers running the repository:** reviews, triage, branch rules and going public are in
+  [maintaining](maintaining.md).
 - **Adding an emulator:** see [porting](porting.md).
 - **Game-memory research:** see [reading-game-memory](reading-game-memory.md).
 - **Battle page:** see [battle-page-plan](battle-page-plan.md) and [fight-pairing testing](fight-pairing-testing.md).
