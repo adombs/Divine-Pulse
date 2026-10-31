@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.0 (2026-10-31)
+
 First public release.
 
 - Tracks your army, battles and runs by reading the game's memory in Eden, with nothing to type.

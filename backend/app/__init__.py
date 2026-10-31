@@ -1,3 +1,3 @@
 """Divine Pulse."""
 
-__version__ = "0.10.10"
+__version__ = "1.0.0"
