@@ -87,8 +87,8 @@ close the issue when it merges. Commits on your branch can be worded however hel
 
 ## Day to day
 
-1. Ordinary changes go on a branch and are proposed to `main` in a pull request. Only a maintainer runs a release,
-   which commits directly to a clean, current `main`; see [RELEASING](RELEASING.md).
+1. Every change goes on a branch and is proposed to `main` in a pull request, releases included. Only a maintainer runs
+   a release; see [RELEASING](RELEASING.md).
 2. Add a line under `## Unreleased` in `CHANGELOG.md` for anything a player would notice.
 3. Run the local checks before opening or merging a pull request. There is no CI, so these are the only checks a change
    gets. Use the project venv explicitly so the commands do not depend on whichever Python happens to be on `PATH`:
