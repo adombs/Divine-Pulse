@@ -31,11 +31,12 @@ The rules are in `.github/rulesets/`. GitHub doesn't read that folder by itself:
 | File | What it does | Who can skip it |
 |---|---|---|
 | `main-history.json` | `main` can't be deleted or force-pushed | Nobody |
-| `main-pull-requests.json` | Changes to `main` go through a pull request, with a straight history | Nobody |
+| `main-pull-requests.json` | Changes to `main` go through a pull request, with a straight history | Repository admins |
 | `release-tags.json` | A `v*` tag can't be moved or deleted | Nobody |
 
 No approvals are required, because GitHub doesn't let you approve your own pull request, and no status checks are
-required, because there is no CI. You can still merge your own pull requests.
+required, because there is no CI. Admins can skip the pull request rule because `tools/release.py` pushes its version
+commit directly to `main`. To change that, make the release script open a pull request first.
 
 GitHub offers these rules on a private repository only with GitHub Pro. On a free plan they apply once the repository
 is public.
