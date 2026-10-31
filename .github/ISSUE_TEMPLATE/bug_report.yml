@@ -1,10 +1,11 @@
 name: Bug report
 description: Something in Divine Pulse doesn't work
+labels: [bug, needs triage]
 body:
   - type: markdown
     attributes:
       value: |
-        Please don't attach game files, dumps, keys or memory captures. Describe the problem in words, or attach a screenshot of the app.
+        Name the title after what goes wrong: "Roster shows the wrong HP after a level-up". Please don't attach game files, dumps, keys or memory captures. Describe the problem in words, or attach a screenshot of the app.
   - type: input
     id: version
     attributes:
