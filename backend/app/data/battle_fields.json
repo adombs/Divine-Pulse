@@ -1,0 +1,15 @@
+{
+  "unit": {
+    "hp": "0xde",
+    "x": "0xf2",
+    "y": "0xf3"
+  },
+  "globals": {
+    "turn": "0xdee00",
+    "divine_pulse_charges": "0xdb510",
+    "scenario": "0x163130",
+    "map": "0x16312c",
+    "cursor_x": "0xdb0c4",
+    "cursor_y": "0xdb0c8"
+  }
+}

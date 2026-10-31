@@ -1,0 +1,34 @@
+name: Bug report
+description: Something in Divine Pulse doesn't work
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Please don't attach game files, dumps, keys or memory captures. Describe the problem in words, or attach a screenshot of the app.
+  - type: input
+    id: version
+    attributes:
+      label: Divine Pulse version
+      description: Settings > About
+    validations:
+      required: true
+  - type: input
+    id: emulator
+    attributes:
+      label: Emulator and version
+      placeholder: Eden, Yuzu, ...
+    validations:
+      required: true
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What you did, what you expected, and what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: log
+    attributes:
+      label: Log excerpt
+      description: The last lines of tracker.log (Settings > About > Open). Remove anything you don't want to share.
+      render: text

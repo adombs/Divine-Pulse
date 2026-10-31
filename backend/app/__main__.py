@@ -1,0 +1,219 @@
+"""Entry point: `python -m app` (what the desktop shortcut runs).
+
+    python -m app              standalone desktop window + tray icon (default)
+    python -m app --browser    open the dashboard in the web browser instead, with the tray icon
+    python -m app --server     server only: no window, no tray (for development)
+
+If the tracker is already running, launching it again just brings its window forward.
+"""
+
+from __future__ import annotations
+
+import json
+import logging
+import socket
+import sys
+import threading
+import time
+import urllib.request
+import webbrowser
+from pathlib import Path
+
+import uvicorn
+
+from logging.handlers import RotatingFileHandler
+
+from . import __version__
+from .config import DATA_DIR, FROZEN, SettingsStore
+from .system import error_box
+
+HOST = "127.0.0.1"
+log = logging.getLogger("app")
+
+
+def import_game_files(folder: str) -> int:
+    """Run the same import as Settings without starting the desktop or server."""
+    from .gamefiles import dump
+    from .infrastructure.game_assets import game_assets
+    from .infrastructure.game_assets_import import import_assets
+
+    log_file = None
+
+    def output(message: str) -> None:
+        line = " ".join(str(message).splitlines())
+        if sys.stdout:
+            print(line, flush=True)
+        if log_file:
+            log_file.write(line + "\n")
+            log_file.flush()
+
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+        log_file = (DATA_DIR / "game-assets-import.log").open("w", encoding="utf-8")
+        output("Finding game files...")
+        found = dump.find(Path(folder))
+        if found.problems:
+            raise ValueError("; ".join(found.problems))
+        output("Importing game files...")
+        import_assets(found, game_assets().root, lambda message, _out: output(message),
+                      lambda: output("Verifying game files..."))
+        SettingsStore().update(last_dump=folder)
+        output("Game files imported successfully.")
+        return 0
+    except Exception as exc:
+        output(str(exc) or type(exc).__name__)
+        return 1
+    finally:
+        if log_file:
+            log_file.close()
+
+
+def check_game_files() -> int:
+    from .gamefiles import verify
+    from .infrastructure.game_assets import game_assets
+
+    try:
+        root = game_assets().root
+        if not (root / "manifest.json").is_file():
+            return 1
+        return 0 if verify.check(root).ok else 1
+    except Exception:
+        return 1
+
+
+def _already_running(url: str) -> bool:
+    """This tracker, with this data folder, is serving `url`. Another copy of it with another data folder (a developer's
+    demo server, say) is just another program on the port."""
+    try:
+        with urllib.request.urlopen(f"{url}/api/health", timeout=1) as r:
+            if json.load(r).get("app") != "divine-pulse":
+                return False
+        with urllib.request.urlopen(f"{url}/api/about", timeout=1) as r:
+            return Path(json.load(r).get("data_dir", "")).resolve() == DATA_DIR.resolve()
+    except Exception:
+        return False
+
+
+def _focus_running_instance(url: str) -> None:
+    """Ask the running tracker to show its window; fall back to a browser tab."""
+    try:
+        req = urllib.request.Request(f"{url}/api/window/show", method="POST")
+        with urllib.request.urlopen(req, timeout=3):
+            return
+    except Exception:
+        webbrowser.open(url)
+
+
+def _browser_tray(url: str, server: uvicorn.Server) -> None:
+    """Browser mode: a tray icon to reopen the dashboard or quit."""
+    import pystray
+    from PIL import Image
+
+    def quit_app(icon, _item):
+        icon.stop()
+        server.should_exit = True
+
+    pystray.Icon(
+        "divine-pulse",
+        Image.open(Path(__file__).parent / "data" / "icon.png"),
+        "Divine Pulse",
+        menu=pystray.Menu(
+            pystray.MenuItem("Open dashboard", lambda *_: webbrowser.open(url), default=True),
+            pystray.MenuItem("Quit", quit_app),
+        ),
+    ).run()
+
+
+def _port_free(port: int) -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        try:
+            s.bind((HOST, port))
+            return True
+        except OSError:
+            return False
+
+
+def _any_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        s.bind((HOST, 0))
+        return s.getsockname()[1]
+
+
+def main() -> None:
+    # Setup's command-line steps: import or check the game files and exit, without the server or a window. Here rather
+    # than under __main__ so the packaged program (packaging/launcher.py calls main()) handles them too.
+    if "--import-game-files" in sys.argv[1:]:
+        index = sys.argv.index("--import-game-files")
+        sys.exit(import_game_files(sys.argv[index + 1] if index + 1 < len(sys.argv) else ""))
+    if "--check-game-files" in sys.argv[1:]:
+        sys.exit(check_game_files())
+    try:
+        DATA_DIR.mkdir(parents=True, exist_ok=True)
+    except OSError as exc:
+        error_box(f"Divine Pulse can't create its data folder:\n{DATA_DIR}\n\n{exc}")
+        return
+    # Rotating, so the log can't grow without bound on a PC that runs the tracker for months.
+    handlers: list[logging.Handler] = [RotatingFileHandler(DATA_DIR / "tracker.log", maxBytes=2_000_000, backupCount=2, encoding="utf-8")]
+    if sys.stderr:  # pythonw has none
+        handlers.append(logging.StreamHandler(sys.stderr))
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", handlers=handlers)
+
+    args = set(sys.argv[1:])
+    server_only = "--server" in args
+    browser_mode = "--browser" in args
+
+    log.info("Divine Pulse %s starting (%s, Windows); data folder: %s", __version__, "packaged" if FROZEN else "from source", DATA_DIR)
+    settings = SettingsStore()
+    url = f"http://{HOST}:{settings.get().port}"
+    if _already_running(url):
+        if not server_only:
+            _focus_running_instance(url)
+        return
+    if not _port_free(settings.get().port):
+        # Another program has the port: move to a free one and remember it.
+        port = _any_free_port()
+        log.warning("Port %d is in use by another program; using port %d instead.", settings.get().port, port)
+        settings.update(port=port)
+        url = f"http://{HOST}:{port}"
+
+    from .main import create_app
+
+    # One settings store for the app, the window and the tray: a second copy loaded at launch would write the
+    # settings as they were then over any changes made since (the window saves its position on quit).
+    app = create_app(settings=settings)
+    # log_config=None: uvicorn's default logging writes to stderr, which pythonw doesn't have.
+    # timeout_graceful_shutdown: the dashboard's live-update stream never ends on its own, so
+    # don't wait for it forever when quitting.
+    server = uvicorn.Server(
+        uvicorn.Config(app, host=HOST, port=settings.get().port, log_config=None, timeout_graceful_shutdown=2)
+    )
+    thread = threading.Thread(target=server.run, name="uvicorn", daemon=True)
+    thread.start()
+    for _ in range(150):
+        if server.started or not thread.is_alive():
+            break
+        time.sleep(0.1)
+    if not server.started:
+        error_box(f"Divine Pulse couldn't start its local server on port {settings.get().port}.\n\nDetails are in {DATA_DIR / 'tracker.log'}.")
+        return
+
+    if server_only:
+        thread.join()
+        return
+
+    from . import desktop
+
+    if not browser_mode and desktop.available():
+        from .desktop import DesktopApp
+
+        DesktopApp(url, settings, app.state, server).run()
+    else:
+        webbrowser.open(url)
+        _browser_tray(url, server)
+    app.state.events.close()
+    server.should_exit = True
+    thread.join(timeout=5)
+
+
+if __name__ == "__main__":
+    main()

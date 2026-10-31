@@ -1,0 +1,9 @@
+.run-transfer-modal { width: min(28rem, 100%); background: var(--paper); color: var(--ink); }
+.run-transfer-modal .modal-body { display: grid; gap: 1rem; }
+.run-transfer-modal p { margin: 0; }
+.run-transfer-options { display: flex; gap: .75rem; }
+.run-transfer-modal label { display: grid; gap: .4rem; }
+.run-transfer-modal select { width: 100%; }
+.run-transfer-battles { display: grid; gap: .45rem; max-height: 15rem; overflow: auto; margin: 0; padding: .65rem; }
+.run-transfer-battles label { display: flex; align-items: center; gap: .5rem; }
+.run-transfer-file { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }

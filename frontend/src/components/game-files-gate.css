@@ -1,0 +1,6 @@
+.game-files-gate { min-height:100vh; padding:clamp(1rem, 4vw, 3rem); display:grid; place-items:center; box-sizing:border-box; }
+.game-files-gate-content { width:min(100%, 52rem); }
+.game-files-gate-banner { background:#2c2440; padding:1.5rem 2rem; display:flex; justify-content:center; }
+.game-files-gate-banner img { display:block; width:min(100%, 24rem); height:auto; }
+.game-files-gate-sheet { background:var(--paper); color:var(--ink); padding:clamp(1rem, 3vw, 2rem); }
+.game-files-gate-about { display:block; margin:1rem 0 0 auto; }

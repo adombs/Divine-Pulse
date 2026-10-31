@@ -1,0 +1,699 @@
+/* The Supports page (components/reference/supports/). Everything here is scoped to .sup-page, so it adds to
+   styles.css rather than changing it. The page keeps to the shared tokens (--paper, --row, --accent, --amber). */
+
+/* ------------------------------------------------------------------ Ranks */
+
+.sup-page .sup-rank {
+  display: inline-block;
+  min-width: 1.9rem;
+  padding: 0.1rem 0.35rem;
+  border: 1px solid var(--row-border);
+  background: var(--paper);
+  color: var(--ink-soft);
+  font: 700 0.9rem var(--ui);
+  text-align: center;
+}
+.sup-page .sup-rank.r-a,
+.sup-page .sup-rank.r-bp {
+  color: var(--ink);
+  border-color: var(--ink-soft);
+}
+.sup-page .sup-rank.r-ap {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.sup-page .sup-rank.r-s {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #fff;
+}
+
+/* Affiliation pennants stay small beside names and in cards. */
+.sup-page .crest {
+  width: 20px;
+  height: 25px;
+  padding-bottom: 3px;
+  align-self: center;
+}
+.sup-page .crest svg {
+  width: 13px;
+  height: 15px;
+}
+.sup-stats {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+  font: 600 0.95rem var(--ui);
+  color: var(--ink-soft);
+}
+.sup-stats .ending {
+  margin: 0;
+}
+.sup-stats .sup-badge {
+  min-width: 1.6rem;
+  height: 1.6rem;
+  font-size: 0.85rem;
+}
+
+/* The highest rank, as the number you see first. */
+.sup-badge {
+  display: inline-grid;
+  place-items: center;
+  padding: 0 0.3rem;
+  border: 1px solid var(--row-border);
+  background: var(--paper);
+  color: var(--ink);
+  font: 700 1.05rem var(--ui);
+}
+.sup-badge {
+  min-width: 1.9rem;
+  height: 1.9rem;
+  font-size: 0.95rem;
+}
+.sup-badge.r-ap {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+.sup-badge.r-s {
+  background: var(--amber);
+  border-color: var(--amber);
+  color: #fff;
+}
+
+.sup-timeline {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0.2rem 0 0.6rem;
+  padding: 0;
+  list-style: none;
+}
+.sup-timeline li {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  padding: 0.25rem 0.4rem;
+  background: var(--row);
+  border: 1px solid var(--row-border);
+}
+.sup-timeline .sup-when {
+  font: 500 0.95rem var(--display);
+  color: var(--ink-soft);
+}
+
+.sup-note-chip {
+  font: 600 0.82rem var(--ui);
+  padding: 0.1rem 0.45rem;
+  border: 1px solid currentColor;
+  white-space: nowrap;
+}
+.sup-note-chip.route {
+  color: var(--accent);
+}
+.sup-note-chip.dlc {
+  color: var(--amber);
+}
+.sup-note-chip.lock {
+  color: var(--red);
+}
+
+.sup-legend {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0;
+  margin: 0.35rem 0 0;
+  font-size: 0.84rem;
+  color: var(--ink-soft);
+}
+.sup-key {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  margin-right: 0.5rem;
+}
+.sup-key .ending,
+.sup-key .atk,
+.sup-key .in-run {
+  margin: 0;
+  font-size: inherit;
+}
+.sup-legend .sup-rank {
+  min-width: 1.5rem;
+  font-size: 0.75rem;
+}
+
+.sup-notes {
+  margin: 0 0 0.5rem;
+  padding-left: 1.1rem;
+  font-size: 0.95rem;
+  color: var(--ink-soft);
+}
+
+/* ------------------------------------------------------------------ The character rail */
+
+.sup-rail {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+  padding: 0.1rem 0.1rem 0.3rem;
+  margin-bottom: 0.4rem;
+  border-bottom: 1px solid var(--line);
+}
+.sup-face {
+  position: relative;
+  flex: none;
+  display: grid;
+  justify-items: center;
+  gap: 0.1rem;
+  width: 4.4rem;
+  padding: 0.25rem 0.15rem;
+  border: 1px solid transparent;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.sup-face:hover {
+  background: var(--row-hover);
+  color: var(--ink);
+}
+.sup-face.on {
+  background: var(--sel);
+  border-color: var(--sel-border);
+  color: var(--sel-ink);
+}
+.sup-face .portrait {
+  border-radius: 50%;
+}
+.sup-face-name {
+  font: 600 0.8rem var(--display);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sup-face-run {
+  position: absolute;
+  top: 0.3rem;
+  right: 0.5rem;
+  font-size: 0.7rem;
+}
+
+/* ------------------------------------------------------------------ Partner and pairing rows */
+
+.sup-rows {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sup-row {
+  border: 1px solid var(--row-border);
+  background: var(--row);
+}
+.sup-row.open {
+  grid-column: 1 / -1;
+}
+.sup-row.open,
+.sup-row.picked {
+  border-color: var(--sel-border);
+  background: var(--row-hover);
+}
+.sup-row-head {
+  display: flex;
+  align-items: stretch;
+}
+.sup-row-btn {
+  flex: 1 1 auto;
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 2.8rem;
+  padding: 0.25rem 0.55rem;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.sup-row-btn:hover {
+  background: var(--row-hover);
+}
+.sup-row-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.sup-row-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+}
+.sup-row-name {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  font: 600 1rem var(--display);
+}
+.sup-row-marks {
+  display: inline-flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.4rem;
+}
+.sup-caret {
+  flex: none;
+  color: var(--ink-soft);
+  transition: transform 0.15s ease;
+}
+.sup-caret.open {
+  transform: rotate(90deg);
+}
+.sup-row-body {
+  padding: 0.3rem 0.8rem 0.5rem 3rem;
+  border-top: 1px solid var(--row-border);
+}
+.sup-row-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  margin: 0;
+}
+.sup-row-links .btn.as-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+/* All Pairings list (task supports-pairings): the two headshots sit side by side as squares — no circle, no overlap. */
+.sup-duo {
+  flex: none;
+  display: inline-flex;
+  gap: 0.3rem;
+}
+.sup-rows.pairs .sup-duo .portrait {
+  border-radius: 0;
+  background: none;
+}
+
+/* Partner and pairing lists: two columns (above), one on phones. */
+@media (max-width: 640px) {
+  .sup-rows {
+    grid-template-columns: 1fr;
+  }
+}
+
+.sup-rows.pairs .sup-row-name {
+  font-size: 0.98rem;
+}
+.sup-row-name > .crest,
+.sup-row-name > .in-run {
+  flex: none;
+}
+
+/* ------------------------------------------------------------------ The matrix */
+
+.sup-matrix-wrap { background: var(--paper); }
+table.sup-matrix {
+  border-collapse: separate;
+  border-spacing: 0;
+  font-variant-numeric: lining-nums;
+}
+.sup-matrix th,
+.sup-matrix td {
+  border-right: 1px solid var(--line);
+  border-bottom: 1px solid var(--line);
+  padding: 0;
+}
+.sup-matrix thead th {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  background: var(--paper);
+  vertical-align: bottom;
+}
+.sup-matrix .corner {
+  position: sticky;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  background: var(--paper);
+}
+.sup-matrix .sup-row-head {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  background: var(--paper);
+  text-align: left;
+}
+.sup-head {
+  display: grid;
+  justify-items: center;
+  gap: 2px;
+  width: 100%;
+  padding: 0.15rem 0.1rem;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  cursor: pointer;
+}
+.sup-head:hover {
+  background: var(--row-hover);
+}
+.sup-head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.sup-head .portrait {
+  border-radius: 50%;
+}
+.sup-head-abbr {
+  font: 600 0.72rem var(--ui);
+  color: var(--ink-soft);
+  letter-spacing: 0.02em;
+}
+.sup-head.row {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  justify-content: flex-start;
+  padding: 0.2rem 0.6rem 0.2rem 0.3rem;
+  font: 600 0.98rem var(--display);
+  white-space: nowrap;
+  min-width: 8rem;
+}
+.sup-matrix td {
+  width: 2.2rem;
+  height: 2.2rem;
+  text-align: center;
+}
+.sup-matrix td.self {
+  background: repeating-linear-gradient(45deg, transparent 0 3px, var(--line) 3px 4px);
+}
+.sup-cell {
+  width: 100%;
+  height: 2.2rem;
+  border: 0;
+  background: var(--row);
+  color: var(--ink-soft);
+  font: 700 0.95rem var(--ui);
+  cursor: pointer;
+}
+.sup-matrix td.r-a .sup-cell,
+.sup-matrix td.r-bp .sup-cell {
+  color: var(--ink);
+}
+.sup-matrix td.r-ap .sup-cell {
+  background: color-mix(in srgb, var(--accent) 75%, var(--row));
+  color: #fff;
+}
+.sup-matrix td.r-s .sup-cell {
+  background: color-mix(in srgb, var(--amber) 80%, var(--row));
+  color: #fff;
+}
+.sup-matrix td.locked .sup-cell {
+  opacity: 0.3;
+}
+/* The cross-hair: the hovered or focused cell's row and column, and both their heads. */
+.sup-matrix tr.hot > th,
+.sup-matrix thead th.hot {
+  background: color-mix(in srgb, var(--accent) 28%, var(--paper));
+}
+.sup-matrix tr.hot > td,
+.sup-matrix td.hot {
+  background: color-mix(in srgb, var(--accent) 14%, var(--paper));
+}
+.sup-matrix tr.hot > td .sup-cell,
+.sup-matrix td.hot .sup-cell {
+  box-shadow: inset 0 0 0 1px var(--sel-border);
+}
+.sup-cell:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.sup-matrix td.picked .sup-cell {
+  box-shadow: inset 0 0 0 3px var(--accent);
+}
+
+/* ------------------------------------------------------------------ The pairing card */
+
+.sup-pair-head {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.4rem;
+  margin-bottom: 0.4rem;
+}
+.sup-pair-face {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  padding: 0.5rem 0.3rem;
+  border: 1px solid var(--row-border);
+  background: var(--row);
+  color: var(--ink);
+  cursor: pointer;
+}
+.sup-pair-face:hover {
+  background: var(--row-hover);
+}
+.sup-pair-face:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.sup-pair-face .portrait {
+  border-radius: 50%;
+}
+.sup-pair-name {
+  font: 600 1.05rem var(--display);
+}
+.sup-pair-go {
+  font-size: 0.82rem;
+}
+.sup-pair-go {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2rem;
+  color: var(--accent);
+}
+.sup-pair-top {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.6rem;
+  background: var(--row);
+  border: 1px solid var(--row-border);
+}
+.sup-pair-top-text {
+  flex: 1 1 auto;
+  font: 600 0.95rem var(--ui);
+  color: var(--ink-soft);
+  text-transform: none;
+}
+
+/* ------------------------------------------------------------------ Gifts, Tea & Meals */
+
+.sup-elsewhere {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0 0 0.5rem;
+}
+.sup-items {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.sup-item {
+  min-width: 0;
+  border: 1px solid var(--row-border);
+  background: var(--row);
+}
+.sup-item.picked {
+  border-color: var(--sel-border);
+  background: var(--row-hover);
+}
+.sup-item-btn {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: 100%;
+  min-height: 2.6rem;
+  padding: 0.25rem 0.55rem;
+  border: 0;
+  background: none;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+}
+.sup-item-btn:hover {
+  background: var(--row-hover);
+}
+.sup-item-btn:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.sup-item-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: grid;
+  overflow: hidden;
+}
+.sup-item-icon {
+  flex: none;
+  color: var(--accent);
+}
+.sup-item-name {
+  min-width: 0;
+  font: 600 1rem var(--display);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.sup-item-faces {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+}
+.sup-item-faces .portrait {
+  border-radius: 50%;
+}
+.sup-more {
+  font: 600 0.82rem var(--ui);
+  color: var(--ink-soft);
+}
+.sup-faces {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 0.7rem;
+}
+.sup-face-tile {
+  display: grid;
+  justify-items: center;
+  gap: 0.15rem;
+  width: 4.6rem;
+  font: 500 0.88rem var(--display);
+  text-align: center;
+}
+.sup-face-tile .portrait {
+  border-radius: 50%;
+}
+
+.sup-preference-groups {
+  display: grid;
+  gap: 0.8rem;
+}
+.sup-preference-group {
+  min-width: 0;
+}
+.sup-preference-group > h3 {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin: 0 0 0.35rem;
+  color: var(--ink);
+  font: 600 1rem var(--display);
+}
+.sup-preference-group.good > h3 { color: var(--green); }
+.sup-preference-group.bad > h3 { color: var(--red); }
+.sup-preference-group > h3 span {
+  color: var(--ink-soft);
+  font: 600 0.78rem var(--ui);
+}
+.sup-preference-group .sup-faces {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+  gap: 0.6rem 0.4rem;
+}
+.sup-preference-group .sup-face-tile {
+  width: auto;
+}
+
+/* ------------------------------------------------------------------ Profile in the character card */
+
+.sup-profile {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  margin-bottom: 0.4rem;
+}
+.sup-profile .profile-rows {
+  flex: 1 1 auto;
+}
+.sup-profile .portrait {
+  flex: none;
+  border-radius: 50%;
+}
+
+/* ------------------------------------------------------------------ Scrolling: only the inner region */
+
+/* The lists and the matrix sit in the shared `.table-wrap` / `.matrix-wrap` wrappers, so styles.css already
+   keeps their scrolling inside the column on wide screens. The matrix height and containment on narrow screens
+   are set here. */
+@media (min-width: 1151px) {
+  .sup-matrix-wrap {
+    max-height: none;
+  }
+}
+
+/* ------------------------------------------------------------------ Narrow */
+
+@media (max-width: 700px) {
+  .sup-items {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 1150px) {
+  .sup-page .sup-scroll {
+    max-height: 70vh;
+    overflow: auto;
+    overscroll-behavior: contain;
+    scrollbar-width: thin;
+  }
+  .sup-row-btn {
+    flex-wrap: wrap;
+  }
+  .sup-row-body {
+    padding-left: 0.8rem;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sup-caret {
+    transition: none;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* The list takes what it needs but never squeezes the card: list and card share the width. */
+@media (min-width: 776px) {
+  .sup-page .ref-layout {
+    grid-template-columns: minmax(0, 1fr) minmax(15rem, 17rem);
+  }
+}
+
+/* Lost items show their owners directly; every face remains visible. */
+.sup-lost-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 17rem), 1fr)); gap: 0.75rem; margin: 0; padding: 0; list-style: none; }
+.sup-lost-card { min-width: 0; padding: 1rem; border: 1px solid var(--row-border); background: var(--row); }
+.sup-lost-card h3 { display: flex; align-items: center; gap: 0.5rem; margin: 0 0 0.8rem; font: 600 1.05rem var(--display); overflow-wrap: anywhere; }
+.sup-lost-card .sup-face-tile { width: 5.5rem; }

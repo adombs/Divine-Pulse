@@ -1,0 +1,21 @@
+/* The log's tree view: a grid that scrolls with the tree, and the log rows shown beside a path's dots. */
+.timelines-canvas {
+  --tl-grid: color-mix(in srgb, var(--ink-soft) 16%, transparent);
+  background-image: linear-gradient(to right, var(--tl-grid) 1px, transparent 1px), linear-gradient(to bottom, var(--tl-grid) 1px, transparent 1px);
+  background-size: var(--tl-gx) var(--tl-gy);
+  background-position: calc(var(--tl-ox) - var(--tl-gx) / 2) calc(var(--tl-oy) - var(--tl-gy) / 2);
+}
+
+/* A shown action is its log row (ItemRow), the same as in the list. */
+.tl-caption {
+  position: absolute; top: 0; width: 288px; transform: translateY(-50%); cursor: pointer;
+  background: var(--paper); border: 1px solid var(--row-border); box-shadow: 0 1px 4px rgb(0 0 0 / 0.18);
+}
+.tl-caption.right { left: 12px; }
+.tl-caption.left { right: 12px; }
+.tl-caption .log-row { grid-template-columns: 2.3rem 1.4rem minmax(0, 1fr); gap: 0.4rem; padding: 0.18rem 0.3rem; }
+.tl-caption .log-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-item.active .tl-caption { box-shadow: 0 0 0 2px var(--amber); }
+
+/* The tree's zoom is the map's zoom slider, in the same box. */
+.tl-toolbar .map-tools { margin: 0 0 0 auto; width: min(16rem, 100%); }

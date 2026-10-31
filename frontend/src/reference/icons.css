@@ -1,0 +1,68 @@
+/* In-game icons next to reference names (see icons.tsx). Sized by the text around them, never clickable. */
+
+.ref-icon {
+  width: 1.3em;
+  height: 1.3em;
+  object-fit: contain;
+  vertical-align: -0.3em;
+  flex: none;
+}
+
+/* The icon (or pair of icons) that sits in front of a name. */
+.ref-icons {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.1em;
+  margin-right: 0.3em;
+  vertical-align: -0.3em;
+}
+
+.ref-icons .ref-icon {
+  vertical-align: baseline;
+}
+
+/* The weapon an art belongs to: a touch smaller than the art's own icon. */
+.ref-icon.weapon {
+  width: 1.05em;
+  height: 1.05em;
+  opacity: 0.9;
+}
+
+/* The game's crest icon is a framed tile of its own: shown as drawn, a little larger than other icons. */
+.ref-icon.crest-icon {
+  width: 1.5em;
+  height: 1.5em;
+  vertical-align: -0.4em;
+}
+
+/* A weapon icon standing alone in a table cell. */
+.ref-icon.weapon-solo {
+  width: 1.5em;
+  height: 1.5em;
+  vertical-align: -0.4em;
+}
+
+.equip-mark {
+  width: 1.15em;
+  height: 1.15em;
+  object-fit: contain;
+  vertical-align: -0.25em;
+  flex: none;
+}
+
+/* Skills as a row of icons, each with an optional rank letter. */
+.ref-skills {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.15rem 0.55rem;
+  vertical-align: middle;
+}
+.ref-skill {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.2em;
+}
+.ref-skill-rank {
+  font: 600 0.9em var(--nums);
+}

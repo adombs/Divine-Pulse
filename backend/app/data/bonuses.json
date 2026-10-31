@@ -1,0 +1,24 @@
+{
+  "abilities": {
+    "HP +5": { "hp": 5 },
+    "Strength +2": { "str": 2 },
+    "Magic +2": { "mag": 2 },
+    "Defense +2": { "def": 2 },
+    "Resistance +2": { "res": 2 },
+    "Speed +2": { "spd": 2 },
+    "Dexterity +4": { "dex": 4 },
+    "Movement +1": { "mv": 1 },
+    "Business Prosperity": { "lck": 5 },
+    "Pomp & Circumstance": { "lck": 4, "cha": 4 }
+  },
+  "equipment": {
+    "Speed Ring": { "spd": 2 },
+    "March Ring": { "mv": 1 },
+    "Goddess Ring": { "lck": 4 },
+    "Black Eagle Pendant": { "cha": 2 },
+    "Blue Lion Brooch": { "cha": 2 },
+    "Golden Deer Bracelet": { "cha": 2 },
+    "White Dragon Scarf": { "cha": 2 },
+    "Fetters of Dromi": { "mv": 1 }
+  }
+}

@@ -1,0 +1,40 @@
+{
+  "name": "divine-pulse-frontend",
+  "private": true,
+  "license": "GPL-3.0-only",
+  "version": "0.10.10",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc -b && vite build",
+    "typecheck": "tsc -b",
+    "test:spoilers": "node --test scripts/test-spoilers.mjs",
+    "test:nav": "node --experimental-strip-types --test scripts/test-nav.mjs",
+    "test:resilience": "node --experimental-strip-types --test scripts/test-resilience.mjs",
+    "test": "npm run test:spoilers && npm run test:nav && npm run test:resilience && npm run test:game-images && npm run test:game-data && npm run test:game-language && npm run test:reference-prose && npm run test:links",
+    "test:game-images": "node --experimental-strip-types --test scripts/test-game-images.mjs scripts/test-image-lookups.mjs",
+    "test:game-data": "node --experimental-strip-types --test scripts/test-game-data.mjs",
+    "test:game-language": "node --experimental-strip-types --test scripts/test-game-language.mjs",
+    "test:reference-prose": "node --experimental-strip-types --test scripts/test-reference-prose.mjs",
+    "test:links": "node --experimental-strip-types --test scripts/test-links.mjs && node --experimental-strip-types --test scripts/test-crests.mjs"
+  },
+  "dependencies": {
+    "@fontsource/alegreya": "^5.3.0",
+    "@fontsource/atkinson-hyperlegible": "^5.3.0",
+    "@fontsource/cinzel": "^5.3.0",
+    "@fontsource/cormorant-garamond": "^5.3.0",
+    "@fontsource/crimson-pro": "^5.3.0",
+    "@fontsource/eb-garamond": "^5.3.0",
+    "@fontsource/spectral": "^5.3.0",
+    "react": "^19.3.0",
+    "react-dom": "^19.3.0"
+  },
+  "devDependencies": {
+    "@phosphor-icons/core": "^2.1.1",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^5.2.0",
+    "typescript": "~5.9",
+    "vite": "^7.3.7"
+  }
+}

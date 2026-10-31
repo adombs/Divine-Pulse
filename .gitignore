@@ -1,0 +1,34 @@
+# Runtime data (runs, battles, settings, log)
+/data/
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+
+# Frontend
+node_modules/
+frontend/dist/
+*.tsbuildinfo
+
+# Release builds (tools/build.py)
+/build/
+/release/
+
+# Game assets extracted from your own dump (python -m app.gamefiles extract). Never commit game files.
+/game-assets/
+
+# Game dumps, console keys and files read from them
+romfs/
+exefs/
+DATA0.bin
+DATA1.bin
+*.nsp
+*.xci
+*.nca
+*.keys
+
+# Battle recordings and memory captures
+*.dprec
+*.fe3hrec

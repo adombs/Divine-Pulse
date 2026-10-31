@@ -1,0 +1,259 @@
+/* The Classes page (ClassesPage.tsx): the game's map sprite for each class and the Units grid in a class card. The
+   page's layout and scrolling come from the shared .ref-page rules in styles.css. */
+
+/* ---- Class sprites (frontend/public/game, drawn by battle/mapIcons.tsx) ---- */
+.class-sprite {
+  /* The hidden name below is absolutely positioned: without this it escapes to the page and stretches its
+     scrolling area. */
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  align-items: flex-end;
+  justify-content: center;
+  width: var(--sprite-size);
+  height: var(--sprite-size);
+  /* The atlas is clipped to the sprite: without this it would also stretch the page's scrolling area. */
+  overflow: hidden;
+}
+/* Pixel art: no smoothing at any size. */
+.class-sprite svg,
+.class-sprite image {
+  image-rendering: pixelated;
+}
+.class-sprite-name {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.class-sprite .tier-icon { align-self: center; }
+
+/* A table row: the sprite beside the class name. */
+.class-lead {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+/* The detail card: a bigger sprite beside the facts. */
+.class-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+.class-head > .ref-facts {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.class-head .class-sprite {
+  margin-top: 0.1rem;
+}
+
+/* ---- Units view ---- */
+.ref-page .unit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(4.6rem, 1fr));
+  gap: 0.5rem 0.3rem;
+}
+.ref-page .unit-grid .person {
+  width: auto;
+  gap: 0.25rem;
+}
+.ref-page .unit-grid .portrait {
+  width: 100%;
+  height: auto;
+  max-width: 3.8rem;
+  aspect-ratio: 1;
+}
+.ref-page .unit-grid .portrait.placeholder {
+  display: grid;
+  place-items: center;
+  font-size: 2rem;
+}
+
+/* ---- Shared by the Characters and Classes pages ---- */
+
+/* House column: just the pennant, small. */
+.ref-table .house-col,
+.ref-table .house-cell {
+  width: 1%;
+  padding-left: 0.3rem;
+  padding-right: 0.5rem;
+  text-align: center;
+}
+.ref-table .house-cell .crest {
+  width: 24px;
+  height: 30px;
+  padding-bottom: 4px;
+  margin: 0 auto;
+}
+.ref-table .house-cell .crest svg {
+  width: 15px;
+  height: 18px;
+}
+.ref-table tr.selected .house-cell .crest {
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--sel-ink) 35%, transparent);
+}
+
+/* The card's profile: the house pennant and the crest icons sit at the right of their row. */
+.ref-card .profile-rows .house-mark,
+.ref-card .profile-rows .crest-marks {
+  display: flex;
+  justify-content: flex-end;
+  align-items: center;
+  gap: 0.3rem;
+}
+.profile-rows .house-mark .crest {
+  width: 22px;
+  height: 28px;
+  padding-bottom: 4px;
+  align-self: center;
+}
+.profile-rows .house-mark .crest svg {
+  width: 14px;
+  height: 17px;
+}
+
+/* Skills as a grid of icons, each with a rank (or bonus) beside it. */
+.skill-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.3rem;
+  padding: 0.18rem 0.3rem;
+  background: var(--row);
+  border: 1px solid var(--row-border);
+  border-bottom-width: 3px;
+  border-bottom-color: color-mix(in srgb, currentColor 25%, transparent);
+  font: 500 1rem var(--display);
+}
+.skill-chip.strong { border-bottom-color: var(--green); }
+.skill-chip.budding, .skill-chip.weak_budding { border-bottom-color: var(--accent); }
+.skill-chip.weak { border-bottom-color: var(--red); }
+.skill-chip .skill-rank { min-width: 0.9em; text-align: left; }
+
+/* Combat arts: the weapon column is one icon. */
+.ref-table .weapon-cell {
+  width: 1%;
+  text-align: center;
+}
+
+.crest-table .name-cell .who { gap: 0.6rem; }
+.crest-table .ref-icon.crest-icon { width: 3.2rem; height: 3.2rem; flex: none; }
+.crest-table-wrap { overflow-x: clip; }
+.crest-table { width: 100%; table-layout: fixed; }
+.crest-table th:first-child { width: 40%; }
+.crest-table td, .crest-table th { white-space: normal; overflow-wrap: anywhere; }
+.crest-table .who { min-width: 0; }
+.crest-table .who-name { white-space: normal; }
+.crest-head { display: flex; gap: 0.9rem; align-items: flex-start; }
+.crest-head > div { flex: 1 1 auto; min-width: 0; }
+
+/* Card stats and the shared two-row skill block. */
+.stats-split {
+  display: block;
+}
+.stats-split > .ref-stats {
+  width: 100%;
+}
+
+/* Character profile: two label/value pairs per row when the card is wide enough; long text spans the row. */
+.profile {
+  container-type: inline-size;
+}
+.ref-card .profile-rows .wide {
+  grid-column: 2 / -1;
+}
+@container (min-width: 25rem) {
+  .ref-card .profile-rows {
+    grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr);
+  }
+  .ref-card .profile-rows dd {
+    text-align: left;
+  }
+  .ref-card .profile-rows dt.second {
+    padding-left: 1rem;
+  }
+  .ref-card .profile-rows .house-mark,
+  .ref-card .profile-rows .crest-marks {
+    justify-content: flex-start;
+  }
+}
+
+/* Classes table: the requirement icons stay on one line. */
+
+
+/* Byleth's gender: two icon buttons. */
+.gender-toggle {
+  display: inline-flex;
+  border: 1px solid var(--row-border);
+  background: var(--row);
+}
+.gender-toggle button {
+  display: grid;
+  place-items: center;
+  padding: 0.15rem 0.5rem;
+  border: 0;
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+.gender-toggle button:hover { color: var(--ink); }
+.gender-toggle button.on { background: var(--sel); color: var(--sel-ink); }
+
+/* Tighter rows in the profile; the lower height fact runs under the portrait. */
+.ref-card .profile-rows dt,
+.ref-card .profile-rows dd {
+  padding-top: 0.07rem;
+  padding-bottom: 0.07rem;
+}
+.ref-card .profile-rows.more dd {
+  text-align: left;
+}
+.ref-card .profile {
+  margin-bottom: 0;
+}
+.stats-split .ref-stats th,
+.stats-split .ref-stats td {
+  padding-top: 0.03rem;
+  padding-bottom: 0.03rem;
+}
+.stats-split .ref-stats td {
+  font-size: 1.05rem;
+}
+.stats-split .ref-stats tbody th {
+  font-size: 1rem;
+}
+.ref-card .profile-rows .crest-marks {
+  flex-wrap: wrap;
+  white-space: normal;
+  overflow: visible;
+  min-width: 0;
+}
+.ref-card .profile-rows .crest-marks > span { min-width: 0; }
+.shared-skill-chips {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 3px;
+  width: min(100%, 28rem);
+  margin: 0.55rem auto 0;
+}
+.shared-skill-chips .skill-chip { justify-content: flex-start; min-width: 0; padding-inline: 0.2rem; }
+.shared-skill-chips .skill-rank { font-size: 0.9em; }
+
+/* The facts under the portrait share the profile's grid; the section's own heading repeats its tab. */
+.ref-card .profile-rows.more {
+  grid-column: 1 / -1;
+}
+.ref-card:has(.profile, .class-head) .card-pane > .sec-head {
+  display: none;
+}
+.ref-card .profile-rows dd:not(.wide):not(.crest-marks) {
+  white-space: nowrap;
+}
+
+.ref-facts .tier-row .tier-icon { display: inline-block; vertical-align: -0.35em; margin-right: 0.35rem; }

@@ -1,0 +1,122 @@
+/* Home: the approved brand design (Brand Guidelines, "The Home Page"). DIVINE [chair] PULSE under a violet glow; the
+   original staircase supports the chair, followed by the latest run, load/new-run actions, and Settings. Sizes
+   are the design's at 1280x800 and scale with --k, so a bigger window shows the same page bigger. Always violet: the
+   design has no light form. */
+.sheet:has(.home-page) { padding: 0; background: #241d38; box-shadow: var(--shadow); }
+
+.home-page {
+  /* The theme's values, for the new-run form's field and buttons. */
+  --ink: #f1ede5; --ink-soft: #cfc8ec; --paper: #241d38; --line: #574e85;
+  --row: #2c2440; --row-border: #574e85; --row-hover: #37305a;
+  --sel: #5546a8; --sel-ink: #f1ede5; --sel-border: #c8a65c; --accent: #c8a65c;
+  position: relative; isolation: isolate; overflow: hidden; container-type: inline-size;
+  min-height: 100%; background: #241d38; color: var(--ink);
+}
+.home-stage {
+  --k: clamp(0.85px, min(100cqw / 1216, 100vh / 800), 1.5px);
+  /* Text follows the Appearance text size; 1.1 is its default scale. */
+  --type: calc(var(--k) * var(--font-scale, 1.1) / 1.1);
+  --chair: calc(330 * var(--k)); --word: calc(58 * var(--type)); --by: calc(15 * var(--type)); --by-indent: calc(112 * var(--type));
+  --col: min(56%, calc(681 * var(--k))); --row-h: calc(108 * var(--k)); --row-gap: calc(16 * var(--k)); --row-pad: calc(20 * var(--k));
+  --shield: calc(46 * var(--k)); --sprite: calc(96 * var(--k)); --gutter: calc(44 * var(--k));
+  --title: calc(19 * var(--type)); --title-long: calc(16.5 * var(--type)); --chapter: calc(14.5 * var(--type)); --facts: calc(13 * var(--type));
+  --stair: calc(14.5 * var(--type)); --stair-h: calc(46 * var(--k)); --stair-gap: calc(12 * var(--k));
+  --glow-w: calc(820 * var(--k));
+  display: flex; flex-direction: column; min-height: 100%;
+}
+
+.home-head { position: relative; padding-top: calc(12 * var(--k)); text-align: center; }
+/* Over the words, behind the chair, as designed: it tints the letters nearest the throne. */
+.home-glow {
+  position: absolute; z-index: 1; left: 50%; top: calc(-30 * var(--k)); width: var(--glow-w); height: calc(420 * var(--k));
+  transform: translateX(-50%); pointer-events: none;
+  background: radial-gradient(ellipse at 50% 42%, rgb(122 104 216 / 0.5), transparent 65%);
+}
+.home-title { display: flex; align-items: center; justify-content: center; margin: 0; font: inherit; }
+.home-word { font: 700 var(--word)/1.35 "Cinzel", serif; letter-spacing: calc(var(--word) * 0.069); color: #f1ede5; white-space: nowrap; }
+.home-chair { position: relative; z-index: 2; display: block; flex: none; height: calc(var(--chair) * 1.255); width: auto; margin: 0 calc(4 * var(--k)); }
+.home-pulse { position: relative; display: flex; align-items: center; }
+.home-byline { position: absolute; top: 100%; left: var(--by-indent); margin-top: calc(7 * var(--k)); font: 700 var(--by)/1.35 "Cinzel", serif; letter-spacing: calc(var(--by) * 0.2); color: #c8a65c; white-space: nowrap; }
+
+.home-steps { position: relative; flex: 1; display: flex; flex-direction: column; align-items: center; gap: var(--row-gap); padding: calc(24 * var(--k)) var(--gutter) calc(30 * var(--k)); }
+
+.home-run {
+  display: flex; align-items: center; gap: calc(16 * var(--k)); position: relative;
+  width: var(--col); min-height: var(--row-h); padding: 0 var(--row-pad); text-align: left; color: #f1ede5; cursor: pointer;
+  background: #37305a; border: 1px solid #4a4170; border-top: 2px solid #c8a65c; border-radius: 2px;
+  box-shadow: 0 calc(14 * var(--k)) 0 calc(-2 * var(--k)) #141024;
+  transition: transform 0.15s, box-shadow 0.15s;
+}
+.home-run:disabled { cursor: progress; }
+.home-run:is(:hover, :focus-visible):not(:disabled) {
+  z-index: 8; background: linear-gradient(90deg, #5546a8, #6655bd); border-color: #c8a65c; transform: scale(1.035);
+  box-shadow: 0 calc(14 * var(--k)) calc(30 * var(--k)) rgb(0 0 0 / 0.45);
+}
+.home-page :is(button, input):focus-visible { outline: 2px solid #c8a65c; outline-offset: 3px; }
+
+.home-banner { flex: none; display: flex; align-items: center; justify-content: center; width: var(--shield); }
+.home-banner .crest { width: var(--shield); height: calc(var(--shield) * 1.3); margin: 0; }
+.home-banner .crest img { width: 100%; height: 100%; object-fit: contain; }
+.home-banner .icon { width: 100%; height: 100%; color: #c8a65c; }
+.home-details { display: block; flex: 1; min-width: 0; }
+.home-name { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; overflow-wrap: anywhere; font: 700 var(--title)/1.3 "Cinzel", serif; letter-spacing: 1px; text-transform: uppercase; }
+.home-name.long { font-size: var(--title-long); }
+.home-chapter { display: block; margin-top: calc(3 * var(--k)); font: italic 400 var(--chapter)/1.3 Georgia, serif; color: #cfc8ec; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-facts { display: block; margin-top: calc(5 * var(--k)); font: 400 var(--facts)/1.3 var(--ui); color: #b7b0da; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.home-facts > span { margin-right: 0.85em; }
+.home-facts > span:last-child { margin-right: 0; }
+.home-facts b { font-weight: 700; color: #f1ede5; }
+
+/* The run's best unit occupies the right edge when the run has one. */
+.home-best { flex: none; display: flex; align-items: center; justify-content: center; align-self: stretch; width: var(--sprite); }
+.home-best > :is(svg, img) { display: block; height: calc(var(--row-h) * 0.76); width: auto; max-width: 100%; object-fit: contain; }
+.home-best > svg { width: 100%; overflow: visible; }
+
+/* The new-run form opens as one more step above the bottom stair. */
+.home-new { width: var(--col); padding: calc(12 * var(--k)) var(--row-pad); background: #37305a; border: 1px solid #4a4170; border-top: 2px solid #c8a65c; border-radius: 2px; box-shadow: 0 calc(14 * var(--k)) 0 calc(-2 * var(--k)) #141024; }
+.home-new label { display: block; margin-bottom: 0.4rem; font: 700 var(--title-long)/1.3 "Cinzel", serif; letter-spacing: 1px; }
+.home-new-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.home-new-row input { flex: 1 1 14rem; min-width: 0; }
+.home-new .field-hint { margin: 0.35rem 0 0; }
+
+.home-stairs { display: flex; gap: var(--stair-gap); width: var(--col); }
+.home-stair {
+  display: flex; flex: 1; align-items: center; justify-content: center; gap: calc(12 * var(--k)); min-width: 0; height: var(--stair-h); color: #e6e1f7;
+  font: 700 var(--stair) "Cinzel", serif; letter-spacing: 1.5px; white-space: nowrap; cursor: pointer;
+  border: 1.5px solid #c8a65c; border-radius: 4px; background: rgb(200 166 92 / 0.08); transition: background-color 0.15s;
+}
+.home-stair:hover { background: rgb(200 166 92 / 0.18); }
+.home-stair:disabled { opacity: 0.5; cursor: default; }
+.home-settings { flex: none; width: var(--col); }
+.home-saved-runs { --k: 1px; --col: 100%; --row-h: 108px; gap: 24px; padding-bottom: 14px; }
+.modal.home-run-picker { background: #241d38; color: #f1ede5; }
+.home-run-picker .home-run { width: 100%; }
+.home-run-picker .home-run:focus-visible { outline: 2px solid #c8a65c; outline-offset: 3px; }
+.home-stair .icon { flex: none; font-size: 0.95em; }
+.home-stair .icon path[opacity] { display: none; }
+
+@container (max-width: 1000px) {
+  .home-stage {
+    --k: 1px; --chair: 264px; --word: calc(42 * var(--type)); --by: calc(13 * var(--type)); --by-indent: calc(62 * var(--type));
+    --col: 74%; --row-h: 144px; --shield: 44px; --title: calc(18 * var(--type)); --title-long: calc(14.5 * var(--type));
+    --chapter: calc(14 * var(--type)); --facts: calc(12.5 * var(--type)); --gutter: 12px; --sprite: 88px; --glow-w: 100%;
+  }
+  .home-facts { white-space: normal; }
+}
+@container (max-width: 720px) { .home-stage { --col: 88%; } }
+@container (max-width: 560px) {
+  .home-stage {
+    --chair: 132px; --word: calc(27 * var(--type)); --by: calc(12 * var(--type)); --by-indent: calc(30 * var(--type));
+    --col: 94%; --row-h: 138px; --row-gap: 12px; --row-pad: 12px; --shield: 36px; --sprite: 56px; --gutter: 10px;
+    --title: calc(15 * var(--type)); --title-long: calc(12.5 * var(--type)); --chapter: calc(12.5 * var(--type)); --facts: calc(11 * var(--type));
+    --stair: calc(11.5 * var(--type)); --stair-h: 48px; --stair-gap: 8px;
+  }
+  .home-title { gap: 2px; }
+  .home-stage { --chair: 108px; --word: calc(22 * var(--type)); --by: calc(9 * var(--type)); --by-indent: calc(12 * var(--type)); }
+  .home-run { gap: 10px; }
+  .home-stair { gap: 6px; letter-spacing: 0.5px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .home-run, .home-stair { transition: none; }
+  .home-run:is(:hover, :focus-visible):not(:disabled) { transform: none; }
+}

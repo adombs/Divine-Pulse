@@ -1,0 +1,217 @@
+/* The Battle and History pages' layout, kept out of styles.css: denser views and the game's own icons. Selectors are
+   prefixed with the page's class so they win over the older rules in styles.css. */
+
+/* The game's icons (gameIcons.tsx): sized by the text around them, each with its name on hover. */
+.game-icon { display: inline-flex; flex: none; width: 1.25em; height: 1.25em; vertical-align: -0.25em; cursor: help; }
+.game-icon.weapon { background-color: currentColor; mask: center / contain no-repeat; -webkit-mask: center / contain no-repeat; }
+.game-icon .ref-icon { width: 100%; height: 100%; vertical-align: baseline; }
+
+/* Marks beside a unit's name: its affiliation banner and what it fights with. */
+.house-mark { display: inline-flex; align-self: center; vertical-align: middle; }
+.house-mark .crest, .affiliation-icon { width: 0.95rem; height: 1.2rem; padding: 0; align-self: center; object-fit: contain; flex: none; }
+.house-mark .crest.house { filter: none; }
+.house-mark .crest.house img { width: 100%; height: 100%; }
+.battle-page .affiliation-icon { width: 0.95rem; height: 1.2rem; border-radius: 0; background: none; box-shadow: none; object-fit: contain; object-position: center; }
+.who-name .game-icon, .unit-status-name .game-icon { color: var(--ink-soft); }
+.battle-page .who-name, .battle-page .unit-status-name { display: inline-flex; align-items: center; gap: 0.25rem; }
+.battle-page .status-cell { display: inline-flex; align-items: center; gap: 0.25rem; vertical-align: middle; }
+.battle-page .status-cell .unit-flags { display: contents; }
+.units tr.selected .who-name .game-icon { color: inherit; }
+.art-list { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 0.1rem 0.7rem; }
+.art-chip { display: inline-flex; align-items: center; gap: 0.25rem; }
+.inventory-icon .game-icon { width: 1.3em; height: 1.3em; }
+
+/* The header: the chips on the left of the tabs, one row under the title. */
+.battle-page > .page-header { grid-template-columns: minmax(0, 1fr) auto; column-gap: 1rem; row-gap: 0.1rem; margin-bottom: 0.5rem; border-bottom: 1px solid var(--line); }
+.battle-page > .page-header > .sec-head { grid-column: 1 / -1; }
+.battle-page > .page-header > .page-status { grid-column: 1; align-self: center; padding-bottom: 0.2rem; }
+.battle-page > .page-header > .sub-tabs { grid-column: 2; margin: 0; border-bottom: 0; }
+.battle-page.fit > .page-header { margin-bottom: 0.5rem; }
+
+/* Overview: the same three columns, with less around them. The outlook is one slim card, the key numbers one row. */
+@media (min-width: 1251px) {
+.battle-page .overview { gap: 0.5rem 1rem; grid-template-rows: minmax(0, 1fr) auto; }
+.battle-page .overview-cards { grid-auto-flow: row; grid-auto-columns: auto; grid-template-columns: minmax(0, 1fr); gap: 0.4rem; }
+.battle-page .overview-cards .stat-cards { grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); grid-template-columns: none; gap: 0.3rem; }
+.battle-page .overview-cards .stat-card { padding: 0.12rem 0.4rem 0.15rem; border-top-width: 2px; }
+.battle-page .overview-cards .stat-card-label { font-size: 0.6rem; letter-spacing: 0.02em; }
+.battle-page .overview-cards .stat-card-value { font-size: 1.05rem; }
+.battle-page .overview-cards .outlook { display: grid; grid-template: "head chart" auto "bar chart" auto "why chart" auto / minmax(9rem, 0.7fr) minmax(0, 1.3fr); column-gap: 0.8rem; align-items: center; padding: 0.3rem 0.7rem; }
+.battle-page .overview-cards .outlook > .outlook-head { grid-area: head; flex-wrap: nowrap; }
+.battle-page .overview-cards .outlook > .outlook-head .muted { display: none; }
+.battle-page .overview-cards .outlook > .outlook-bar { grid-area: bar; margin: 0.2rem 0; }
+.battle-page .overview-cards .outlook > .hint-fold { grid-area: why; }
+.battle-page .overview-cards .outlook > .trend { grid-area: chart; margin: 0; }
+.battle-page .overview-cards .outlook > .trend svg { height: 44px; }
+.battle-page .overview-cards .outlook > .trend figcaption { display: none; }
+}
+
+/* Units and log rows */
+.battle-page .unit-status-row { padding: 0.12rem 0.3rem; gap: 0.45rem; grid-template-columns: 1.5rem minmax(0, 1fr) 7rem; font-size: 0.98rem; }
+.battle-page .unit-status-row .unit-face.sm { width: 1.5rem; height: 1.5rem; }
+.battle-page .unit-status-row .hp-bar { min-width: 0; font-size: 0.88rem; }
+.battle-page .overview .log-row { grid-template-columns: 2.3rem 1.4rem minmax(0, 1fr); gap: 0.4rem; padding: 0.18rem 0.3rem; }
+.battle-page .overview .log-time { font-size: 0.74rem; }
+.battle-page .overview .log-icon { width: 1.3rem; height: 1.3rem; }
+
+/* Map controls remain one compact row so the map keeps its height. */
+.battle-page .map-pane-head .map-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 0.6rem; margin: 0; width: 100%; }
+.battle-page .map-pane-head .map-tools > .step-slider { width: min(100%, 9rem); min-width: 0; }
+.battle-page .map-pane-head .map-tools > .step-slider:first-child { grid-column: 1; justify-self: start; }
+.battle-page .map-pane-head .map-tools > .camera-mode { grid-column: 2; }
+.battle-page .map-pane-head .map-tools > .step-slider:last-child { grid-column: 3; justify-self: end; }
+.battle-page .map-pane-head .map-tools > .step-slider::after { content: none; }
+.battle-page .map-tool-label, .map-tools .step-slider > .field-label { display: none; }
+/* Icon, track and value share one centre line (the map's tools and the log tree's zoom). */
+.map-tools { align-items: center; }
+.map-tools .step-slider { display: flex; align-items: center; flex: 1 1 0; min-width: 3.5rem; gap: 0.3rem; line-height: 1; }
+.map-tools .step-slider > .icon { flex: none; display: block; vertical-align: baseline; }
+.map-tools .step-slider .notched { width: auto; flex: 1 1 0; min-width: 0; align-self: center; }
+.map-tools .replay-speed-value { display: inline-flex; align-items: center; min-width: 2.6em; line-height: 1; font-variant-numeric: tabular-nums; }
+@media (min-width: 1251px) { .battle-page .overview { grid-template-columns: minmax(0, 1.3fr) minmax(250px, 0.85fr) minmax(280px, 1fr); } }
+.battle-page .page-header .btn { white-space: nowrap; }
+.battle-page .unit-status-name { flex-wrap: nowrap; align-items: center; }
+.battle-page .unit-status-name > * { flex: none; }
+.battle-page .unit-status-name > b { flex: 0 1 auto; min-width: 0; }
+.battle-page .map-tools .segmented { flex: none; flex-wrap: nowrap; }
+.battle-page .map-tools .segmented button { padding: 0.05rem 0.4rem; font-size: 0.85rem; }
+.battle-page .map-tools { gap: 0.25rem 0.4rem; min-width: 0; }
+.battle-page .hbar-track, .battle-page .bar-side > span { height: 0.4rem; }
+
+/* The battle popup's icon-first equipment rows. */
+.battle-card.main::before { background: var(--accent); }
+.battle-card.paralogue::before { background: #7a58aa; }
+.battle-card.auxiliary::before { background: #43866b; }
+.battle-card.dlc::before { background: #b87828; }
+.battle-card .bc-live { position: absolute; top: 0.45rem; left: 0.4rem; z-index: 1; padding: 0.14rem 0.4rem; border-radius: 3px; color: #fff; background: var(--red); font: 700 0.6rem var(--ui); letter-spacing: 0.07em; text-transform: uppercase; }
+.battle-kind-chip { display: inline-flex; align-items: center; padding: 0.12rem 0.38rem; border-radius: 999px; color: #fff; background: var(--ink-soft); font: 700 0.68rem var(--ui); white-space: nowrap; }
+.battle-kind-chip.main, .rh-pip.main { background: var(--accent); }
+.battle-kind-chip.paralogue, .rh-pip.paralogue { background: #7a58aa; }
+.battle-kind-chip.auxiliary, .rh-pip.auxiliary { background: #43866b; }
+.battle-kind-chip.dlc, .rh-pip.dlc { background: #b87828; }
+.battle-icon-row { display: grid; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
+.battle-icon-row li { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
+.battle-icon-row .ref-icons, .battle-icon-row .game-icon, .battle-icon-row .ref-icon { flex: 0 0 1.25rem; }
+.battle-icon-row li > span:last-child { min-width: 0; }
+
+@media (max-width: 1250px) {
+  .battle-page .more-stats { height: 100%; min-height: 0; }
+  .battle-page .overview { grid-template-rows: min(38vh, 22rem) auto auto; }
+}
+@media (max-width: 700px) {
+  .battle-page .overview { grid-template-rows: min(38vh, 22rem) auto auto auto; }
+}
+
+/* Units tab and History's character table: rows as dense as the Overview's. */
+.battle-page .units-view .units .name-cell, .history-page .units .name-cell { font-size: 1.05rem; padding: 0.15rem 0.5rem 0.15rem 0.3rem; }
+.battle-page .units-view .units td.num, .history-page .units td.num { font-size: 1.05rem; }
+.battle-page .units-view .units th, .history-page .units th { padding-top: 0.2rem; padding-bottom: 0.2rem; }
+.battle-page .units-view .unit-face { width: 1.8rem; height: 1.8rem; }
+.battle-page .units-view .who-class, .history-page .who-class { font-size: 0.76rem; }
+
+/* Both Units columns can shrink; the table scrolls inside its own column. */
+.battle-page .units-view .roster-layout { grid-template-columns: minmax(0, 1fr) minmax(0, 25rem); }
+@media (max-width: 1150px) { .battle-page .units-view .roster-layout { grid-template-columns: minmax(0, 1fr); } }
+
+/* History: the records as one scrolling row and shorter battle cards, so the characters table keeps the room. */
+.award-carousel { position: relative; overflow: hidden; min-width: 0; touch-action: pan-y; }
+.award-carousel .award:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.award-carousel .award-track { display: flex; width: max-content; gap: 0.4rem; }
+.award-carousel .award-grid { display: flex; flex: none; flex-wrap: nowrap; gap: 0.4rem; margin: 0; padding: 0 0 0.2rem; }
+.award-carousel .award-grid > li { flex: 0 0 12.5rem; min-width: 0; }
+.award-carousel .award { height: 100%; padding-top: 0.2rem; padding-bottom: 0.2rem; }
+.award-carousel .award-arrow {
+  position: absolute; z-index: 2; top: 0; bottom: 0; width: 2rem; border: 0; color: var(--ink);
+  background: color-mix(in srgb, var(--paper) 78%, transparent); cursor: pointer; font: 2rem/1 var(--ui);
+}
+.award-carousel .award-arrow:hover, .award-carousel .award-arrow:focus-visible { background: color-mix(in srgb, var(--paper) 94%, transparent); }
+.award-carousel .award-arrow.prev { left: 0; }
+.award-carousel .award-arrow.next { right: 0; }
+.history-page .award.battle .award-lead { display: none; }
+.history-page .bc-thumb { min-height: 7rem; }
+.history-page .battle-card { grid-template-columns: 7rem minmax(0, 1fr); }
+.battle-card .bc-date { color: var(--ink); font: 600 0.78rem var(--ui); font-variant-numeric: tabular-nums; }
+.battle-card .bc-stats > div:first-child dd { color: var(--accent); font-weight: 600; }
+.battle-card:active { transform: translateY(0); }
+.history-page .stats-tab { gap: 0.2rem; }
+.history-page .stats-tab .sec-head { margin: 0.55rem 0 0.35rem; min-height: 1.8rem; padding-block: 0.1rem; }
+.history-page .stats-tab .sec-head h2 { font-size: 1.05rem; }
+.history-page .run-hero { padding: 0.35rem 0.8rem 0.15rem; }
+
+/* History gallery and More Stats records: resume immediately after leaving the gallery; keep More Stats records beside the comparison. */
+
+/* Unit cards: dense totals and equipment rows that wrap inside either the popup or the side column. */
+.combat-totals { display: flex; flex-wrap: wrap; gap: 0.2rem 0.65rem; margin: 0.35rem 0 0.6rem; padding: 0.3rem 0; border-block: 1px solid var(--row-border); }
+.combat-totals > div { display: flex; align-items: baseline; gap: 0.25rem; min-width: 0; }
+.combat-totals dt { font: 600 0.7rem var(--ui); color: var(--ink-soft); }
+.combat-totals dd { margin: 0; font: 1rem var(--nums); }
+.card-subtitle { margin: 0.65rem 0 0.3rem; font: 600 0.85rem var(--ui); }
+:is(.battle-page, .character-popup.battle) .unit-card { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; }
+:is(.battle-page, .character-popup.battle) .card-frame { grid-template-columns: minmax(0, 1fr); }
+:is(.battle-page, .character-popup.battle) .card-bar { min-width: 0; max-width: 100%; flex-wrap: nowrap; justify-content: center; }
+:is(.battle-page, .character-popup.battle) :is(.card-frame, .card-main, .card-swap, .card-pane, .profile, .facts, .facts dd) { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
+:is(.battle-page, .character-popup.battle) .battle-unit-profile { flex-wrap: nowrap; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.5rem; }
+:is(.battle-page, .character-popup.battle) .profile-rows.facts { grid-template-columns: auto minmax(0, 1fr); }
+:is(.battle-page, .character-popup.battle) .profile-rows.facts dd { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
+:is(.battle-page, .character-popup.battle) .class-portrait { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem; width: 5.5rem; max-width: 100%; min-width: 0; }
+:is(.battle-page, .character-popup.battle) .class-portrait-label { max-width: 100%; color: var(--ink-soft); font: 600 0.72rem var(--ui); text-align: center; white-space: normal; overflow-wrap: anywhere; }
+:is(.battle-page, .character-popup.battle) .class-portrait .unit-face { flex: none; width: 5.5rem; height: 5.5rem; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
+:is(.battle-page, .character-popup.battle) .class-portrait .unit-face { transform: translateY(-0.6rem); }
+.tl-card { max-height: calc(100vh - 16px); overflow: auto; pointer-events: auto; font-size: 0.85rem; }
+:is(.battle-page, .character-popup.battle) .inventory { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
+:is(.battle-page, .character-popup.battle) .inventory-item { display: grid; grid-template-columns: 1.3rem minmax(0, 1fr) auto auto; gap: 0.35rem; min-width: 0; }
+:is(.battle-page, .character-popup.battle) .inventory-name { white-space: normal; overflow-wrap: anywhere; }
+.inventory-name small, .inventory-battle-uses small { display: block; color: var(--ink-soft); font: 0.65rem/1.15 var(--ui); }
+.inventory-battle-uses { text-align: right; font: 0.85rem var(--nums); font-variant-numeric: tabular-nums; }
+.muted-chip { justify-self: end; padding: 0.05rem 0.35rem; border-radius: 999px; background: var(--row-hover); color: var(--ink-soft); font: 600 0.7rem var(--ui); white-space: nowrap; }
+:is(.battle-page, .character-popup.battle) .inventory-uses { white-space: nowrap; text-align: right; }
+:is(.battle-page, .character-popup.battle) .battle-icon-row li { align-items: flex-start; overflow-wrap: anywhere; }
+:is(.battle-page, .character-popup.battle) .mini-table { width: 100%; table-layout: fixed; font-size: 0.85rem; }
+:is(.battle-page, .character-popup.battle) .mini-table :is(th, td) { overflow-wrap: anywhere; white-space: normal; padding-inline: 0.2rem; }
+@media (max-width: 420px) {
+  /* Too narrow for portrait, facts and sprite side by side: the facts take their own row under them. */
+  :is(.battle-page, .character-popup.battle) .battle-unit-profile { gap: 0.25rem; grid-template-columns: auto minmax(0, 1fr); }
+  :is(.battle-page, .character-popup.battle) .battle-unit-profile > .facts { grid-column: 1 / -1; grid-row: 2; }
+  :is(.battle-page, .character-popup.battle) .battle-unit-profile > .facts dd { overflow-wrap: normal; }
+  :is(.battle-page, .character-popup.battle) .battle-unit-profile > :last-child { justify-self: end; }
+  .character-popup .modal-head { gap: 0.3rem; padding-right: 0.4rem; }
+  .character-popup .modal-head .name-banner { flex: 1 1 auto; }
+  :is(.battle-page, .character-popup.battle) .battle-unit-profile > .profile-portrait :is(.portrait, .unit-face) { width: 4.25rem !important; height: 4.25rem !important; }
+  :is(.battle-page, .character-popup.battle) .class-portrait { width: 4.25rem; }
+  :is(.battle-page, .character-popup.battle) .class-portrait .unit-face { width: 4.25rem; height: 4.25rem; }
+  :is(.battle-page, .character-popup.battle) .inventory-item { grid-template-columns: 1.3rem minmax(0, 1fr) auto; }
+  :is(.battle-page, .character-popup.battle) .inventory-battle-uses { grid-column: 2; text-align: left; }
+  :is(.battle-page, .character-popup.battle) .inventory-uses { grid-column: 3; grid-row: 1 / span 2; }
+}
+
+/* Battle map controls: slim zoom/speed sliders of equal length, camera icon, Position tab zoom. */
+.notched.timeline.slim { --thumb: 4px; --h: 0.95rem; }
+.notched.timeline.slim .notched-track { border-radius: 3px; }
+.notched.timeline.slim input::-webkit-slider-thumb { border-radius: 2px; }
+.notched.timeline.slim input::-moz-range-thumb { border-radius: 2px; }
+.map-tools .step-slider:not(:has(.replay-speed-value))::after { content: ""; flex: none; min-width: 2.6em; }
+.battle-page .map-tools .camera-mode { display: inline-flex; align-items: center; line-height: 1; gap: 0.3rem; flex: none; }
+.position-map { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr); gap: 0.65rem; align-items: stretch; }
+.position-map > .map-frame { min-width: 0; margin: 0; }
+.position-map-zoom { display: flex; flex-direction: column; align-items: center; gap: 0.4rem; padding-block: 0.5rem; color: var(--ink-soft); }
+.position-map-zoom input { writing-mode: vertical-lr; direction: rtl; width: 1.25rem; min-height: 5rem; height: 0; flex: 1 1 auto; margin: 0; accent-color: var(--accent); cursor: pointer; }
+.position-map-zoom input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+
+/* Unit popup content and inventory polish (UnitPopup.tsx / detail.tsx). */
+.character-popup.battle { width: min(680px, calc(100vw - 3rem)); height: min(760px, calc(100dvh - 4rem)); }
+.character-popup.battle .modal-body { overflow: hidden; display: flex; }
+.character-popup.battle .unit-card.in-popup { display: flex; flex-direction: column; min-height: 0; }
+.character-popup.battle .card-frame { flex: 1 1 auto; min-height: 0; }
+.character-popup.battle .card-main { min-height: 0; }
+.character-popup.battle .card-pane { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }
+:is(.battle-page, .character-popup.battle) .art-list { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 0.25rem; }
+:is(.battle-page, .character-popup.battle) .art-chip { justify-content: flex-start; }
+:is(.battle-page, .character-popup.battle) .inventory-item > .inventory-icon { display: inline-flex; align-items: center; justify-content: center; width: 1.3rem; height: 1.3rem; padding: 0; border: 0; border-radius: 0; background: transparent; }
+:is(.battle-page, .character-popup.battle) .battle-icon-row img.crest-icon { width: 5.5rem; height: 5.5rem; object-fit: contain; }
+:is(.battle-page, .character-popup.battle) .battle-icon-row li:has(img.crest-icon) { align-items: center; }
+:is(.battle-page, .character-popup.battle) .recent-actions-list { max-height: 10.5rem; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }
+
+/* Keep names readable while letting the HP meter use only the space it needs. */
+.battle-page .unit-status-row { grid-template-columns: 1.5rem minmax(0, 1fr) minmax(4.5rem, 6rem); }
+.battle-page .unit-status-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.battle-card .bc-open { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

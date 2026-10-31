@@ -1,0 +1,14 @@
+import assert from "node:assert/strict";
+import { isStoryClass, matchNames } from "../src/reference/links.ts";
+assert.deepEqual(matchNames("Crest of Fraldarius and Aegis Shield; Aegis Shields", ["Aegis", "Aegis Shield", "Crest of Fraldarius"]).map((m) => m.name), ["Crest of Fraldarius", "Aegis Shield", "Aegis"]);
+assert.deepEqual(matchNames("fireball Fire! wildfire", ["Fire"]).map((m) => m.name), ["Fire"]);
+assert.deepEqual(matchNames("nothing", []), []);
+assert.equal(isStoryClass("Barbarossa"), true);
+assert.equal(isStoryClass("Dancer"), false);
+assert.deepEqual(matchNames("Crest of Blaiddyd's might; (Dark Aegis Shield)", ["Crest of Blaiddyd", "Aegis Shield", "Dark Aegis Shield"]).map((m) => [m.start, m.name]), [[0, "Crest of Blaiddyd"], [28, "Dark Aegis Shield"]]);
+assert.deepEqual(matchNames("RALLY Spd+4 firewall", ["Rally Spd+4", "Fire"]).map((m) => m.name), ["Rally Spd+4"]);
+assert.deepEqual(matchNames("Lord Lordly Lords", ["Lord"]).map((m) => m.start), [0]);
+assert.deepEqual(matchNames("Hero's Relic", ["Hero's Relic", "Hero"]).map((m) => m.name), ["Hero's Relic"]);
+assert.ok(isStoryClass("Emperor") && isStoryClass("Armored Lord") && !isStoryClass("Dark Bishop"));
+console.log("link matcher tests passed");
+assert.deepEqual(matchNames("A Hero's Relic. The Hero class.", ["Hero"]).map((m) => m.start), [20]);

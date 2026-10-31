@@ -1,0 +1,4 @@
+# Building the Windows program (tools/build_windows.ps1). Not needed to run from source.
+-r requirements.txt
+pyinstaller==6.22.3
+pyinstaller-hooks-contrib==2026.8

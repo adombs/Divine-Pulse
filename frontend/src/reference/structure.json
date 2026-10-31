@@ -1,0 +1,10 @@
+{
+  "excludedSupportPairs": [[2, 3], [2, 4], [3, 4]],
+  "playableCharacters": [0, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 1040, 1041, 1042, 1043, 1045, 1046],
+  "playableClasses": [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 54, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 42, 43, 44, 56, 57, 58, 91, 84, 85, 86, 87],
+  "hiddenCrests": [0, 2, 22, 23, 1040, 1041, 1042, 1043],
+  "partlyHiddenCrests": [2, 22],
+  "dlcCharacters": [1040, 1041, 1042, 1043, 1046],
+  "apparentAge": [26, 27, 35],
+  "characterKeys": {"0": "byleth_m", "2": "edelgard", "3": "dimitri", "4": "claude", "5": "hubert", "6": "ferdinand", "7": "linhardt", "8": "caspar", "9": "bernadetta", "10": "dorothea", "11": "petra", "12": "dedue", "13": "felix", "14": "ashe", "15": "sylvain", "16": "mercedes", "17": "annette", "18": "ingrid", "19": "lorenz", "20": "raphael", "21": "ignatz", "22": "lysithea", "23": "marianne", "24": "hilda", "25": "leonie", "26": "seteth", "27": "flayn", "28": "hanneman", "29": "manuela", "30": "gilbert", "31": "alois", "32": "catherine", "33": "shamir", "34": "cyril", "35": "jeralt", "36": "rhea", "37": "sothis", "1040": "yuri", "1041": "balthus", "1042": "constance", "1043": "hapi", "1045": "jeritza", "1046": "anna"}
+}

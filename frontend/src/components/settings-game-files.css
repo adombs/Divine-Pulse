@@ -1,0 +1,51 @@
+.game-files-layout { display:grid; gap:1rem; min-width:0; }
+.game-files-flow, .game-files-results { display:grid; gap:.75rem; min-width:0; }
+.game-files-flow h2, .game-files-results h2 { margin:.5rem 0 0; font-size:1.2rem; }
+.game-files-flow p, .game-files-results p { margin:0; }
+.game-files-choices { display:grid; gap:.5rem; }
+.game-files-choice { display:flex; align-items:flex-start; gap:.7rem; padding:.7rem; border:1px solid var(--line); background:var(--row); cursor:pointer; min-width:0; }
+.game-files-choice:has(input:checked) { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, var(--row)); }
+.game-files-choice > span { display:grid; min-width:0; }
+.game-files-choice .hint { margin:0; }
+.game-files-card, .spoiler-settings { border:1px solid var(--line); border-radius:2px; min-width:0; }
+.game-files-card { display:grid; gap:.75rem; padding:1rem; background:var(--row); }
+.game-files-card > strong { font-size:.95em; }
+.game-files-status { gap:.35rem; }
+.game-files-folder { display:flex; flex-wrap:wrap; align-items:flex-end; gap:.5rem; }
+.game-files-folder label { display:grid; gap:.35rem; flex:1 1 16rem; min-width:0; }
+.game-files-folder input { width:100%; min-width:0; }
+.game-files-layout .btn, .spoiler-settings-head .btn, .game-files-folder input { box-sizing:border-box; height:2.4rem; min-height:2.4rem; padding-top:0; padding-bottom:0; }
+.game-files-layout .btn { white-space:nowrap; }
+.settings-actions { display:flex; flex-wrap:wrap; align-items:center; gap:.5rem; }
+ .game-files-parts { padding:0; margin:0; list-style:none; border:1px solid var(--line); border-radius:2px; overflow:hidden; }
+ .game-files-parts li { display:flex; align-items:center; gap:.75rem; padding:.5rem .75rem; border-bottom:1px solid var(--line); min-width:0; }
+.game-files-parts li { align-items:flex-start; padding:.4rem .75rem; }
+ .game-files-parts li:last-child { border-bottom:0; }
+ .game-files-parts li > div { flex:1; min-width:0; line-height:1.3; }
+ .game-files-parts .hint { display:block; margin:0; padding:0; font-size:.82em; line-height:1.3; }
+.game-files-detail { margin-left:.5rem; color:var(--ink-soft); font-size:.9em; }
+.game-files-path, .game-files-warning, .game-files-status { overflow-wrap:anywhere; }
+.game-files-parts .icon, .game-files-warning > .icon { flex:none; }
+.game-files-parts .icon { margin-top:.1rem; }
+.game-files-parts .found { color:var(--green); }
+.game-files-parts .missing-optional { color:var(--ink-soft); }
+.game-files-parts .missing-required, .game-files-warning { color:var(--amber); }
+.game-files-warning { display:flex; gap:.5rem; padding:.75rem; border:1px solid currentColor; border-radius:6px; }
+.game-files-warning ul { margin:0; padding-left:1.2rem; }
+.game-files-card progress { max-width:100%; width:100%; }
+.game-files-progress { display:grid; gap:.35rem; min-width:0; overflow-wrap:anywhere; }
+.game-files-progress progress { accent-color:var(--accent); }
+.game-files-progress details { color:var(--ink-soft); }
+.game-files-progress summary { cursor:pointer; }
+.game-files-progress ul { margin:.5rem 0 0; padding-left:1.3rem; }
+.spoiler-settings-head .sec-head { flex-wrap:wrap; gap:.5rem; justify-content:space-between; }
+.spoiler-setting { display:grid; gap:.15rem; padding:.65rem .85rem; border-bottom:1px solid var(--line); }
+.spoiler-setting:last-child { border-bottom:0; }
+.spoiler-state { color:var(--ink); }
+.spoiler-state.shown { color:var(--amber); }
+.spoiler-setting .hint { display:block; margin:0 0 0 3.2rem; line-height:1.3; }
+@media (max-width:480px) {
+ .game-files-card { padding:.75rem; }
+ .game-files-folder label, .game-files-folder .settings-actions, .game-files-layout .settings-actions .btn { flex-basis:100%; width:100%; }
+ .spoiler-setting { padding:.6rem .75rem; }
+}

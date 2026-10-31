@@ -1,0 +1,5 @@
+/* Whole-card pages keep the run summary and records legible at every width. */
+.rh-figures { min-width: 0; }
+.rh-figures .award-carousel .award-grid > li { flex-basis: 9.5rem; }
+.rh-figures .rh-figure { height: 100%; padding: 0.2rem 0.5rem; border-left: 1px solid var(--line); }
+.rh-figures .rh-figure:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
