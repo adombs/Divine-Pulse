@@ -90,4 +90,4 @@ python -m pytest -q
 
 `tests/test_architecture.py` checks all new layer modules, including imports inside functions, and verifies the checker against prohibited examples. It is a lightweight dependency guard, not a full static type checker. It also rejects direct file operations in the domain/application layers.
 
-Run focused tests while editing. Run the full backend suite and Ruff before opening a pull request; build the frontend if it changes. Use temporary data directories, never real saves or a live emulator, in automated tests. See `CONTRIBUTING.md` for the workflow.
+Run focused tests while editing. Run the full backend suite and Ruff before opening a pull request; build the frontend if it changes. Use temporary data directories, never real saves or a live emulator, in automated tests. See `.github/CONTRIBUTING.md` for the workflow.

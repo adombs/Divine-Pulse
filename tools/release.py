@@ -1,4 +1,4 @@
-"""Starts a Windows release (RELEASING.md): versions, builds, tags, and optionally creates a draft release.
+"""Starts a Windows release (docs/releasing.md): versions, builds, tags, and optionally creates a draft release.
 
     python tools/release.py 0.2.0 [--push]
 

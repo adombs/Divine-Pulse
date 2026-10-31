@@ -614,7 +614,7 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
   );
 }
 
-/** Where the tracker's game data and mechanics come from (THIRD_PARTY_NOTICES.md has the details). */
+/** Where the tracker's game data and mechanics come from (docs/third-party-notices.md has the details). */
 const CREDITS: [string, string][] = [
   ["Your game files", "all imported game data"],
   ["Three Houses Research Group", "the game's file formats, and terrain and battle names (bsic map editor, MIT License)"],
