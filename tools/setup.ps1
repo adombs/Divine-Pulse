@@ -1,7 +1,7 @@
 # One-time setup: Python venv + dependencies, frontend build, desktop shortcut.
 # Run again any time to update after pulling changes.
 $ErrorActionPreference = "Stop"
-$root = Split-Path -Parent $MyInvocation.MyCommand.Path
+$root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $backend = Join-Path $root "backend"
 $frontend = Join-Path $root "frontend"
 $venv = Join-Path $backend ".venv"

@@ -1,7 +1,7 @@
 # Maintaining the repository
 
-For the maintainer. Contributors need only [CONTRIBUTING](../CONTRIBUTING.md); releases are in
-[the release guide](../RELEASING.md).
+For the maintainer. Contributors need only [the contributing guide](../.github/CONTRIBUTING.md); releases are in
+[the release guide](releasing.md).
 
 ## Reviewing a pull request
 
@@ -52,11 +52,11 @@ gh api --method POST repos/adombs/Divine-Pulse/rulesets --input .github/rulesets
 Going public shows everything on every branch, including the first commit. Before it:
 
 1. Merge or close every open pull request, and delete branches you don't want seen.
-2. Put a contact address on your GitHub profile: [the code of conduct](../CODE_OF_CONDUCT.md) sends reports there.
+2. Put a contact address on your GitHub profile: [the code of conduct](../.github/CODE_OF_CONDUCT.md) sends reports there.
 3. Decide whether you're comfortable publishing this. It's a fan tool that reads a commercial game's memory, documents
    its file formats and works with an emulator. It ships no game content, but consider asking a lawyer: only one can
    tell you about your risk.
-4. Check `THIRD_PARTY_NOTICES.md` once more against what the app bundles.
+4. Check [the third-party notices](third-party-notices.md) once more against what the app bundles.
 
 Then:
 
@@ -69,4 +69,4 @@ Turn on secret scanning and push protection under **Settings → Advanced Securi
 each rule: a direct push to a test branch should work, and a force-push to `main` should be refused.
 
 The README tells players to download the latest release, and this repository has none yet, so publish one
-([release guide](../RELEASING.md)).
+([release guide](releasing.md)).

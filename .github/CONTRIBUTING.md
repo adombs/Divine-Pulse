@@ -1,6 +1,6 @@
 # Working on Divine Pulse
 
-For player-facing behavior see [README](README.md); for technical guides by audience see [docs](docs/README.md).
+For player-facing behavior see [README](../README.md); for technical guides by audience see [docs](../docs/README.md).
 Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md). Divine Pulse is GPL-3.0: by contributing, you
 agree that your work is released under that license.
 
@@ -20,7 +20,7 @@ App builds contain no game data and fetch none. Installing Python and Node depen
 
 ## Local setup
 
-From the repository root, run `setup.bat` on Windows. It creates `backend/.venv`, installs runtime dependencies,
+From the repository root, run `tools\setup.bat` on Windows. It creates `backend/.venv`, installs runtime dependencies,
 builds the frontend, and creates a source shortcut. It does not install the development test and lint dependencies;
 install those as shown below before running checks. To set up manually:
 
@@ -35,7 +35,7 @@ npm run build
 ```
 
 Source-mode data is stored in the repository's `data/` directory; set `DIVINE_PULSE_DATA_DIR` to use another location.
-See [Development in the README](README.md#development) for run commands and the battle demo.
+See [Development in the README](../README.md#development) for run commands and the battle demo.
 
 ## No game files in the repository
 
@@ -47,7 +47,7 @@ rows.
 
 Your own import lives in `game-assets/` at the repository root, which git ignores (import it with the app's Game
 files page or `python -m app.gamefiles extract "<dump folder>"` from `backend/`; see
-[the importer guide](docs/game-assets/README.md)).
+[the importer guide](../docs/game-assets/README.md)).
 
 ## Optional test inputs
 
@@ -88,7 +88,7 @@ close the issue when it merges. Commits on your branch can be worded however hel
 ## Day to day
 
 1. Ordinary changes go on a branch and are proposed to `main` in a pull request. Only a maintainer runs a release,
-   which commits directly to a clean, current `main`; see [RELEASING](RELEASING.md).
+   which commits directly to a clean, current `main`; see [the release guide](../docs/releasing.md).
 2. Add a line under `## Unreleased` in `CHANGELOG.md` for anything a player would notice.
 3. Run the local checks before opening or merging a pull request. There is no CI, so these are the only checks a change
    gets. Use the project venv explicitly so the commands do not depend on whichever Python happens to be on `PATH`:
@@ -104,13 +104,13 @@ npm run build
 
 `ruff check ... --fix` fixes most lint findings itself. Lint rules are in `backend/pyproject.toml`.
 
-Backend responsibilities and extension examples are in [Backend architecture](docs/BACKEND_ARCHITECTURE.md).
+Backend responsibilities and extension examples are in [Backend architecture](../docs/BACKEND_ARCHITECTURE.md).
 The backend tests enforce layer dependency direction; run `.venv\Scripts\python -B architecture.py` from `backend/`
 for that check alone.
 
 ## Releasing
 
-Full checklist: [RELEASING.md](RELEASING.md). In short:
+Full checklist: [the release guide](../docs/releasing.md). In short:
 
 1. `git checkout main && git pull`
 2. Run `powershell -ExecutionPolicy Bypass -File tools\build_windows.ps1` and try the build on a clean PC.
@@ -121,4 +121,4 @@ Full checklist: [RELEASING.md](RELEASING.md). In short:
 Versions: bug fixes only 0.1.0 → 0.1.1; new features 0.1.0 → 0.2.0.
 
 If release work fails after the tag is pushed, do not reuse that tag. Follow the maintainer recovery policy in
-[RELEASING.md](RELEASING.md) and use the next patch version when another release is required.
+[the release guide](../docs/releasing.md) and use the next patch version when another release is required.

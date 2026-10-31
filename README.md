@@ -200,7 +200,7 @@ Game reference built from your import, so it matches the language and DLC you im
 
 Class, character and support names link between the pages. Class-change restrictions and support availability notes
 are text from the Fire Emblem Wiki (GFDL 1.3), shipped in `frontend/src/reference/wiki/fe-wiki.json`; see
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+[Third-party notices](docs/third-party-notices.md).
 
 ### Names and validation
 
@@ -261,7 +261,7 @@ It builds on the work of the Fire Emblem community:
   [Corridors of Time](https://corridorsoftime.substack.com/p/on-game-mechanics-pt-1) and the
   [FE Universe](https://feuniverse.us/t/fire-emblem-three-houses-randomizer-custom-build/9774) forums: game mechanics.
 
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) lists what each source was used for, and the open-source software
+[Third-party notices](docs/third-party-notices.md) lists what each source was used for, and the open-source software
 bundled with the program and its licenses. A copy ships with every release as *Third-party notices.txt*.
 
 ## License
@@ -270,9 +270,20 @@ GPL-3.0. See [LICENSE](LICENSE).
 
 ## Development
 
-See [CONTRIBUTING.md](CONTRIBUTING.md) for prerequisites, setup, checks, and contribution workflow. For developers,
-the project guides are indexed in [docs](docs/README.md). Source-mode data goes in `data/` in the project folder
-(or set `DIVINE_PULSE_DATA_DIR`).
+You need Python 3.12 or newer and Node.js 24 on `PATH`. After cloning, run this once from the project folder:
+
+```bat
+tools\setup.bat
+```
+
+It creates `backend\.venv`, installs what the app needs, builds the UI, and adds a **Divine Pulse (source)** desktop
+shortcut. Start the app with that shortcut or `tools\launch.bat`, and import your game files when it asks.
+
+See [the contributing guide](.github/CONTRIBUTING.md) for checks and the contribution workflow. The project guides are
+indexed in [docs](docs/README.md). Source-mode data goes in `data/` in the project folder (or set
+`DIVINE_PULSE_DATA_DIR`).
+
+For development, also install the test and lint packages:
 
 ```bat
 cd backend
@@ -290,4 +301,4 @@ a scripted battle (http://127.0.0.1:8799/#/battle): units move, fight, heal, lev
 Divine Pulse turns back time.
 
 To build the program and installer (`python tools/build.py`, on the OS you're building for), see
-[RELEASING.md](RELEASING.md). Adding an emulator: [docs/porting.md](docs/porting.md).
+[the release guide](docs/releasing.md). Adding an emulator: [docs/porting.md](docs/porting.md).

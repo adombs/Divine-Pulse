@@ -3,12 +3,12 @@
 Start here based on what you need:
 
 - **Players:** install and use Divine Pulse in the [README](../README.md).
-- **Contributors:** set up a development environment and run checks in [CONTRIBUTING](../CONTRIBUTING.md).
+- **Contributors:** set up a development environment and run checks in [the contributing guide](../.github/CONTRIBUTING.md).
 - **Backend work:** follow the [backend architecture](BACKEND_ARCHITECTURE.md) and [HTTP API contract](api-contracts.md).
 - **Frontend work:** follow the [frontend boundaries](frontend-architecture.md) and [interface design](ui-design.md).
 - **Game files from your own dump:** dump them with the [dumping guide](game-assets/dumping.md), extract and check
   them with the [importer guide](game-assets/README.md), and see [generated files](generated-assets.md).
-- **Maintainers preparing a release:** use the [release guide](../RELEASING.md).
+- **Maintainers preparing a release:** use the [release guide](releasing.md).
 - **Maintainers running the repository:** reviews, triage, branch rules and going public are in
   [maintaining](maintaining.md).
 - **Adding an emulator:** see [porting](porting.md).

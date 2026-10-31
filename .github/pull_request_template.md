@@ -1,4 +1,4 @@
-<!-- Title: `<type>: <what it does>`, for example `fix: keep the HP after a level-up`. Types are in CONTRIBUTING.md. -->
+<!-- Title: `<type>: <what it does>`, for example `fix: keep the HP after a level-up`. Types are in .github/CONTRIBUTING.md. -->
 
 ## What changed
 

@@ -35,5 +35,5 @@ the game. Turn it off again: the next read rebuilds the log from the history, wi
 ## Adding a test
 
 Behaviour confirmed this way belongs in the tests. Use made-up units and numbers; don't commit captures from your
-game (see [CONTRIBUTING](../CONTRIBUTING.md)). `DIVINE_PULSE_CAPTURES` points the optional capture-based tests at
+game (see [the contributing guide](../.github/CONTRIBUTING.md)). `DIVINE_PULSE_CAPTURES` points the optional capture-based tests at
 captures from your own game.

@@ -1,4 +1,4 @@
-"""Builds Divine Pulse for Windows, into release/ (RELEASING.md).
+"""Builds Divine Pulse for Windows, into release/ (docs/releasing.md).
 
     python tools/build.py [--skip-tests] [--no-installer] [--current-env]
 
@@ -115,7 +115,7 @@ def notes(folder: Path, v: str) -> None:
     """The read-me, the program's license, and the third-party notices with the full GFDL text, next to the program."""
     (folder / "Read me.txt").write_text(readme(v), "utf-8")
     shutil.copy2(ROOT / "LICENSE", folder / "LICENSE.txt")
-    shutil.copy2(ROOT / "THIRD_PARTY_NOTICES.md", folder / "Third-party notices.txt")
+    shutil.copy2(ROOT / "docs" / "third-party-notices.md", folder / "Third-party notices.txt")
     shutil.copy2(FRONTEND / "src" / "reference" / "wiki" / "LICENSE-GFDL-1.3.txt", folder / "GFDL-1.3.txt")
 
 
