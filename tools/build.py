@@ -89,7 +89,7 @@ def tests() -> None:
 
 def web_ui() -> None:
     step("Web UI")
-    run("npm", "ci" if (FRONTEND / "package-lock.json").exists() else "install", "--no-audit", "--no-fund", cwd=FRONTEND)
+    run("npm", "install", "--no-audit", "--no-fund", cwd=FRONTEND)
     run("npm", "run", "build", cwd=FRONTEND)
 
 

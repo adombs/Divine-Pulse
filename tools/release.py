@@ -2,7 +2,7 @@
 
     python tools/release.py 0.2.0 [--push]
 
-Sets the version in backend/app/__init__.py, backend/pyproject.toml and frontend/package.json (+ lock), turns
+Sets the version in backend/app/__init__.py, backend/pyproject.toml and frontend/package.json, turns
 CHANGELOG.md's "## Unreleased" into "## 0.2.0 (date)" under a fresh empty Unreleased section, commits and tags v0.2.0.
 Run it on an up-to-date main with nothing uncommitted. --push runs the local Windows checks and build, pushes main and
 the tag, then uses the authenticated GitHub CLI to create a draft release and upload the local artifacts. It never
@@ -29,7 +29,6 @@ VERSION_FILES = (
     ROOT / "backend/app/__init__.py",
     ROOT / "backend/pyproject.toml",
     ROOT / "frontend/package.json",
-    ROOT / "frontend/package-lock.json",
     ROOT / "CHANGELOG.md",
 )
 
@@ -56,11 +55,9 @@ def sub(path: Path, pattern: str, repl: str) -> None:
     path.write_text(new, "utf-8", newline="\n")
 
 
-def set_json_version(path: Path, version: str, lock: bool) -> None:
+def set_json_version(path: Path, version: str) -> None:
     data = json.loads(path.read_text("utf-8"))
     data["version"] = version
-    if lock:
-        data["packages"][""]["version"] = version
     path.write_text(json.dumps(data, indent=2, ensure_ascii=False) + "\n", "utf-8", newline="\n")
 
 
@@ -201,8 +198,7 @@ def main() -> None:
         try:
             sub(ROOT / "backend/app/__init__.py", r'^__version__ = ".*"$', f'__version__ = "{version}"')
             sub(ROOT / "backend/pyproject.toml", r'^version = "[^"]*"$', f'version = "{version}"')
-            set_json_version(ROOT / "frontend/package.json", version, lock=False)
-            set_json_version(ROOT / "frontend/package-lock.json", version, lock=True)
+            set_json_version(ROOT / "frontend/package.json", version)
             changelog(version)
             files = build_and_check(version) if args.push else []
         except (subprocess.CalledProcessError, RuntimeError) as error:
@@ -214,8 +210,7 @@ def main() -> None:
                 path.write_bytes(original)
             raise
 
-        git("add", "backend/app/__init__.py", "backend/pyproject.toml", "frontend/package.json",
-            "frontend/package-lock.json", "CHANGELOG.md")
+        git("add", "backend/app/__init__.py", "backend/pyproject.toml", "frontend/package.json", "CHANGELOG.md")
         git("commit", "-m", f"Release {version}")
         git("tag", "-a", tag, "-m", f"Divine Pulse {version}")
         print(f"Committed and tagged {tag}.")

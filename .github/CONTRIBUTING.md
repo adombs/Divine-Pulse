@@ -29,7 +29,7 @@ cd backend
 python -m venv .venv
 .venv\Scripts\python -m pip install -r requirements-dev.txt
 cd ..\frontend
-npm ci
+npm install
 npm test
 npm run build
 ```
