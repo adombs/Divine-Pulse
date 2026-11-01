@@ -135,9 +135,9 @@ end;
 
 procedure InitializeWizard;
 begin
-  GamePage := CreateInputDirPage(wpSelectDir, 'Game files', 'Import your game files',
-    'The app needs your own game files: the game with update 1.2.0. DLC is optional. Nothing is uploaded.', False, '');
-  GamePage.Add('FE3H 1.2.0 dump folder, or folder containing your NSP files:');
+  GamePage := CreateInputDirPage(wpSelectDir, 'Game files', 'Choose your game files',
+    'Choose your own Fire Emblem: Three Houses game files, including update 1.2.0. DLC is optional. Nothing is uploaded.', False, '');
+  GamePage.Add('Choose the folder with your extracted game files or NSP files:');
   GamePage.Values[0] := LastDump;
   KeepFiles := TRadioButton.Create(GamePage);
   KeepFiles.Parent := GamePage.Surface;
@@ -145,37 +145,38 @@ begin
   KeepFiles.SetBounds(0, ScaleY(100), GamePage.SurfaceWidth, ScaleY(20));
   ImportFiles := TRadioButton.Create(GamePage);
   ImportFiles.Parent := GamePage.Surface;
-  ImportFiles.Caption := 'Import again from this folder';
+  ImportFiles.Caption := 'Import game files from the selected folder';
   ImportFiles.SetBounds(0, ScaleY(124), GamePage.SurfaceWidth, ScaleY(20));
   ReviewPage := CreateCustomPage(GamePage.ID, 'Review game files',
-    'Check the files found in the selected folder before continuing.');
+    'Review what setup found. Your files will be checked when they are imported.');
   ReviewList := TNewMemo.Create(ReviewPage);
   ReviewList.Parent := ReviewPage.Surface;
   ReviewList.SetBounds(0, 0, ReviewPage.SurfaceWidth, ReviewPage.SurfaceHeight);
   ReviewList.ReadOnly := True;
   ReviewList.ScrollBars := ssVertical;
   ReviewList.WordWrap := True;
-  NspPage := CreateInputFilePage(ReviewPage.ID, 'NSP extraction', 'Choose the extraction tools',
-    'NSP files require NSTool and your own prod.keys. Select the files below.');
-  NspPage.Add('NSTool executable:', 'Executable files|*.exe|All files|*.*', '.exe');
-  NspPage.Add('Your prod.keys:', 'Key files|*.keys|All files|*.*', '.keys');
+  NspPage := CreateInputFilePage(ReviewPage.ID, 'Open NSP files', 'Choose the files needed to open your NSPs',
+    'To open NSP files, setup needs NSTool and your own prod.keys file. Choose each file below.');
+  NspPage.Add('NSTool program (nstool.exe):', 'Executable files|*.exe|All files|*.*', '.exe');
+  NspPage.Add('Your prod.keys file:', 'Key files|*.keys|All files|*.*', '.keys');
 end;
 
-function LooksLikeDump(Folder: String; Depth: Integer): Boolean;
+function LooksLikeDump(Folder: String): Boolean;
 var
   FindRec: TFindRec;
   Child: String;
 begin
   Result := FileExists(AddBackslash(Folder) + 'DATA0.bin') and
     FileExists(AddBackslash(Folder) + 'DATA1.bin') and DirExists(AddBackslash(Folder) + 'nx');
-  if Result or (Depth = 0) then Exit;
+  if Result then Exit;
   if FindFirst(AddBackslash(Folder) + '*', FindRec) then begin
     try
       repeat
         if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0) and
-           (FindRec.Name <> '.') and (FindRec.Name <> '..') then begin
+           (FindRec.Name <> '.') and (FindRec.Name <> '..') and
+           (FindRec.Attributes and FILE_ATTRIBUTE_REPARSE_POINT = 0) then begin
           Child := AddBackslash(Folder) + FindRec.Name;
-          if LooksLikeDump(Child, Depth - 1) then begin
+          if LooksLikeDump(Child) then begin
             Result := True;
             Break;
           end;
@@ -204,20 +205,36 @@ begin
       FindClose(FindRec);
     end;
   end;
+  if Result then Exit;
+  if FindFirst(AddBackslash(Folder) + '*', FindRec) then begin
+    try
+      repeat
+        if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0) and
+           (FindRec.Name <> '.') and (FindRec.Name <> '..') and
+           (FindRec.Attributes and FILE_ATTRIBUTE_REPARSE_POINT = 0) then begin
+          if HasNsp(AddBackslash(Folder) + FindRec.Name) then begin
+            Result := True;
+            Break;
+          end;
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
 end;
 
 // This is a preview of file names and paths, not a validation of their contents or version.
-procedure ListDumpParts(Folder: String; Depth: Integer; Lines: TStrings);
+procedure ListDumpParts(Folder: String; Lines: TStrings);
 var
   FindRec: TFindRec;
   Child, Name: String;
 begin
   if FileExists(AddBackslash(Folder) + 'DATA0.bin') and
      FileExists(AddBackslash(Folder) + 'DATA1.bin') then
-    Lines.Add('RomFS data: ' + Folder);
+    Lines.Add('Game files: ' + Folder);
   if FileExists(AddBackslash(Folder) + 'main') then
-    Lines.Add('Possible ExeFS main: ' + AddBackslash(Folder) + 'main');
-  if Depth = 0 then Exit;
+    Lines.Add('Possible game program file: ' + AddBackslash(Folder) + 'main');
   if FindFirst(AddBackslash(Folder) + '*', FindRec) then begin
     try
       repeat
@@ -227,9 +244,9 @@ begin
            (FindRec.Attributes and FILE_ATTRIBUTE_REPARSE_POINT = 0) then begin
           Child := AddBackslash(Folder) + Name;
           if CompareText(Copy(Name, 1, 5), 'patch') = 0 then
-            Lines.Add('Possible update folder: ' + Child)
+            Lines.Add('Possible update files: ' + Child)
           else if CompareText(Name, 'nx') <> 0 then
-            ListDumpParts(Child, Depth - 1, Lines);
+            ListDumpParts(Child, Lines);
         end;
       until not FindNext(FindRec);
     finally
@@ -238,36 +255,53 @@ begin
   end;
 end;
 
-procedure DescribeGameFiles(Folder: String; Lines: TStrings);
+procedure ListNsps(Folder: String; Lines: TStrings);
 var
   FindRec: TFindRec;
+begin
+  if FindFirst(AddBackslash(Folder) + '*.nsp', FindRec) then begin
+    try
+      repeat
+        if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
+          Lines.Add('NSP: ' + AddBackslash(Folder) + FindRec.Name);
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+  if FindFirst(AddBackslash(Folder) + '*', FindRec) then begin
+    try
+      repeat
+        if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0) and
+           (FindRec.Name <> '.') and (FindRec.Name <> '..') and
+           (FindRec.Attributes and FILE_ATTRIBUTE_REPARSE_POINT = 0) then
+          ListNsps(AddBackslash(Folder) + FindRec.Name, Lines);
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+end;
+
+procedure DescribeGameFiles(Folder: String; Lines: TStrings);
 begin
   Lines.Clear;
   Lines.Add('Selected folder: ' + Folder);
   Lines.Add('');
-  if LooksLikeDump(Folder, 5) then begin
-    Lines.Add('Source: extracted dump folders');
+  if LooksLikeDump(Folder) then begin
+    Lines.Add('Found extracted game files.');
     if HasNsp(Folder) then
-      Lines.Add('NSP files are also present; setup will import the dump folders.');
+      Lines.Add('NSP files were also found. Setup will use the extracted game files.');
     Lines.Add('');
-    ListDumpParts(Folder, 5, Lines);
+    ListDumpParts(Folder, Lines);
     Lines.Add('');
-    Lines.Add('Setup will verify the game, update, ExeFS and DLC during import.');
+    Lines.Add('Setup will check the game, update and any DLC when importing.');
   end else begin
-    Lines.Add('Source: NSP files');
+    Lines.Add('Found NSP files.');
     Lines.Add('');
-    if FindFirst(AddBackslash(Folder) + '*.nsp', FindRec) then begin
-      try
-        repeat
-          if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
-            Lines.Add('NSP: ' + FindRec.Name);
-        until not FindNext(FindRec);
-      finally
-        FindClose(FindRec);
-      end;
-    end;
+    ListNsps(Folder, Lines);
     Lines.Add('');
-    Lines.Add('Setup identifies the base game, updates and DLC from their metadata during extraction.');
+    Lines.Add('Setup will identify the game, update and any DLC when opening these files.');
   end;
 end;
 
@@ -324,7 +358,7 @@ begin
   Result := ((PageID = ReviewPage.ID) and HasImport and KeepFiles.Checked) or
     ((PageID = NspPage.ID) and
     ((HasImport and KeepFiles.Checked) or not HasNsp(GamePage.Values[0]) or
-     LooksLikeDump(GamePage.Values[0], 5)));
+     LooksLikeDump(GamePage.Values[0])));
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -334,7 +368,7 @@ begin
   Result := True;
   if CurPageID = NspPage.ID then begin
     if not FileExists(NspPage.Values[0]) or not FileExists(NspPage.Values[1]) then begin
-      MsgBox('Choose an existing NSTool executable and prod.keys file.', mbError, MB_OK);
+      MsgBox('Please choose your NSTool program and prod.keys file. Check that both files still exist.', mbError, MB_OK);
       Result := False;
     end;
     Exit;
@@ -342,10 +376,10 @@ begin
   if (CurPageID <> GamePage.ID) or (HasImport and KeepFiles.Checked) then Exit;
   Folder := GamePage.Values[0];
   if not DirExists(Folder) then begin
-    MsgBox('Choose an existing game dump or NSP folder.', mbError, MB_OK);
+    MsgBox('Please choose a folder that exists on your computer.', mbError, MB_OK);
     Result := False;
-  end else if not LooksLikeDump(Folder, 5) and not HasNsp(Folder) then begin
-    MsgBox('This folder does not appear to contain a game RomFS dump or NSP files.', mbError, MB_OK);
+  end else if not LooksLikeDump(Folder) and not HasNsp(Folder) then begin
+    MsgBox('Setup could not find extracted game files or NSP files in this folder. Please choose the folder containing your game files.', mbError, MB_OK);
     Result := False;
   end;
 end;
@@ -358,7 +392,7 @@ begin
     if (ExpandConstant('{param:DUMP|}') = '') and not HasImport then
       Result := 'Divine Pulse needs your game files; supply /DUMP="<folder>".'
     else if (ExpandConstant('{param:DUMP|}') <> '') and HasNsp(ExpandConstant('{param:DUMP|}')) and
-      not LooksLikeDump(ExpandConstant('{param:DUMP|}'), 5) and
+      not LooksLikeDump(ExpandConstant('{param:DUMP|}')) and
       ((not FileExists(ExpandConstant('{param:NSTOOL|}'))) or
        (not FileExists(ExpandConstant('{param:KEYS|}')))) then
       Result := 'NSP extraction requires /NSTOOL="<nstool.exe>" and /KEYS="<prod.keys>".';
@@ -429,17 +463,17 @@ begin
     Success := ValidImport;
     ShowResult(Success);
     if Success then Exit;
-    Reason := 'Your current game files are damaged or incomplete.';
+    Reason := 'Your current game files are missing or incomplete.';
     if WizardSilent then StopSetup(Reason);
     Folder := GamePage.Values[0];
     if (MsgBox(Reason + #13#10#13#10 + 'Choose OK to import them again, or Cancel to stop setup.',
         mbError, MB_OKCANCEL) <> IDOK) or
-       not BrowseForFolder('Choose your FE3H dump or NSP folder:', Folder, False) then StopSetup(Reason);
+       not BrowseForFolder('Choose the folder with your game files:', Folder, False) then StopSetup(Reason);
     if not ConfirmRetryFolder(Folder) then StopSetup(Reason);
   end;
   repeat
-    if HasNsp(Folder) and not LooksLikeDump(Folder, 5) and not WizardSilent then begin
-      if not FileExists(Nstool) and not GetOpenFileName('Choose NSTool', Nstool, '',
+    if HasNsp(Folder) and not LooksLikeDump(Folder) and not WizardSilent then begin
+      if not FileExists(Nstool) and not GetOpenFileName('Choose your NSTool program', Nstool, '',
           'Executable files|*.exe|All files|*.*', 'exe') then StopSetup('NSTool is required.');
       if not FileExists(Keys) and not GetOpenFileName('Choose your prod.keys', Keys, '',
           'Key files|*.keys|All files|*.*', 'keys') then StopSetup('Your prod.keys is required.');
@@ -453,17 +487,17 @@ begin
     Success := Code = 0;
     ShowResult(Success);
     if Success then Exit;
-    Reason := 'The import could not be started.';
+    Reason := 'Setup could not start importing your game files.';
     if LoadStringsFromFile(DataFolder + '\game-assets-import.log', Lines) then
       if GetArrayLength(Lines) > 0 then Reason := Lines[GetArrayLength(Lines) - 1];
     Retry := False;
     if not WizardSilent then begin
-      Retry := MsgBox('Game files could not be imported: ' + Reason + #13#10#13#10 +
+      Retry := MsgBox('Setup could not import your game files: ' + Reason + #13#10#13#10 +
         'Choose Retry to select another folder, or Cancel to stop setup.', mbError, MB_RETRYCANCEL) = IDRETRY;
       if Retry then
-        Retry := BrowseForFolder('Choose your FE3H dump or NSP folder:', Folder, False);
+        Retry := BrowseForFolder('Choose the folder with your game files:', Folder, False);
       if Retry then Retry := ConfirmRetryFolder(Folder);
-      if Retry and HasNsp(Folder) and not LooksLikeDump(Folder, 5) then begin
+      if Retry and HasNsp(Folder) and not LooksLikeDump(Folder) then begin
         Nstool := '';
         Keys := '';
       end;

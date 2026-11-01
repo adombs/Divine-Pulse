@@ -16,7 +16,8 @@ layout it recognises, and the commands, are in [README.md](README.md).
 
 ## From NSP files
 
-In the Windows installer, select the folder containing your base game, update and optional DLC NSPs, then select
+In the Windows installer, select a folder containing your base game, update and optional DLC NSPs (including in
+subfolders), then select
 NSTool and your own `prod.keys`. The installer extracts them to temporary storage and imports the resulting files;
 allow enough free space for both the unpacked NCAs and extracted files. NSPs and keys remain untouched.
 Download [NSTool](https://github.com/jakcron/nstool) separately. Compressed NSZ files are not supported.

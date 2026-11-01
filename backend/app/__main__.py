@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import json
 import logging
+import os
 import socket
 import sys
 import tempfile
@@ -32,6 +33,17 @@ from .system import error_box, wait_for_exit
 
 HOST = "127.0.0.1"
 log = logging.getLogger("app")
+
+
+def _find_nsps(folder: Path) -> list[Path]:
+    """Find packages below a selected folder without following links into other trees."""
+    found = []
+    for current, dirs, files in os.walk(folder, followlinks=False):
+        root = Path(current)
+        dirs[:] = [name for name in dirs if not (root / name).is_symlink()
+                   and not (root / name).is_junction()]
+        found.extend(root / name for name in files if Path(name).suffix.lower() == ".nsp")
+    return sorted(found)
 
 
 def import_game_files(folder: str, nstool: str = "", keys: str = "") -> int:
@@ -57,7 +69,7 @@ def import_game_files(folder: str, nstool: str = "", keys: str = "") -> int:
         source = Path(folder)
         existing = dump.find(source) if source.is_dir() else None
         nsps = ([source] if source.is_file() and source.suffix.lower() == ".nsp" else
-                sorted(p for p in source.iterdir() if p.is_file() and p.suffix.lower() == ".nsp")
+                _find_nsps(source)
                 if source.is_dir() and not existing.romfs else [])
         with tempfile.TemporaryDirectory(prefix="divine-pulse-nsp-") as temp:
             if nsps:
