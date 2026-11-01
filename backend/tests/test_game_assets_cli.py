@@ -54,6 +54,33 @@ def test_cli_failure_preserves_previous_import(tmp_path, monkeypatch, capsys):
     assert (old / "old.txt").read_text() == "old"
 
 
+def test_cli_extracts_nsp_before_import_and_removes_temporary_files(tmp_path, monkeypatch):
+    from app.infrastructure import nsp_extractor
+
+    data, _dump = configure(tmp_path, monkeypatch)
+    source = tmp_path / "packages"
+    source.mkdir()
+    (source / "base.nsp").touch()
+    (source / "update.NSP").touch()
+    extracted = []
+
+    def extract_nsps(inputs, tool, keys, output, log):
+        assert {p.name for p in inputs} == {"base.nsp", "update.NSP"}
+        assert str(tool) == "nstool.exe" and str(keys) == "prod.keys"
+        fake_dump(output / "romfs")
+        extracted.append(output)
+
+    def run(ctx):
+        ctx.out.json("data/example.json", {"ok": True}, source="test")
+        return {"data": {"files": 1, "skipped": []}}
+
+    monkeypatch.setattr(nsp_extractor, "extract_nsps", extract_nsps)
+    monkeypatch.setattr(importer, "run", run)
+    assert entry.import_game_files(str(source), "nstool.exe", "prod.keys") == 0
+    assert not extracted[0].exists()
+    assert (data / "game-assets" / "data" / "example.json").exists()
+
+
 def test_main_handles_the_setup_flags(monkeypatch):
     # The packaged program calls main() (packaging/launcher.py), so the flags must work there, not only under __main__.
     monkeypatch.setattr(entry, "import_game_files", lambda folder: 3 if folder == "dump" else 9)

@@ -9,9 +9,8 @@ the active run up to date by itself, with nothing to press.
 ## What you need
 
 - *Fire Emblem: Three Houses* **with update 1.2.0**, a copy you own, running in the **Eden** emulator on Windows.
-- A dump of your own game files (base game, update and ExeFS; DLC if you have it). How to make one:
-  [docs/game-assets/dumping.md](docs/game-assets/dumping.md). If you have NSP files,
-  [NSP Unpacker](https://github.com/adombs/nsp-unpacker) extracts them into a folder you can import.
+- Your own game files: a dump folder, or base game, update and optional DLC NSPs. For NSPs the installer also
+  needs NSTool and your own `prod.keys`. See [docs/game-assets/dumping.md](docs/game-assets/dumping.md).
 
 Divine Pulse includes no game content: no art, text, tables or maps. You import your own dump once, and the program
 builds everything it shows from it, on your PC. Until you do, it shows only the import screen. It reads folders you
@@ -23,7 +22,7 @@ to get either.
 Download the latest release and either:
 
 - run **`Divine-Pulse-<version>-setup.exe`**: it installs for your user (no administrator prompt) with Start
-  menu and desktop shortcuts, and asks for your FE3H 1.2.0 dump folder to import your game files; or
+  menu and desktop shortcuts, and asks for your FE3H 1.2.0 dump or NSPs to import your game files; or
 - unzip **`Divine-Pulse-<version>-windows-portable.zip`** anywhere, run `Divine Pulse.exe`, and import your dump
   in **Settings → Game files**.
 
@@ -46,7 +45,7 @@ when it was last played and its best unit. Click the latest run to continue it, 
 
 ### Importing your game files
 
-The setup installer asks for your dump folder and imports it during setup. With the portable zip, or if you skipped
+The setup installer asks for your dump folder or NSPs and imports them during setup. With the portable zip, or if you skipped
 it, the app opens on an import screen; pick the folder (or **Settings → Game files** later) and it extracts what it
 needs, checks it, and then opens. The imported files are kept in a `game-assets` folder inside the data folder (from
 source, in the repository folder). Importing again, for example after adding DLC, replaces them; **Settings → Game

@@ -26,6 +26,7 @@ NAME = "Divine Pulse"
 datas = [
     (str(DIST_UI), "frontend_dist"),
     (str(DATA), "app/data"),
+    (str(ROOT / "packaging" / "nsp-unpacker-LICENSE.txt"), "app/data"),
 ]
 hiddenimports = [
     *collect_submodules("app"),

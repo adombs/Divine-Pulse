@@ -14,6 +14,7 @@ import json
 import logging
 import socket
 import sys
+import tempfile
 import threading
 import time
 import urllib.request
@@ -33,7 +34,7 @@ HOST = "127.0.0.1"
 log = logging.getLogger("app")
 
 
-def import_game_files(folder: str) -> int:
+def import_game_files(folder: str, nstool: str = "", keys: str = "") -> int:
     """Run the same import as Settings without starting the desktop or server."""
     from .gamefiles import dump
     from .infrastructure.game_assets import game_assets
@@ -53,12 +54,25 @@ def import_game_files(folder: str) -> int:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
         log_file = (DATA_DIR / "game-assets-import.log").open("w", encoding="utf-8")
         output("Finding game files...")
-        found = dump.find(Path(folder))
-        if found.problems:
-            raise ValueError("; ".join(found.problems))
-        output("Importing game files...")
-        import_assets(found, game_assets().root, lambda message, _out: output(message),
-                      lambda: output("Verifying game files..."))
+        source = Path(folder)
+        existing = dump.find(source) if source.is_dir() else None
+        nsps = ([source] if source.is_file() and source.suffix.lower() == ".nsp" else
+                sorted(p for p in source.iterdir() if p.is_file() and p.suffix.lower() == ".nsp")
+                if source.is_dir() and not existing.romfs else [])
+        with tempfile.TemporaryDirectory(prefix="divine-pulse-nsp-") as temp:
+            if nsps:
+                if not nstool or not keys:
+                    raise ValueError("Choose NSTool and prod.keys to import NSP files.")
+                from .infrastructure.nsp_extractor import extract_nsps
+                output("Extracting NSP files (this can take a while)...")
+                extract_nsps(nsps, Path(nstool), Path(keys), Path(temp), output)
+                source = Path(temp)
+            found = dump.find(source)
+            if found.problems:
+                raise ValueError("; ".join(found.problems))
+            output("Importing game files...")
+            import_assets(found, game_assets().root, lambda message, _out: output(message),
+                          lambda: output("Verifying game files..."))
         SettingsStore().update(last_dump=folder)
         output("Game files imported successfully.")
         return 0
@@ -170,7 +184,16 @@ def main() -> None:
     # than under __main__ so the packaged program (packaging/launcher.py calls main()) handles them too.
     if "--import-game-files" in sys.argv[1:]:
         index = sys.argv.index("--import-game-files")
-        sys.exit(import_game_files(sys.argv[index + 1] if index + 1 < len(sys.argv) else ""))
+        folder = sys.argv[index + 1] if index + 1 < len(sys.argv) else ""
+        if "--nstool" in sys.argv or "--keys" in sys.argv:
+            def option(name: str) -> str:
+                if name not in sys.argv:
+                    return ""
+                i = sys.argv.index(name)
+                return sys.argv[i + 1] if i + 1 < len(sys.argv) else ""
+
+            sys.exit(import_game_files(folder, option("--nstool"), option("--keys")))
+        sys.exit(import_game_files(folder))
     if "--check-game-files" in sys.argv[1:]:
         sys.exit(check_game_files())
     if "--quit" in sys.argv[1:]:
