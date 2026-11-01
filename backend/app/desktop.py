@@ -195,6 +195,7 @@ class DesktopApp:
 
         # Lets a second launch (and the tray) bring this window back, and Settings switch it to fullscreen and back.
         self.state.show_window = self.show
+        self.state.quit_app = self.quit
         self.state.set_window_mode = self.set_window_mode
         self.state.pick_game_dump = self.pick_game_dump
         self._start_tray()

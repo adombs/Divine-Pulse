@@ -2,10 +2,11 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 from collections.abc import Callable
 from typing import NoReturn
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
 from fastapi.responses import StreamingResponse
 
 from .. import __version__
@@ -197,6 +198,16 @@ def show_window(request: Request) -> None:
         window.show()
     except LookupError as exc:
         raise HTTPException(404, str(exc)) from exc
+
+
+@router.post("/quit")
+def quit_app(request: Request, after_response: BackgroundTasks) -> dict:
+    """Quit the app, once this response is sent. `pid`: the process to wait for, until its files are free."""
+    quit_now = _state(request).quit_app
+    if quit_now is None:
+        raise HTTPException(404, "Nothing to quit from (running as a server only).")
+    after_response.add_task(quit_now)
+    return {"pid": os.getpid()}
 
 
 @router.get("/settings")

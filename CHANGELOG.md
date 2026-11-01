@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Byleth's portrait now follows their hair in your game: green from the Sothis merge on, on the roster and the Characters page too.
+- The uninstaller is in the Start menu, closes the tracker if it's still in the tray, and asks whether to delete your saved data too. Keeping it stays the default.
 
 ## 1.0.1 (2026-10-31)
 

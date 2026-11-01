@@ -25,6 +25,8 @@ class RuntimeView:
     game_import: object = field(default=None, kw_only=True)
     #: Messages about saves recovered from a backup, shown once when a window connects.
     take_notices: Callable[[], list[str]] = field(default=lambda: [], kw_only=True)
+    #: Quits the app the way the tray's Quit does; None with no tray to quit from (server only).
+    quit_app: Callable[[], None] | None = field(default=None, kw_only=True)
 
 
 @dataclass
@@ -52,4 +54,4 @@ def runtime_for(request: Request) -> RuntimeView:
     mode = getattr(state, "set_window_mode", None)
     window = WindowCallbacks(show, mode) if show is not None or mode is not None else None
     return RuntimeView(replace(runtime.operations, window=window), runtime.events, desktop=show is not None,
-                       game_import=runtime.game_import)
+                       game_import=runtime.game_import, quit_app=getattr(state, "quit_app", None))

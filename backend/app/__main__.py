@@ -3,6 +3,7 @@
     python -m app              standalone desktop window + tray icon (default)
     python -m app --browser    open the dashboard in the web browser instead, with the tray icon
     python -m app --server     server only: no window, no tray (for development)
+    python -m app --quit       close the tracker using this data folder and wait for it to end (for the uninstaller)
 
 If the tracker is already running, launching it again just brings its window forward.
 """
@@ -25,7 +26,8 @@ from logging.handlers import RotatingFileHandler
 
 from . import __version__
 from .config import DATA_DIR, FROZEN, SettingsStore
-from .system import error_box
+from .domain.settings import DEFAULT_PORT
+from .system import error_box, wait_for_exit
 
 HOST = "127.0.0.1"
 log = logging.getLogger("app")
@@ -104,7 +106,29 @@ def _focus_running_instance(url: str) -> None:
         webbrowser.open(url)
 
 
-def _browser_tray(url: str, server: uvicorn.Server) -> None:
+def _saved_port() -> int:
+    """The port in the saved settings, read without SettingsStore: that would write to a data folder about to go."""
+    try:
+        return int(json.loads((DATA_DIR / "settings.json").read_text("utf-8"))["port"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return DEFAULT_PORT
+
+
+def quit_running(timeout_s: float = 20.0) -> int:
+    """The uninstaller's step: close the tracker using this data folder and wait until its process has gone, so its
+    files can be deleted. 0 when none is left running, 1 when one wouldn't close."""
+    url = f"http://{HOST}:{_saved_port()}"
+    if not _already_running(url):
+        return 0
+    try:
+        with urllib.request.urlopen(urllib.request.Request(f"{url}/api/quit", method="POST"), timeout=3) as r:
+            pid = json.load(r)["pid"]
+    except (OSError, ValueError, KeyError):
+        return 1
+    return 0 if wait_for_exit(pid, timeout_s) else 1
+
+
+def _browser_tray(url: str, server: uvicorn.Server, state) -> None:
     """Browser mode: a tray icon to reopen the dashboard or quit."""
     import pystray
     from PIL import Image
@@ -113,7 +137,7 @@ def _browser_tray(url: str, server: uvicorn.Server) -> None:
         icon.stop()
         server.should_exit = True
 
-    pystray.Icon(
+    icon = pystray.Icon(
         "divine-pulse",
         Image.open(Path(__file__).parent / "data" / "icon.png"),
         "Divine Pulse",
@@ -121,7 +145,9 @@ def _browser_tray(url: str, server: uvicorn.Server) -> None:
             pystray.MenuItem("Open dashboard", lambda *_: webbrowser.open(url), default=True),
             pystray.MenuItem("Quit", quit_app),
         ),
-    ).run()
+    )
+    state.quit_app = lambda: quit_app(icon, None)
+    icon.run()
 
 
 def _port_free(port: int) -> bool:
@@ -147,6 +173,8 @@ def main() -> None:
         sys.exit(import_game_files(sys.argv[index + 1] if index + 1 < len(sys.argv) else ""))
     if "--check-game-files" in sys.argv[1:]:
         sys.exit(check_game_files())
+    if "--quit" in sys.argv[1:]:
+        sys.exit(quit_running())
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
@@ -209,7 +237,7 @@ def main() -> None:
         DesktopApp(url, settings, app.state, server).run()
     else:
         webbrowser.open(url)
-        _browser_tray(url, server)
+        _browser_tray(url, server, app.state)
     app.state.events.close()
     server.should_exit = True
     thread.join(timeout=5)

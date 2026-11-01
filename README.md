@@ -31,9 +31,14 @@ code-signed, so the first time Windows SmartScreen may say "Windows protected yo
 Run anyway*.
 
 Your runs, battles and settings are kept in `%LOCALAPPDATA%\Divine Pulse`, separate from the program, so
-updating or uninstalling keeps them. **Settings → About** shows the folder and opens it. For a fully portable
-copy (e.g. on a USB stick), create an empty folder named `data` next to `Divine Pulse.exe` and everything is
-stored there instead. To move to a new PC, copy the data folder across.
+updating keeps them. **Settings → About** shows the folder and opens it. For a fully portable copy (e.g. on a USB
+stick), create an empty folder named `data` next to `Divine Pulse.exe` and everything is stored there instead. To
+move to a new PC, copy the data folder across.
+
+To uninstall, use **Uninstall Divine Pulse** in the Start menu or Windows Settings → Apps. It closes the tracker and
+asks whether to delete your saved data as well, imported game files included; unless you choose Yes, they're kept for
+a later install. For the portable zip, quit from the tray icon and delete the folder, and the data folder if you
+want that gone too.
 
 After the import it opens on a **home page**, with your runs as the stairs under the throne: each shows its last chapter, units, battles,
 when it was last played and its best unit. Click the latest run to continue it, **Load a run**, or **Start a new run**.
