@@ -37,6 +37,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 
 from ..infrastructure import game_tables
+from ..infrastructure.inventory import crest_stone_flag
 from .battle import BattleUnit
 from .terrain import NO_GROUND, Ground
 
@@ -97,6 +98,7 @@ class Weapon:
     max_range: int
     flags: int = 0
     effective: int = 0
+    crest_stone: bool = False
 
     @property
     def magic(self) -> bool:
@@ -108,10 +110,14 @@ class Weapon:
 
     @classmethod
     def from_row(cls, key: int, row: dict, spell: bool) -> Weapon:
-        raw = bytes.fromhex(row["raw"])
+        try:
+            raw = bytes.fromhex(row.get("raw") or "")
+        except (TypeError, ValueError):
+            raw = b""
         return cls(
             key, spell, row["skill"], row["might"], row["hit"], row["crit"], row["weight"],
-            row["min_range"], row["max_range"], row["flags"], raw[0x0E] & 0x3F,
+            row["min_range"], row["max_range"], row["flags"], raw[0x0E] & 0x3F if len(raw) > 0x0E else 0,
+            not spell and crest_stone_flag(row),
         )
 
 
@@ -617,7 +623,7 @@ def weapon_kind(unit: BattleUnit, data: CombatData | None = None) -> str:
     for item, uses in unit.items:
         w = data.weapons.get(item)
         if w is not None and uses > 0 and w.id > 15:  # (10-15: Unarmed and broken weapons)
-            return WEAPON_KINDS.get(w.skill, "")
+            return "crest-stone" if w.crest_stone else WEAPON_KINDS.get(w.skill, "")
     spells = [data.spells.get(s) for s, n in zip(unit.spells, unit.spell_uses) if s is not None and n > 0]
     for w in spells:
         if w is not None and w.might > 0:
