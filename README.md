@@ -13,9 +13,9 @@ the active run up to date by itself, with nothing to press.
   needs your own `prod.keys`. See [docs/game-assets/dumping.md](docs/game-assets/dumping.md).
 
 Divine Pulse includes no game content: no art, text, tables or maps. You import your own dump once, and the program
-builds everything it shows from it, on your PC. Until you do, it shows only the import screen. It reads folders you
-have already extracted and never decrypts anything or handles keys. It doesn't include the game, an emulator, or a way
-to get either.
+builds everything it shows from it, on your PC. Until you do, it shows only the import screen. It can read folders you
+have already extracted; the Windows installer can also use your keys to extract selected NSPs. It doesn't include the
+game, an emulator, or a way to get either.
 
 ## Install (Windows 10/11, 64-bit)
 
@@ -45,7 +45,8 @@ when it was last played and its best unit. Click the latest run to continue it, 
 
 ### Importing your game files
 
-The setup installer asks for your dump folder or NSPs and imports them during setup. With the portable zip, or if you skipped
+The setup installer asks for your dump folder or lets you select your base game, update and any DLC NSPs individually.
+It imports only the NSP files you select. With the portable zip, or if you skipped
 it, the app opens on an import screen; pick the folder (or **Settings → Game files** later) and it extracts what it
 needs, checks it, and then opens. The imported files are kept in a `game-assets` folder inside the data folder (from
 source, in the repository folder). Importing again, for example after adding DLC, replaces them; **Settings → Game

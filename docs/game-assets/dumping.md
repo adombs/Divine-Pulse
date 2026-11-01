@@ -16,10 +16,13 @@ layout it recognises, and the commands, are in [README.md](README.md).
 
 ## From NSP files
 
-In the Windows installer, select a folder containing your base game, update and optional DLC NSPs (including in
-subfolders), then select your own `prod.keys`. The installer includes [NSTool](https://github.com/jakcron/nstool)
+In the Windows installer, select your base game and update 1.2.0 NSPs, plus any DLC NSPs you own, then select your
+own `prod.keys`. Setup imports only the NSP files you choose. The installer includes [NSTool](https://github.com/jakcron/nstool)
 and uses it to extract the NSPs to temporary storage before importing the resulting files. Allow enough free space
 for both the unpacked NCAs and extracted files. NSPs and keys remain untouched. Compressed NSZ files are not supported.
+
+For silent setup, specify the source folder with `/DUMP="<folder>"`, your keys with `/KEYS="<prod.keys>"`,
+and each chosen NSP with `/NSP1="<file>"`, `/NSP2="<file>"`, and so on, up to `/NSP16`.
 
 [NSP Unpacker](https://github.com/adombs/nsp-unpacker) is a separate Windows tool by the same author. It extracts the RomFS and ExeFS from base,
 update and DLC NSPs into one output folder, which you can then select here.

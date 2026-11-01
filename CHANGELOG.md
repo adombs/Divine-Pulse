@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Choose individual base game, update, and DLC NSPs during setup so unrelated NSPs are not imported.
+
 ## 1.2.3 (2026-11-01)
 
 - Bundle NSTool with Windows setup so importing NSP files no longer requires a separate download.
