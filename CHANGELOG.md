@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.5 (2026-11-01)
+
 - Fall back to portraits when a battle unit has no map sprite; use weapon badges only when neither is available or badges are explicitly selected.
 - Fix combat art icons, which showed the wrong weapon on 64 of the 80 arts. No reimport needed.
 - Import dining hall recipes and character meal preferences from your game files; Meals now shows ingredients, quantities, and liked/disliked portraits like Gifts. Reimport game files to update an existing import.
