@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.2.1 (2026-11-01)
+
 - Review the NSP files or dump folders found before importing them during setup.
 
 ## 1.2.0 (2026-11-01)
