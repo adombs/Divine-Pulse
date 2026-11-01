@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.2.7 (2026-11-01)
+
 - Add NSP files from multiple folders and manage the selection before importing.
 
 ## 1.2.6 (2026-11-01)
