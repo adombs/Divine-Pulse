@@ -255,6 +255,9 @@ export interface Branch {
   /** What happened in it from the fork on, and the tracker's events then (units leaving, level-ups). */
   log: LogEntry[];
   events: BattleEvent[];
+  /** Complete map history as it stood before this rewind (absent in older recordings). */
+  map_steps?: MapStep[];
+  map_presence?: Battle["map_presence"];
 }
 
 /** A weapon, spell, combat art, item or Rally a unit used in a battle. */

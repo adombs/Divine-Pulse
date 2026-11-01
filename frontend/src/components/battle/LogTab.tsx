@@ -7,7 +7,7 @@ import { useMemo, useState } from "react";
 import type { Battle } from "../../api";
 import { Section } from "../layout";
 import { Segmented } from "../ui";
-import { Item, pulseTimeline, timelineColumns } from "./model";
+import { Item, timelineColumns } from "./model";
 import { ItemList } from "./parts";
 import { Timelines } from "./Timelines";
 
@@ -16,19 +16,20 @@ interface Props {
   /** Everything in the timeline that stands (model.timeline). */
   items: Item[];
   /** Its rows as the replay shows them (replay.replayLog), the row the replay is at, and what picking a row does. */
+  pick: number | null;
+  onPick: (pick: number | null) => void;
+  available: boolean;
   shown: Item[];
   current: number | null;
   onSelect: (item: Item) => void;
 }
 
-export function LogView({ battle, items: standing, shown, current, onSelect }: Props) {
+export function LogView({ battle, items: standing, pick, onPick, available, shown, current, onSelect }: Props) {
   // Which timeline: Divine Pulse 0 is the original one, each Divine Pulse use starts the next; the last one stands.
   const pulses = battle.branches?.length ?? 0;
-  const [pick, setPick] = useState<number | null>(null); // null: the one that stands
   // Each pick is numbered, so picking a Divine Pulse in the tree replays it even when it was picked before.
   const [jumps, setJumps] = useState(0);
   const chosen = pick === null || pick > pulses ? pulses : pick;
-  const undone = useMemo(() => (chosen === pulses ? null : pulseTimeline(battle, chosen).filter((i) => !i.heading)), [battle, chosen, pulses]);
   // The timelines as a tree (needs the game's history positions).
   const columns = useMemo(() => timelineColumns(battle, standing), [battle, standing]);
   const [layout, setLayout] = useState<"list" | "tree">("list");
@@ -53,7 +54,7 @@ export function LogView({ battle, items: standing, shown, current, onSelect }: P
           pulses={pulses}
           value={chosen}
           onChange={(n) => {
-            setPick(n);
+            onPick(n === pulses ? null : n);
             setJumps((j) => j + 1);
           }}
         />
@@ -63,10 +64,9 @@ export function LogView({ battle, items: standing, shown, current, onSelect }: P
 
   return (
     <Section title="Log" right={tools}>
+      {!available && <p className="muted">Map replay is unavailable for this timeline in an older recording.</p>}
       {asTree ? (
         <Timelines columns={columns} current={current} jump={jumps ? { pulse: chosen, n: jumps } : null} />
-      ) : undone ? (
-        <ItemList items={undone} empty="Nothing logged in this timeline." />
       ) : (
         <ItemList items={shown} current={current} empty="Nothing logged yet." onSelect={onSelect} />
       )}

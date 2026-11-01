@@ -905,6 +905,9 @@ def test_a_divine_pulse_keeps_the_undone_timeline_as_a_branch():
     read(4, [start, moved, enemy_phase, kill], (me("byleth", 40),), 6)  # Lysithea fell
     battle = tracker.battle
     assert [e.kind for e in battle.events].count("left") == 1 and battle.enemy_stats[7].defeats == 1
+    # Presence observations and delta frames belong to the timeline that was active when it was rewound.
+    battle.map_presence = {"e:7": [(0, False), (2, True)]}
+    original_steps = [step.model_dump() for step in battle.map_steps]
 
     # Divine Pulse back to the start of the enemy phase; this time the brigand attacks Byleth.
     read(5, [start, moved, enemy_phase, hit], (me("byleth", 35), me("lysithea", 40)), 5)
@@ -914,6 +917,10 @@ def test_a_divine_pulse_keeps_the_undone_timeline_as_a_branch():
     [first] = battle.branches
     assert (first.id, first.parent, first.fork) == (1, 0, 3)
     assert [e.kind for e in first.log] == ["attack", "fell"] and [e.kind for e in first.events] == ["left"]
+    assert [step.model_dump() for step in first.map_steps] == original_steps
+    assert first.map_presence == {"e:7": [(0, False), (2, True)]}
+    assert first.map_steps[-1].units["a:lysithea"][2] == 0
+    assert battle.map_steps[-1].units["a:byleth"][2] == 35
     assert (battle.enemy_stats[7].combats, battle.enemy_stats[7].defeats) == (1, 0)  # the timeline that stands
 
     # A second Divine Pulse goes back further, before the first one's split: the first branch is now part of it.
@@ -922,6 +929,10 @@ def test_a_divine_pulse_keeps_the_undone_timeline_as_a_branch():
     assert (second.id, second.parent, second.fork) == (2, 0, 1)
     assert battle.branches[0].parent == 2
     assert [e.step for e in second.log if e.kind != "phase"] == [1, 3]  # Byleth's move and the hit on him
+    assert second.map_steps[-1].units["a:byleth"][2] == 35
+    assert first.map_steps[-1].units["a:lysithea"][2] == 0
+    restored = Battle.model_validate_json(battle.model_dump_json())
+    assert restored.branches == battle.branches
 
 
 def test_a_unit_leaving_the_map_is_not_a_divine_pulse():

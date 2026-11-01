@@ -10,7 +10,7 @@
     "typecheck": "tsc -b",
     "test:spoilers": "node --test scripts/test-spoilers.mjs",
     "test:nav": "node --experimental-strip-types --test scripts/test-nav.mjs scripts/test-unit-appearance.mjs",
-    "test:resilience": "node --experimental-strip-types --test scripts/test-resilience.mjs",
+    "test:resilience": "node --experimental-strip-types --test scripts/test-resilience.mjs scripts/test-replay-path.mjs",
     "test": "npm run test:spoilers && npm run test:nav && npm run test:resilience && npm run test:game-images && npm run test:game-data && npm run test:game-language && npm run test:reference-prose && npm run test:links",
     "test:game-images": "node --experimental-strip-types --test scripts/test-game-images.mjs scripts/test-image-lookups.mjs",
     "test:game-data": "node --experimental-strip-types --test scripts/test-game-data.mjs",
