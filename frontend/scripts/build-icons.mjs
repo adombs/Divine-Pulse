@@ -35,6 +35,7 @@ const ICONS = {
   down: ["caret-down"],
   up: ["caret-up"],
   go: ["arrow-right"],
+  tip: ["coffee"],
   // Controls
   close: ["x"],
   search: ["magnifying-glass"],

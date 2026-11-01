@@ -87,6 +87,10 @@ export function Home({ runs, activeRunId, loaded, toasts, onSwitchRun, onRunsCha
   return (
     <section className="home-page">
       <div className="home-stage">
+        <a className="home-tip" href="https://ko-fi.com/adombs" target="_blank" rel="noreferrer">
+          <Icon name={CONCEPT_ICON.tip} />
+          Support on Ko-fi
+        </a>
         <header className="home-head">
           <div className="home-glow" aria-hidden />
           <h1 className="home-title" aria-label="Divine Pulse">
