@@ -317,6 +317,12 @@ function PersonCard({ me, info, part2 }: { me: Person; info?: MonasteryPerson; p
               Liked +20 · neutral +10 · disliked 0 · lost item +20{faculty ? " · faculty get 45% more from gifts" : ""}
             </p>
           </Section>
+          {info.liked_meals && <Section title="Meals" icon={CONCEPT_ICON.meals} summary={`${count(info.liked_meals)} liked`}>
+            <dl className="ref-facts gift-facts">
+              <dt>Likes</dt><dd><Chips items={info.liked_meals} kind="good" /></dd>
+              <dt>Dislikes</dt><dd><Chips items={info.disliked_meals} kind="bad" /></dd>
+            </dl>
+          </Section>}
         </>
       )}
       {me.charKey && (

@@ -75,6 +75,12 @@ def test_meal_names_use_indexed_strings_and_exclude_unused_slots():
     assert names["meal"] == {"0": "First meal", "31": "Last meal"}
 
 
+def test_ingredient_names_use_material_ids():
+    table = _table({5151: "Outside", 5152: "River fish", 5194: "Orchard fruit", 5220: "Wild meat", 5221: "Outside"})
+    names = text._language([[], [], table], list(range(1201)))
+    assert names["ingredient"] == {"96": "River fish", "138": "Orchard fruit", "164": "Wild meat"}
+
+
 def test_items_match_their_documented_ranges():
     item = next(c for c in text.CATEGORIES if c.name == "item")
     assert item.base == 3656 and item.ids[0] == 1000

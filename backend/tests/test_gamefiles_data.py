@@ -148,6 +148,52 @@ def test_battalion_fields():
     assert record == {"id": 0, "name": "Company", "description": "Description", "endurance": 60}
 
 
+def test_meals_recipes_and_transposed_preferences():
+    recipe = bytearray(18)
+    struct.pack_into("<3H", recipe, 0, 96, 138, 164)
+    recipe[14:17] = bytes([3, 1, 0])
+    prefs = bytearray(45)
+    prefs[2], prefs[3], prefs[38], prefs[43], prefs[44] = 1, 255, 1, 255, 1
+    recipes = [bytes(recipe)] * 33  # slot 32 is an unused menu entry, even when nonzero
+    preferences = [bytes(prefs)] + [bytes(45)] * 31 + [bytes([1] * 45)]
+    result = data.meals(recipes, preferences, text_with(i9852="First dish", i5152="River fish", i5194="Orchard fruit"))
+    assert len(result["meals"]) == 32
+    assert result["meals"][0] == {"id": 0, "name": "First dish", "ingredients": [
+        {"id": 96, "name": "River fish", "quantity": 3},
+        {"id": 138, "name": "Orchard fruit", "quantity": 1},
+    ]}
+    people = {p["character"]: p for p in result["characters"]}
+    assert len(people) == 39
+    assert people[2]["liked"] == [0] and people[2]["disliked"] == []
+    assert people[3]["liked"] == [] and people[3]["disliked"] == [0]
+    assert people[1040]["liked"] == [0] and people[1045]["disliked"] == [0]
+    assert people[1046]["liked"] == [0]
+    assert people[4]["liked"] == [] and people[4]["disliked"] == []
+    assert not ({0, 1, 35, 36, 37, 1044} & people.keys())
+
+
+def test_extract_writes_meals_from_activity_file(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from app.gamefiles.output import Output
+
+    row = bytearray(18)
+    struct.pack_into("<H", row, 0, 96)
+    row[14] = 2
+    preferences = bytearray(45)
+    preferences[2] = 1
+    raw = section_file((1, []), (18, [bytes(row)]), (45, [bytes(preferences)]))
+    monkeypatch.setattr(data, "load", lambda ctx, name: raw if name == "fixed_lobby_activity.bin" else None)
+    strings = [""] * 11000
+    strings[9852], strings[5152] = "Test dish", "River fish"
+    out = Output(tmp_path)
+    ctx = SimpleNamespace(text=lambda: [[], [], strings], out=out, skip=lambda _: None)
+    data.extract(ctx)
+    result = json.loads((tmp_path / "data/meals.json").read_text())
+    assert result["meals"][0]["ingredients"] == [{"id": 96, "name": "River fish", "quantity": 2}]
+    assert result["characters"][0]["liked"] == [0]
+    assert out.files["data/meals.json"]["source"] == "fixed_lobby_activity.bin sections 1-2"
+
+
 def test_beginner_certification_any_of():
     row = bytearray(118)
     row[0x45] = 1
@@ -191,6 +237,10 @@ def test_real_dump_counts(tmp_path):
     assert len(read("abilities")["abilities"]) == 250
     assert len(read("battalions")["battalions"]) == 200
     assert len(read("supports")["pairs"]) == 267
+    dining = read("meals")
+    assert len(dining["meals"]) == 32 and len(dining["characters"]) == 39
+    assert all(1 <= len(m["ingredients"]) <= 3 for m in dining["meals"])
+    assert all(ingredient["name"] and ingredient["quantity"] > 0 for m in dining["meals"] for ingredient in m["ingredients"])
 
 
 def test_equipment_special_effects():

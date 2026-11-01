@@ -27,13 +27,15 @@ export interface MonasteryPerson {
   lost_items?: string[];
   liked_gifts?: string[];
   disliked_gifts?: string[];
+  liked_meals?: string[];
+  disliked_meals?: string[];
 }
 
 export interface SupportData {
   names: Record<string, string>;
   pairs: SupportPair[];
   people: Record<string, MonasteryPerson>;
-  meals: { id: string; name: string }[];
+  meals: { id: string; name: string; ingredients?: { id: number; name: string; quantity: number }[]; preferences?: boolean }[];
 }
 
 let cache: Promise<SupportData> | null = null;
