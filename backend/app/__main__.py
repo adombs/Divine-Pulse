@@ -197,6 +197,10 @@ def _any_free_port() -> int:
 
 
 def main() -> None:
+    if "--check-desktop" in sys.argv[1:]:
+        from .desktop import check_desktop
+
+        sys.exit(0 if check_desktop() else 1)
     # Setup's command-line steps: import or check the game files and exit, without the server or a window. Here rather
     # than under __main__ so the packaged program (packaging/launcher.py calls main()) handles them too.
     if "--import-game-files" in sys.argv[1:]:

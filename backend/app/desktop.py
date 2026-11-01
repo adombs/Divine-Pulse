@@ -44,6 +44,33 @@ def available() -> bool:
         return False
 
 
+def check_desktop() -> bool:
+    """Open and close a hidden WebView2 window for the packaged build check.
+
+    No server, tray, saved settings or game reader is involved. Importing webview
+    alone misses .NET assembly failures that only happen while creating the window.
+    """
+    try:
+        if not available():
+            return False
+        import webview
+
+        loaded = False
+        window = webview.create_window("Divine Pulse desktop check", html="<p>Desktop check</p>", hidden=True)
+
+        def on_loaded():
+            nonlocal loaded
+            loaded = True
+            window.destroy()
+
+        window.events.loaded += on_loaded
+        webview.start(gui="edgechromium")
+        return loaded
+    except Exception:
+        log.exception("Packaged desktop check failed")
+        return False
+
+
 def _on_some_monitor(x: int, y: int) -> bool:
     """True if the window's top-left area is visible on a connected monitor."""
     px, py = x + 60, y + 20

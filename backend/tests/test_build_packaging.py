@@ -38,6 +38,56 @@ def test_spec_excludes_pytest_and_its_internals():
     assert '"pytest"' in spec and '"_pytest"' in spec
 
 
+def test_program_ships_clr_config_beside_executable_before_checking_desktop(tmp_path, monkeypatch):
+    import xml.etree.ElementTree as ET
+
+    made = tmp_path / "dist" / build_script.APP_NAME
+    made.mkdir(parents=True)
+    toc = tmp_path / "work" / "divine_pulse" / "PYZ-00.toc"
+    toc.parent.mkdir(parents=True)
+    toc.write_text("[]", encoding="utf-8")
+    monkeypatch.setattr(build_script, "BUILD", tmp_path)
+    monkeypatch.setattr(build_script, "run", lambda *_: None)
+    checked = []
+
+    def check(folder):
+        config = ET.parse(folder / f"{build_script.APP_NAME}.exe.config")
+        assert config.find("runtime/loadFromRemoteSources").get("enabled") == "true"
+        checked.append(folder)
+
+    monkeypatch.setattr(build_script, "desktop_check", check)
+    assert build_script.program() == made
+    assert checked == [made]
+
+
+@pytest.mark.skipif(build_script.sys.platform != "win32", reason="Windows alternate data streams")
+def test_desktop_check_marks_only_disposable_dlls_and_propagates_failure(tmp_path, monkeypatch):
+    import subprocess
+
+    made = tmp_path / "program"
+    runtime = made / "_internal" / "pythonnet" / "runtime" / "Python.Runtime.dll"
+    runtime.parent.mkdir(parents=True)
+    runtime.write_bytes(b"synthetic DLL")
+    (made / f"{build_script.APP_NAME}.exe.config").write_text("test config", encoding="utf-8")
+    checked = []
+
+    def run(command, **kwargs):
+        copy = Path(command[0]).parent
+        assert command[1:] == ["--check-desktop"]
+        assert kwargs == {"check": True, "timeout": 60}
+        assert (copy / f"{build_script.APP_NAME}.exe.config").read_text(encoding="utf-8") == "test config"
+        assert "ZoneId=3" in Path(f"{copy / runtime.relative_to(made)}:Zone.Identifier").read_text()
+        checked.append(copy)
+        raise subprocess.CalledProcessError(1, command)
+
+    monkeypatch.setattr(build_script.subprocess, "run", run)
+    with pytest.raises(subprocess.CalledProcessError):
+        build_script.desktop_check(made)
+    assert not Path(f"{runtime}:Zone.Identifier").exists()
+    assert runtime.read_bytes() == b"synthetic DLL"
+    assert not checked[0].exists()
+
+
 def test_package_copies_nstool_into_program_and_portable_zip(tmp_path, monkeypatch):
     executable = tmp_path / "vendor" / "nstool.exe"
     executable.parent.mkdir()

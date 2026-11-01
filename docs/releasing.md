@@ -37,6 +37,13 @@ None needs Python, Node.js or anything else on the player's PC. Windows 10/11 (6
    .venv\Scripts\python -m ruff check --config pyproject.toml . ../tools ../packaging
    ```
 
+   The build also runs the packaged executable with `--check-desktop`: it opens and closes a hidden WebView2
+   window, without the server, game reader or user data. It tests a temporary copy with Internet-zone markers on
+   the DLLs, as Windows Explorer creates when extracting a downloaded zip. A failed or timed-out desktop check
+   stops packaging, even with `--skip-tests`. Keep `Divine Pulse.exe.config` beside the executable: its CLR setting
+   allows the app's bundled .NET assemblies to load with those markers, without unblocking files or changing
+   machine-wide settings.
+
    Run the installer and import a dump when it asks (or skip it and import from Settings → Game files), start the
    tracker, start a new run from the home page, check reading units with Eden running and not running, play a
    battle, quit from the tray, start again, then uninstall with the tracker still in the tray and choose No when
