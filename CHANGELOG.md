@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Import selected NSP files directly from the portable app using bundled extraction tools.
+
 ## 1.2.5 (2026-11-01)
 
 - Require a choice between extracted game files and individually selected NSPs during setup.

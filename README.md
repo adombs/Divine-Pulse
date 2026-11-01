@@ -9,12 +9,12 @@ the active run up to date by itself, with nothing to press.
 ## What you need
 
 - *Fire Emblem: Three Houses* **with update 1.2.0**, a copy you own, running in the **Eden** emulator on Windows.
-- Your own game files: a dump folder, or base game, update and optional DLC NSPs. For NSPs the installer also
+- Your own game files: a dump folder, or base game, update and optional DLC NSPs. For NSPs the app also
   needs your own `prod.keys`. See [docs/game-assets/dumping.md](docs/game-assets/dumping.md).
 
 Divine Pulse includes no game content: no art, text, tables or maps. You import your own dump once, and the program
 builds everything it shows from it, on your PC. Until you do, it shows only the import screen. It can read folders you
-have already extracted; the Windows installer can also use your keys to extract selected NSPs. It doesn't include the
+have already extracted; the app can also use your keys to extract selected NSPs. It doesn't include the
 game, an emulator, or a way to get either.
 
 ## Install (Windows 10/11, 64-bit)
@@ -23,7 +23,7 @@ Download the latest release and either:
 
 - run **`Divine-Pulse-<version>-setup.exe`**: it installs for your user (no administrator prompt) with Start
   menu and desktop shortcuts, and asks for your FE3H 1.2.0 dump or NSPs to import your game files; or
-- unzip **`Divine-Pulse-<version>-windows-portable.zip`** anywhere, run `Divine Pulse.exe`, and import your dump
+- unzip **`Divine-Pulse-<version>-windows-portable.zip`** anywhere, run `Divine Pulse.exe`, and import your dump or NSPs
   in **Settings → Game files**.
 
 Nothing else is needed: no Python, no Node.js, no internet connection while it runs. The program isn't
@@ -47,7 +47,7 @@ when it was last played and its best unit. Click the latest run to continue it, 
 
 During setup, choose either an extracted dump containing the game's RomFS and ExeFS (plus the RomFS for any DLC you
 own), or select your base game, update and any DLC NSPs individually. Setup imports only the NSP files you select.
-With the portable zip, the app opens on an import screen; pick the folder (or **Settings → Game files** later) and it extracts what it
+With the portable zip, the app opens on an import screen; choose a dump folder or select your NSPs and keys (or use **Settings → Game files** later), and it extracts what it
 needs, checks it, and then opens. The imported files are kept in a `game-assets` folder inside the data folder (from
 source, in the repository folder). Importing again, for example after adding DLC, replaces them; **Settings → Game
 files** can also remove them. Which parts are needed and how to dump them:

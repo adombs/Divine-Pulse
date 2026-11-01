@@ -20,6 +20,9 @@ const phases: Record<string, string> = { exe_tables: "Reading game data", text: 
 export function GameFilesSection({ desktop }: { desktop: boolean }) {
   const [status, setStatus] = useState<GameFilesStatus | null>(null);
   const [dump, setDump] = useState("");
+  const [source, setSource] = useState<"dump" | "nsp">("dump");
+  const [nsps, setNsps] = useState<string[]>([]);
+  const [keys, setKeys] = useState("");
   const [scan, setScan] = useState<GameFilesScan | null>(null);
   const [scanning, setScanning] = useState(false);
   const [found, setFound] = useState<GameFilesCandidate[]>([]);
@@ -49,14 +52,14 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
   }, [running]);
   useEffect(() => {
     setScan(null);
-    if (!dump.trim() || running) { setScanning(false); return; }
+    if (source !== "dump" || !dump.trim() || running) { setScanning(false); return; }
     let live = true;
     setScanning(true);
     const timer = window.setTimeout(() => {
       void api.scanGameFiles(dump).then((result) => { if (live) { setScan(result); setError(""); } }).catch((err: Error) => { if (live) setError(err.message); }).finally(() => { if (live) setScanning(false); });
     }, 350);
     return () => { live = false; window.clearTimeout(timer); };
-  }, [dump, running]);
+  }, [dump, running, source]);
   const action = async (fn: () => Promise<void>) => {
     setBusy(true); setError("");
     try { await fn(); } catch (err) { setError((err as Error).message); }
@@ -82,8 +85,13 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
         {verification && <div><p>{verification.ok ? "Check complete" : "Check failed"}: {verification.checked} files checked</p>{(verification.errors.length > 0 || verification.warnings.length > 0) && <details><summary>Details</summary><ul>{[...verification.errors, ...verification.warnings].map((item, i) => <li key={i}>{item}</li>)}</ul></details>}</div>}
       </div>}
       {showFlow && !running && status && <div className="game-files-flow">
-        <h2>Where is your dump?</h2>
-        <p className="hint">Only have NSP files? <a href="https://github.com/adombs/nsp-unpacker" target="_blank" rel="noreferrer">NSP Unpacker</a> extracts them into a folder you can import. It runs <a href="https://github.com/jakcron/nstool" target="_blank" rel="noreferrer">NSTool</a> by Jack (jakcron), which you download separately, and needs your own prod.keys.</p>
+        <h2>Choose your game files</h2>
+        <p className="hint">Import an extracted dump or select your base game, update and optional DLC NSP files.</p>
+        <div className="game-files-choices" role="radiogroup" aria-label="Game file source">
+          <label className="game-files-choice"><input type="radio" name="source" checked={source === "dump"} onChange={() => setSource("dump")} /><span><strong>Dump folder</strong><span className="hint">A folder containing the game's RomFS and ExeFS.</span></span></label>
+          <label className="game-files-choice"><input type="radio" name="source" checked={source === "nsp"} onChange={() => setSource("nsp")} /><span><strong>NSP files</strong><span className="hint">Select your base game, update and any DLC. Your prod.keys file is also required.</span></span></label>
+        </div>
+        {source === "dump" && <>
         {found.length > 0 && <div className="game-files-choices" role="radiogroup" aria-label="Detected dumps">{found.map((candidate) => <label key={candidate.path} className="game-files-choice">
           <input type="radio" name="dump" checked={candidate.path === dump} onChange={() => setDump(candidate.path)} />
           <span><strong>{candidate.path.replace(/[\\/]+$/, "").split(/[\\/]/).pop()}</strong><span className="hint game-files-path">{candidate.path}</span><span className="hint">{[candidate.version, `${candidate.dlc.length} DLC`].filter(Boolean).join(" \u00b7 ")}</span></span>
@@ -97,12 +105,17 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
           <ul className="game-files-parts">{parts?.map((part) => <li key={part.id}><Icon name={part.found ? CONCEPT_ICON.done : CONCEPT_ICON.warning} className={part.found ? "found" : part.required ? "missing-required" : "missing-optional"} /><div><strong>{part.name}</strong>{part.detail && <span className="game-files-detail">{part.detail}</span>}<span className="hint">{part.found ? "Found" : part.required ? "Missing (required)" : "Not found"}</span></div></li>)}</ul>
           {scan.problems.length ? <div className="game-files-warning" role="alert"><Icon name={CONCEPT_ICON.warning} /><ul>{scan.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul></div> : !importable && <p role="alert">This game build cannot be imported.</p>}
         </section>}
-        <div><button type="button" className="btn primary" disabled={busy || scanning || !importable} onClick={() => action(async () => { const result = await api.importGameFiles(dump); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{reason && <p className="hint">{reason}</p>}</div>
+        </>}
+        {source === "nsp" && <div className="game-files-flow">
+          <div className="game-files-folder"><label><span className="field-label">NSP files</span><textarea rows={3} value={nsps.join("\n")} onChange={(e) => setNsps(e.target.value.split(/\r?\n/).filter(Boolean))} placeholder="One file path per line" /></label>{desktop && <button type="button" className="btn" disabled={busy} onClick={() => action(async () => { const result = await api.pickGameFilesNsps(); if (result.paths.length) setNsps(result.paths); })}>Browse</button>}</div>
+          <div className="game-files-folder"><label><span className="field-label">prod.keys</span><input value={keys} onChange={(e) => setKeys(e.target.value)} /></label>{desktop && <button type="button" className="btn" disabled={busy} onClick={() => action(async () => { const result = await api.pickGameFilesKeys(); if (result.path) setKeys(result.path); })}>Browse</button>}</div>
+        </div>}
+        {source === "dump" ? <div><button type="button" className="btn primary" disabled={busy || scanning || !importable} onClick={() => action(async () => { const result = await api.importGameFiles(dump); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{reason && <p className="hint">{reason}</p>}</div> : <div><button type="button" className="btn primary" disabled={busy || !nsps.length || !keys.trim()} onClick={() => action(async () => { const result = await api.importGameFilesNsps(nsps, keys); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button></div>}
       </div>}
       {status?.job && status.job.state !== "idle" && <div className="game-files-card game-files-progress" aria-live="polite">
         <strong>{running ? (phases[status.job.phase] || "Importing game files") : status.job.state === "done" ? "Import complete" : "Import failed"}</strong>
         {running && <><progress aria-label={phases[status.job.phase] || "Importing game files"} max={status.job.total || 1} value={status.job.total ? Math.min(status.job.done, Math.max(0, status.job.total - 1)) : undefined} />{status.job.total > 0 && status.job.phase !== "verify" && <span>{Math.min(status.job.done, Math.max(0, status.job.total - 1))} / {status.job.total}</span>}</>}
-        {status.job.state === "failed" && <><span>{status.job.error || "The game files could not be imported."}</span><span>Check the dump folder and try again.</span></>}
+        {status.job.state === "failed" && <><span>{status.job.error || "The game files could not be imported."}</span><span>Check your selected files and try again.</span></>}
         {status.job.state === "done" && <span>{[status.version, `${status.files ?? 0} files`, status.created && new Date(status.created).toLocaleString()].filter(Boolean).join(" \u00b7 ")}</span>}
         {status.job.log?.length > 0 && <details><summary>Import details</summary><ul>{status.job.log.map((line, i) => <li key={i}>{line}</li>)}</ul></details>}
       </div>}

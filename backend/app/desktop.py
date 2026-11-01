@@ -198,6 +198,8 @@ class DesktopApp:
         self.state.quit_app = self.quit
         self.state.set_window_mode = self.set_window_mode
         self.state.pick_game_dump = self.pick_game_dump
+        self.state.pick_game_nsps = self.pick_game_nsps
+        self.state.pick_game_keys = self.pick_game_keys
         self._start_tray()
 
         webview.start(
@@ -215,6 +217,23 @@ class DesktopApp:
         import webview
 
         selected = self.window.create_file_dialog(webview.FileDialog.FOLDER)
+        if not selected:
+            return None
+        return str(selected[0] if isinstance(selected, (tuple, list)) else selected)
+
+    def pick_game_nsps(self) -> list[str]:
+        import webview
+
+        selected = self.window.create_file_dialog(webview.FileDialog.OPEN, allow_multiple=True,
+                                                  file_types=("NSP files (*.nsp)",))
+        if not selected:
+            return []
+        return [str(path) for path in selected] if isinstance(selected, (tuple, list)) else [str(selected)]
+
+    def pick_game_keys(self) -> str | None:
+        import webview
+
+        selected = self.window.create_file_dialog(webview.FileDialog.OPEN, file_types=("Key files (*.keys)",))
         if not selected:
             return None
         return str(selected[0] if isinstance(selected, (tuple, list)) else selected)

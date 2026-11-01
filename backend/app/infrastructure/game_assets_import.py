@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import shutil
 import threading
+import tempfile
 from pathlib import Path
 
 from ..gamefiles import dump, verify
@@ -158,6 +159,50 @@ class GameAssetsImport:
             threading.Thread(target=self._run, args=(found,), daemon=True, name="game-assets-import").start()
         self.emit()
         return job
+
+    def start_nsps(self, nsps: list[str], keys: str) -> dict:
+        from .paths import INSTALL_DIR, PROJECT_ROOT, FROZEN
+
+        packages = [Path(name) for name in nsps]
+        key_path = Path(keys)
+        tool = (INSTALL_DIR / "tools" / "nstool.exe") if FROZEN else (PROJECT_ROOT / "vendor" / "nstool" / "nstool.exe")
+        if not packages or any(not path.is_file() or path.suffix.lower() != ".nsp" for path in packages):
+            raise ValueError("Choose existing NSP files.")
+        if not key_path.is_file():
+            raise ValueError("Choose your prod.keys file.")
+        if not tool.is_file():
+            raise ValueError("Bundled NSTool was not found. Reinstall the application.")
+        with self.lock:
+            if self.job["state"] == "running":
+                raise BusyError("An import is already running.")
+            self.job = {"state": "running", "phase": "extracting", "done": 0, "total": 0,
+                        "error": None, "log": []}
+            job = self.status()["job"]
+            threading.Thread(target=self._run_nsps, args=(packages, key_path, tool), daemon=True,
+                             name="game-assets-nsp-import").start()
+        self.emit()
+        return job
+
+    def _run_nsps(self, packages: list[Path], keys: Path, tool: Path) -> None:
+        from .nsp_extractor import extract_nsps
+
+        try:
+            with tempfile.TemporaryDirectory(prefix="divine-pulse-nsp-") as temp:
+                def log(message: str) -> None:
+                    with self.lock:
+                        self.job["log"] = (self.job["log"] + [message])[-200:]
+                    self.emit()
+                extract_nsps(packages, tool, keys, Path(temp), log)
+                found = dump.find(Path(temp))
+                if found.problems:
+                    raise ValueError(" ".join(found.problems))
+                with self.lock:
+                    self.job.update(total=len(FAMILIES) + 1, done=0)
+                self._run(found)
+        except Exception as exc:
+            with self.lock:
+                self.job.update(state="failed", phase="failed", error=str(exc))
+            self.emit()
 
     def _run(self, found) -> None:
         root = game_assets().root
