@@ -52,6 +52,7 @@ Filename: "{app}\{#AppExe}"; Description: "Start {#AppName}"; Flags: nowait post
 [Code]
 var
   GamePage: TInputDirWizardPage;
+  NspPage: TInputFileWizardPage;
   KeepFiles, ImportFiles: TRadioButton;
   HasImport, Stopped: Boolean;
 
@@ -134,7 +135,7 @@ procedure InitializeWizard;
 begin
   GamePage := CreateInputDirPage(wpSelectDir, 'Game files', 'Import your game files',
     'The app needs your own game files: the game with update 1.2.0. DLC is optional. Nothing is uploaded.', False, '');
-  GamePage.Add('FE3H 1.2.0 dump folder:');
+  GamePage.Add('FE3H 1.2.0 dump folder, or folder containing your NSP files:');
   GamePage.Values[0] := LastDump;
   KeepFiles := TRadioButton.Create(GamePage);
   KeepFiles.Parent := GamePage.Surface;
@@ -144,6 +145,10 @@ begin
   ImportFiles.Parent := GamePage.Surface;
   ImportFiles.Caption := 'Import again from this folder';
   ImportFiles.SetBounds(0, ScaleY(124), GamePage.SurfaceWidth, ScaleY(20));
+  NspPage := CreateInputFilePage(GamePage.ID, 'NSP extraction', 'Choose the extraction tools',
+    'NSP files require NSTool and your own prod.keys. Select the files below.');
+  NspPage.Add('NSTool executable:', 'Executable files|*.exe|All files|*.*', '.exe');
+  NspPage.Add('Your prod.keys:', 'Key files|*.keys|All files|*.*', '.keys');
 end;
 
 procedure CurPageChanged(CurPageID: Integer);
@@ -182,18 +187,51 @@ begin
   end;
 end;
 
+function HasNsp(Folder: String): Boolean;
+var
+  FindRec: TFindRec;
+begin
+  Result := False;
+  if FindFirst(AddBackslash(Folder) + '*.nsp', FindRec) then begin
+    try
+      repeat
+        if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0 then begin
+          Result := True;
+          Break;
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  Result := (PageID = NspPage.ID) and
+    ((HasImport and KeepFiles.Checked) or not HasNsp(GamePage.Values[0]) or
+     LooksLikeDump(GamePage.Values[0], 5));
+end;
+
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
   Folder: String;
 begin
   Result := True;
+  if CurPageID = NspPage.ID then begin
+    if not FileExists(NspPage.Values[0]) or not FileExists(NspPage.Values[1]) then begin
+      MsgBox('Choose an existing NSTool executable and prod.keys file.', mbError, MB_OK);
+      Result := False;
+    end;
+    Exit;
+  end;
   if (CurPageID <> GamePage.ID) or (HasImport and KeepFiles.Checked) then Exit;
   Folder := GamePage.Values[0];
   if not DirExists(Folder) then begin
-    MsgBox('Choose an existing game dump folder.', mbError, MB_OK);
+    MsgBox('Choose an existing game dump or NSP folder.', mbError, MB_OK);
     Result := False;
-  end else if not LooksLikeDump(Folder, 5) then begin
-    MsgBox('This folder does not appear to contain a game RomFS dump.', mbError, MB_OK);
+  end else if not LooksLikeDump(Folder, 5) and not HasNsp(Folder) then begin
+    MsgBox('This folder does not appear to contain a game RomFS dump or NSP files.', mbError, MB_OK);
     Result := False;
   end;
 end;
@@ -204,7 +242,12 @@ begin
   if WizardSilent then begin
     HasImport := HasGameFiles;
     if (ExpandConstant('{param:DUMP|}') = '') and not HasImport then
-      Result := 'Divine Pulse needs your game files; supply /DUMP="<folder>".';
+      Result := 'Divine Pulse needs your game files; supply /DUMP="<folder>".'
+    else if (ExpandConstant('{param:DUMP|}') <> '') and HasNsp(ExpandConstant('{param:DUMP|}')) and
+      not LooksLikeDump(ExpandConstant('{param:DUMP|}'), 5) and
+      ((not FileExists(ExpandConstant('{param:NSTOOL|}'))) or
+       (not FileExists(ExpandConstant('{param:KEYS|}')))) then
+      Result := 'NSP extraction requires /NSTOOL="<nstool.exe>" and /KEYS="<prod.keys>".';
   end;
 end;
 
@@ -250,15 +293,23 @@ end;
 
 procedure CurStepChanged(CurStep: TSetupStep);
 var
-  Folder, Reason: String;
+  Folder, Reason, Nstool, Keys, Params: String;
   Lines: TArrayOfString;
   Code: Integer;
   Success, Retry: Boolean;
 begin
   if CurStep <> ssPostInstall then Exit;
-  if WizardSilent then Folder := ExpandConstant('{param:DUMP|}')
+  if WizardSilent then begin
+    Folder := ExpandConstant('{param:DUMP|}');
+    Nstool := ExpandConstant('{param:NSTOOL|}');
+    Keys := ExpandConstant('{param:KEYS|}');
+  end
   else if HasImport and KeepFiles.Checked then Folder := ''
   else Folder := GamePage.Values[0];
+  if not WizardSilent then begin
+    Nstool := NspPage.Values[0];
+    Keys := NspPage.Values[1];
+  end;
   if Folder = '' then begin
     ShowBusy('Checking your game files...');
     Success := ValidImport;
@@ -269,11 +320,20 @@ begin
     Folder := GamePage.Values[0];
     if (MsgBox(Reason + #13#10#13#10 + 'Choose OK to import them again, or Cancel to stop setup.',
         mbError, MB_OKCANCEL) <> IDOK) or
-       not BrowseForFolder('Choose your FE3H 1.2.0 dump folder:', Folder, False) then StopSetup(Reason);
+       not BrowseForFolder('Choose your FE3H dump or NSP folder:', Folder, False) then StopSetup(Reason);
   end;
   repeat
+    if HasNsp(Folder) and not LooksLikeDump(Folder, 5) and not WizardSilent then begin
+      if not FileExists(Nstool) and not GetOpenFileName('Choose NSTool', Nstool, '',
+          'Executable files|*.exe|All files|*.*', 'exe') then StopSetup('NSTool is required.');
+      if not FileExists(Keys) and not GetOpenFileName('Choose your prod.keys', Keys, '',
+          'Key files|*.keys|All files|*.*', 'keys') then StopSetup('Your prod.keys is required.');
+    end;
     ShowBusy('Importing your game files...');
-    if not Exec(ExpandConstant('{app}\{#AppExe}'), '--import-game-files "' + Folder + '"',
+    Params := '--import-game-files "' + Folder + '"';
+    if Nstool <> '' then Params := Params + ' --nstool "' + Nstool + '"';
+    if Keys <> '' then Params := Params + ' --keys "' + Keys + '"';
+    if not Exec(ExpandConstant('{app}\{#AppExe}'), Params,
         '', SW_HIDE, ewWaitUntilTerminated, Code) then Code := -1;
     Success := Code = 0;
     ShowResult(Success);
@@ -286,7 +346,11 @@ begin
       Retry := MsgBox('Game files could not be imported: ' + Reason + #13#10#13#10 +
         'Choose Retry to select another folder, or Cancel to stop setup.', mbError, MB_RETRYCANCEL) = IDRETRY;
       if Retry then
-        Retry := BrowseForFolder('Choose your FE3H 1.2.0 dump folder:', Folder, False);
+        Retry := BrowseForFolder('Choose your FE3H dump or NSP folder:', Folder, False);
+      if Retry and HasNsp(Folder) and not LooksLikeDump(Folder, 5) then begin
+        Nstool := '';
+        Keys := '';
+      end;
     end;
     if not Retry then StopSetup(Reason);
   until Success;

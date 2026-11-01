@@ -11,8 +11,9 @@ program builds everything it shows from it on their PC. The repository and the r
 
 ## Tools linked, not included
 
-The game files screen and the guides link to [NSP Unpacker](https://github.com/adombs/nsp-unpacker) (MIT, same author), which runs
-[NSTool](https://github.com/jakcron/nstool) (MIT, © 2019 Jack). Neither is bundled with Divine Pulse.
+The installer includes extraction code from [NSP Unpacker](https://github.com/adombs/nsp-unpacker) (MIT, © 2026 adombs;
+the license is included in the source). It runs [NSTool](https://github.com/jakcron/nstool) (MIT, © 2019 Jack), which
+is supplied separately by the player.
 
 ## Fire Emblem Wiki text
 

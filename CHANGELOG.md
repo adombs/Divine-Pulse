@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Import base game, update and DLC NSPs directly during Windows setup using NSTool and your own keys.
+
 ## 1.1.0 (2026-11-01)
 
 - Replay the map along the selected Divine Pulse timeline, including paths that were undone.
