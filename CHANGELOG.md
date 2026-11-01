@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Require a choice between extracted game files and individually selected NSPs during setup.
+
 ## 1.2.4 (2026-11-01)
 
 - Choose individual base game, update, and DLC NSPs during setup so unrelated NSPs are not imported.

@@ -45,9 +45,9 @@ when it was last played and its best unit. Click the latest run to continue it, 
 
 ### Importing your game files
 
-The setup installer asks for your dump folder or lets you select your base game, update and any DLC NSPs individually.
-It imports only the NSP files you select. With the portable zip, or if you skipped
-it, the app opens on an import screen; pick the folder (or **Settings → Game files** later) and it extracts what it
+During setup, choose either an extracted dump containing the game's RomFS and ExeFS (plus the RomFS for any DLC you
+own), or select your base game, update and any DLC NSPs individually. Setup imports only the NSP files you select.
+With the portable zip, the app opens on an import screen; pick the folder (or **Settings → Game files** later) and it extracts what it
 needs, checks it, and then opens. The imported files are kept in a `game-assets` folder inside the data folder (from
 source, in the repository folder). Importing again, for example after adding DLC, replaces them; **Settings → Game
 files** can also remove them. Which parts are needed and how to dump them:
