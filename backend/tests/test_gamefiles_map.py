@@ -89,6 +89,7 @@ def test_terrain_ids_are_capped(tmp_path):
 
 
 def test_minimap_tables_are_consistent():
+    assert maps.MINIMAP_PIECES[276] == "weapon-crest-stone"
     assert set(maps.MINIMAP_VARIANTS).isdisjoint({38, 39, 40, 41})
     assert set(maps.MINIMAP_INDEX.values()).isdisjoint(maps.MINIMAP_VARIANTS.values())
     assert set(maps.TERRAIN_TILES) <= set(maps.MINIMAP_PIECES.values())

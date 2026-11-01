@@ -27,6 +27,7 @@ class _Tables:
     abilities: tuple[str | None, ...] = ()  # by ability ID
     items: dict[int, str] = field(default_factory=dict)  # item ID (1000 on) -> name
     skills: dict[tuple[str, int], int] = field(default_factory=dict)  # ("weapon" | "spell", ID) -> weapon skill
+    crest_stones: frozenset[int] = frozenset()
 
 
 # The game's weapon "skill" (which rank a weapon or spell uses) by the icon names of the map (gamemem/combat.py).
@@ -36,8 +37,19 @@ _SKILL_KINDS = ("sword", "lance", "axe", "bow", "gauntlets", "reason", "faith", 
 def weapon_kind(kind: str, item: int) -> str | None:
     if kind not in ("weapon", "spell"):
         return None
+    if kind == "weapon" and item in _tables().crest_stones:
+        return "crest-stone"
     skill = _tables().skills.get((kind, item))
     return _SKILL_KINDS[skill] if skill is not None and 0 <= skill < len(_SKILL_KINDS) else None
+
+
+def crest_stone_flag(row: dict) -> bool:
+    """The weapon row's crystal icon flag; absent or incomplete old rows have no flag."""
+    try:
+        raw = bytes.fromhex(row.get("raw") or "")
+    except (TypeError, ValueError):
+        return False
+    return len(raw) > 0x0F and bool(raw[0x0F] & 0x80)
 
 
 def _tables() -> _Tables:
@@ -67,6 +79,7 @@ def _load_tables(_generation: tuple) -> _Tables:
             for k, v in data.get(table, {}).items()
             if "skill" in v
         },
+        frozenset(int(k) for k, v in data.get("weapons", {}).items() if crest_stone_flag(v)),
     )
 
 

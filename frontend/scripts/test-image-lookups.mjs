@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import { test } from "node:test";
+import { battleWeapon, indexCrystalWeapons } from "../src/components/battle/unitAppearance.ts";
 
 async function moduleWithStubs(path, stubs) {
   const source = await readFile(new URL(path, import.meta.url), "utf8");
@@ -52,14 +53,17 @@ test("battle places resolve imported text and unmapped scenarios stay empty", as
 });
 
 test("factions pick banners and scenario enemies by ID, in any language", async () => {
+  globalThis.indexCrystalWeaponsFixture = indexCrystalWeapons;
   globalThis.factionFixture = {
     factions: { characters: [{ id: 7, allegiance: 1 }, { id: 8, allegiance: 15 }, { id: 9, allegiance: 23 }], factions: [{ id: 1, name: "Empire" }, { id: 11, name: "Rogues" }, { id: 15, name: "Independents" }] },
     crests: { characters: [], crests: [] },
+    weapons: { weapons: [{ id: 213, raw: "00".repeat(15) + "80" }] },
     text: { 1: "Kaiserreich", 11: "Schurken", 15: "Unabhängige" },
     banners: new Map(),
   };
   const factions = await moduleWithStubs("../src/components/battle/factions.ts", `
-    const loadGameJson = async (path) => globalThis.factionFixture[path.includes('factions') ? 'factions' : 'crests'];
+    const loadGameJson = async (path) => globalThis.factionFixture[path.includes('factions') ? 'factions' : path.includes('weapons') ? 'weapons' : 'crests'];
+    const indexCrystalWeapons = globalThis.indexCrystalWeaponsFixture;
     const loadGameText = async (category) => category === 'faction' ? globalThis.factionFixture.text : {};
     const gameLanguage = () => 'GER';
     const factionBanners = globalThis.factionFixture.banners;
@@ -70,4 +74,6 @@ test("factions pick banners and scenario enemies by ID, in any language", async 
   assert.equal(factions.factionOf(8, 0), "Schurken");
   assert.equal(factions.factionOf(8), "Unabhängige");
   assert.equal(factions.factionOf(9), "Underground Residents");
+  assert.equal(battleWeapon({ weapon: "gauntlets", inventory: [{ id: 213, kind: "weapon", uses: 100 }] }), "crest-stone");
+  indexCrystalWeapons([]);
 });

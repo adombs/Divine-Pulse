@@ -11,6 +11,7 @@ import { computeEbst, DEFAULT_CONFIG } from "../../ebst";
 import { CheckList, FilterMenu } from "../common";
 import { Section } from "../layout";
 import { isObject } from "./map";
+import { battleWeapon } from "./unitAppearance";
 import { ACTED, adjutantFlag, armyFlags, AWAY, DEFEATED, FELL, Flag, Flags, lowHpFlag, Team, TeamTag, teamOf } from "./marks";
 import { armyId, enemies, enemyId, LOW_HP, people } from "./model";
 import { WeaponIcon } from "./gameIcons";
@@ -64,7 +65,7 @@ function rowsNow(battle: Battle): Row[] {
       const down = !e.on_map || (e.hp !== null && e.hp <= 0);
       const hp = e.hp === null ? null : Math.max(0, e.hp);
       return {
-        id: enemyId(e.slot), name: e.label, team: listTeam(teamOf(e)), hp, max: e.max_hp, off: down, acted: false, weapon: e.weapon ?? "",
+        id: enemyId(e.slot), name: e.label, team: listTeam(teamOf(e)), hp, max: e.max_hp, off: down, acted: false, weapon: battleWeapon(e),
         flags: down ? [DEFEATED] : withLowHp([], hp, e.max_hp),
       };
     });
@@ -87,7 +88,7 @@ function rowsAt(battle: Battle, replay: Replay): Row[] {
   const others: Row[] = [...pieces.values()]
     .filter((p) => !p.army)
     .map((p): Row => ({
-      id: p.id, name: p.name, team: listTeam(teamOf(who.get(p.id)?.enemy)), hp: p.hp, max: p.max, off: p.down, acted: false, weapon: who.get(p.id)?.enemy?.weapon ?? "",
+      id: p.id, name: p.name, team: listTeam(teamOf(who.get(p.id)?.enemy)), hp: p.hp, max: p.max, off: p.down, acted: false, weapon: p.weapon,
       flags: p.down ? [DEFEATED] : withLowHp([], p.hp, p.max),
     }));
   return [...yours, ...others];

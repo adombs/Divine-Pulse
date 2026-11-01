@@ -2,6 +2,7 @@
 import { loadGameJson, loadGameText } from "../../gameAssets";
 import { gameLanguage } from "../../gameLanguage";
 import { factionBanners } from "../gameImageSources";
+import { indexCrystalWeapons } from "./unitAppearance";
 
 let CHARACTERS: Record<string, number> = {};
 let FACTIONS: Record<string, string> = {};
@@ -13,11 +14,13 @@ const UNDERGROUND_RESIDENTS = 23;
 const BANNERS: Record<number, string> = { 0: "church-of-seiros", 1: "black-eagles", 2: "blue-lions", 3: "golden-deer", 4: "agarthans" };
 
 export async function loadBattleIndexes(): Promise<void> {
-  const [data, crestData, factions, major, minor] = await Promise.all([
+  const [data, crestData, factions, major, minor, weapons] = await Promise.all([
     loadGameJson<{ characters: { id: number; allegiance: number }[]; factions: { id: number; name: string }[] }>("data/factions.json"),
     loadGameJson<{ characters: { id: number; crests: number[] }[]; crests: { id: number; name: string; major: boolean }[] }>("data/crests-by-person.json"),
     loadGameText("faction", gameLanguage()), loadGameText("crest_major", gameLanguage()), loadGameText("crest_minor", gameLanguage()),
+    loadGameJson<{ weapons: { id: number; raw?: string }[] }>("data/weapons.json"),
   ]);
+  indexCrystalWeapons(weapons?.weapons ?? []);
   CHARACTERS = Object.fromEntries((data?.characters ?? []).map((r) => [r.id, r.allegiance]));
   FACTIONS = Object.fromEntries((data?.factions ?? []).map((r) => [r.id, factions[String(r.id)] ?? r.name]));
   FACTIONS[UNDERGROUND_RESIDENTS] = "Underground Residents";

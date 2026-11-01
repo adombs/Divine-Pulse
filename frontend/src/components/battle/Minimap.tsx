@@ -102,7 +102,7 @@ interface Effect {
 
 /** Where a step's attack or heal badge goes: between the two units, or on the unit's corner when it heals itself. */
 function badgeSpot(actor: Piece, target: Piece | undefined): [number, number] {
-  return target && target.id !== actor.id ? [(actor.x + target.x) / 2 + 0.5, (actor.y + target.y) / 2 + 0.5] : [actor.x + 0.82, actor.y + 0.18];
+  return target && target.id !== actor.id ? [(actor.x + actor.span / 2 + target.x + target.span / 2) / 2, (actor.y + actor.span / 2 + target.y + target.span / 2) / 2] : [actor.x + actor.span * 0.82, actor.y + actor.span * 0.18];
 }
 
 const clamp01 = (t: number) => Math.max(0, Math.min(1, t));
@@ -162,7 +162,7 @@ function stage(board: Board, animation: StepAnimation | null | undefined, keep: 
       effects.push({ kind: "attack", x: bx, y: by, bx, by, t: act });
     } else if (action.kind === "heal") {
       const healed = target ?? actor;
-      effects.push({ kind: "heal", x: healed.x + 0.5, y: healed.y + 0.5, bx, by, t: act });
+      effects.push({ kind: "heal", x: healed.x + healed.span / 2, y: healed.y + healed.span / 2, bx, by, t: act });
     }
   }
   return { drawn, effects };
@@ -346,7 +346,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
       )}
       {moved && actor && action?.from && (
         <g className={`map-tone ${side}`}>
-          <Trail key={`${action.actor} ${action.from}`} id={`${uid}-move`} from={[mid(action.from[0]), mid(action.from[1])]} to={[mid(actor.x), mid(actor.y)]} gap={[0.2, 0.36]} />
+          <Trail key={`${action.actor} ${action.from}`} id={`${uid}-move`} from={[action.from[0] + actor.span / 2, action.from[1] + actor.span / 2]} to={[actor.x + actor.span / 2, actor.y + actor.span / 2]} gap={[0.2, 0.36 * actor.span]} />
           <ActionBadge kind="move" cx={mid(action.from[0])} cy={mid(action.from[1])} r={0.17} />
         </g>
       )}
@@ -375,7 +375,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
       ))}
       {moved && actor && target && (
         <g className={`map-tone ${aimed ?? "aim"}`}>
-          <Trail key={`${actor.id} ${target.id}`} id={`${uid}-aim`} from={[mid(actor.x), mid(actor.y)]} to={[mid(target.x), mid(target.y)]} gap={[0.36, 0.36]} />
+          <Trail key={`${actor.id} ${target.id}`} id={`${uid}-aim`} from={[actor.x + actor.span / 2, actor.y + actor.span / 2]} to={[target.x + target.span / 2, target.y + target.span / 2]} gap={[0.36 * actor.span, 0.36 * target.span]} />
         </g>
       )}
       {acted && aimed && actor && (aimed === "heal" || target) && (
@@ -519,6 +519,7 @@ const Token = memo(function Token({
       onKeyDown={onKey ? (e) => onKey(e, p.id) : undefined}
     >
       <title>{label}</title>
+      <g className="map-footprint" transform={`scale(${p.span})`}>
       {/* A whole tile to hover and click, not just the token. */}
       <rect className="map-hit" x={0} y={0} width={1} height={1} />
       {p.object ? (
@@ -564,6 +565,7 @@ const Token = memo(function Token({
       ) : (
         (selected || acting) && <Cursor kind={selected ? "picked" : "acting"} />
       )}
+      </g>
     </g>
   );
 });
@@ -784,7 +786,7 @@ export function MapSection({ battle, id }: { battle: Battle; id: string }) {
     return () => cancelAnimationFrame(t);
   }, [id]);
   if (!hasMap(battle) || !piece) return null;
-  const zoom = view([piece.x + 0.5, piece.y + 0.5], ZOOM_TILES[level], board);
+  const zoom = view([piece.x + piece.span / 2, piece.y + piece.span / 2], ZOOM_TILES[level], board);
   return (
     <Section
       title="Position"
