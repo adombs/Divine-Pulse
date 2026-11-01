@@ -29,6 +29,7 @@ BUILD, RELEASE = ROOT / "build", ROOT / "release"
 VENV = BUILD / "venv"
 APP_NAME = "Divine Pulse"
 NSTOOL = ROOT / "vendor" / "nstool" / "nstool.exe"
+DEV_PACKAGES = {"_pytest", "pytest", "pluggy", "iniconfig", "pygments", "httpx", "httpcore", "ruff"}  # requirements-dev.txt
 LICENSE_FOLDER = "Third-party licenses"
 LICENSE_NAME = re.compile(r"(licen[cs]e|copying|notice)", re.I)
 VENDORED_LICENSES = PACKAGING / "third-party-licenses"  # for what doesn't carry its own license text
@@ -111,7 +112,15 @@ def program() -> Path:
     made = BUILD / "dist" / APP_NAME
     if not made.exists():
         sys.exit(f"PyInstaller didn't produce {made}")
+    leaked = dev_modules((BUILD / "work" / "divine_pulse" / "PYZ-00.toc").read_text("utf-8", "replace"))
+    if leaked:
+        sys.exit(f"Development packages got into the program: {', '.join(leaked)}. Exclude them in {PACKAGING / 'divine_pulse.spec'}.")
     return made
+
+
+def dev_modules(toc: str) -> list[str]:
+    """Modules from packages only development needs, in the text of PyInstaller's module list."""
+    return sorted({name for name in re.findall(r"\('([\w.]+)',", toc) if name.split(".")[0] in DEV_PACKAGES})
 
 
 def readme(v: str) -> str:
@@ -246,9 +255,9 @@ def main() -> None:
         make_build_env(args)
     v = version()
     print(f"Divine Pulse {v} for Windows")
+    web_ui()  # before the tests: the API tests serve frontend/dist
     if not args.skip_tests:
         tests()
-    web_ui()
     files = package(program(), v)
     if not args.no_installer and (setup := installer(v)):
         files.append(setup)
