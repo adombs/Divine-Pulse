@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.3 (2026-10-31)
+
 - Restore Meals under Supports → Gifts & Lost Items; reimport game files to load the 32 dining hall meal names. Recipes and preferences are not yet decoded.
 
 ## 1.0.2 (2026-10-31)
