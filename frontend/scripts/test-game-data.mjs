@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { stripTypeScriptTypes } from "node:module";
+import { stripTypeScriptTypes } from "./strip-types.mjs";
 import { buildCharacters, buildReference, buildSupports, itemSummary, spellSummary } from "../src/reference/gameData.ts";
 
 const structure = { playableCharacters: [], playableClasses: [] };

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import { stripTypeScriptTypes } from "node:module";
+import { stripTypeScriptTypes } from "./strip-types.mjs";
 import { test } from "node:test";
 
 test("language defaults, falls back, and notifies on switching without downloading text", async () => {
