@@ -1,6 +1,6 @@
 /**
  * The Supports page: who can support whom (By Character and All Pairings), what the monastery activities
- * are worth (Gifts & Lost Items). Each view lives in
+ * are worth (Gifts, Meals, and Lost Items). Each view lives in
  * ./supports/; the page itself works out who the support cast is and keeps the views in step.
  */
 import { gameLanguageLocale } from "../../gameLanguage";
@@ -88,7 +88,7 @@ function SupportsContent({ units, part2 }: Props) {
         tabs={[
           { id: "character", label: "By Character", count: cast.length || undefined },
           { id: "matrix", label: "All Pairings", count: pairCount },
-          { id: "gifts", label: "Gifts & Lost Items" },
+          { id: "gifts", label: "Gifts, Meals, and Lost Items" },
         ]}
         tab={tab}
         onTab={setTab}
