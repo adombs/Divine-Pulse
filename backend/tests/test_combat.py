@@ -125,3 +125,32 @@ def test_what_a_unit_fights_with_follows_the_equipped_field():
     assert weapon_kind(replace(caster, equipped=EQUIPPED_SPELL + FIRE)) == "reason"
     assert weapon_kind(replace(caster, items=())) == "reason"
     assert weapon_kind(unit(items=())) == ""
+
+
+def test_crystal_weapon_icon_uses_raw_flag_without_changing_skill(monkeypatch):
+    from app.gamemem.combat import CombatData, Weapon
+    from app.infrastructure import inventory
+
+    def row(skill, raw):
+        return {"name": "Test", "uses": 20, "skill": skill, "might": 5, "hit": 80, "crit": 0,
+                "weight": 2, "min_range": 1, "max_range": 1, "flags": 0, **raw}
+
+    flagged = {"raw": "00" * 15 + "80"}
+    rows = {"16": row(0, flagged), "17": row(4, flagged), "18": row(0, {}), "19": row(4, {"raw": "00"})}
+    spells = {"0": row(5, flagged)}
+    monkeypatch.setattr(inventory.game_tables, "memory", lambda: {
+        "weapons": rows, "spells": spells, "abilities": [], "classes": {}, "characters": {},
+    })
+    inventory._load_tables.cache_clear()
+    data = CombatData.load()
+    for item, skill in ((16, 0), (17, 4)):
+        assert data.weapons[item].skill == skill
+        assert weapon_kind(unit(items=((item, 20),)), data) == "crest-stone"
+        assert inventory.weapon_kind("weapon", item) == "crest-stone"
+    for item, kind in ((18, "sword"), (19, "gauntlets")):
+        assert weapon_kind(unit(items=((item, 20),)), data) == kind
+        assert inventory.weapon_kind("weapon", item) == kind
+    assert inventory.weapon_kind("spell", 0) == "reason"
+    assert weapon_kind(replace(unit(items=((16, 20),), spells=(0,), uses=(10,)), equipped=EQUIPPED_SPELL), data) == "reason"
+    assert Weapon.from_row(20, row(0, {"raw": "invalid"}), False).crest_stone is False
+    inventory._load_tables.cache_clear()

@@ -42,7 +42,7 @@ MINIMAP_PIECES = {
     227: "badge-third", 241: "cursor", 242: "cursor-target", 252: "door", 253: "lever", 254: "crest-stone",
     255: "trap", 256: "chest", 257: "chest-open", 258: "wall", 259: "warp", 268: "weapon-sword",
     269: "weapon-lance", 270: "weapon-axe", 271: "weapon-bow", 272: "weapon-gauntlets", 273: "weapon-faith",
-    274: "weapon-reason", 275: "weapon-dark",
+    274: "weapon-reason", 275: "weapon-dark", 276: "weapon-crest-stone",
 }
 GRID_SPRITE, GRID_CELL = 220, (2, 2, 26, 26)  # the grid piece is one 24 px cell of the range panel's grid
 TERRAIN_TILES = (
