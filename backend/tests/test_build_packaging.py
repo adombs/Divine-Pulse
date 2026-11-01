@@ -13,6 +13,31 @@ build_script = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(build_script)
 
 
+def test_web_ui_is_built_before_the_tests_that_serve_it(monkeypatch):
+    calls = []
+    monkeypatch.setattr(build_script.sys, "argv", ["build.py", "--current-env", "--no-installer"])
+    monkeypatch.setattr(build_script, "web_ui", lambda: calls.append("web_ui"))
+    monkeypatch.setattr(build_script, "tests", lambda: calls.append("tests"))
+    monkeypatch.setattr(build_script, "program", lambda: calls.append("program"))
+    monkeypatch.setattr(build_script, "package", lambda *_: [])
+    monkeypatch.setattr(build_script, "checksums", lambda _: None)
+
+    build_script.main()
+
+    assert calls == ["web_ui", "tests", "program"]
+
+
+def test_dev_modules_names_development_packages_only():
+    toc = """[('_pytest', 'x', 'PYMODULE'), ('_pytest.outcomes', 'x', 'PYMODULE'), ('anyio.pytest_plugin', 'x', 'PYMODULE'),
+    ('pluggy', 'x', 'PYMODULE'), ('fastapi', 'x', 'PYMODULE'), ('packaging', 'x', 'PYMODULE')]"""
+    assert build_script.dev_modules(toc) == ["_pytest", "_pytest.outcomes", "pluggy"]
+
+
+def test_spec_excludes_pytest_and_its_internals():
+    spec = (build_script.PACKAGING / "divine_pulse.spec").read_text(encoding="utf-8")
+    assert '"pytest"' in spec and '"_pytest"' in spec
+
+
 def test_package_copies_nstool_into_program_and_portable_zip(tmp_path, monkeypatch):
     executable = tmp_path / "vendor" / "nstool.exe"
     executable.parent.mkdir()

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+First public release.
+
+- Leave unused test framework code out of the program.
+
 ## 1.2.7 (2026-11-01)
 
 - Add NSP files from multiple folders and manage the selection before importing.
@@ -76,8 +80,6 @@
 - Importing game files now says what's missing when a dump isn't complete: it needs the game with update 1.2.0 and its ExeFS. DLC stays optional.
 
 ## 1.0.0 (2026-10-31)
-
-First public release.
 
 - Tracks your army, battles and runs by reading the game's memory in Eden, with nothing to type.
 - Battle page: live units, outlook, action log from the game's Divine Pulse history, map and step-by-step replay.
