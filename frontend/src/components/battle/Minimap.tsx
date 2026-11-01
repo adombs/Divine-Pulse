@@ -499,12 +499,13 @@ const Token = memo(function Token({
   // Your units and other characters with a name of their own, as against generic units.
   const named = p.army || p.sprite.character !== null;
   const want = named ? look.named : look.generic;
-  // A character with no sprite of their own here (a story character such as Jeralt) is drawn as a generic unit
-  // would be; a unit with no sprite or portrait at all, as a weapon badge.
+  // Try the character's sprite, then its generic class sprite, then its portrait. Weapon badges are the last resort
+  // unless explicitly selected in Appearance.
   const layers = p.object || want !== "sprites" || !sprites ? null : ((named ? spriteLayers(sprites, p.sprite, true) : null) ?? spriteLayers(sprites, p.sprite, false));
   const importedFaceUrl = useGameImageUrl(importedFace ?? "");
   const spriteUrl = useGameImageUrl("images/map/class-sprites.png");
-  const face = !p.object && want === "portraits" ? (importedFaceUrl || portrait) : null;
+  const hasSprite = !!(sprites && layers && spriteUrl);
+  const face = !p.object && want !== "badges" && !hasSprite ? (importedFaceUrl || portrait) : null;
   // The HP bar just under the unit's tile, as wide as its badge.
   const bar = face ? { x: PORTRAIT.x, w: PORTRAIT.w } : { x: BADGE.x, w: BADGE.size };
   return (
@@ -526,7 +527,7 @@ const Token = memo(function Token({
         <g className="map-token object">
           <MapImage href={objectIcon(p.name)} x={0} y={0} width={1} height={1} />
         </g>
-      ) : sprites && layers && spriteUrl ? (
+      ) : hasSprite && sprites && layers ? (
         <g className="map-token sprite">
           <UnitSprite index={sprites} layers={layers} side={army} />
         </g>
