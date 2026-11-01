@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.2.6 (2026-11-01)
+
 - Import selected NSP files directly from the portable app using bundled extraction tools.
 - Include the full license text of every bundled component in a `Third-party licenses` folder beside the program.
 
