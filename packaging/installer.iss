@@ -53,10 +53,13 @@ Filename: "{app}\{#AppExe}"; Description: "Start {#AppName}"; Flags: nowait post
 var
   GamePage: TInputDirWizardPage;
   NspPage: TInputFileWizardPage;
+  NspSelectPage: TWizardPage;
+  NspList: TNewListBox;
   ReviewPage: TWizardPage;
   ReviewList: TNewMemo;
   KeepFiles, ImportFiles: TRadioButton;
-  HasImport, Stopped: Boolean;
+  UseNsps: TNewCheckBox;
+  HasImport, Stopped, WantNsps: Boolean;
 
 // The install folder as chosen so far. {app} can't be used before the folder page is done (InitializeWizard
 // reads the last dump folder), so read the wizard's own value.
@@ -133,7 +136,24 @@ begin
   Result := '';
 end;
 
+procedure AddNspClick(Sender: TObject);
+var
+  FileName: String;
+begin
+  FileName := '';
+  if GetOpenFileName('Choose a Three Houses NSP', FileName, GamePage.Values[0],
+      'NSP files|*.nsp', 'nsp') and (NspList.Items.IndexOf(FileName) < 0) then
+    NspList.Items.Add(FileName);
+end;
+
+procedure RemoveNspClick(Sender: TObject);
+begin
+  if NspList.ItemIndex >= 0 then NspList.Items.Delete(NspList.ItemIndex);
+end;
+
 procedure InitializeWizard;
+var
+  AddButton, RemoveButton: TNewButton;
 begin
   GamePage := CreateInputDirPage(wpSelectDir, 'Game files', 'Choose your game files',
     'Choose your own Fire Emblem: Three Houses game files, including update 1.2.0. DLC is optional. Nothing is uploaded.', False, '');
@@ -147,7 +167,26 @@ begin
   ImportFiles.Parent := GamePage.Surface;
   ImportFiles.Caption := 'Import game files from the selected folder';
   ImportFiles.SetBounds(0, ScaleY(124), GamePage.SurfaceWidth, ScaleY(20));
-  ReviewPage := CreateCustomPage(GamePage.ID, 'Review game files',
+  UseNsps := TNewCheckBox.Create(GamePage);
+  UseNsps.Parent := GamePage.Surface;
+  UseNsps.Caption := 'I want to select NSP files';
+  UseNsps.SetBounds(0, ScaleY(150), GamePage.SurfaceWidth, ScaleY(20));
+  NspSelectPage := CreateCustomPage(GamePage.ID, 'Choose NSP files',
+    'Add your Three Houses base game, update 1.2.0, and any DLC files. Only the files listed here will be imported.');
+  NspList := TNewListBox.Create(NspSelectPage);
+  NspList.Parent := NspSelectPage.Surface;
+  NspList.SetBounds(0, 0, NspSelectPage.SurfaceWidth, ScaleY(170));
+  AddButton := TNewButton.Create(NspSelectPage);
+  AddButton.Parent := NspSelectPage.Surface;
+  AddButton.SetBounds(0, ScaleY(178), ScaleX(110), ScaleY(25));
+  AddButton.Caption := 'Add NSP...';
+  AddButton.OnClick := @AddNspClick;
+  RemoveButton := TNewButton.Create(NspSelectPage);
+  RemoveButton.Parent := NspSelectPage.Surface;
+  RemoveButton.SetBounds(ScaleX(118), ScaleY(178), ScaleX(110), ScaleY(25));
+  RemoveButton.Caption := 'Remove selected';
+  RemoveButton.OnClick := @RemoveNspClick;
+  ReviewPage := CreateCustomPage(NspSelectPage.ID, 'Review game files',
     'Review what setup found. Your files will be checked when they are imported.');
   ReviewList := TNewMemo.Create(ReviewPage);
   ReviewList.Parent := ReviewPage.Surface;
@@ -254,40 +293,14 @@ begin
   end;
 end;
 
-procedure ListNsps(Folder: String; Lines: TStrings);
-var
-  FindRec: TFindRec;
-begin
-  if FindFirst(AddBackslash(Folder) + '*.nsp', FindRec) then begin
-    try
-      repeat
-        if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
-          Lines.Add('NSP: ' + AddBackslash(Folder) + FindRec.Name);
-      until not FindNext(FindRec);
-    finally
-      FindClose(FindRec);
-    end;
-  end;
-  if FindFirst(AddBackslash(Folder) + '*', FindRec) then begin
-    try
-      repeat
-        if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0) and
-           (FindRec.Name <> '.') and (FindRec.Name <> '..') and
-           (FindRec.Attributes and FILE_ATTRIBUTE_REPARSE_POINT = 0) then
-          ListNsps(AddBackslash(Folder) + FindRec.Name, Lines);
-      until not FindNext(FindRec);
-    finally
-      FindClose(FindRec);
-    end;
-  end;
-end;
-
 procedure DescribeGameFiles(Folder: String; Lines: TStrings);
+var
+  I: Integer;
 begin
   Lines.Clear;
   Lines.Add('Selected folder: ' + Folder);
   Lines.Add('');
-  if LooksLikeDump(Folder) then begin
+  if not WantNsps then begin
     Lines.Add('Found extracted game files.');
     if HasNsp(Folder) then
       Lines.Add('NSP files were also found. Setup will use the extracted game files.');
@@ -298,7 +311,8 @@ begin
   end else begin
     Lines.Add('Found NSP files.');
     Lines.Add('');
-    ListNsps(Folder, Lines);
+    for I := 0 to NspList.Items.Count - 1 do
+      Lines.Add('NSP: ' + NspList.Items[I]);
     Lines.Add('');
     Lines.Add('Setup will identify the game, update and any DLC when opening these files.');
   end;
@@ -355,9 +369,10 @@ end;
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
   Result := ((PageID = ReviewPage.ID) and HasImport and KeepFiles.Checked) or
+    ((PageID = NspSelectPage.ID) and
+    ((HasImport and KeepFiles.Checked) or not WantNsps)) or
     ((PageID = NspPage.ID) and
-    ((HasImport and KeepFiles.Checked) or not HasNsp(GamePage.Values[0]) or
-     LooksLikeDump(GamePage.Values[0])));
+    ((HasImport and KeepFiles.Checked) or not WantNsps));
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -365,6 +380,13 @@ var
   Folder: String;
 begin
   Result := True;
+  if CurPageID = NspSelectPage.ID then begin
+    if NspList.Items.Count = 0 then begin
+      MsgBox('Please add your Three Houses NSP files.', mbError, MB_OK);
+      Result := False;
+    end;
+    Exit;
+  end;
   if CurPageID = NspPage.ID then begin
     if not FileExists(NspPage.Values[0]) then begin
       MsgBox('Please choose your prod.keys file. Check that the file still exists.', mbError, MB_OK);
@@ -377,23 +399,34 @@ begin
   if not DirExists(Folder) then begin
     MsgBox('Please choose a folder that exists on your computer.', mbError, MB_OK);
     Result := False;
-  end else if not LooksLikeDump(Folder) and not HasNsp(Folder) then begin
+  end else if not UseNsps.Checked and not LooksLikeDump(Folder) and not HasNsp(Folder) then begin
     MsgBox('Setup could not find extracted game files or NSP files in this folder. Please choose the folder containing your game files.', mbError, MB_OK);
     Result := False;
-  end;
+  end else
+    WantNsps := UseNsps.Checked or (HasNsp(Folder) and not LooksLikeDump(Folder));
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
+var
+  I: Integer;
+  NspPath: String;
 begin
   Result := '';
   if WizardSilent then begin
     HasImport := HasGameFiles;
     if (ExpandConstant('{param:DUMP|}') = '') and not HasImport then
       Result := 'Divine Pulse needs your game files; supply /DUMP="<folder>".'
-    else if (ExpandConstant('{param:DUMP|}') <> '') and HasNsp(ExpandConstant('{param:DUMP|}')) and
-      not LooksLikeDump(ExpandConstant('{param:DUMP|}')) and
-      not FileExists(ExpandConstant('{param:KEYS|}')) then
-      Result := 'NSP extraction requires /KEYS="<prod.keys>".';
+    else if ExpandConstant('{param:NSP1|}') <> '' then begin
+      if not FileExists(ExpandConstant('{param:KEYS|}')) then
+        Result := 'NSP extraction requires /KEYS="<prod.keys>".';
+      for I := 1 to 16 do begin
+        NspPath := ExpandConstant('{param:NSP' + IntToStr(I) + '|}');
+        if (NspPath <> '') and not FileExists(NspPath) then
+          Result := 'A selected NSP file does not exist: ' + NspPath;
+      end;
+    end else if (ExpandConstant('{param:DUMP|}') <> '') and HasNsp(ExpandConstant('{param:DUMP|}')) and
+      not LooksLikeDump(ExpandConstant('{param:DUMP|}')) then
+      Result := 'Select NSP files with /NSP1="<file>" and /NSP2="<file>" (up to /NSP16).';
   end;
 end;
 
@@ -441,8 +474,8 @@ procedure CurStepChanged(CurStep: TSetupStep);
 var
   Folder, Reason, Nstool, Keys, Params: String;
   Lines: TArrayOfString;
-  Code: Integer;
-  Success, Retry: Boolean;
+  Code, I: Integer;
+  Success, Retry, UsingNsps: Boolean;
 begin
   if CurStep <> ssPostInstall then Exit;
   if WizardSilent then begin
@@ -468,15 +501,30 @@ begin
     if (MsgBox(Reason + #13#10#13#10 + 'Choose OK to import them again, or Cancel to stop setup.',
         mbError, MB_OKCANCEL) <> IDOK) or
        not BrowseForFolder('Choose the folder with your game files:', Folder, False) then StopSetup(Reason);
+    if not LooksLikeDump(Folder) then StopSetup('To select NSP files, restart setup.');
+    WantNsps := False;
     if not ConfirmRetryFolder(Folder) then StopSetup(Reason);
   end;
   repeat
-    if HasNsp(Folder) and not LooksLikeDump(Folder) and not WizardSilent then begin
+    UsingNsps := (not WizardSilent and WantNsps) or
+      (WizardSilent and (ExpandConstant('{param:NSP1|}') <> ''));
+    if UsingNsps then begin
+      if not WizardSilent and (NspList.Items.Count = 0) then StopSetup('To select NSP files, restart setup.');
       if not FileExists(Keys) and not GetOpenFileName('Choose your prod.keys', Keys, '',
           'Key files|*.keys|All files|*.*', 'keys') then StopSetup('Your prod.keys is required.');
     end;
     ShowBusy('Importing your game files...');
     Params := '--import-game-files "' + Folder + '"';
+    if UsingNsps then begin
+      if WizardSilent then begin
+        for I := 1 to 16 do begin
+          Reason := ExpandConstant('{param:NSP' + IntToStr(I) + '|}');
+          if Reason <> '' then Params := Params + ' --nsp "' + Reason + '"';
+        end;
+      end else
+        for I := 0 to NspList.Items.Count - 1 do
+          Params := Params + ' --nsp "' + NspList.Items[I] + '"';
+    end;
     if Nstool <> '' then Params := Params + ' --nstool "' + Nstool + '"';
     if Keys <> '' then Params := Params + ' --keys "' + Keys + '"';
     if not Exec(ExpandConstant('{app}\{#AppExe}'), Params,
@@ -489,14 +537,16 @@ begin
       if GetArrayLength(Lines) > 0 then Reason := Lines[GetArrayLength(Lines) - 1];
     Retry := False;
     if not WizardSilent then begin
+      if UsingNsps then
+        StopSetup(Reason + #13#10#13#10 + 'Restart setup to choose NSP files again.');
       Retry := MsgBox('Setup could not import your game files: ' + Reason + #13#10#13#10 +
         'Choose Retry to select another folder, or Cancel to stop setup.', mbError, MB_RETRYCANCEL) = IDRETRY;
       if Retry then
         Retry := BrowseForFolder('Choose the folder with your game files:', Folder, False);
+      if Retry and not LooksLikeDump(Folder) then
+        StopSetup('To select NSP files, restart setup.');
+      if Retry then WantNsps := False;
       if Retry then Retry := ConfirmRetryFolder(Folder);
-      if Retry and HasNsp(Folder) and not LooksLikeDump(Folder) then begin
-        Keys := '';
-      end;
     end;
     if not Retry then StopSetup(Reason);
   until Success;

@@ -105,6 +105,46 @@ def test_cli_prefers_nested_dump_over_nested_nsps(tmp_path, monkeypatch):
     assert (data / "game-assets" / "data" / "example.json").exists()
 
 
+def test_main_imports_only_explicit_nsps_even_when_folder_contains_other_files(tmp_path, monkeypatch):
+    from app.infrastructure import nsp_extractor
+
+    data, dump = configure(tmp_path, monkeypatch)
+    selected = [tmp_path / "base game.nsp", tmp_path / "other folder" / "update.NSP"]
+    selected[1].parent.mkdir()
+    for path in selected:
+        path.touch()
+    (dump / "unrelated.nsp").touch()
+    received = []
+
+    def extract_nsps(inputs, tool, keys, output, log):
+        received.extend(inputs)
+        fake_dump(output / "romfs")
+
+    def run(ctx):
+        ctx.out.json("data/example.json", {"ok": True}, source="test")
+        return {"data": {"files": 1, "skipped": []}}
+
+    monkeypatch.setattr(nsp_extractor, "extract_nsps", extract_nsps)
+    monkeypatch.setattr(importer, "run", run)
+    monkeypatch.setattr(entry.sys, "argv", ["Divine Pulse.exe", "--import-game-files", str(dump),
+                                           "--nstool", "nstool.exe", "--keys", "prod.keys",
+                                           "--nsp", str(selected[0]), "--nsp", str(selected[1])])
+    with pytest.raises(SystemExit) as imported:
+        entry.main()
+    assert imported.value.code == 0
+    assert received == selected
+    assert (data / "game-assets" / "data" / "example.json").exists()
+
+
+def test_missing_explicit_nsp_argument_fails_instead_of_scanning_folder(tmp_path, monkeypatch, capsys):
+    _data, dump = configure(tmp_path, monkeypatch)
+    monkeypatch.setattr(entry.sys, "argv", ["Divine Pulse.exe", "--import-game-files", str(dump), "--nsp"])
+    with pytest.raises(SystemExit) as imported:
+        entry.main()
+    assert imported.value.code == 1
+    assert "Choose at least one NSP file" in capsys.readouterr().out
+
+
 def test_main_handles_the_setup_flags(monkeypatch):
     # The packaged program calls main() (packaging/launcher.py), so the flags must work there, not only under __main__.
     monkeypatch.setattr(entry, "import_game_files", lambda folder: 3 if folder == "dump" else 9)

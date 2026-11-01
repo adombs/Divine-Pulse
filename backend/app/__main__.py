@@ -46,7 +46,7 @@ def _find_nsps(folder: Path) -> list[Path]:
     return sorted(found)
 
 
-def import_game_files(folder: str, nstool: str = "", keys: str = "") -> int:
+def import_game_files(folder: str, nstool: str = "", keys: str = "", nsps: list[str] | None = None) -> int:
     """Run the same import as Settings without starting the desktop or server."""
     from .gamefiles import dump
     from .infrastructure.game_assets import game_assets
@@ -67,17 +67,22 @@ def import_game_files(folder: str, nstool: str = "", keys: str = "") -> int:
         log_file = (DATA_DIR / "game-assets-import.log").open("w", encoding="utf-8")
         output("Finding game files...")
         source = Path(folder)
-        existing = dump.find(source) if source.is_dir() else None
-        nsps = ([source] if source.is_file() and source.suffix.lower() == ".nsp" else
-                _find_nsps(source)
-                if source.is_dir() and not existing.romfs else [])
+        if nsps is not None:
+            if not nsps or any(not name or name.startswith("--") for name in nsps):
+                raise ValueError("Choose at least one NSP file.")
+            packages = [Path(name) for name in nsps]
+        else:
+            existing = dump.find(source) if source.is_dir() else None
+            packages = ([source] if source.is_file() and source.suffix.lower() == ".nsp" else
+                        _find_nsps(source)
+                        if source.is_dir() and not existing.romfs else [])
         with tempfile.TemporaryDirectory(prefix="divine-pulse-nsp-") as temp:
-            if nsps:
+            if packages:
                 if not nstool or not keys:
                     raise ValueError("Choose NSTool and prod.keys to import NSP files.")
                 from .infrastructure.nsp_extractor import extract_nsps
                 output("Extracting NSP files (this can take a while)...")
-                extract_nsps(nsps, Path(nstool), Path(keys), Path(temp), output)
+                extract_nsps(packages, Path(nstool), Path(keys), Path(temp), output)
                 source = Path(temp)
             found = dump.find(source)
             if found.problems:
@@ -197,13 +202,17 @@ def main() -> None:
     if "--import-game-files" in sys.argv[1:]:
         index = sys.argv.index("--import-game-files")
         folder = sys.argv[index + 1] if index + 1 < len(sys.argv) else ""
-        if "--nstool" in sys.argv or "--keys" in sys.argv:
+        if "--nstool" in sys.argv or "--keys" in sys.argv or "--nsp" in sys.argv:
             def option(name: str) -> str:
                 if name not in sys.argv:
                     return ""
                 i = sys.argv.index(name)
                 return sys.argv[i + 1] if i + 1 < len(sys.argv) else ""
 
+            selected = [sys.argv[i + 1] if i + 1 < len(sys.argv) else ""
+                        for i, arg in enumerate(sys.argv) if arg == "--nsp"]
+            if selected:
+                sys.exit(import_game_files(folder, option("--nstool"), option("--keys"), selected))
             sys.exit(import_game_files(folder, option("--nstool"), option("--keys")))
         sys.exit(import_game_files(folder))
     if "--check-game-files" in sys.argv[1:]:
