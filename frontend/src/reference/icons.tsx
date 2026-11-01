@@ -5,6 +5,7 @@ import "./icons.css";
 import { loadGameJson, loadGameText } from "../gameAssets";
 import { gameLanguage } from "../gameLanguage";
 import { GameImage } from "../components/GameImage";
+import { artWeapon } from "./gameData";
 
 type Manifest = {
   abilities: Record<string, string>;
@@ -56,7 +57,7 @@ export async function loadReferenceIcons(): Promise<void> {
   for (const [kind, rows, names, file] of [["weapons", weapons?.weapons, texts[3], "items/sword"], ["equipment", equipment?.equipment, texts[4], "items/shield"], ["items", items?.items, texts[5], "items/potion"]] as const)
     add(ITEMS, rows, names, (r) => nativePath(kind, r, file));
   for (const row of arts?.combat_arts ?? []) {
-    const weapon = ["sword", "lance", "axe", "bow", "brawling"][parseInt(row.raw?.slice(20, 22) ?? "", 16) - 1] ?? "other";
+    const weapon = artWeapon(row).toLowerCase();
     for (const name of [row.name, texts[1][String(row.id)]]) if (name) ARTS.set(norm(name), { weapon, icon: `images/icons/combat-arts/${weapon}.png` });
   }
   for (const row of crests?.crests ?? []) {

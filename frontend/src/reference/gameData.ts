@@ -68,7 +68,7 @@ const signed = (value: unknown) => typeof value === "number" && value >= 128 && 
 // A combat art's row `raw` bytes: [3] might, [4] crit, [5] hit, [10] cost, [11] longest and [12] shortest range, [13] weapon bit.
 const rawByte = (r: Row, index: number) => typeof r.raw === "string" ? parseInt(r.raw.slice(index * 2, index * 2 + 2), 16) : NaN;
 const ART_WEAPONS: Record<number, string> = { 1: "Sword", 2: "Lance", 4: "Axe", 8: "Bow", 16: "Brawling" };
-const artWeapon = (r: Row) => ART_WEAPONS[rawByte(r, 13)] ?? "Other";
+export const artWeapon = (r: Row) => ART_WEAPONS[rawByte(r, 13)] ?? "Other";
 const artRange = (r: Row) => {
   const longest = rawByte(r, 11), shortest = rawByte(r, 12);
   return longest > 0 && shortest > 0 ? (shortest === longest ? String(longest) : `${shortest}–${longest}`) : "";

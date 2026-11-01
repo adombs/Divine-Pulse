@@ -2,13 +2,45 @@ import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import { test } from "node:test";
+import ts from "typescript";
 import { battleWeapon, indexCrystalWeapons } from "../src/components/battle/unitAppearance.ts";
+import { artWeapon } from "../src/reference/gameData.ts";
 
-async function moduleWithStubs(path, stubs) {
+async function moduleWithStubs(path, stubs, compile = stripTypeScriptTypes) {
   const source = await readFile(new URL(path, import.meta.url), "utf8");
   const stripped = source.replace(/^import .*;\r?\n/gm, "");
-  return import(`data:text/javascript,${encodeURIComponent(`${stubs}\n${stripTypeScriptTypes(stripped)}`)}`);
+  return import(`data:text/javascript,${encodeURIComponent(`${stubs}\n${compile(stripped)}`)}`);
 }
+
+const compileTsx = (source) => ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.React } }).outputText;
+
+test("a combat art's icon follows its weapon, whatever the art costs", async () => {
+  // Byte 10 is the durability cost and byte 13 the weapon. Each cost below is also a valid-looking weapon number, so reading the wrong byte picks the wrong icon.
+  const row = (id, name, cost, weapon) => {
+    const bytes = Array(16).fill(0);
+    bytes[10] = cost;
+    bytes[13] = weapon;
+    return { id, name, raw: bytes.map((byte) => byte.toString(16).padStart(2, "0")).join("") };
+  };
+  globalThis.artFixture = {
+    artWeapon,
+    arts: [row(0, "Sword art", 3, 0x01), row(1, "Lance art", 5, 0x02), row(2, "Axe art", 1, 0x04), row(3, "Bow art", 2, 0x08), row(4, "Brawling art", 4, 0x10), row(5, "Any weapon art", 1, 0x3f)],
+  };
+  const icons = await moduleWithStubs("../src/reference/icons.tsx", `
+    const React = {};
+    const artWeapon = globalThis.artFixture.artWeapon;
+    const loadGameJson = async (path) => path.includes('combat-arts') ? { combat_arts: globalThis.artFixture.arts } : {};
+    const loadGameText = async () => ({});
+    const gameLanguage = () => 'ENG_U';
+  `, compileTsx);
+  await icons.loadReferenceIcons();
+  for (const [name, tile, weapon] of [["Sword art", "sword", "sword"], ["Lance art", "lance", "lance"], ["Axe art", "axe", "axe"], ["Bow art", "bow", "bow"], ["Brawling art", "brawling", "gauntlets"]]) {
+    assert.equal(icons.artIconUrl(name), `images/icons/combat-arts/${tile}.png`);
+    assert.equal(icons.artWeaponIconUrl(name), `images/icons/weapons/${weapon}.png`);
+  }
+  assert.equal(icons.artIconUrl("Any weapon art"), "images/icons/combat-arts/other.png");
+  assert.equal(icons.artWeaponIconUrl("Any weapon art"), null);
+});
 
 test("portrait variants, repeated IDs, and generic class aliases use imported paths", async () => {
   globalThis.lookupFixture = {
