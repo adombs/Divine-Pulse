@@ -125,11 +125,12 @@ def make_zip(path: Path, names: list[str]) -> Path:
 
 
 LICENSES = [f"Divine Pulse/{name}" for name in game_content.LICENSE_FILES]
+LICENSE_TEXT = f"Divine Pulse/{game_content.LICENSE_FOLDER}python.txt"
 
 
 def test_zip_check_passes_a_clean_release(tmp_path: Path) -> None:
     names = [
-        *LICENSES, "Divine Pulse/Divine Pulse.exe", "Divine Pulse/_internal/frontend_dist/index.html",
+        *LICENSES, LICENSE_TEXT, "Divine Pulse/Divine Pulse.exe", "Divine Pulse/_internal/frontend_dist/index.html",
         "Divine Pulse/_internal/frontend_dist/brand/mark.png", "Divine Pulse/_internal/app/data/icon.png",
         "Divine Pulse/_internal/PIL/data/sample.png", "Divine Pulse/_internal/numpy/fixed_point.bin",
     ]
@@ -142,7 +143,8 @@ def test_zip_check_names_game_content_and_missing_licenses(tmp_path: Path) -> No
         "Divine Pulse/_internal/PIL/data/sample.png",
     ]
     found = game_content.check_zip(make_zip(tmp_path / "bad.zip", names))
-    assert len(found) == 3
+    assert len(found) == 4
     assert any("frontend/dist/assets/face.png" in line for line in found)
     assert any("backend/app/data/x.g1t" in line for line in found)
     assert any("missing GFDL-1.3.txt" in line for line in found)
+    assert any(f"missing {game_content.LICENSE_FOLDER}" in line for line in found)

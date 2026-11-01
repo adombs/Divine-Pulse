@@ -86,5 +86,8 @@ PC are fixed on start:
   Edge. Without it, the tracker opens in the default browser instead.
 - **Content.** The release contains no game content. `tools/release.py` scans the built zip with the same rules the
   repository test uses (`tools/game_content.py`): it refuses game images, game file formats or data, and a missing
-  `LICENSE.txt`, `Third-party notices.txt` or `GFDL-1.3.txt` beside the program. Players import their own dump on
-  first run.
+  `LICENSE.txt`, `Third-party notices.txt`, `GFDL-1.3.txt` or `Third-party licenses` folder beside the program.
+  Players import their own dump on first run.
+- **Licenses.** `tools/build.py` copies each bundled package's license text into `Third-party licenses`, and stops if
+  one has none. Add the missing text to `packaging/third-party-licenses/`, named after the package, and name the
+  package in [the third-party notices](third-party-notices.md); a test checks both.

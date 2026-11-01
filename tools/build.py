@@ -14,11 +14,13 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import json
 import os
 import re
 import shutil
 import subprocess
 import sys
+from importlib import metadata
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -27,6 +29,11 @@ BUILD, RELEASE = ROOT / "build", ROOT / "release"
 VENV = BUILD / "venv"
 APP_NAME = "Divine Pulse"
 NSTOOL = ROOT / "vendor" / "nstool" / "nstool.exe"
+LICENSE_FOLDER = "Third-party licenses"
+LICENSE_NAME = re.compile(r"(licen[cs]e|copying|notice)", re.I)
+VENDORED_LICENSES = PACKAGING / "third-party-licenses"  # for what doesn't carry its own license text
+BUILD_PACKAGES = ("packaging", "pyinstaller", "setuptools")  # end up in the program without being runtime requirements
+FRONTEND_PACKAGES = ("scheduler", "@phosphor-icons/core")  # in the web UI bundle, beyond package.json's dependencies
 
 
 def step(text: str) -> None:
@@ -112,12 +119,81 @@ def readme(v: str) -> str:
     return text.replace("{version}", v)
 
 
+def runtime_distributions() -> dict[str, metadata.Distribution]:
+    """The Python packages requirements.txt pulls in, with their dependencies, by normalized name."""
+    from packaging.requirements import Requirement
+
+    todo = [
+        Requirement(line) for line in (BACKEND / "requirements.txt").read_text("utf-8").splitlines()
+        if line.strip() and not line.startswith(("#", "-"))
+    ]
+    found: dict[str, metadata.Distribution] = {}
+    extras: dict[str, set[str]] = {}
+    while todo:
+        wanted = todo.pop()
+        name = normalize(wanted.name)
+        if name in found and wanted.extras <= extras[name]:
+            continue
+        extras[name] = extras.get(name, set()) | wanted.extras
+        found[name] = metadata.distribution(name)
+        for text in found[name].requires or []:
+            child = Requirement(text)
+            if child.marker is None or any(child.marker.evaluate({"extra": e}) for e in extras[name] or {""}):
+                todo.append(child)
+    return found
+
+
+def normalize(name: str) -> str:
+    return re.sub(r"[-_.]+", "-", name).lower()
+
+
+def license_files(dist: metadata.Distribution) -> list[tuple[Path, str]]:
+    """A package's license files as (source, path inside its .dist-info): names repeat, as in httptools' vendored ones."""
+    out = []
+    for file in dist.files or []:
+        parts = file.parts
+        if parts[0].endswith(".dist-info") and LICENSE_NAME.match(file.name):
+            out.append((Path(str(file.locate())), "/".join(parts[1:])))
+    return out
+
+
+def third_party_licenses(folder: Path) -> None:
+    """The license text of everything bundled, in Third-party licenses/. A package without one stops the build."""
+    target = folder / LICENSE_FOLDER
+    shutil.rmtree(target, ignore_errors=True)
+    shutil.copytree(VENDORED_LICENSES, target)
+    vendored = {path.stem for path in VENDORED_LICENSES.iterdir()}
+    packages = runtime_distributions()
+    packages.update({name: metadata.distribution(name) for name in BUILD_PACKAGES})
+    missing = []
+    for name, dist in sorted(packages.items()):
+        files = license_files(dist)
+        if not files and name not in vendored:
+            missing.append(name)
+        for source, inside in files:
+            copied = target / name / inside
+            copied.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, copied)
+    manifest = json.loads((FRONTEND / "package.json").read_text("utf-8"))
+    for name in [*manifest["dependencies"], *FRONTEND_PACKAGES]:
+        source = FRONTEND / "node_modules" / name / "LICENSE"
+        if not source.is_file():
+            missing.append(name)
+            continue
+        copied = target / "frontend" / name / "LICENSE"
+        copied.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, copied)
+    if missing:
+        sys.exit(f"No license text found for: {', '.join(missing)}. Add one to {VENDORED_LICENSES}.")
+
+
 def notes(folder: Path, v: str) -> None:
-    """The read-me, the program's license, and the third-party notices with the full GFDL text, next to the program."""
+    """The read-me, the program's license, the third-party notices and license texts, next to the program."""
     (folder / "Read me.txt").write_text(readme(v), "utf-8")
     shutil.copy2(ROOT / "LICENSE", folder / "LICENSE.txt")
     shutil.copy2(ROOT / "docs" / "third-party-notices.md", folder / "Third-party notices.txt")
     shutil.copy2(FRONTEND / "src" / "reference" / "wiki" / "LICENSE-GFDL-1.3.txt", folder / "GFDL-1.3.txt")
+    third_party_licenses(folder)
 
 
 def package(made: Path, v: str) -> list[Path]:
