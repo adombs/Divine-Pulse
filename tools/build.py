@@ -32,7 +32,7 @@ NSTOOL = ROOT / "vendor" / "nstool" / "nstool.exe"
 LICENSE_FOLDER = "Third-party licenses"
 LICENSE_NAME = re.compile(r"(licen[cs]e|copying|notice)", re.I)
 VENDORED_LICENSES = PACKAGING / "third-party-licenses"  # for what doesn't carry its own license text
-BUILD_PACKAGES = ("pyinstaller", "setuptools")  # end up in the program without being runtime requirements
+BUILD_PACKAGES = ("packaging", "pyinstaller", "setuptools")  # end up in the program without being runtime requirements
 FRONTEND_PACKAGES = ("scheduler", "@phosphor-icons/core")  # in the web UI bundle, beyond package.json's dependencies
 
 

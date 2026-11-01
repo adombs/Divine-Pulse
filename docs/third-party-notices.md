@@ -89,6 +89,7 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 | websockets, python-dotenv, click, colorama, idna, proxy_tools, pycparser (Uvicorn, pywebview and clr-loader dependencies) | BSD-3-Clause |
 | PyYAML, httptools, watchfiles, h11, anyio, six, setuptools | MIT |
 | OpenTelemetry API (a FastAPI and Starlette dependency) | Apache-2.0 |
+| packaging (the Python package) | Apache-2.0 or BSD-2-Clause |
 | Microsoft WebView2 libraries (included with pywebview) | BSD-3-Clause |
 | PyInstaller bootloader (starts the program) | GPL-2.0 with the bootloader exception, which allows bundling it with programs under any license |
 | React, React DOM, scheduler | MIT |
