@@ -2,9 +2,28 @@
 
 <img src="branding/icons/app-icon-rounded-1024.png" alt="" width="96" align="right">
 
-Tracks your Fire Emblem: Three Houses units' HP, Mv and effective base stat totals (eBST) and your battles across
-playthroughs. Play in the **Eden** emulator: the tracker reads your army straight from the game's memory and keeps
-the active run up to date by itself, with nothing to press.
+**Stats and battle replays for Fire Emblem: Three Houses.** Divine Pulse is a free, open-source Windows app that
+reads your army and battles from the **Eden** emulator while you play, and keeps them on your PC. Start a run and
+play: the app sits in the tray and keeps it up to date, without opening menus in the game.
+
+[Download for Windows](https://github.com/adombs/Divine-Pulse/releases/latest) ·
+[Development](#development) · [Technical guides](docs/README.md) · [Contributing](.github/CONTRIBUTING.md)
+
+## What it does
+
+- **Follow a battle live, then replay it.** See the timer, turn, every unit's HP and an estimated chance of winning.
+  Replay the battle step by step on its map, alongside the action log, unit statistics, records and graphs.
+- **Keep what Divine Pulse undid.** Rewound actions remain in the log as alternate timelines; switch between them
+  or view their branches in the tree.
+- **Track your whole army.** Stats, classes and abilities come from game memory for every unit at once. Sort the
+  roster and compare effective base stat totals (eBST), with or without ability bonuses.
+- **Keep every battle across your runs.** Each playthrough has its own run. History combines its battles into
+  totals, records and character statistics, with saved maps, logs and replays.
+- **Browse the game's data from your own copy.** Characters, Archive and Supports provide an offline reference
+  matching your imported language and DLC. Spoilers stay hidden until enabled.
+
+No account, telemetry or internet connections made by the app itself. It only reads emulator memory; it never
+changes the game. The sections below cover setup, tracking behavior and the development workflow.
 
 ## What you need
 
@@ -19,7 +38,7 @@ game, an emulator, or a way to get either.
 
 ## Install (Windows 10/11, 64-bit)
 
-Download the latest release and either:
+Download the [latest release](https://github.com/adombs/Divine-Pulse/releases/latest) and either:
 
 - run **`Divine-Pulse-<version>-setup.exe`**: it installs for your user (no administrator prompt) with Start
   menu and desktop shortcuts, and asks for your FE3H 1.2.0 dump or NSPs to import your game files; or
@@ -78,10 +97,10 @@ The tracker reads your units straight from the game:
 
 - **Every unit in your army** is added or updated at once, not just the one on screen, and you don't need to
   open any menu in game.
-- **The numbers are exact.** Stats, class, abilities, accessory, personal ability and full name come from the
-  game itself, so there are no misreads.
-- The game is read every second (**Settings → General**, 0.1–60 s; reading takes a few microseconds, so 1 s costs
-  nothing). A change is stored once two reads in a row agree, and each read that changed anything is one update log
+- Stats, class, abilities, accessory, personal ability and full name come from game memory. The chance of winning
+  and inferred fights are estimates, distinguished from directly read events below.
+- The game is read every second by default (**Settings → General**, 0.1–60 s). A change is stored once two reads
+  in a row agree, and each read that changed anything is one update log
   entry with one Undo, however many units it touched. During a battle the game is read more often:
   **Settings → Battles → Battle read interval** (a change reaches the Battle page one or two reads after it happens).
 
@@ -280,7 +299,32 @@ GPL-3.0. See [LICENSE](LICENSE).
 
 ## Development
 
-You need Python 3.12 or newer and Node.js 24 on `PATH`. After cloning, run this once from the project folder:
+The supported workflow is Windows 10/11 (64-bit), Python 3.12+ and Node.js 24.x on `PATH`, plus Git.
+Packaged users need neither Python nor Node. Only Eden with FE3H 1.2.0 has been tested; other detected
+yuzu-based emulators are untested, and Ryujinx is unsupported.
+
+### Architecture and where to work
+
+The desktop shell hosts a React/TypeScript UI in pywebview (Edge WebView2). A Python FastAPI backend serves the
+built UI and HTTP API on loopback, reads emulator memory, and saves runs and battles as local JSON. Live UI
+notifications use server-sent events at `/api/events`.
+
+| Area | Responsibility | Guide |
+|---|---|---|
+| `backend/app/domain/` | Unit, run and battle values and pure rules | [Backend architecture](docs/BACKEND_ARCHITECTURE.md) |
+| `backend/app/application/` | Operations, roster updates and Undo, battle lifecycle, dependency protocols | [Backend architecture](docs/BACKEND_ARCHITECTURE.md) |
+| `backend/app/infrastructure/`, `gamemem/`, `system/` | Persistence, reference lookups, polling and emulator/OS adapters | [Reading game memory](docs/reading-game-memory.md), [porting](docs/porting.md) |
+| `backend/app/interface/`, `composition.py` | HTTP adapters and construction/lifetime of backend services | [API contracts](docs/api-contracts.md) |
+| `frontend/src/` | React shell, feature components, API client and synchronization | [Frontend structure](docs/frontend-architecture.md), [UI design](docs/ui-design.md) |
+| `tools/`, `packaging/` | Setup, demos, Windows builds and releases | [Release guide](docs/releasing.md) |
+
+Backend dependencies point from adapters toward application operations and domain rules; the core must not import
+concrete memory readers or stores. The frontend's API types are maintained manually, so coordinate response changes
+with `frontend/src/api.ts` and the API contract. See the architecture guides before extending either side.
+
+### Set up and run
+
+After cloning, run this once from the project folder:
 
 ```bat
 tools\setup.bat
@@ -293,18 +337,60 @@ See [the contributing guide](.github/CONTRIBUTING.md) for checks and the contrib
 indexed in [docs](docs/README.md). Source-mode data goes in `data/` in the project folder (or set
 `DIVINE_PULSE_DATA_DIR`).
 
-For development, also install the test and lint packages:
+For development, also install the test and lint packages. From the repository root:
 
-```bat
+```powershell
 cd backend
 .venv\Scripts\python -m pip install -r requirements-dev.txt
-.venv\Scripts\python -m pytest
-.venv\Scripts\python -m app --server           :: API + built UI on :8765, no window or tray
-.venv\Scripts\python -m app --browser          :: open in the browser instead of the desktop window
-
-cd ..\frontend
-npm run dev                                     :: UI with hot reload on :5173 (proxies /api)
 ```
+
+Run the backend in one terminal (from `backend/`):
+
+```powershell
+.venv\Scripts\python -m app --server
+```
+
+This serves the API and built UI at `http://127.0.0.1:8765` without a window or tray. It still reads a running
+emulator. Use a separate `DIVINE_PULSE_DATA_DIR` for experiments so they do not update your normal runs.
+Alternatively, `python -m app --browser` using the same venv opens the app in a browser.
+
+For frontend hot reload, start a second terminal from the repository root:
+
+```powershell
+cd frontend
+npm run dev
+```
+
+Open `http://localhost:5173`; Vite proxies `/api` to the backend on port 8765. The setup script already installs
+frontend dependencies and builds the UI; for a manual setup or after lockfile changes, run `npm ci` in `frontend/`.
+
+### Checks and contribution rules
+
+Run the required checks before opening a PR. From the repository root:
+
+```powershell
+cd backend
+.venv\Scripts\python -m ruff check --config pyproject.toml . ../tools ../packaging
+.venv\Scripts\python -m pytest -q
+cd ../frontend
+npm test
+npm run build
+```
+
+The build includes TypeScript checks. There is no CI; these local checks are required by the contributing guide.
+Public tests use synthetic inputs and need no game files. Optional private-data tests use
+`DIVINE_PULSE_GAME_ASSETS`, `DIVINE_PULSE_GAME_DUMP` and `DIVINE_PULSE_CAPTURES`; see
+[Contributing](.github/CONTRIBUTING.md#optional-test-inputs) for their meanings.
+
+Never commit game art, text, tables, dumps or memory captures. Import your own files locally; the repository-root
+`game-assets/` folder is ignored. The source-mode import location differs from packaged installs, where imports
+live inside the data folder. See the [importer guide](docs/game-assets/README.md).
+
+Use a typed branch and PR (for example `docs/improve-setup`); add an Unreleased changelog entry for player-visible
+changes. Read [Contributing](.github/CONTRIBUTING.md) for the full process and the [security policy](.github/SECURITY.md)
+for private vulnerability reports.
+
+### Demos and builds
 
 To see the Battle page without playing, `python tools/demo_battle.py` (needs an import of your game files) runs the app on a throwaway data folder with
 a scripted battle (http://127.0.0.1:8799/#/battle): units move, fight, heal, level up and fall on a small map, and a
