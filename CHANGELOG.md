@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Fix combat art icons, which showed the wrong weapon on 64 of the 80 arts. No reimport needed.
 - Import dining hall recipes and character meal preferences from your game files; Meals now shows ingredients, quantities, and liked/disliked portraits like Gifts. Reimport game files to update an existing import.
 
 - The Supports page's Gifts & Lost Items tab is now called Gifts, Meals, and Lost Items.
