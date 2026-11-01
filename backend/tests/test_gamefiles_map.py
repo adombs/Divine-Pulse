@@ -109,8 +109,9 @@ def test_map_family_on_a_real_dump(tmp_path):
     def count(prefix: str) -> int:
         return sum(1 for rel in files if rel.startswith(prefix))
 
-    assert len(json.loads((tmp_path / "data" / "maps.json").read_text("utf-8"))["maps"]) == 41
+    expected = 41 if "cindered_shadows" in ctx.dump.dlc else 37  # that DLC adds four maps
+    assert len(json.loads((tmp_path / "data" / "maps.json").read_text("utf-8"))["maps"]) == expected
     assert len(json.loads((tmp_path / "data" / "terrain.json").read_text("utf-8"))["tiles"]) == maps.TERRAIN_IDS
-    assert count("images/map/minimaps/") == 41
+    assert count("images/map/minimaps/") == expected
     assert count("images/map/minimap-pieces/") == len(maps.MINIMAP_PIECES)
     assert {"images/map/class-sprites.png", "images/map/map-heads.png", "data/class-sprites.json"} <= set(files)

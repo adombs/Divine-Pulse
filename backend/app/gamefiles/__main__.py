@@ -42,8 +42,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "extract":
         found = dumps.find(args.dump)
         print("\n".join(found.describe()))
-        if found.exefs and found.version is None:
-            print("This game build is not supported (only 1.2.0 is); stopping.", file=sys.stderr)
+        if found.problems:
+            print("\n".join(found.problems), file=sys.stderr)
             return 2
         if args.out.exists() and not args.keep and not args.only:
             shutil.rmtree(args.out)

@@ -5,6 +5,7 @@ from app import __main__ as entry
 from app.infrastructure import game_assets as assets_module
 from app.infrastructure import game_assets_import as importer
 from app.infrastructure.settings import SettingsStore
+from helpers.fake_import import fake_dump
 
 
 def configure(tmp_path, monkeypatch):
@@ -14,9 +15,7 @@ def configure(tmp_path, monkeypatch):
     monkeypatch.setattr(entry, "SettingsStore", lambda: SettingsStore(data / "settings.json"))
     monkeypatch.setattr(assets_module, "_shared", assets_module.GameAssets(data / "game-assets"))
     dump = tmp_path / "dump" / "romfs"
-    (dump / "nx").mkdir(parents=True)
-    (dump / "DATA0.bin").write_bytes(b"0")
-    (dump / "DATA1.bin").write_bytes(b"0")
+    fake_dump(dump)
     return data, dump.parent
 
 

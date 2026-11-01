@@ -58,7 +58,7 @@ def scan(folder: str) -> dict:
     found = dump.find(Path(folder))
     build = found.build
     return {"romfs": str(found.romfs) if found.romfs else None, "exefs": str(found.exefs) if found.exefs else None,
-            "build": build, "version": found.version, "supported": build is None or found.version is not None,
+            "build": build, "version": found.version, "supported": found.version is not None,
             "parts": found.parts(), "importable": not found.problems, "problems": found.problems,
             "dlc": {name: str(found.dlc[name]) if name in found.dlc else None
                     for name in dump.DLC_TITLES.values()}}
@@ -90,7 +90,7 @@ def _describe(folder: Path) -> dict | None:
         if found.romfs is None:
             return None
         return {"path": str(folder), "romfs": str(found.romfs), "exefs": bool(found.exefs),
-                "version": found.version, "supported": found.exefs is None or found.version is not None,
+                "version": found.version, "supported": found.version is not None,
                 "parts": found.parts(), "importable": not found.problems, "problems": found.problems,
                 "dlc": [name for name in dump.DLC_TITLES.values() if name in found.dlc],
                 "modified": found.romfs.stat().st_mtime}
@@ -149,10 +149,8 @@ class GameAssetsImport:
             if self.job["state"] == "running":
                 raise BusyError("An import is already running.")
             found = dump.find(Path(folder))
-            if found.romfs is None:
-                raise ValueError("Base game not found")
-            if found.exefs and found.version is None:
-                raise ValueError("This game build is not supported (only 1.2.0 is).")
+            if found.problems:
+                raise ValueError(" ".join(found.problems))
             self.settings.update(last_dump=folder)
             self.job = {"state": "running", "phase": "starting", "done": 0, "total": len(FAMILIES) + 1,
                         "error": None, "log": []}

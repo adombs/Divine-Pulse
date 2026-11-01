@@ -18,6 +18,7 @@ DLC_TITLES = {
     "010055D009F79006": "officers_academy_uniform",
 }
 SUPPORTED_BUILDS = {"89048449BA238C8CF565518B83BF02D3": "1.2.0"}
+UPDATE_PATCH = 4  # update 1.2.0's newest patch folder
 # SHA-256 of each 33,920-byte DATA0 index in the supplied desktop DLC dumps.
 DLC_INDEX_HASHES = {
     "787E74AFEBD8E53EE68841C857ECEFE2A6CD6B4D6F5FF3365877BF43DCB78615": "010055D009F79001",
@@ -61,20 +62,23 @@ class GameDump:
     def version(self) -> str | None:
         return SUPPORTED_BUILDS.get(self.build)
 
-    def parts(self) -> list[dict]:
+    def _latest_patch(self) -> tuple[int, Path] | None:
         patches = [(int(m.group(1)), root) for root in self.updates for p in root.iterdir()
                    if p.is_dir() and (m := PATCH.fullmatch(p.name))]
-        latest = max(patches, default=None, key=lambda item: item[0])
-        update_detail = ("1.2.0" if latest[0] == 4 else f"patch{latest[0]}") if latest else None
+        return max(patches, default=None, key=lambda item: item[0])
+
+    def parts(self) -> list[dict]:
+        latest = self._latest_patch()
+        update_detail = ("1.2.0" if latest[0] == UPDATE_PATCH else f"patch{latest[0]}") if latest else None
         parts = [
             {"id": "base", "name": "Base game", "found": self.romfs is not None,
              "path": str(self.romfs) if self.romfs else None,
              "detail": None, "required": True},
             {"id": "update", "name": "Update", "found": bool(latest),
-             "path": str(latest[1]) if latest else None, "detail": update_detail, "required": False},
+             "path": str(latest[1]) if latest else None, "detail": update_detail, "required": True},
             {"id": "exefs", "name": "ExeFS", "found": bool(self.exefs),
              "path": str(self.exefs) if self.exefs else None,
-             "detail": self.version or self.build, "required": False},
+             "detail": self.version or self.build, "required": True},
         ]
         for title, name in DLC_TITLES.items():
             path = self.dlc.get(name)
@@ -84,9 +88,16 @@ class GameDump:
 
     @property
     def problems(self) -> list[str]:
+        """Why this dump can't be imported. It must be 1.2.0: the base game, the update and the update's ExeFS. DLC is
+        optional."""
         problems = [] if self.romfs else ["Base game not found"]
-        if self.build and not self.version:
-            problems.append(f"ExeFS is from an unsupported build {self.build}.")
+        latest = self._latest_patch()
+        if not latest or latest[0] < UPDATE_PATCH:
+            problems.append(f"Update 1.2.0 not found: the dump needs the update's patch{UPDATE_PATCH} folder.")
+        if not self.exefs:
+            problems.append("ExeFS not found: the dump needs the main file from update 1.2.0.")
+        elif not self.version:
+            problems.append(f"ExeFS is from another game version (build {self.build}): only 1.2.0 is supported.")
         return problems
 
     def describe(self) -> list[str]:
