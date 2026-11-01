@@ -289,7 +289,10 @@ export function buildSupports(files: Record<string, unknown>, wiki: { a: string;
     const canonical = portraitEntries[String(person.id)]?.name;
     return canonical ? [[canonical, personName(person.id, person.name)]] : [];
   }));
-  return { names: displayNames, pairs: updatedPairs, people };
+  const meals = Object.entries(texts.meal ?? {})
+    .filter(([id, name]) => /^(?:[0-9]|[12][0-9]|3[01])$/.test(id) && name.trim())
+    .map(([id, name]) => ({ id, name }));
+  return { names: displayNames, pairs: updatedPairs, people, meals };
 }
 
 export async function loadImportedSupports(wiki: Parameters<typeof buildSupports>[1], excludedPairs: number[][]): Promise<SupportData> {
@@ -299,7 +302,7 @@ export async function loadImportedSupports(wiki: Parameters<typeof buildSupports
     const { gameLanguage, loadGameLanguage } = await import("../gameLanguage");
     await loadGameLanguage();
     const names = ["supports", "gifts", "characters"];
-    const [values, characterGiven, gift] = await Promise.all([Promise.all(names.map((name) => loadGameJson(`data/${name}.json`))), loadGameText("character_given", gameLanguage()), loadGameText("gift", gameLanguage())]);
-    return buildSupports(Object.fromEntries(names.map((name, i) => [name, values[i]])), wiki, { character_given: characterGiven, gift }, excludedPairs);
+    const [values, characterGiven, gift, meal] = await Promise.all([Promise.all(names.map((name) => loadGameJson(`data/${name}.json`))), loadGameText("character_given", gameLanguage()), loadGameText("gift", gameLanguage()), loadGameText("meal", gameLanguage())]);
+    return buildSupports(Object.fromEntries(names.map((name, i) => [name, values[i]])), wiki, { character_given: characterGiven, gift, meal }, excludedPairs);
   } catch { return buildSupports({}, wiki); }
 }

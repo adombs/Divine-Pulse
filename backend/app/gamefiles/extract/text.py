@@ -62,6 +62,7 @@ CATEGORIES = (
     Category("scenario_title", range(100), 0),
     Category("battle_place", range(28), 957),
     Category("gift", range(245), 10147),
+    Category("meal", range(32), 9852),
 )
 
 

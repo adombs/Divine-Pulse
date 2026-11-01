@@ -1,6 +1,5 @@
 /**
- * Gifts & Lost Items: the monastery data the other way round — pick an item on the left and the card says
- * who it is for, with faces big enough to recognise.
+ * Gifts & Lost Items: pick an item to see who it is for, or look up imported dining hall meal names.
  */
 import { CONCEPT_ICON } from "../../../icons/concepts";
 import { useMemo, useState } from "react";
@@ -14,13 +13,14 @@ import { searchMatches } from "../../../fuzzy";
 import { CharLink } from "../../Links";
 import { Person } from "./shared";
 
-type Kind = "lost" | "gifts";
+type Kind = "lost" | "gifts" | "meals";
 
-const KIND_ICON = { lost: CONCEPT_ICON.lostItem, gifts: CONCEPT_ICON.gifts } as const;
+const KIND_ICON = { lost: CONCEPT_ICON.lostItem, gifts: CONCEPT_ICON.gifts, meals: CONCEPT_ICON.meals } as const;
 
 const LABELS: [Kind, string][] = [
   ["lost", "Lost Items"],
   ["gifts", "Gifts"],
+  ["meals", "Meals"],
 ];
 
 interface Group {
@@ -64,11 +64,14 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
       ],
       search: [g, ...(liked.get(g) ?? []), ...(disliked.get(g) ?? [])],
     }));
-    return { lost, gifts } satisfies Record<Kind, Entry[]>;
+    const meals: Entry[] = data.meals.map((meal) => ({
+      id: meal.id, title: meal.name, groups: [], search: [meal.name],
+    })).sort((a, b) => a.title.localeCompare(b.title));
+    return { lost, gifts, meals } satisfies Record<Kind, Entry[]>;
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const matching = (k: Kind) => lists[k].filter((e) => searchMatches(q, ...e.search));
-  const counts = { lost: 0, gifts: 0 } as Record<Kind, number>;
+  const counts = { lost: 0, gifts: 0, meals: 0 } as Record<Kind, number>;
   for (const [k] of LABELS) counts[k] = matching(k).length;
   const rows = matching(kind);
   const current = rows.find((e) => e.id === picked) ?? rows[0] ?? null;
@@ -84,7 +87,7 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
         }}
         options={LABELS.map(([id, label]) => [id, <>{label}<span className="seg-count">{counts[id]}</span></>] as const)}
       />
-      <SearchBox placeholder="Search items or names" value={q} onChange={setQ} />
+      <SearchBox placeholder={kind === "meals" ? "Search meals" : "Search items or names"} value={q} onChange={setQ} />
     </div>
   );
 
@@ -100,9 +103,15 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
   }
 
   return (
-    <MasterDetail wide detail={<ItemCard entry={current} people={people} part2={part2} />}>
+    <MasterDetail wide detail={kind === "meals" ? (
+      <DetailCard title={current?.title ?? "Meals"} label={current?.title ?? "Meals"}>
+        <p>Recipes and character meal preferences are not yet available from the game import.</p>
+      </DetailCard>
+    ) : <ItemCard entry={current} people={people} part2={part2} />}>
       {toolbar}
-      {rows.length === 0 && (
+      {kind === "meals" && lists.meals.length === 0 ? (
+        <EmptyState title="Import meal names">Reimport your game files in Settings to add the dining hall's meals.</EmptyState>
+      ) : rows.length === 0 && (
         <NoMatches what={LABELS.find(([k]) => k === kind)![1].toLowerCase()} onReset={q ? () => setQ("") : undefined} />
       )}
       {rows.length === 0 && elsewhere.length > 0 && (
@@ -134,13 +143,13 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
                   <span className="sup-item-text">
                     <span className="sup-item-name">{e.title}</span>
                   </span>
-                  <span className="sup-item-faces">
+                  {kind !== "meals" && <span className="sup-item-faces">
                     {faces.slice(0, 6).map((n) => (
                       <KeyPortrait key={n} portraitKey={keyFor(people, n)} name={n} part2={part2} size={28} />
                     ))}
                     {faces.length > 6 && <span className="sup-more">+{faces.length - 6}</span>}
                     {faces.length === 0 && <span className="muted small">Nobody</span>}
-                  </span>
+                  </span>}
                   <Icon name={CONCEPT_ICON.open} className="sup-caret" />
                 </button>
               </li>

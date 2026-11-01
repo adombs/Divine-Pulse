@@ -20,6 +20,7 @@ Strings are referenced by index only.
 | Gift/lost item table (price etc., per item id 0-244) | `fixed_presentdata.bin` section 0 (245 rows x 0xC), section 2 (45 x 0x30), section 3 (10 x 2) | unread beyond first u16 | likely (names resolve via item id) |
 | Gift/lost item names | `common/common/msgdata.bin` (patch4), language 1, file 2: pool string `10147 + item id` | NUL-split pool | verified |
 | Dish names | same pool, `9857 + dish id` (0-31) | | verified |
+| Imported meal names | indexed file 2 strings `9852 + dish id` (0-31), category `meal` | excludes unused slots | verified |
 | Tea names | same pool, `5253 + tea id` (0-17) | | likely (names only) |
 | Liked/disliked meals, recipes, teas, tea topics, drills | not found | | not found |
 
