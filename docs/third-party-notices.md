@@ -87,12 +87,16 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 | pythonnet, clr-loader | MIT |
 | pystray | LGPL-3.0 |
 | websockets, python-dotenv, click, colorama, idna, proxy_tools, pycparser (Uvicorn, pywebview and clr-loader dependencies) | BSD-3-Clause |
-| PyYAML, httptools, watchfiles, h11, anyio | MIT |
+| PyYAML, httptools, watchfiles, h11, anyio, six, setuptools | MIT |
+| OpenTelemetry API (a FastAPI and Starlette dependency) | Apache-2.0 |
+| Microsoft WebView2 libraries (included with pywebview) | BSD-3-Clause |
 | PyInstaller bootloader (starts the program) | GPL-2.0 with the bootloader exception, which allows bundling it with programs under any license |
-| React, React DOM | MIT |
+| React, React DOM, scheduler | MIT |
 | Fonts via Fontsource: EB Garamond, Cinzel, Cormorant Garamond, Alegreya, Spectral, Crimson Pro, Atkinson Hyperlegible | SIL Open Font License 1.1 |
 | [Phosphor Icons](https://phosphoricons.com) (the app's icons; copyright 2023 Phosphor Icons) | MIT |
 
-The Windows installer is built with [Inno Setup](https://jrsoftware.org/isinfo.php). The full license texts are in
-each package's distribution. The LGPL components are used unmodified, as
-separate Python modules inside the program folder, so they can be replaced.
+The Windows installer is built with [Inno Setup](https://jrsoftware.org/isinfo.php). The full license texts ship in
+the `Third-party licenses` folder beside the program; the texts the packages don't carry themselves are in
+`packaging/third-party-licenses/`. pystray (LGPL-3.0) is used unmodified and stored as compiled Python modules inside
+`Divine Pulse.exe`. To use a modified copy, change it in your build environment and rebuild from this source with
+`tools/build.py`.

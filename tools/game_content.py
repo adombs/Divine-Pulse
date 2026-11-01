@@ -26,6 +26,7 @@ JSON_OK = {"fe-wiki.json"}
 PUBLIC_OK = ("brand/", "favicon.png")
 SPEC_DATAS = {"frontend_dist", "app/data"}
 LICENSE_FILES = ("LICENSE.txt", "Third-party notices.txt", "GFDL-1.3.txt")
+LICENSE_FOLDER = "Third-party licenses/"
 
 
 def check_path(path: str, size: int = 0) -> str | None:
@@ -78,4 +79,6 @@ def check_zip(path: Path) -> list[str]:
     found = [(p, i.file_size) for i in infos if (p := bundled_path(i.filename))]
     top = {i.filename.split("/", 1)[1] for i in infos if "/" in i.filename}
     missing = [f"{path.name}: missing {name}" for name in LICENSE_FILES if name not in top]
+    if not any(name.startswith(LICENSE_FOLDER) for name in top):
+        missing.append(f"{path.name}: missing {LICENSE_FOLDER}")
     return check_files(found) + missing
