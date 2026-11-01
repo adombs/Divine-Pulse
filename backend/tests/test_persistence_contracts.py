@@ -6,9 +6,41 @@ import pytest
 from app.config import SettingsStore
 from app.infrastructure.persistence import BattleStore, RunStore
 from app.domain.battle import Battle
+from app.domain.battle import BattleUnitStats
 from app.domain.ebst import EbstConfig
 from app.domain.units import Unit
 from helpers.saved_data import a_battle, saved_runs
+
+
+@pytest.mark.parametrize("character", [0, 1])
+@pytest.mark.parametrize("scenario,expected", [(9, "dark"), (10, "dark"), (11, "green"), (83, "dark")])
+def test_saved_byleth_look_recovers_from_battle_story_without_rewriting_files(tmp_path, character, scenario, expected):
+    store = BattleStore(tmp_path / "battles")
+    byleth = BattleUnitStats(key="renamed", name="Professor", start_level=20, level=20, start={}, now={}, character=character, look="dark")
+    battle = a_battle(scenario=scenario, units=[byleth])
+    store.add(battle)
+    store.save_active(battle)
+    files = {p: p.read_bytes() for p in store.dir.glob("*.json")}
+    assert store.list(battle.run_id)[0].units[0].look == expected
+    assert store.load_active(battle.run_id).units[0].look == expected
+    assert all(p.read_bytes() == original for p, original in files.items())
+
+
+@pytest.mark.parametrize("scenario,finished,expected", [(9, True, "dark"), (10, False, "dark"), (10, True, "green"), (11, False, "green"), (83, True, "dark")])
+def test_roster_retains_post_chapter_10_state_after_reload(tmp_path, scenario, finished, expected):
+    runs, battles = RunStore(tmp_path / "runs"), BattleStore(tmp_path / "battles")
+    runs.battles, battles.on_change = battles, runs.refresh_route
+    run = runs.create("Test")
+    runs.put_unit(run.id, "professor", Unit(name="Professor", game_id=1, look="dark", portrait_gender="female"))
+    battle = a_battle(run_id=run.id, scenario=scenario)
+    if finished:
+        battles.add(battle)
+    else:
+        battles.save_active(battle.model_copy(update={"ended_at": None}))
+    restored = RunStore(runs.dir)
+    restored.battles = battles
+    unit = restored.get(run.id).units["professor"]
+    assert (unit.look, unit.portrait_gender) == (expected, "female")
 
 
 def test_apply_units_batches_writes_and_preserves_new_unit_defaults(tmp_path, monkeypatch):

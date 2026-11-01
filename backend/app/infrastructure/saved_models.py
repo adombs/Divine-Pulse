@@ -7,6 +7,7 @@ from pydantic import model_validator
 from ..domain.ebst import ordered_others
 from ..domain.runs import Run as DomainRun
 from ..domain.inventory import InventoryItem
+from ..domain.units import byleth_look
 from .inventory import weapon_kind
 
 
@@ -65,6 +66,11 @@ def decode_battle(data: dict):
     units = []
     for unit in data.get("units", []):
         unit = dict(unit)
+        # Hair is derived from this recording's story progress, not today's roster. Repair the old chapter-11 rule.
+        if unit.get("character") in (0, 1):
+            look = byleth_look(data.get("scenario"), in_battle=True)
+            if look is not None:
+                unit["look"] = look
         for field in ("inventory", "usage"):
             if field in unit and unit[field] is not None:
                 unit[field] = _reference_items(unit[field])

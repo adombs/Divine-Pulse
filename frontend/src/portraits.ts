@@ -202,7 +202,7 @@ export function portraitUrl(u: Unit, part2: boolean): string | null {
 export function portraitUrlForKey(key: string, part2: boolean, green?: boolean): string | null {
   const looks = LOOKS.get(key);
   if (!looks) return null;
-  if (key.startsWith("byleth") && looks.part2 && (green ?? runBylethGreen)) return bundledPortrait(looks.part2);
+  if (key.startsWith("byleth") && (green !== undefined || runBylethGreen)) return bundledPortrait((green ?? runBylethGreen) && looks.part2 ? looks.part2 : looks.part1);
   return bundledPortrait(part2 && spoilerShown("portraits") && looks.part2 ? looks.part2 : looks.part1);
 }
 
@@ -235,6 +235,7 @@ const nameSlug = (s: string) => s.toLowerCase().replace(/[^\p{L}? ]/gu, "").trim
  * name (it changes: Tomas becomes Solon, Rhea Seiros) and a seed to pick among a class's generic faces. `object`: not
  * a unit but a thing the game keeps as one (a breakable wall; also known by its name). */
 export interface Face {
+  look?: string | null;
   object?: boolean;
   character?: number | null;
   classId?: number | null;
@@ -252,6 +253,7 @@ const NPC_CHILDHOOD = new Set([70, 71]);
 const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 
 function fileOf(entry: ManifestCharacter, f: Face, part2: boolean): string {
+  if ((f.character === 0 || f.character === 1) && f.look) return f.look === "green" ? entry.part2 ?? entry.part1 : entry.part1;
   const text = norm(f.name ?? "");
   const v = entry.variants ?? {};
   if (v.seiros && text.includes("seiros")) return v.seiros;

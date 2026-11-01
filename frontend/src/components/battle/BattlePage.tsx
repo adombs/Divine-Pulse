@@ -121,7 +121,7 @@ export function BattleView(p: ViewProps) {
     const out = new Map<string, string | null>();
     for (const u of battle.units) {
       const mine = p.roster.find((r) => r.key === u.key);
-      out.set(armyId(u.key), (mine && portraitUrl(mine, p.part2)) || faceUrl({ character: u.character, classId: u.class_id, female: u.female, name: u.name, seed: u.key }, p.part2));
+      out.set(armyId(u.key), (mine && portraitUrl({ ...mine, look: u.look ?? mine.look }, p.part2)) || faceUrl({ character: u.character, classId: u.class_id, female: u.female, name: u.name, seed: u.key, look: u.look }, p.part2));
     }
     for (const [slot, e] of Object.entries(battle.enemy_stats ?? {})) {
       out.set(enemyId(slot), faceUrl({ character: e.character, classId: e.class_id, female: e.female, name: e.name || e.label, seed: slot }, p.part2));
@@ -132,7 +132,8 @@ export function BattleView(p: ViewProps) {
     const out = new Map<string, string>();
     for (const u of battle.units) {
       if (u.hp != null && u.now.hp > 0 && u.hp / u.now.hp < 0.25) {
-        const face = expressionPaths(portraitData, u.character, p.part2 && showLaterPortraits)[HURT_EXPRESSION];
+        const later = u.character === 0 || u.character === 1 ? u.look === "green" : p.part2 && showLaterPortraits;
+        const face = expressionPaths(portraitData, u.character, later)[HURT_EXPRESSION];
         if (face) out.set(armyId(u.key), face);
       }
     }
