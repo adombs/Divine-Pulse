@@ -83,6 +83,7 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
       </div>}
       {showFlow && !running && status && <div className="game-files-flow">
         <h2>Where is your dump?</h2>
+        <p className="hint">Only have NSP files? <a href="https://github.com/adombs/nsp-unpacker" target="_blank" rel="noreferrer">NSP Unpacker</a> extracts them into a folder you can import. It runs <a href="https://github.com/jakcron/nstool" target="_blank" rel="noreferrer">NSTool</a> by Jack (jakcron), which you download separately, and needs your own prod.keys.</p>
         {found.length > 0 && <div className="game-files-choices" role="radiogroup" aria-label="Detected dumps">{found.map((candidate) => <label key={candidate.path} className="game-files-choice">
           <input type="radio" name="dump" checked={candidate.path === dump} onChange={() => setDump(candidate.path)} />
           <span><strong>{candidate.path.replace(/[\\/]+$/, "").split(/[\\/]/).pop()}</strong><span className="hint game-files-path">{candidate.path}</span><span className="hint">{[candidate.version, `${candidate.dlc.length} DLC`].filter(Boolean).join(" \u00b7 ")}</span></span>
