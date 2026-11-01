@@ -348,7 +348,7 @@ export function Timelines({ columns, jump, current = null }: Props) {
     ["--tl-oy" as string]: `${PAD + step / 2}px`,
   };
   return (
-    <div className="timelines-wrap" style={{ ["--tl-dot" as string]: `${dot}px` }}>
+    <div className="timelines-wrap" style={{ ["--tl-dot" as string]: `${dot}px`, ["--tl-caption-scale" as string]: Math.min(1, step / fit(IN_VIEW)) }}>
       <div className="toolbar tl-toolbar">
         <span className="toolbar-end map-tools">
           <ZoomSlider
