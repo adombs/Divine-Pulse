@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Restore Meals under Supports → Gifts & Lost Items; reimport game files to load the 32 dining hall meal names. Recipes and preferences are not yet decoded.
+
 ## 1.0.2 (2026-10-31)
 
 - Byleth's portrait now follows their hair in your game: green from the Sothis merge on, on the roster and the Characters page too.

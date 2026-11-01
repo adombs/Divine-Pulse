@@ -86,6 +86,9 @@ assert.deepEqual(social.pairs[0].ranks, ["C", "B"]);
 assert.deepEqual(social.pairs[0].avail, { C: "later" });
 assert.deepEqual(social.people.B.liked_gifts, ["new"]);
 assert.deepEqual(buildSupports({}, []).pairs, []);
+assert.deepEqual(buildSupports({}, []).meals, []);
+assert.deepEqual(buildSupports({}, [], { meal: { 0: "First meal", 31: "Last meal", 32: "Unused dish", 5: " " } }).meals,
+  [{ id: "0", name: "First meal" }, { id: "31", name: "Last meal" }]);
 
 // Byleth pairs come in a male and a female version; S rank follows the wiki availability of each.
 const bylethSocial = buildSupports({ characters: { characters: [{ id: 0, name: "Byleth" }, { id: 501, name: "B" }] }, supports: { pairs: [{ a: 0, b: 501, a_name: "Byleth", b_name: "B", ranks: ["C", "B", "A", "S"] }] } },

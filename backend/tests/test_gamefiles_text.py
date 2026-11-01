@@ -69,6 +69,12 @@ def test_categories_have_unique_names():
     assert all(isinstance(c, Category) for c in text.CATEGORIES)
 
 
+def test_meal_names_use_indexed_strings_and_exclude_unused_slots():
+    table = _table({9852: "First meal", 9883: "Last meal", 9884: "Unused dish"})
+    names = text._language([[], [], table], list(range(1201)))
+    assert names["meal"] == {"0": "First meal", "31": "Last meal"}
+
+
 def test_items_match_their_documented_ranges():
     item = next(c for c in text.CATEGORIES if c.name == "item")
     assert item.base == 3656 and item.ids[0] == 1000
@@ -98,3 +104,4 @@ def test_text_family_on_a_real_dump(tmp_path: Path):
     assert len(english["class"]) == 92
     assert len(english["ability"]) == 248
     assert len(english["gift"]) == 239
+    assert set(english["meal"]) == {str(i) for i in range(32)}

@@ -1,6 +1,6 @@
 /**
  * Support data (who supports whom, which ranks, when each rank can be unlocked) plus the monastery
- * activities that raise supports (gifts, lost items).
+ * activities that raise supports (gifts, lost items, meals).
  */
 import { useEffect, useState } from "react";
 import { onGameAssetsChange } from "../gameAssets";
@@ -33,6 +33,7 @@ export interface SupportData {
   names: Record<string, string>;
   pairs: SupportPair[];
   people: Record<string, MonasteryPerson>;
+  meals: { id: string; name: string }[];
 }
 
 let cache: Promise<SupportData> | null = null;
