@@ -16,7 +16,8 @@ maintained TypeScript client and API types are in `frontend/src/api.ts`.
   and response-shape changes. Run the backend suite for the complete check.
 
 Useful routes include `/api/runs`, `/api/runs/{run_id}/units`, `/api/settings`, `/api/battle`, `/api/events` (SSE),
-`/api/memory/check`, and `/api/health`. The route declarations and contract tests are authoritative for the complete
+`/api/memory/check`, `/api/health`, and `/api/quit` (quits the app after answering with its `pid`, for the uninstaller's
+`--quit`; 404 when running as a server only). The route declarations and contract tests are authoritative for the complete
 surface; this guide intentionally does not duplicate every payload schema.
 
 ## Local access

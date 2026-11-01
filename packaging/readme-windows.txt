@@ -13,5 +13,9 @@ Your runs, battles and settings are saved in %LOCALAPPDATA%\Divine Pulse
 (Settings > About > Open). To keep them next to the program instead (portable,
 e.g. on a USB stick), create an empty folder named "data" beside Divine Pulse.exe.
 
+To remove it: if you used the setup installer, use "Uninstall Divine Pulse" in the Start menu or Windows Settings >
+Apps, which also asks whether to delete your saved data. For this zip, quit from the tray icon and delete this folder,
+then delete the saved data folder too if you don't want it.
+
 Needs Windows 10 or 11 (64-bit). The window uses Microsoft Edge WebView2, which
 Windows 11 includes; without it the tracker opens in your web browser instead.

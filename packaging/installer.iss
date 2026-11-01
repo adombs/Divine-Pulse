@@ -2,7 +2,8 @@
 ; (iscc.exe) is installed; the version comes from the build script (/DAppVersion=...).
 ;
 ; Installs for the current user only (no administrator prompt) into %LOCALAPPDATA%\Programs\Divine Pulse.
-; Runs, battles and settings live separately in %LOCALAPPDATA%\Divine Pulse and are kept on uninstall.
+; Runs, battles and settings live separately in %LOCALAPPDATA%\Divine Pulse. Uninstalling closes a running tracker and
+; asks whether to delete them too (the default is to keep them); a silent uninstall always keeps them.
 
 #ifndef AppVersion
   #define AppVersion "0.0.0"
@@ -42,6 +43,7 @@ Source: "..\build\dist\Divine Pulse\*"; DestDir: "{app}"; Flags: ignoreversion r
 
 [Icons]
 Name: "{group}\{#AppName}"; Filename: "{app}\{#AppExe}"
+Name: "{group}\Uninstall {#AppName}"; Filename: "{uninstallexe}"
 Name: "{userdesktop}\{#AppName}"; Filename: "{app}\{#AppExe}"; Tasks: desktopicon
 
 [Run]
@@ -288,4 +290,72 @@ begin
     end;
     if not Retry then StopSetup(Reason);
   until Success;
+end;
+
+// ---- Uninstalling ----
+
+var
+  DataToDelete: String;
+
+// The folder the program saves to, found the way it finds it. Empty when DIVINE_PULSE_DATA_DIR names one: that can be
+// any folder at all, so it isn't for the uninstaller to delete.
+function SavedDataFolder: String;
+begin
+  if GetEnv('DIVINE_PULSE_DATA_DIR') <> '' then
+    Result := ''
+  else if DirExists(ExpandConstant('{app}\data')) then
+    Result := ExpandConstant('{app}\data')
+  else
+    Result := ExpandConstant('{localappdata}\Divine Pulse');
+end;
+
+// Never asked when silent: setup itself uninstalls silently when it stops, and that must not touch anyone's data.
+procedure AskAboutSavedData;
+var
+  Folder: String;
+begin
+  Folder := SavedDataFolder;
+  if UninstallSilent or (Folder = '') or not DirExists(Folder) then Exit;
+  if MsgBox('Also delete your saved data?' + #13#10#13#10 +
+      'Your runs, battles, settings and imported game files are in:' + #13#10 + Folder + #13#10#13#10 +
+      'Choose Yes to delete them for good, or No to keep them for a later install.',
+      mbConfirmation, MB_YESNO or MB_DEFBUTTON2) = IDYES then
+    DataToDelete := Folder;
+end;
+
+// The tracker stays in the tray with its window closed, holding its files open.
+procedure CloseTracker;
+var
+  Code: Integer;
+begin
+  if Exec(ExpandConstant('{app}\{#AppExe}'), '--quit', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) then Exit;
+  if not UninstallSilent then
+    MsgBox('Divine Pulse is still running and could not be closed.' + #13#10#13#10 +
+      'Right-click its tray icon and choose Quit, then choose OK.', mbInformation, MB_OK);
+end;
+
+// A few tries: the window's WebView2 processes outlive the tracker by a moment, and they hold files in this folder.
+procedure DeleteSavedData;
+var
+  I: Integer;
+begin
+  if DataToDelete = '' then Exit;
+  for I := 1 to 20 do begin
+    DelTree(DataToDelete, True, True, True);
+    if not DirExists(DataToDelete) then Break;
+    Sleep(500);
+  end;
+  if DirExists(DataToDelete) then
+    MsgBox('Some of your saved data could not be deleted. You can delete this folder yourself:' + #13#10 + DataToDelete,
+      mbError, MB_OK);
+  RemoveDir(ExpandConstant('{app}'));
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then begin
+    AskAboutSavedData;
+    CloseTracker;
+  end else if CurUninstallStep = usPostUninstall then
+    DeleteSavedData;
 end;

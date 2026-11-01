@@ -39,8 +39,10 @@ None needs Python, Node.js or anything else on the player's PC. Windows 10/11 (6
 
    Run the installer and import a dump when it asks (or skip it and import from Settings → Game files), start the
    tracker, start a new run from the home page, check reading units with Eden running and not running, play a
-   battle, quit from the tray, start again, then uninstall. Check that the data folder
-   (`%LOCALAPPDATA%\Divine Pulse`) survived the uninstall.
+   battle, quit from the tray, start again, then uninstall with the tracker still in the tray and choose No when
+   asked about saved data. Check that the tracker closed, the program folder and Start menu entries went, and the data
+   folder (`%LOCALAPPDATA%\Divine Pulse`) survived. Choosing Yes deletes that folder, so try it only on data you can
+   lose.
 4. **Version, build, tag, and create the draft.** On an up-to-date `main` with nothing uncommitted:
 
    ```
