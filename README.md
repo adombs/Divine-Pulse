@@ -98,7 +98,7 @@ Requirements and limits:
 - **In battle filter.** During a battle the Roster gets an *In battle* switch that shows only the units in it.
   With **Settings → Battles → Roster filter** on (the default), it switches on by itself when a battle starts and off
   when it ends.
-- Battalion bonuses aren't included (none of the tested runs used battalions).
+- Battalion bonuses aren't counted yet. Coming soon.
 
 How the game data was found, step by step: [docs/reading-game-memory.md](docs/reading-game-memory.md).
 
