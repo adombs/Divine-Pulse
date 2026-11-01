@@ -96,7 +96,6 @@ function rowsAt(battle: Battle, replay: Replay): Row[] {
 
 export function UnitStatus({ battle, replay }: { battle: Battle; replay: Replay }) {
   const nav = useBattleNav();
-  const showTeamDot = nav.mapLook?.units === "sprites";
   const [teams, setTeams] = useState<ListTeam[]>([]);
   const live = replay.at === null;
   const all = live ? rowsNow(battle) : rowsAt(battle, replay);
@@ -139,7 +138,7 @@ export function UnitStatus({ battle, replay }: { battle: Battle; replay: Replay 
                   <AffiliationIcon house={nav.house?.(r.id)} side={r.team} bare />
                   <WeaponIcon kind={r.weapon} />
                   <span className="status-cell">
-                    {showTeamDot && <TeamTag team={r.team} />}
+                    {(r.team === "player" ? nav.mapLook?.myFaces : nav.mapLook?.otherFaces) === "sprites" && <TeamTag team={r.team} />}
                     <Flags flags={acted ? [...r.flags, ACTED] : r.flags} />
                   </span>
                 </span>
