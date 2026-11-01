@@ -155,9 +155,8 @@ begin
   ReviewList.ReadOnly := True;
   ReviewList.ScrollBars := ssVertical;
   ReviewList.WordWrap := True;
-  NspPage := CreateInputFilePage(ReviewPage.ID, 'Open NSP files', 'Choose the files needed to open your NSPs',
-    'To open NSP files, setup needs NSTool and your own prod.keys file. Choose each file below.');
-  NspPage.Add('NSTool program (nstool.exe):', 'Executable files|*.exe|All files|*.*', '.exe');
+  NspPage := CreateInputFilePage(ReviewPage.ID, 'Open NSP files', 'Choose your keys file',
+    'Setup includes NSTool. To open your NSP files, choose your own prod.keys file.');
   NspPage.Add('Your prod.keys file:', 'Key files|*.keys|All files|*.*', '.keys');
 end;
 
@@ -367,8 +366,8 @@ var
 begin
   Result := True;
   if CurPageID = NspPage.ID then begin
-    if not FileExists(NspPage.Values[0]) or not FileExists(NspPage.Values[1]) then begin
-      MsgBox('Please choose your NSTool program and prod.keys file. Check that both files still exist.', mbError, MB_OK);
+    if not FileExists(NspPage.Values[0]) then begin
+      MsgBox('Please choose your prod.keys file. Check that the file still exists.', mbError, MB_OK);
       Result := False;
     end;
     Exit;
@@ -393,9 +392,8 @@ begin
       Result := 'Divine Pulse needs your game files; supply /DUMP="<folder>".'
     else if (ExpandConstant('{param:DUMP|}') <> '') and HasNsp(ExpandConstant('{param:DUMP|}')) and
       not LooksLikeDump(ExpandConstant('{param:DUMP|}')) and
-      ((not FileExists(ExpandConstant('{param:NSTOOL|}'))) or
-       (not FileExists(ExpandConstant('{param:KEYS|}')))) then
-      Result := 'NSP extraction requires /NSTOOL="<nstool.exe>" and /KEYS="<prod.keys>".';
+      not FileExists(ExpandConstant('{param:KEYS|}')) then
+      Result := 'NSP extraction requires /KEYS="<prod.keys>".';
   end;
 end;
 
@@ -455,9 +453,10 @@ begin
   else if HasImport and KeepFiles.Checked then Folder := ''
   else Folder := GamePage.Values[0];
   if not WizardSilent then begin
-    Nstool := NspPage.Values[0];
-    Keys := NspPage.Values[1];
+    Nstool := '';
+    Keys := NspPage.Values[0];
   end;
+  if Nstool = '' then Nstool := ExpandConstant('{app}\tools\nstool.exe');
   if Folder = '' then begin
     ShowBusy('Checking your game files...');
     Success := ValidImport;
@@ -473,8 +472,6 @@ begin
   end;
   repeat
     if HasNsp(Folder) and not LooksLikeDump(Folder) and not WizardSilent then begin
-      if not FileExists(Nstool) and not GetOpenFileName('Choose your NSTool program', Nstool, '',
-          'Executable files|*.exe|All files|*.*', 'exe') then StopSetup('NSTool is required.');
       if not FileExists(Keys) and not GetOpenFileName('Choose your prod.keys', Keys, '',
           'Key files|*.keys|All files|*.*', 'keys') then StopSetup('Your prod.keys is required.');
     end;
@@ -498,7 +495,6 @@ begin
         Retry := BrowseForFolder('Choose the folder with your game files:', Folder, False);
       if Retry then Retry := ConfirmRetryFolder(Folder);
       if Retry and HasNsp(Folder) and not LooksLikeDump(Folder) then begin
-        Nstool := '';
         Keys := '';
       end;
     end;
