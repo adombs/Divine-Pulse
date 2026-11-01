@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.1 (2026-10-31)
+
 - Importing game files now says what's missing when a dump isn't complete: it needs the game with update 1.2.0 and its ExeFS. DLC stays optional.
 
 ## 1.0.0 (2026-10-31)
