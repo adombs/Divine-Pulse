@@ -90,7 +90,7 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
   const level = u.level_ups ? `${u.start_level} → ${u.level}` : String(u.level);
   const gained = statGains(u);
   const nav = useNav();
-  const faces = useBattleNav().mapLook?.myFaces ?? "portraits";
+  const faces = useBattleNav().mapLook?.units ?? "portraits";
   const status = !u.on_map ? (
     <span className="form-error" title="Left the battle">Left</span>
   ) : u.adjutant_of ? (

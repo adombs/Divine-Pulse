@@ -109,18 +109,17 @@ export interface Appearance {
   /** Which unit portraits to show: Auto = Part II once a house leader has their post-timeskip class. */
   portraits: PortraitPhase;
   /** How units are drawn on the battle map. */
-  mapMine: MapLook["mine"];
-  mapOthers: MapLook["others"];
+  mapGeneric: MapLook["generic"];
+  mapNamed: MapLook["named"];
   /** The faces in the battle view's Units section and on a unit's card. */
-  myUnitFaces: MapLook["myFaces"];
-  otherUnitFaces: MapLook["otherFaces"];
+  unitFaces: MapLook["units"];
   /** How fast the battle map's replay plays (1 normal). */
   replaySpeed: number;
 }
 
 const KEY = "divine-pulse-appearance";
 
-const isUnitLook = (v: unknown): v is MapLook["mine"] => UNIT_LOOKS.some(([look]) => look === v);
+const isUnitLook = (v: unknown): v is MapLook["generic"] => UNIT_LOOKS.some(([look]) => look === v);
 
 export function loadAppearance(): Appearance {
   const fallback: Appearance = {
@@ -128,25 +127,19 @@ export function loadAppearance(): Appearance {
     font: "fodlan",
     portraits: "auto",
     textScale: 1,
-    mapMine: "portraits",
-    mapOthers: "sprites",
-    myUnitFaces: "portraits",
-    otherUnitFaces: "portraits",
+    mapGeneric: "sprites",
+    mapNamed: "portraits",
+    unitFaces: "portraits",
     replaySpeed: 1,
   };
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? "null");
     if (saved && typeof saved === "object") {
-      const { mapNamed, mapGeneric, unitFaces, ...current } = saved;
-      const out: Appearance = { ...fallback, ...current };
-      out.mapMine = isUnitLook(out.mapMine) ? out.mapMine : fallback.mapMine;
-      out.mapOthers = isUnitLook(out.mapOthers) ? out.mapOthers : fallback.mapOthers;
-      if (!("mapMine" in current) && isUnitLook(mapNamed)) out.mapMine = mapNamed;
-      if (!("mapOthers" in current) && isUnitLook(mapGeneric)) out.mapOthers = mapGeneric;
-      for (const key of ["myUnitFaces", "otherUnitFaces"] as const) {
-        if (!(key in current) && FACE_LOOKS.some(([look]) => look === unitFaces)) out[key] = unitFaces;
-        if (!FACE_LOOKS.some(([look]) => look === out[key])) out[key] = fallback[key];
-      }
+      const out: Appearance = { ...fallback, ...(saved as Partial<Appearance>) };
+      // A map look this version doesn't have (none so far) goes back to the default.
+      if (!isUnitLook(out.mapGeneric)) out.mapGeneric = fallback.mapGeneric;
+      if (!isUnitLook(out.mapNamed)) out.mapNamed = fallback.mapNamed;
+      if (!FACE_LOOKS.some(([look]) => look === out.unitFaces)) out.unitFaces = fallback.unitFaces;
       return out;
     }
   } catch {
