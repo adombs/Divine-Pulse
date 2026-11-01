@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.1.0 (2026-11-01)
+
 - Replay the map along the selected Divine Pulse timeline, including paths that were undone.
 
 ## 1.0.7 (2026-11-01)
