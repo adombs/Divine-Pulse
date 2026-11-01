@@ -1,0 +1,20 @@
+# Protection test, not for merging: a fork's token must stay read-only even when it asks for more.
+name: zz token test
+on: pull_request
+permissions:
+  contents: write
+jobs:
+  token:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Try to create a branch on the base repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          code=$(curl -s -o /dev/null -w '%{http_code}' -X POST \
+            -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/$GITHUB_REPOSITORY/git/refs" \
+            -d "{\"ref\":\"refs/heads/zz-token-test\",\"sha\":\"$SHA\"}")
+          echo "write attempt returned $code"
+          test "$code" = "403"

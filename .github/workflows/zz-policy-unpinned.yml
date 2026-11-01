@@ -1,0 +1,10 @@
+# Protection test, not for merging: Actions policy must refuse an action not pinned to a commit.
+name: zz policy unpinned
+on: pull_request
+permissions:
+  contents: read
+jobs:
+  unpinned:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
