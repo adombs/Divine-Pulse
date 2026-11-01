@@ -32,6 +32,7 @@ export const CONCEPT_ICON = {
   down: "down",
   up: "up",
   go: "go",
+  tip: "tip",
   // Controls.
   close: "close",
   search: "search",

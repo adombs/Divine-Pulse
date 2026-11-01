@@ -254,7 +254,8 @@ Divine Pulse is a fan-made tool, not affiliated with or endorsed by Nintendo, In
 *Fire Emblem: Three Houses* is © Nintendo / Intelligent Systems / Koei Tecmo. Divine Pulse contains none of its
 content; you import your own.
 
-Divine Pulse is made by Adombs. Its logo and icons are in [`branding/icons/`](branding/icons/).
+Divine Pulse is made by Adombs. Its logo and icons are in [`branding/icons/`](branding/icons/). It's free; to support
+my work on it, you can leave a tip on [Ko-fi](https://ko-fi.com/adombs).
 
 It builds on the work of the Fire Emblem community:
 
