@@ -52,13 +52,13 @@ Filename: "{app}\{#AppExe}"; Description: "Start {#AppName}"; Flags: nowait post
 [Code]
 var
   GamePage: TInputDirWizardPage;
+  SourcePage: TWizardPage;
   NspPage: TInputFileWizardPage;
   NspSelectPage: TWizardPage;
   NspList: TNewListBox;
   ReviewPage: TWizardPage;
   ReviewList: TNewMemo;
-  KeepFiles, ImportFiles: TRadioButton;
-  UseNsps: TNewCheckBox;
+  UseDump, UseNsps: TRadioButton;
   HasImport, Stopped, WantNsps: Boolean;
 
 // The install folder as chosen so far. {app} can't be used before the folder page is done (InitializeWizard
@@ -155,22 +155,20 @@ procedure InitializeWizard;
 var
   AddButton, RemoveButton: TNewButton;
 begin
-  GamePage := CreateInputDirPage(wpSelectDir, 'Game files', 'Choose your game files',
-    'Choose your own Fire Emblem: Three Houses game files, including update 1.2.0. DLC is optional. Nothing is uploaded.', False, '');
-  GamePage.Add('Choose the folder with your extracted game files or NSP files:');
+  SourcePage := CreateCustomPage(wpSelectDir, 'Game files',
+    'Choose how you will provide your Fire Emblem: Three Houses game files.');
+  UseDump := TRadioButton.Create(SourcePage);
+  UseDump.Parent := SourcePage.Surface;
+  UseDump.Caption := 'Extracted RomFS and ExeFS folders';
+  UseDump.SetBounds(0, ScaleY(12), SourcePage.SurfaceWidth, ScaleY(24));
+  UseNsps := TRadioButton.Create(SourcePage);
+  UseNsps.Parent := SourcePage.Surface;
+  UseNsps.Caption := 'Select my NSP files';
+  UseNsps.SetBounds(0, ScaleY(44), SourcePage.SurfaceWidth, ScaleY(24));
+  GamePage := CreateInputDirPage(SourcePage.ID, 'Extracted game files', 'Choose your extracted game files',
+    'Choose the folder containing your RomFS and ExeFS, update 1.2.0, and any DLC you own.', False, '');
+  GamePage.Add('Folder containing the extracted game files:');
   GamePage.Values[0] := LastDump;
-  KeepFiles := TRadioButton.Create(GamePage);
-  KeepFiles.Parent := GamePage.Surface;
-  KeepFiles.Caption := 'Keep my current game files';
-  KeepFiles.SetBounds(0, ScaleY(100), GamePage.SurfaceWidth, ScaleY(20));
-  ImportFiles := TRadioButton.Create(GamePage);
-  ImportFiles.Parent := GamePage.Surface;
-  ImportFiles.Caption := 'Import game files from the selected folder';
-  ImportFiles.SetBounds(0, ScaleY(124), GamePage.SurfaceWidth, ScaleY(20));
-  UseNsps := TNewCheckBox.Create(GamePage);
-  UseNsps.Parent := GamePage.Surface;
-  UseNsps.Caption := 'I want to select NSP files';
-  UseNsps.SetBounds(0, ScaleY(150), GamePage.SurfaceWidth, ScaleY(20));
   NspSelectPage := CreateCustomPage(GamePage.ID, 'Choose NSP files',
     'Add your Three Houses base game, update 1.2.0, and any DLC files. Only the files listed here will be imported.');
   NspList := TNewListBox.Create(NspSelectPage);
@@ -298,9 +296,9 @@ var
   I: Integer;
 begin
   Lines.Clear;
-  Lines.Add('Selected folder: ' + Folder);
-  Lines.Add('');
   if not WantNsps then begin
+    Lines.Add('Selected folder: ' + Folder);
+    Lines.Add('');
     Lines.Add('Found extracted game files.');
     if HasNsp(Folder) then
       Lines.Add('NSP files were also found. Setup will use the extracted game files.');
@@ -309,7 +307,7 @@ begin
     Lines.Add('');
     Lines.Add('Setup will check the game, update and any DLC when importing.');
   end else begin
-    Lines.Add('Found NSP files.');
+    Lines.Add('Selected NSP files:');
     Lines.Add('');
     for I := 0 to NspList.Items.Count - 1 do
       Lines.Add('NSP: ' + NspList.Items[I]);
@@ -357,22 +355,16 @@ end;
 
 procedure CurPageChanged(CurPageID: Integer);
 begin
-  if CurPageID = GamePage.ID then begin
-    HasImport := HasGameFiles;
-    KeepFiles.Visible := HasImport;
-    ImportFiles.Visible := HasImport;
-    if HasImport and not ImportFiles.Checked then KeepFiles.Checked := True;
-  end else if CurPageID = ReviewPage.ID then
+  if CurPageID = SourcePage.ID then HasImport := HasGameFiles
+  else if CurPageID = ReviewPage.ID then
     DescribeGameFiles(GamePage.Values[0], ReviewList.Lines);
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := ((PageID = ReviewPage.ID) and HasImport and KeepFiles.Checked) or
-    ((PageID = NspSelectPage.ID) and
-    ((HasImport and KeepFiles.Checked) or not WantNsps)) or
-    ((PageID = NspPage.ID) and
-    ((HasImport and KeepFiles.Checked) or not WantNsps));
+  Result := ((PageID = GamePage.ID) and WantNsps) or
+    ((PageID = NspSelectPage.ID) and not WantNsps) or
+    ((PageID = NspPage.ID) and not WantNsps);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -380,6 +372,13 @@ var
   Folder: String;
 begin
   Result := True;
+  if CurPageID = SourcePage.ID then begin
+    if not UseDump.Checked and not UseNsps.Checked then begin
+      MsgBox('Choose either extracted game files or NSP files.', mbError, MB_OK);
+      Result := False;
+    end else WantNsps := UseNsps.Checked;
+    Exit;
+  end;
   if CurPageID = NspSelectPage.ID then begin
     if NspList.Items.Count = 0 then begin
       MsgBox('Please add your Three Houses NSP files.', mbError, MB_OK);
@@ -394,16 +393,15 @@ begin
     end;
     Exit;
   end;
-  if (CurPageID <> GamePage.ID) or (HasImport and KeepFiles.Checked) then Exit;
+  if CurPageID <> GamePage.ID then Exit;
   Folder := GamePage.Values[0];
   if not DirExists(Folder) then begin
     MsgBox('Please choose a folder that exists on your computer.', mbError, MB_OK);
     Result := False;
-  end else if not UseNsps.Checked and not LooksLikeDump(Folder) and not HasNsp(Folder) then begin
-    MsgBox('Setup could not find extracted game files or NSP files in this folder. Please choose the folder containing your game files.', mbError, MB_OK);
+  end else if not LooksLikeDump(Folder) then begin
+    MsgBox('Setup could not find extracted game files in this folder. Please choose the folder containing your RomFS and ExeFS.', mbError, MB_OK);
     Result := False;
-  end else
-    WantNsps := UseNsps.Checked or (HasNsp(Folder) and not LooksLikeDump(Folder));
+  end;
 end;
 
 function PrepareToInstall(var NeedsRestart: Boolean): String;
@@ -414,8 +412,8 @@ begin
   Result := '';
   if WizardSilent then begin
     HasImport := HasGameFiles;
-    if (ExpandConstant('{param:DUMP|}') = '') and not HasImport then
-      Result := 'Divine Pulse needs your game files; supply /DUMP="<folder>".'
+    if (ExpandConstant('{param:DUMP|}') = '') and (ExpandConstant('{param:NSP1|}') = '') then
+      Result := 'Provide extracted files with /DUMP="<folder>" or select NSPs with /NSP1="<file>".'
     else if ExpandConstant('{param:NSP1|}') <> '' then begin
       if not FileExists(ExpandConstant('{param:KEYS|}')) then
         Result := 'NSP extraction requires /KEYS="<prod.keys>".';
@@ -482,29 +480,15 @@ begin
     Folder := ExpandConstant('{param:DUMP|}');
     Nstool := ExpandConstant('{param:NSTOOL|}');
     Keys := ExpandConstant('{param:KEYS|}');
-  end
-  else if HasImport and KeepFiles.Checked then Folder := ''
+    if (Folder = '') and (ExpandConstant('{param:NSP1|}') <> '') then
+      Folder := ExtractFileDir(ExpandConstant('{param:NSP1|}'));
+  end else if WantNsps then Folder := ExtractFileDir(NspList.Items[0])
   else Folder := GamePage.Values[0];
   if not WizardSilent then begin
     Nstool := '';
     Keys := NspPage.Values[0];
   end;
   if Nstool = '' then Nstool := ExpandConstant('{app}\tools\nstool.exe');
-  if Folder = '' then begin
-    ShowBusy('Checking your game files...');
-    Success := ValidImport;
-    ShowResult(Success);
-    if Success then Exit;
-    Reason := 'Your current game files are missing or incomplete.';
-    if WizardSilent then StopSetup(Reason);
-    Folder := GamePage.Values[0];
-    if (MsgBox(Reason + #13#10#13#10 + 'Choose OK to import them again, or Cancel to stop setup.',
-        mbError, MB_OKCANCEL) <> IDOK) or
-       not BrowseForFolder('Choose the folder with your game files:', Folder, False) then StopSetup(Reason);
-    if not LooksLikeDump(Folder) then StopSetup('To select NSP files, restart setup.');
-    WantNsps := False;
-    if not ConfirmRetryFolder(Folder) then StopSetup(Reason);
-  end;
   repeat
     UsingNsps := (not WizardSilent and WantNsps) or
       (WizardSilent and (ExpandConstant('{param:NSP1|}') <> ''));
