@@ -2,11 +2,22 @@
 
 ## Unreleased
 
-- Keep the portable app in its standalone window when Windows marks its downloaded DLLs as Internet files.
+## 1.2.9 (2026-11-01)
+
+First public release. Versions through 1.2.8 were unpublished development builds.
+
+- Track your army's stats, classes and abilities automatically from Fire Emblem: Three Houses update 1.2.0 in Eden.
+- Follow battles live and replay them on the map, including alternate timelines preserved after Divine Pulse rewinds.
+- Keep separate playthroughs with battle history, run totals, records and character statistics.
+- Browse Characters, Archive and Supports offline using your imported game files, with language selection and spoiler controls.
+- Install on Windows 10/11 or run the portable app; import extracted game files or selected base game, update and optional DLC NSPs using your own keys.
+- Open the portable app in its standalone window even when Windows marks its downloaded DLLs as Internet files.
+- Check the packaged WebView2 window with Windows download markers during every build.
+- Keep runs, battles and settings on your PC, with no account, telemetry or automatic update check.
 
 ## 1.2.8 (2026-11-01)
 
-First public release.
+Unpublished development build.
 
 - Leave unused test framework code out of the program.
 
