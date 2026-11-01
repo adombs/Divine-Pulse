@@ -20,6 +20,7 @@ import re
 import shutil
 import subprocess
 import sys
+import tempfile
 from importlib import metadata
 from pathlib import Path
 
@@ -115,7 +116,26 @@ def program() -> Path:
     leaked = dev_modules((BUILD / "work" / "divine_pulse" / "PYZ-00.toc").read_text("utf-8", "replace"))
     if leaked:
         sys.exit(f"Development packages got into the program: {', '.join(leaked)}. Exclude them in {PACKAGING / 'divine_pulse.spec'}.")
+    # The CLR reads this beside the executable, not in PyInstaller's _internal directory.
+    shutil.copy2(PACKAGING / f"{APP_NAME}.exe.config", made)
+    desktop_check(made)
     return made
+
+
+def desktop_check(made: Path) -> None:
+    """Exercise the packaged WebView2 window without starting the server or game reader.
+
+    Explorer marks DLLs extracted from a downloaded zip as Internet files. Reproduce that
+    here so a locally working build cannot silently ship a broken portable desktop.
+    """
+    step("Packaged desktop (downloaded DLLs)")
+    with tempfile.TemporaryDirectory(prefix="divine-pulse-desktop-") as scratch:
+        # Check a copy so the release payload itself keeps its original zone information.
+        checked = Path(scratch) / APP_NAME
+        shutil.copytree(made, checked)
+        for dll in (checked / "_internal").rglob("*.dll"):
+            Path(f"{dll}:Zone.Identifier").write_text("[ZoneTransfer]\nZoneId=3\n", encoding="utf-8")
+        subprocess.run([str(checked / f"{APP_NAME}.exe"), "--check-desktop"], check=True, timeout=60)
 
 
 def dev_modules(toc: str) -> list[str]:

@@ -11,6 +11,18 @@ from app.desktop import SW_SHOWMAXIMIZED, SW_SHOWMINIMIZED, WPF_RESTORETOMAXIMIZ
 SW_SHOWNORMAL = 1
 
 
+@pytest.mark.parametrize("success", [True, False])
+def test_packaged_desktop_check_exits_before_starting_server_or_reader(monkeypatch, success):
+    from app import __main__ as launcher, desktop
+
+    monkeypatch.setattr(sys, "argv", ["Divine Pulse.exe", "--check-desktop"])
+    monkeypatch.setattr(desktop, "check_desktop", lambda: success)
+    monkeypatch.setattr(launcher, "SettingsStore", lambda: pytest.fail("Desktop check must not open user settings"))
+    with pytest.raises(SystemExit) as result:
+        launcher.main()
+    assert result.value.code == (0 if success else 1)
+
+
 def test_export_dialog_saves_json_only_to_the_selected_path(monkeypatch, tmp_path):
     from app.desktop import ExportDialogs
 

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep the portable app in its standalone window when Windows marks its downloaded DLLs as Internet files.
+
 ## 1.2.8 (2026-11-01)
 
 First public release.
