@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.2.4 (2026-11-01)
+
 - Choose individual base game, update, and DLC NSPs during setup so unrelated NSPs are not imported.
 
 ## 1.2.3 (2026-11-01)
