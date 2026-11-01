@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Review the NSP files or dump folders found before importing them during setup.
+
 ## 1.2.0 (2026-11-01)
 
 - Import base game, update and DLC NSPs directly during Windows setup using NSTool and your own keys.
