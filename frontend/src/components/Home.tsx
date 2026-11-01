@@ -89,7 +89,7 @@ export function Home({ runs, activeRunId, loaded, toasts, onSwitchRun, onRunsCha
       <div className="home-stage">
         <a className="home-tip" href="https://ko-fi.com/adombs" target="_blank" rel="noreferrer">
           <Icon name={CONCEPT_ICON.tip} />
-          Support on Ko-fi
+          <span className="home-tip-text"><span>Support me</span> <span>on Ko-Fi!</span></span>
         </a>
         <header className="home-head">
           <div className="home-glow" aria-hidden />

@@ -9,6 +9,11 @@ Divine Pulse contains no game content: no art, text, tables or maps. Players imp
 program builds everything it shows from it on their PC. The repository and the release are checked for this
 (`tools/game_content.py`).
 
+## Tools linked, not included
+
+The game files screen and the guides link to [NSP Unpacker](https://github.com/adombs/nsp-unpacker) (MIT, same author), which runs
+[NSTool](https://github.com/jakcron/nstool) (MIT, © 2019 Jack). Neither is bundled with Divine Pulse.
+
 ## Fire Emblem Wiki text
 
 `frontend/src/reference/wiki/fe-wiki.json` holds class-change restrictions and support availability and notes, by Fire
