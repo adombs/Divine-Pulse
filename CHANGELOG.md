@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.2.8 (2026-11-01)
+
 First public release.
 
 - Leave unused test framework code out of the program.

@@ -2,7 +2,7 @@
   "name": "divine-pulse-frontend",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "1.2.7",
+  "version": "1.2.8",
   "type": "module",
   "scripts": {
     "dev": "vite",
