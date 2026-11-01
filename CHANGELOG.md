@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Supports page's Gifts & Lost Items tab is now called Gifts, Meals, and Lost Items.
+
 - Keep Byleth's hair green after chapter 10, including Holy Tomb and later auxiliary battles; recover the correct look in existing rosters and battle recordings.
 - The home page has a small Ko-fi link in its corner, for anyone who wants to leave a tip.
 

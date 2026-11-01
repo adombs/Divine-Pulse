@@ -1,5 +1,5 @@
 /**
- * Gifts & Lost Items: pick an item to see who it is for, or look up imported dining hall meal names.
+ * Gifts, Meals, and Lost Items: pick an item to see who it is for, or look up imported dining hall meal names.
  */
 import { CONCEPT_ICON } from "../../../icons/concepts";
 import { useMemo, useState } from "react";

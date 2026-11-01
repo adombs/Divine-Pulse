@@ -200,7 +200,7 @@ Game reference built from your import, so it matches the language and DLC you im
   **Weapons** and **Items** (stats, ranges, uses and who can obtain them), with icons from your import.
 - **Supports**: *By Character* shows each partner's ranks, when they unlock and paired endings (endings behind a
   *Spoiler* button), with the character's liked gifts and lost items; *All Pairings* lays everyone against everyone,
-  showing the highest reachable rank; *Gifts & Lost Items* is a searchable lookup. Filters: Byleth's gender, route,
+  showing the highest reachable rank; *Gifts, Meals, and Lost Items* is a searchable lookup. Filters: Byleth's gender, route,
   and only units in your run. No support conversations are stored.
 
 Class, character and support names link between the pages. Class-change restrictions and support availability notes
