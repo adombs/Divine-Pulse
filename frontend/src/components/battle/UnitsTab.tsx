@@ -67,7 +67,6 @@ interface Props {
 
 export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: Props) {
   const nav = useBattleNav();
-  const showTeamDot = nav.mapLook?.units === "sprites";
   const risks = new Map((battle.outlook?.at_risk ?? []).map((r) => [r.key, r]));
   const [sides, setSides] = useState<Team[]>([]);
   const [states, setStates] = useState<State[]>([]);
@@ -218,7 +217,7 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
                   </td>
                   <td className="left">
                     <span className="status-cell">
-                      {showTeamDot && <TeamTag team={r.team} />}
+                      {(r.team === "player" ? nav.mapLook?.myFaces : nav.mapLook?.otherFaces) === "sprites" && <TeamTag team={r.team} />}
                       <Flags flags={r.flags} />
                     </span>
                   </td>
