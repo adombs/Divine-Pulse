@@ -15,7 +15,7 @@ from ..domain.battle import Battle, BattleUnitStats
 from ..domain.best_unit import best_unit
 from ..domain.ebst import EbstConfig
 from ..domain.runs import MAIN_SCENARIOS, BestUnit, ChapterRef, RunSummary
-from ..domain.units import Unit, now
+from ..domain.units import Unit, byleth_look, now
 from ..domain.runs import Run
 from .saved_models import Run as SavedRun, decode_battle, decode_battles
 import json
@@ -127,6 +127,13 @@ class RunStore:
                 self._cache[run_id] = read_with_backup(path, SavedRun.model_validate_json)
             run = self._cache[run_id].model_copy(deep=True)
             run.route = self._infer_route(run)
+            # Recover rosters saved with the old Holy Tomb rule, including when the game isn't running.
+            story = [b for b in self._route_evidence.get(run_id, []) if b.scenario in MAIN_SCENARIOS]
+            latest = max(story, key=lambda b: b.started_at, default=None)
+            if latest and byleth_look(latest.scenario, in_battle=latest.ended_at is None) == "green":
+                for key, unit in run.units.items():
+                    if unit.game_id in (0, 1) or (unit.game_id is None and key == "byleth"):
+                        unit.look = "green"
             return run
 
     def list(self) -> list[RunSummary]:

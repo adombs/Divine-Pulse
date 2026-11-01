@@ -37,17 +37,17 @@ class SkillProgress(BaseModel):
     exp: int = Field(ge=0)
 
 
-# Byleth's hair turns green when Sothis merges with them, in the Holy Tomb (scenario 11, chapter 11), partway through
-# that battle. The game has only the two looks (persondata portraits 0/1 and 71/72; Part II reuses the green one).
+# Byleth's green-haired state is retained after chapter 10 (scenario 10). Chapter 11's Holy Tomb battle is already
+# after the Sothis merge. The game has two looks (persondata portraits 0/1 and 71/72; Part II reuses green).
 # docs/game-assets/byleth-looks.md.
-SOTHIS_SCENARIO = 11
+SOTHIS_SCENARIO = 10
 LAST_MAIN_SCENARIO = 37  # paralogues, auxiliary battles and Cindered Shadows come after
 
 
 def byleth_look(scenario: int | None, in_battle: bool = False) -> Literal["dark", "green"] | None:
     """Byleth's hair for the story's scenario id: "dark" until the merge, "green" after it; None when the scenario isn't
-    known. The game keeps the id of the last battle fought, so between battles scenario 11 is already past the merge, but
-    during that battle (`in_battle`) the merge hasn't happened yet (the switch inside the battle isn't tracked). Only
+    known. The game keeps the id of the last battle fought, so after scenario 10 the saved look switches to green.
+    During scenario 10 (`in_battle`) the cutscene transition isn't tracked. Scenario 11 is always green. Only
     main-story scenarios count: a paralogue can come before the merge, and the game keeps its id too."""
     if scenario is None or not 0 <= scenario <= LAST_MAIN_SCENARIO:
         return None

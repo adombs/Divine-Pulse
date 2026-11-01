@@ -372,6 +372,7 @@ class ArmySample:
     equipped_item_id: int | None = None
     accessory: str | None = None
     equipped_accessory_id: int | None = None
+    look: str | None = None  # retained roster look for auxiliary/paralogue scenarios
 
 
 @dataclass(frozen=True)

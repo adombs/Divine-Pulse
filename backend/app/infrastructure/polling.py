@@ -570,6 +570,7 @@ class Scanner:
                     record.item_slot_0 if record else None,
                     accessory,
                     accessory_id,
+                    look=reading.look if reading.look is not None else stored.look if stored else None,
                 )
             )
         enemies = []

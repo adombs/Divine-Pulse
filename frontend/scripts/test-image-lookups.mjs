@@ -38,6 +38,32 @@ test("portrait variants, repeated IDs, and generic class aliases use imported pa
   assert.equal(portraits.faceUrl({ classId: 6 }, false), "images/portraits/example.png");
 });
 
+test("Byleth's recorded hair overrides Part II settings for both genders", async () => {
+  globalThis.bylethPortraitFixture = {
+    app_keys: { byleth_m: "m-dark", byleth_m_2: "m-green", byleth_f: "f-dark", byleth_f_2: "f-green" },
+    characters: { 0: { part1: "m-dark" }, 1: { part1: "f-dark" } },
+  };
+  const portraits = await moduleWithStubs("../src/portraits.ts", `
+    const spoilerShown = () => false;
+    const canonical = () => null;
+    const loadGameJson = async (path) => path.includes('portraits') ? globalThis.bylethPortraitFixture : {};
+    const loadGameText = async () => ({});
+    const gameLanguage = () => 'ENG_U';
+    const objectIcon = () => null, OBJECT_NAMES = new Set();
+    const bundledPortrait = (file) => 'portrait-key:' + file;
+  `);
+  await portraits.loadPortraitIndex();
+  for (const [character, gender, key] of [[0, "Male", "byleth_m"], [1, "Female", "byleth_f"]]) {
+    for (const part2 of [false, true]) {
+      assert.equal(portraits.faceUrl({ character, look: "green" }, part2), `portrait-key:${key}_2.png`);
+      assert.equal(portraits.faceUrl({ character, look: "dark" }, part2), `portrait-key:${key}.png`);
+      assert.equal(portraits.portraitUrl({ name: "Byleth", gender, look: "green" }, part2), `portrait-key:${key}_2.png`);
+      assert.equal(portraits.portraitUrl({ name: "Byleth", gender, look: "dark" }, part2), `portrait-key:${key}.png`);
+    }
+  }
+  assert.equal(portraits.portraitUrl({ name: "Byleth", gender: "Male", portrait_gender: "female", look: "green" }, false), "portrait-key:byleth_f_2.png");
+});
+
 test("battle places resolve imported text and unmapped scenarios stay empty", async () => {
   const scenarios = await moduleWithStubs("../src/components/battle/scenarios.ts", `
     const scenarioData = { routes: {} };

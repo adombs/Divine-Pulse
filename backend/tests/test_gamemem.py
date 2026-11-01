@@ -391,7 +391,7 @@ def test_a_unit_whose_flags_change_mid_battle_stays_in_it():
 
 @pytest.mark.parametrize(
     ("scenario", "look"),
-    [(None, None), (0, "dark"), (10, "dark"), (11, "green"), (20, "green"), (37, "green"), (38, None), (59, None)],
+    [(None, None), (0, "dark"), (9, "dark"), (10, "green"), (11, "green"), (20, "green"), (37, "green"), (38, None), (59, None)],
 )
 def test_byleths_look_follows_the_main_story_scenario(scenario, look):
     from app.domain.units import byleth_look
@@ -402,7 +402,8 @@ def test_byleths_look_follows_the_main_story_scenario(scenario, look):
 def test_the_merge_battle_itself_is_still_dark():
     from app.domain.units import byleth_look
 
-    assert byleth_look(11, in_battle=True) == "dark"
+    assert byleth_look(10, in_battle=True) == "dark"
+    assert byleth_look(11, in_battle=True) == "green"
     assert byleth_look(12, in_battle=True) == "green"
 
 

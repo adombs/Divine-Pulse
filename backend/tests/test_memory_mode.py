@@ -540,7 +540,11 @@ def test_a_memory_read_stores_byleths_look(scanner):
     scanner._tick()
     scanner._tick()
     assert byleth().look == "dark"
-    scanner.memory.scenario = 11
+    scanner.memory.scenario = 10  # after chapter 10: persist the green look before Holy Tomb
+    scanner._tick()
+    scanner._tick()
+    assert byleth().look == "green"
+    scanner.memory.scenario = 83  # auxiliary battles don't reset the retained state
     scanner._tick()
     scanner._tick()
     assert byleth().look == "green"
@@ -549,3 +553,15 @@ def test_a_memory_read_stores_byleths_look(scanner):
     scanner._tick()
     assert byleth().look == "green"
     assert next(u for u in units(scanner).values() if u.game_id == 4).look is None
+
+
+def test_retained_byleth_look_reaches_auxiliary_battle_from_real_polling_path(scanner):
+    scanner.memory.scenario = 10
+    scanner._tick()
+    scanner._tick()
+    scanner.memory.scenario = 83
+    scanner.memory.in_battle = (0,)
+    scanner._tick()
+    scanner._tick()
+    byleth = next(u for u in scanner.current_battle().units if u.character == 0)
+    assert byleth.look == "green"
