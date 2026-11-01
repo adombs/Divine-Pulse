@@ -537,7 +537,7 @@ export function UnitFace({ id, name, size = "md", look }: { id: string; name: st
   const nav = useBattleNav();
   const want = look ?? nav.mapLook?.units ?? "portraits";
   const sprites = useSprites();
-  const portrait = want === "portraits" ? nav.portrait?.(id) : null;
+  const portrait = want !== "tiles" ? nav.portrait?.(id) : null;
   const who = nav.people.get(id);
   // Yours blue, enemies red, allies green, a third army yellow, as on the map.
   const side = who?.army || id.startsWith("a:") ? "player" : who?.enemy && isObject(who.enemy) ? "object" : who?.enemy?.side === "ally" || who?.enemy?.side === "third" ? who.enemy.side : "enemy";
@@ -553,7 +553,7 @@ export function UnitFace({ id, name, size = "md", look }: { id: string; name: st
       </span>
     );
   }
-  const imported = want === "portraits" ? nav.importedFace?.(id) : null;
+  const imported = want !== "tiles" ? nav.importedFace?.(id) : null;
   const fallback = portrait ? <PortraitImage className={`unit-face ${army} ${size}`} bundled={portrait} fallback={<span className={`unit-face ${army} ${size} initial`} aria-hidden>{name.slice(0, 1)}</span>} alt="" draggable={false} /> : <span className={`unit-face ${army} ${size} initial`} aria-hidden>{name.slice(0, 1)}</span>;
   if (imported) return <GameImage imported={imported} className={`unit-face ${army} ${size}`} fallback={fallback} alt="" draggable={false} />;
   return portrait ? (

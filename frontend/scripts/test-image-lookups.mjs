@@ -3,6 +3,8 @@ import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "node:module";
 import { test } from "node:test";
 import ts from "typescript";
+import React from "react";
+import { renderToStaticMarkup } from "react-dom/server";
 import { battleWeapon, indexCrystalWeapons } from "../src/components/battle/unitAppearance.ts";
 import { artWeapon } from "../src/reference/gameData.ts";
 
@@ -13,6 +15,77 @@ async function moduleWithStubs(path, stubs, compile = stripTypeScriptTypes) {
 }
 
 const compileTsx = (source) => ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.React } }).outputText;
+
+test("battle sprites fall back to portraits before badges or initials", async () => {
+  globalThis.fallbackFixture = {
+    React,
+    atlas: true,
+    index: { classes: {}, characters: {}, heads: { characters: {}, m: 0, f: 1 }, mounted: [] },
+    portrait: "portrait-key:example.png",
+    imported: null,
+  };
+  const icons = await moduleWithStubs("../src/components/battle/mapIcons.tsx", "const spoilerShown = () => false;", compileTsx);
+  globalThis.fallbackFixture.spriteLayers = icons.spriteLayers;
+  const stubs = `
+    const f = globalThis.fallbackFixture;
+    const React = f.React, memo = React.memo, createContext = React.createContext;
+    const LOW_HP = 0.25, WEAPON_LABEL = {};
+    const describe = () => 'Example unit';
+    const useGameImageUrl = (path) => path.includes('class-sprites') ? (f.atlas ? path : '') : path;
+    const spriteLayers = f.spriteLayers;
+    const UnitSprite = () => React.createElement('image', { href: 'sprite.png' });
+    const MapImage = ({ href, imported }) => React.createElement('image', { href: imported || href });
+    const WeaponGlyph = () => React.createElement('image', { href: 'weapon.png' });
+    const miniBadge = () => 'badge.png';
+    const useContext = () => ({
+      mapLook: { units: f.unitsLook || 'sprites' },
+      portrait: () => f.portrait, importedFace: () => f.imported,
+      people: new Map([['e:1', { enemy: {} }]]),
+    });
+    const useSprites = () => f.index;
+    const spriteOf = () => ({ classId: 47, character: 47, female: true, side: 'enemy' });
+    const isObject = () => false;
+    const PortraitImage = ({ bundled }) => React.createElement('img', { src: bundled });
+    const GameImage = ({ imported }) => React.createElement('img', { src: imported });
+  `;
+  const { Token } = await moduleWithStubs("../src/components/battle/Minimap.tsx", stubs, (source) => compileTsx(source + "\nexport { Token };"));
+  const { UnitFace } = await moduleWithStubs("../src/components/battle/parts.tsx", stubs, compileTsx);
+  const props = {
+    piece: { name: "Example", sprite: { classId: 47, character: 47, female: true, side: "enemy" } },
+    x: 0, y: 0, opacity: 1, hp: null, tile: null, clip: "", full: false,
+  };
+  const map = (want = "sprites", generic = false) => renderToStaticMarkup(React.createElement(Token, {
+    ...props,
+    piece: generic ? { ...props.piece, sprite: { ...props.piece.sprite, character: null } } : props.piece,
+    sprites: globalThis.fallbackFixture.index,
+    portrait: globalThis.fallbackFixture.portrait,
+    importedFace: globalThis.fallbackFixture.imported,
+    look: { named: want, generic: want },
+  }));
+  const face = () => renderToStaticMarkup(React.createElement(UnitFace, { id: "e:1", name: "Example" }));
+  const f = globalThis.fallbackFixture;
+  assert.match(map(), /map-token enemy portrait/);
+  assert.match(map("sprites", true), /map-token enemy portrait/);
+  assert.match(face(), /example\.png/);
+  f.index.finished_classes = { 47: { f: 2 } };
+  assert.match(map(), /map-token sprite/);
+  assert.match(face(), /sprite\.png/);
+  assert.match(map("portraits"), /map-token enemy portrait/);
+  assert.match(map("badges"), /weapon\.png/);
+  f.atlas = false;
+  assert.match(map(), /map-token enemy portrait/);
+  f.index = null;
+  f.imported = "images/portraits/example.png";
+  f.portrait = null;
+  assert.match(map(), /map-token enemy portrait/);
+  assert.match(face(), /images\/portraits\/example\.png/);
+  f.imported = null;
+  assert.match(map(), /weapon\.png/);
+  assert.match(face(), /initial/);
+  f.portrait = "portrait-key:example.png";
+  f.unitsLook = "tiles";
+  assert.match(face(), /initial/);
+});
 
 test("a combat art's icon follows its weapon, whatever the art costs", async () => {
   // Byte 10 is the durability cost and byte 13 the weapon. Each cost below is also a valid-looking weapon number, so reading the wrong byte picks the wrong icon.
