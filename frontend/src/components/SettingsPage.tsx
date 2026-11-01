@@ -29,7 +29,7 @@ const TABS: { id: SettingsTab; label: string }[] = [
   { id: "ebst", label: "eBST" },
   { id: "spoilers", label: "Spoilers" },
   { id: "appearance", label: "Appearance" },
-  { id: "testing", label: "Debug" },
+  { id: "testing", label: "Testing" },
   { id: "about", label: "About" },
 ];
 
@@ -90,32 +90,27 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
         </span>
       </div>
       <div className="field-row">
-        <span className="field-label">Map: My Units</span>
-        <Segmented label="My units on the battle map" value={appearance.mapMine} onChange={(mapMine) => update({ mapMine })} options={UNIT_LOOKS} />
+        <span className="field-label">Map: Main Units</span>
+        <Segmented label="Main units on the battle map" value={appearance.mapNamed} onChange={(mapNamed) => update({ mapNamed })} options={UNIT_LOOKS} />
       </div>
       <div className="field-row">
-        <span className="field-label">Map: Other Units</span>
+        <span className="field-label">Map: Generic Units</span>
         <Segmented
-          label="Other units on the battle map"
-          value={appearance.mapOthers}
-          onChange={(mapOthers) => update({ mapOthers })}
+          label="Generic units on the battle map"
+          value={appearance.mapGeneric}
+          onChange={(mapGeneric) => update({ mapGeneric })}
           options={UNIT_LOOKS}
         />
       </div>
       <div className="field-row">
-        <span className="field-label">Battle: My Unit Faces</span>
+        <span className="field-label">Battle: Unit Faces</span>
         <Segmented
-          label="My unit faces in battle"
-          value={appearance.myUnitFaces}
-          onChange={(myUnitFaces) => update({ myUnitFaces })}
+          label="Faces in the battle view's Units section"
+          value={appearance.unitFaces}
+          onChange={(unitFaces) => update({ unitFaces })}
           options={FACE_LOOKS}
         />
       </div>
-      <div className="field-row">
-        <span className="field-label">Battle: Other Unit Faces</span>
-        <Segmented label="Other unit faces in battle" value={appearance.otherUnitFaces} onChange={(otherUnitFaces) => update({ otherUnitFaces })} options={FACE_LOOKS} />
-      </div>
-      <p className="hint">When a sprite is unavailable, its portrait is used instead.</p>
       <div className="field-row">
         <span className="field-label">Map: Replay Speed</span>
         <ReplaySpeedSlider value={appearance.replaySpeed} onChange={(replaySpeed) => update({ replaySpeed })} />

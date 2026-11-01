@@ -94,12 +94,13 @@ export interface Sprite {
 export type UnitLook = "portraits" | "sprites" | "badges";
 
 /** How a unit's face is drawn in lists (the Units section, a unit's card): the same choice as the map, with plain
- * portraits or sprites. */
-export type FaceLook = "portraits" | "sprites";
+ * tiles in place of weapon badges. */
+export type FaceLook = "portraits" | "sprites" | "tiles";
 
 export const FACE_LOOKS: readonly (readonly [FaceLook, string])[] = [
   ["portraits", "Portraits"],
   ["sprites", "Sprites"],
+  ["tiles", "Tiles"],
 ];
 
 export const UNIT_LOOKS: readonly (readonly [UnitLook, string])[] = [
@@ -108,12 +109,12 @@ export const UNIT_LOOKS: readonly (readonly [UnitLook, string])[] = [
   ["badges", "Weapon Badges"],
 ];
 
-/** How your units and other units are drawn in battle. */
+/** How units are drawn on the map (Settings > Appearance): characters of their own (`named`) and generic units. */
 export interface MapLook {
-  mine: UnitLook;
-  others: UnitLook;
-  myFaces: FaceLook;
-  otherFaces: FaceLook;
+  generic: UnitLook;
+  named: UnitLook;
+  /** The Units section's faces: portraits, map sprites, or plain tiles with the unit's initial. */
+  units: FaceLook;
 }
 
 /** Class and character sprite atlas index. */

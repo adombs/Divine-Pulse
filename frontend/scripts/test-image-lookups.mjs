@@ -38,7 +38,7 @@ test("battle sprites fall back to portraits before badges or initials", async ()
     const WeaponGlyph = () => React.createElement('image', { href: 'weapon.png' });
     const miniBadge = () => 'badge.png';
     const useContext = () => ({
-      mapLook: { myFaces: f.myFaces || 'sprites', otherFaces: f.unitsLook || 'sprites' },
+      mapLook: { units: f.unitsLook || 'sprites' },
       portrait: () => f.portrait, importedFace: () => f.imported,
       people: new Map([['e:1', { enemy: {} }]]),
     });
@@ -60,7 +60,7 @@ test("battle sprites fall back to portraits before badges or initials", async ()
     sprites: globalThis.fallbackFixture.index,
     portrait: globalThis.fallbackFixture.portrait,
     importedFace: globalThis.fallbackFixture.imported,
-    look: { mine: want, others: want },
+    look: { named: want, generic: want },
   }));
   const face = () => renderToStaticMarkup(React.createElement(UnitFace, { id: "e:1", name: "Example" }));
   const f = globalThis.fallbackFixture;
@@ -72,17 +72,6 @@ test("battle sprites fall back to portraits before badges or initials", async ()
   assert.match(face(), /sprite\.png/);
   assert.match(map("portraits"), /map-token enemy portrait/);
   assert.match(map("badges"), /weapon\.png/);
-  const ownershipLook = { mine: "portraits", others: "badges" };
-  const token = (army) => renderToStaticMarkup(React.createElement(Token, {
-    ...props, piece: { ...props.piece, army }, sprites: f.index, portrait: f.portrait,
-    importedFace: null, look: ownershipLook,
-  }));
-  assert.match(token(true), /map-token enemy portrait/);
-  assert.match(token(false), /weapon\.png/); // A named opponent still uses the other-units setting.
-  f.myFaces = "portraits";
-  f.unitsLook = "sprites";
-  assert.match(face(), /sprite\.png/);
-  assert.match(renderToStaticMarkup(React.createElement(UnitFace, { id: "a:1", name: "Example" })), /example\.png/);
   f.atlas = false;
   assert.match(map(), /map-token enemy portrait/);
   f.index = null;
@@ -92,6 +81,9 @@ test("battle sprites fall back to portraits before badges or initials", async ()
   assert.match(face(), /images\/portraits\/example\.png/);
   f.imported = null;
   assert.match(map(), /weapon\.png/);
+  assert.match(face(), /initial/);
+  f.portrait = "portrait-key:example.png";
+  f.unitsLook = "tiles";
   assert.match(face(), /initial/);
 });
 

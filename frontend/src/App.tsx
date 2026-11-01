@@ -429,7 +429,7 @@ export default function App() {
                 version={battleVersion}
                 units={units}
                 part2={showPart2(appearance.appearance.portraits, units)}
-                mapLook={{ mine: appearance.appearance.mapMine, others: appearance.appearance.mapOthers, myFaces: appearance.appearance.myUnitFaces, otherFaces: appearance.appearance.otherUnitFaces }}
+                mapLook={{ generic: appearance.appearance.mapGeneric, named: appearance.appearance.mapNamed, units: appearance.appearance.unitFaces }}
                 replaySpeed={appearance.appearance.replaySpeed}
                 onReplaySpeed={(replaySpeed) => appearance.update({ replaySpeed })}
                 at={recording?.id === nav.route.id ? nav.route.q : null}
