@@ -10,6 +10,7 @@ import { Icon } from "../Icon";
 import { WEAPON_LABEL } from "./mapIcons";
 import { useGameImageUrl } from "../GameImage";
 import { maskStyle } from "../gameImageSources";
+import { CRYSTAL_ITEM_ICON } from "./unitAppearance";
 
 const SOLID = new Set(["sword", "lance", "axe", "bow", "gauntlets", "reason", "faith"]);
 
@@ -20,7 +21,8 @@ export function WeaponIcon({ kind, label }: { kind?: string | null; label?: stri
   const tip = label ?? (k ? WEAPON_LABEL[k] : "Fists");
   const imported = SOLID.has(k ?? "gauntlets") ? `images/icons/weapons/${k ?? "gauntlets"}.png` : `images/map/minimap-pieces/weapon-${k}.png`;
   const url = useGameImageUrl(imported);
-  return url ? <span className="game-icon weapon" role="img" aria-label={tip} title={tip} style={maskStyle(url)} /> : null;
+  const crystal = useGameImageUrl(k === "crest-stone" ? CRYSTAL_ITEM_ICON : "");
+  return url || crystal ? <span className="game-icon weapon" role="img" aria-label={tip} title={tip} style={maskStyle(url || crystal)} /> : null;
 }
 
 const KIND_LABEL = { weapon: "Weapon", spell: "Spell", art: "Combat art", item: "Item", equipment: "Equipment", other: "Item", rally: "Rally" } as const;

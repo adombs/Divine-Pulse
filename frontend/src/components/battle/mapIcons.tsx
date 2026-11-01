@@ -12,7 +12,8 @@ import { useEffect, useState } from "react";
 import { ICON_PATHS } from "../iconPaths";
 import { spoilerShown } from "../../spoilers";
 import { ICON } from "./model";
-import { MapImage } from "../GameImage";
+import { MapImage, useGameImageUrl } from "../GameImage";
+import { CRYSTAL_ITEM_ICON } from "./unitAppearance";
 import { loadGameJson, onGameAssetsChange } from "../../gameAssets";
 import { bundledGameImage } from "../gameImageSources";
 
@@ -25,6 +26,7 @@ export const WEAPON_LABEL: Record<string, string> = {
   reason: "Reason magic",
   faith: "Faith magic",
   dark: "Dark magic",
+  "crest-stone": "Crest Stone Shard",
 };
 
 export const gameImage = (name: string) => bundledGameImage(`${name}.png`);
@@ -32,10 +34,12 @@ export const gameImage = (name: string) => bundledGameImage(`${name}.png`);
 /** A weapon glyph centred on (cx, cy), `size` tiles across (white, for a badge): the minimap's own; no weapon is
  * fists. */
 export function WeaponGlyph({ kind, cx, cy, size }: { kind?: string | null; cx: number; cy: number; size: number }) {
-  return <>
-    <svg x={cx - size / 2} y={cy - size / 2} width={size} height={size} viewBox="0 0 256 256" fill="white" dangerouslySetInnerHTML={{ __html: ICON_PATHS[CONCEPT_ICON.weapon].duotone ?? "" }} />
-    <MapImage className="map-glyph" href={miniWeapon(kind)} x={cx - size / 2} y={cy - size / 2} width={size} height={size} />
-  </>;
+  const glyph = useGameImageUrl(miniWeapon(kind));
+  const crystal = useGameImageUrl(kind === "crest-stone" ? CRYSTAL_ITEM_ICON : "");
+  return glyph || crystal
+    ? <image className="map-glyph" href={glyph || crystal} x={cx - size / 2} y={cy - size / 2} width={size} height={size} />
+    : kind === "crest-stone" ? null
+    : <svg x={cx - size / 2} y={cy - size / 2} width={size} height={size} viewBox="0 0 256 256" fill="white" dangerouslySetInnerHTML={{ __html: ICON_PATHS[CONCEPT_ICON.weapon].duotone ?? "" }} />;
 }
 
 /** The battle minimap's own pieces (mini-*.png, from the game's minimap atlas): its weapon glyphs, terrain tiles,
@@ -213,5 +217,5 @@ const MARK_ICONS: Record<string, string> = { chest: "chest", door: "door", lever
 /** The icon for what's on a tile (map.TileMark), drawn in the tile's own coordinates (0, 0) to (1, 1). */
 export function TileMarkGlyph({ mark }: { mark: string }) {
   const icon = MARK_ICONS[mark];
-  return icon ? <MapImage className={`map-mark ${mark}`} href={miniImage(icon)} x={0} y={0} width={1} height={1} /> : null;
+  return icon ? <MapImage className={`map-mark map-mark-${mark}`} href={miniImage(icon)} x={0} y={0} width={1} height={1} /> : null;
 }

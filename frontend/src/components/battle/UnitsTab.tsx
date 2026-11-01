@@ -13,6 +13,7 @@ import { armyFlags, Flag, Flags, lowHpFlag, Team, TeamTag, teamOf } from "./mark
 import { isObject } from "./map";
 import { armyId, enemies, enemyId, hpShare, Item, tally } from "./model";
 import { WeaponIcon } from "./gameIcons";
+import { battleWeapon } from "./unitAppearance";
 import { HouseMark, Num, UnitFace, useBattleNav } from "./parts";
 import { enemyStatus, UnitDetail } from "./UnitPopup";
 import { HpBar } from "./HpBar";
@@ -202,7 +203,7 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
                         <span className="who-name">
                           {r.name}
                           <HouseMark id={r.id} />
-                          <WeaponIcon kind={r.unit?.weapon ?? r.enemy?.weapon} />
+                          <WeaponIcon kind={battleWeapon(r.unit ?? r.enemy)} />
                         </span>
                         <span className="who-class">{r.className}</span>
                       </span>

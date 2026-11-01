@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Fix Crest Stone markers flooding the Holy Tomb minimap with cyan; show Demonic Beasts across their four tiles and use the Crest Stone Shard weapon icon instead of fists or swords, including older recordings.
+
 ## 1.0.3 (2026-10-31)
 
 - Restore Meals under Supports → Gifts & Lost Items; reimport game files to load the 32 dining hall meal names. Recipes and preferences are not yet decoded.

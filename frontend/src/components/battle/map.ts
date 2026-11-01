@@ -5,6 +5,7 @@
 import type { Battle, BattleUnit, EnemyStats, MapStep, TerrainTile } from "../../api";
 import type { Sprite } from "./mapIcons";
 import { armyId, enemyId, LOW_HP, people } from "./model";
+import { battleWeapon, mapSpan } from "./unitAppearance";
 
 /** Battle maps are at most this many tiles across and down. */
 export const MAP_SIZE = 32;
@@ -16,6 +17,8 @@ export interface Piece {
   army: boolean;
   x: number;
   y: number;
+  /** Width and height in tiles (2 for standard Demonic Beasts). */
+  span: number;
   hp: number | null;
   max: number | null;
   /** Defeated, or fell: drawn faint where it went down. */
@@ -194,8 +197,8 @@ function terrainOf(battle: Battle): number[][] | null {
 function size(battle: Battle, pieces: Piece[]): Omit<Board, "pieces"> {
   const terrain = terrainOf(battle);
   const tw = terrain ? Math.max(...terrain.map((row) => row.length)) : 0;
-  const w = Math.max(battle.map_w ?? 0, tw, ...pieces.map((p) => p.x + 1), 1);
-  const h = Math.max(battle.map_h ?? 0, terrain?.length ?? 0, ...pieces.map((p) => p.y + 1), 1);
+  const w = Math.max(battle.map_w ?? 0, tw, ...pieces.map((p) => p.x + p.span), 1);
+  const h = Math.max(battle.map_h ?? 0, terrain?.length ?? 0, ...pieces.map((p) => p.y + p.span), 1);
   return { w: Math.min(MAP_SIZE, w), h: Math.min(MAP_SIZE, h), terrain, tiles: terrain ? (battle.terrain_tiles ?? {}) : {}, mapId: terrain ? (battle.map_id ?? null) : null };
 }
 
@@ -204,13 +207,13 @@ export function boardNow(battle: Battle): Board {
   const pieces: Piece[] = [];
   for (const u of battle.units) {
     if (!u.on_map || !onMap(u.x, u.y)) continue; // left the battle
-    pieces.push({ id: armyId(u.key), name: u.name, army: true, x: u.x!, y: u.y!, hp: u.hp, max: u.now.hp, down: u.hp !== null && u.hp <= 0, class_name: u.class_name, weapon: u.weapon ?? "", sprite: armySprite(u), object: false });
+    pieces.push({ id: armyId(u.key), name: u.name, army: true, x: u.x!, y: u.y!, span: mapSpan(u), hp: u.hp, max: u.now.hp, down: u.hp !== null && u.hp <= 0, class_name: u.class_name, weapon: battleWeapon(u), sprite: armySprite(u), object: false });
   }
   for (const e of Object.values(battle.enemy_stats ?? {})) {
     if (e.left || !onMap(e.x, e.y)) continue; // taken off the map
     const down = !e.on_map || (e.hp !== null && e.hp <= 0);
     const object = isObject(e);
-    pieces.push({ id: enemyId(e.slot), name: e.label, army: false, x: e.x!, y: e.y!, hp: e.hp === null ? null : Math.max(0, e.hp), max: e.max_hp, down, class_name: object ? "" : e.class_name, weapon: e.weapon ?? "", sprite: spriteOf(e), object });
+    pieces.push({ id: enemyId(e.slot), name: e.label, army: false, x: e.x!, y: e.y!, span: object ? 1 : mapSpan(e), hp: e.hp === null ? null : Math.max(0, e.hp), max: e.max_hp, down, class_name: object ? "" : e.class_name, weapon: battleWeapon(e), sprite: spriteOf(e), object });
   }
   return { ...size(battle, pieces), pieces: order(pieces) };
 }
@@ -253,7 +256,8 @@ export function boardAt(battle: Battle, frame: Frame): Board {
     pieces.push({
       id, name: w?.name ?? "A unit", army, x, y, hp, max, down: hp <= 0,
       class_name: object ? "" : (w?.unit?.class_name ?? w?.enemy?.class_name ?? ""),
-      weapon: w?.enemy?.weapon ?? w?.unit?.weapon ?? "",
+      span: object ? 1 : mapSpan(w?.unit ?? w?.enemy),
+      weapon: battleWeapon(w?.unit ?? w?.enemy),
       sprite: w?.unit ? armySprite(w.unit) : w?.enemy ? spriteOf(w.enemy) : UNKNOWN,
       object,
     });
