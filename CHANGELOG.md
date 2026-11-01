@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.2.3 (2026-11-01)
+
 - Bundle NSTool with Windows setup so importing NSP files no longer requires a separate download.
 
 ## 1.2.2 (2026-11-01)
