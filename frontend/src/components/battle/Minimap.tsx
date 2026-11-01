@@ -1,8 +1,8 @@
 /**
  * The battle map as a grid of tiles with every unit on it, each in its army's colour (yours blue, enemies red, allies
  * green, a third army yellow, breakable walls grey): as the game's map sprite, or drawn like the game's minimap, a
- * rounded badge with their portrait (characters of their own) or the game's icon for the weapon they fight with
- * (generic units; fists for the unarmed), as Settings > Appearance says (`mapLook`). Units that fell or left the map
+ * rounded badge with their portrait or the game's icon for the weapon they fight with
+ * (fists for the unarmed), as Settings > Appearance says (`mapLook`). Units that fell or left the map
  * aren't drawn: in a replay they fade away.
  * When the map's terrain is known it's drawn as the game's minimap draws it: the game's own minimap of the map when
  * there is one (map.gameMinimap), else its tiles laid on its grid by terrain (map.minimapTile), with its icons for
@@ -496,9 +496,8 @@ const Token = memo(function Token({
   const cls = ["map-piece", p.army ? "ally" : "foe", down ? "down" : "", low ? "low" : "", selected ? "selected" : "", faded ? "faded" : "", acting ? "acting" : "", onPick ? "pickable" : ""];
   const label = [describe(p, tile), !p.army && !p.object ? (WEAPON_LABEL[p.weapon] ?? "Unarmed") : null].filter(Boolean).join(" · ");
   const army = p.sprite.side;
-  // Your units and other characters with a name of their own, as against generic units.
   const named = p.army || p.sprite.character !== null;
-  const want = named ? look.named : look.generic;
+  const want = p.army ? look.mine : look.others;
   // Try the character's sprite, then its generic class sprite, then its portrait. Weapon badges are the last resort
   // unless explicitly selected in Appearance.
   const layers = p.object || want !== "sprites" || !sprites ? null : ((named ? spriteLayers(sprites, p.sprite, true) : null) ?? spriteLayers(sprites, p.sprite, false));
@@ -571,7 +570,7 @@ const Token = memo(function Token({
   );
 });
 
-const DEFAULT_LOOK: MapLook = { generic: "sprites", named: "portraits", units: "portraits" };
+const DEFAULT_LOOK: MapLook = { mine: "portraits", others: "sprites", myFaces: "portraits", otherFaces: "portraits" };
 
 /** A unit's octagon badge, nearly filling its tile. */
 const BADGE = { x: 0.05, y: 0.05, size: 0.9 };

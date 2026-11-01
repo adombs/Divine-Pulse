@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Choose battle map and unit face appearances separately for your units and other units; the Testing settings tab is now called Debug.
+
 ## 1.0.5 (2026-11-01)
 
 - Fall back to portraits when a battle unit has no map sprite; use weapon badges only when neither is available or badges are explicitly selected.
