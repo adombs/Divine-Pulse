@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Scale battle log tree captions down when zooming out.
+
 ## 1.0.6 (2026-11-01)
 
 - Choose battle map and unit face appearances separately for your units and other units; the Testing settings tab is now called Debug.
