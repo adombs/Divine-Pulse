@@ -341,7 +341,7 @@ class GameMemory:
             character = struct.unpack_from("<H", slot, _CHARACTER)[0]
             if character in fighting:
                 start.append((character, *struct.unpack_from("<HH", slot, _COMBATS)))
-        return Snapshot(merged, snapshot.player_name, used, fighting, key, tuple(start))
+        return Snapshot(merged, snapshot.player_name, used, fighting, key, tuple(start), snapshot.scenario)
 
     def battle_units(self) -> list:
         """Every unit on the battle map (gamemem.battle.BattleUnit), read around the army's battle copies.

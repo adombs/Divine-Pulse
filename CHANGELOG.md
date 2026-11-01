@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Byleth's portrait now follows their hair in your game: green from the Sothis merge on, on the roster and the Characters page too.
+
 ## 1.0.1 (2026-10-31)
 
 - Importing game files now says what's missing when a dump isn't complete: it needs the game with update 1.2.0 and its ExeFS. DLC stays optional.
