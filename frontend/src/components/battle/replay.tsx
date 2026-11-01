@@ -14,7 +14,8 @@ import type { Battle } from "../../api";
 import { plural } from "../../format";
 import { clock } from "../../format";
 import { hpShare, Item } from "./model";
-import { Action, Board, boardAt, boardNow, Frame, frames, stepAction, stepKinds, stepLabel, turnStarts } from "./map";
+import { Action, Board, boardAt, boardNow, Frame, frames, stepAction, stepLabel, turnStarts } from "./map";
+import { replayPath } from "./replayPath";
 import { BattleNavContext, KeyNumber, keyNumbers } from "./parts";
 
 /** Each stage of a step's animation at normal speed (ms): moving (a base, and per tile, up to a most), acting, the
@@ -85,15 +86,25 @@ function timing(before: Board, after: Board, action: Action | null, phaseStart: 
 
 const reducedMotion = () => window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
 
-export function useReplay(battle: Battle) {
+export function useReplay(battle: Battle, pulse: number | null = null, items?: Item[]) {
   const asked = Number(useContext(BattleNavContext)?.replaySpeed);
   const speed = asked > 0 && Number.isFinite(asked) ? asked : 1;
-  const steps = useMemo(() => battle.map_steps ?? [], [battle.map_steps]);
-  const all = useMemo(() => frames(steps, battle.map_presence), [steps, battle.map_presence]);
-  const kinds = useMemo(() => stepKinds(battle), [battle]);
+  const path = useMemo(() => replayPath(battle, pulse), [battle, pulse]);
+  const { steps, presence, available } = path;
+  const all = useMemo(() => frames(steps, presence), [steps, presence]);
+  const kinds = useMemo(() => {
+    const result = new Map<number, "attack" | "heal">();
+    for (const item of items ?? []) {
+      if (item.step === null) continue;
+      if (item.kind === "attack") result.set(item.step, "attack");
+      else if ((item.kind === "heal" || item.kind === "item") && !result.has(item.step)) result.set(item.step, "heal");
+    }
+    return result;
+  }, [items]);
   const turns = useMemo(() => turnStarts(steps), [steps]);
   // The step shown (an index into steps), or null for where things stand now.
-  const [at, setAt] = useState<number | null>(null);
+  const [position, setAt] = useState<number | null>(null);
+  const at = position !== null && position >= steps.length ? null : position;
   const [playing, setPlaying] = useState(false);
   // The step being animated and when it started (performance.now()), and how far along it is.
   const [animating, setAnimating] = useState<{ step: number; start: number } | null>(null);
@@ -101,13 +112,20 @@ export function useReplay(battle: Battle) {
   // Bumped when the timeline is sent to a step on purpose (a log row picked): its thumb glides there rather than jumping.
   const [seeks, setSeeks] = useState(0);
 
+  // Switching paths stops the old animation and starts at the selected path's first frame.
+  useEffect(() => {
+    setPlaying(false);
+    setAnimating(null);
+    setAt(pulse === null || !steps.length ? null : 0);
+  }, [pulse]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // A Divine Pulse can cut the history back past the step shown.
   useEffect(() => {
-    if (at !== null && at >= steps.length) setAt(null);
-  }, [at, steps.length]);
+    if (position !== null && position >= steps.length) setAt(null);
+  }, [position, steps.length]);
 
-  const boardOf = (i: number | null): Board => (i === null ? boardNow(battle) : boardAt(battle, all[i] ?? (new Map() as Frame)));
-  const board = useMemo(() => boardOf(at), [battle, all, at]); // eslint-disable-line react-hooks/exhaustive-deps
+  const boardOf = (i: number | null): Board => (i === null && pulse === null ? boardNow(battle) : boardAt(battle, all[i ?? 0] ?? (new Map() as Frame)));
+  const board = useMemo(() => boardOf(at), [battle, all, at, pulse]); // eslint-disable-line react-hooks/exhaustive-deps
   const action = useMemo(() => (at === null ? null : stepAction(steps, all, at, kinds)), [steps, all, at, kinds]);
   const anim = useMemo(() => {
     if (!animating || at === null || animating.step !== at || at === 0) return null;
@@ -120,7 +138,7 @@ export function useReplay(battle: Battle) {
     if (i >= steps.length) {
       setPlaying(false);
       setAnimating(null);
-      setAt(null);
+      setAt(pulse === null ? null : Math.max(0, steps.length - 1));
       return;
     }
     setAt(i);
@@ -158,7 +176,7 @@ export function useReplay(battle: Battle) {
   const go = (i: number | null) => {
     setPlaying(false);
     setAnimating(null);
-    setAt(i === null || i >= steps.length ? null : Math.max(0, i));
+    setAt(i === null || i >= steps.length ? (pulse === null || !steps.length ? null : steps.length - 1) : Math.max(0, i));
   };
   const seek = (i: number) => {
     go(i);
@@ -169,11 +187,12 @@ export function useReplay(battle: Battle) {
     if (at !== null) advance(at + 1);
   };
   const play = () => {
+    if (!steps.length) return;
     if (playing) {
       setPlaying(false);
       return;
     }
-    if (at === null) {
+    if (at === null || (pulse !== null && at === steps.length - 1)) {
       setAnimating(null);
       setAt(0);
     } else if (!animating) advance(at + 1);
@@ -191,7 +210,7 @@ export function useReplay(battle: Battle) {
   const army = at === null ? (battle.active || finalPhase === undefined ? "now" : phaseArmy(finalPhase)) : phaseArmy(steps[at].phase);
   const cursor = at === null && battle.active && battle.cursor ? battle.cursor : null;
   const animation: StepAnimation | null = anim ? { ...anim, elapsed } : null;
-  return { steps, turns, at, playing, board, action, animation, cursor, go, seek, seeks, next, play, label, detail, army };
+  return { steps, turns, at, playing, board, action, animation, cursor, go, seek, seeks, next, play, label, detail, army, available, historical: pulse !== null };
 }
 
 export type Replay = ReturnType<typeof useReplay>;
@@ -267,7 +286,7 @@ export function ReplayBar({ replay: r }: { replay: Replay }) {
     const starts = new Set(turns.map((t) => t.index));
     return steps.map((s, i) => ({ at: i, className: `${phaseArmy(s.phase)}${starts.has(i) ? " major" : ""}` }));
   }, [steps, turns]);
-  const end = steps.length;
+  const end = r.historical ? steps.length - 1 : steps.length;
   const target = at ?? end;
   // After a seek (a log row picked) the thumb glides from where it was to the new step, rather than jumping.
   const [glide, setGlide] = useState<number | null>(null);
@@ -305,8 +324,8 @@ export function ReplayBar({ replay: r }: { replay: Replay }) {
         <IconButton icon={CONCEPT_ICON.first} onClick={() => go(0)} disabled={at === 0} label="To the beginning" className="replay-btn" />
         <IconButton icon={CONCEPT_ICON.prev} onClick={() => go((at ?? end) - 1)} disabled={at === 0} label="Previous step" className="replay-btn" />
         <IconButton icon={playing ? CONCEPT_ICON.pause : CONCEPT_ICON.play} primary onClick={r.play} pressed={playing} label={playing ? "Pause" : "Play"} className="replay-btn" />
-        <IconButton icon={CONCEPT_ICON.next} onClick={r.next} disabled={at === null} label="Next step" className="replay-btn" />
-        <IconButton icon={CONCEPT_ICON.last} onClick={() => go(null)} disabled={at === null} label="To the end" className="replay-btn" />
+        <IconButton icon={CONCEPT_ICON.next} onClick={r.next} disabled={at === null || (r.historical && at === end)} label="Next step" className="replay-btn" />
+        <IconButton icon={CONCEPT_ICON.last} onClick={() => go(null)} disabled={at === null || (r.historical && at === end)} label="To the end" className="replay-btn" />
       </div>
       <NotchedRange
         className="replay-timeline"

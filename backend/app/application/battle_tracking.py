@@ -850,7 +850,7 @@ class BattleTracker:
         self._shadow = [
             f for f in self._shadow if f["t"] < since
         ]  # (the pairing check scores the timeline that stands)
-        if not undone and not moved:
+        if not undone and not moved and len(battle.map_steps) <= keep:
             return
         battle.events = [e for e in battle.events if not (e.t >= since and e.kind in self.BRANCH_EVENTS)]
         branch = Branch(
@@ -860,6 +860,8 @@ class BattleTracker:
             at=round(t, 1),
             log=undone,
             events=moved,
+            map_steps=[step.model_copy(deep=True) for step in battle.map_steps],
+            map_presence={uid: list(marks) for uid, marks in battle.map_presence.items()},
         )
         # Branches that split off the standing timeline after this point split off the one being undone now.
         for b in battle.branches:

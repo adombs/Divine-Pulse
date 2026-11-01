@@ -158,6 +158,9 @@ class Branch(BaseModel):
     events: list[BattleEvent] = Field(
         default_factory=list
     )  # and what else the tracker saw then (units leaving, level-ups)
+    # Complete pre-rewind replay, including the shared prefix. Older recordings may not have these snapshots.
+    map_steps: list[MapStep] = Field(default_factory=list)
+    map_presence: dict[str, list[tuple[int, bool]]] = Field(default_factory=dict)
 
 
 # The army another unit is in: "ally" fights on your side, "third" against both; "object" isn't a unit at all but a
