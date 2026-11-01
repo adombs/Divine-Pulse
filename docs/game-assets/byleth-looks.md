@@ -68,7 +68,8 @@ Searched, with the game running a save after the merge (read-only memory reads):
   be fought before the merge and the game keeps its id too. The last known look stays.
 
 A save before chapter 11 starts as `dark` only once a scenario has been read; until then the app keeps its old
-behaviour (the Part I/II portrait switch).
+behaviour (the Part I/II portrait switch). The same goes for a new run whose first read is scenario 38 or up: it has no
+last known look, so it shows the Part I/II switch until a main-story battle is fought.
 
 ### Verified live
 

@@ -524,6 +524,9 @@ def test_the_story_scenario_is_read_between_battles():
     memory._process = Process()
     memory.version = VERSIONS[0]
     assert memory._read_once().scenario == 12
+    # What the tracker calls, with the battle in progress merged in: the scenario has to survive that too.
+    memory._find_battle_copies = lambda roster: {}
+    assert memory.read().scenario == 12
 
 
 def test_a_memory_read_stores_byleths_look(scanner):
