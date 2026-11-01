@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.0.7 (2026-11-01)
+
 - Scale battle log tree captions down when zooming out.
 
 ## 1.0.6 (2026-11-01)
