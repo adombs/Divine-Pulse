@@ -35,6 +35,9 @@ never an error.
 
 ## Checking the assets
 
+Import format 3 adds `data/meals.json` (dining recipes and character preferences) and localized `ingredient`
+names. Reimport older game files in Settings to populate these fields.
+
 `verify` checks the extracted files and exits non-zero on any error (the dump itself is checked before and during
 extraction: a supported game build, and every archive must read):
 

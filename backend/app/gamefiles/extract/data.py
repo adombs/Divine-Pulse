@@ -51,6 +51,9 @@ SPELL, SPELL_DESCRIPTION, BATTALION, BATTALION_DESCRIPTION = 7836, 8136, 9096, 9
 FACTION, CREST_MAJOR, CREST_MINOR, GIFT = 9498, 9590, 9612, 10142  # 10147 in the NUL-split pool, 5 less by string index
 FACTIONS = 23
 CRESTS = 22
+MEAL, INGREDIENT = 9852, 5056
+MEALS = 32
+MEAL_PERSON_IDS = {**{n: n for n in range(2, 35)}, **{n: n + 1002 for n in (38, 39, 40, 41, 43, 44)}}
 
 # Entry numbers in DATA0 for dumps whose patch folder does not carry the loose file.
 DATA_ENTRIES = {
@@ -60,6 +63,7 @@ DATA_ENTRIES = {
     "fixed_persondata.bin": 12,
     "fixed_skill.bin": 15,
     "fixed_presentdata.bin": 28,
+    "fixed_lobby_activity.bin": 26,
 }
 
 
@@ -441,6 +445,25 @@ def section(raw: bytes, number: int) -> list[bytes]:
     return tables.rows(raw, number)
 
 
+def meals(recipe_rows: list[bytes], preference_rows: list[bytes], text: Text) -> dict:
+    """Dining recipes (lobby_activity s1) and signed per-meal character preferences (s2)."""
+    recipes = []
+    for meal_id, row in enumerate(recipe_rows[:MEALS]):
+        ingredients = []
+        for slot in range(3):
+            ingredient, quantity = u16(row, 2 * slot), row[14 + slot]
+            if quantity:
+                ingredients.append({"id": ingredient, "name": text(INGREDIENT + ingredient), "quantity": quantity})
+        recipes.append({"id": meal_id, "name": text(MEAL + meal_id), "ingredients": ingredients})
+    people = [
+        {"character": pid,
+         "liked": [i for i, row in enumerate(preference_rows[:MEALS]) if row[column] == 1],
+         "disliked": [i for i, row in enumerate(preference_rows[:MEALS]) if row[column] == EMPTY]}
+        for column, pid in MEAL_PERSON_IDS.items()
+    ] if preference_rows else []
+    return {"meals": recipes, "characters": people}
+
+
 def write(ctx: Context, name: str, data, source: str) -> None:
     ctx.out.json(f"data/{name}.json", data, source=source)
 
@@ -513,3 +536,7 @@ def extract(ctx: Context) -> None:
     if present:
         data = gifts(section(present, 1), text)
         write(ctx, "gifts", data, "fixed_presentdata.bin section 1")
+    activity = files["fixed_lobby_activity.bin"]
+    if activity:
+        write(ctx, "meals", meals(section(activity, 1), section(activity, 2), text),
+              "fixed_lobby_activity.bin sections 1-2")

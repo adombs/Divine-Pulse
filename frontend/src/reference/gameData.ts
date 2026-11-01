@@ -262,7 +262,7 @@ export function buildSupports(files: Record<string, unknown>, wiki: { a: string;
   const gifts = rows(files.gifts, "characters");
   const personName = (id: unknown, fallback: unknown) => {
     const person = characters.find((c) => c.id === id);
-    return text(texts.character_given?.[String(person?.name_id)], text(fallback));
+    return text(texts.character_given?.[String(person?.id)], text(fallback));
   };
   const updatedPairs = pairs.flatMap((p) => {
     if (typeof p.a_name !== "string" || typeof p.b_name !== "string" || !Array.isArray(p.ranks) || excludedPairs.some(([a, b]) => (p.a === a && p.b === b) || (p.a === b && p.b === a))) return [];
@@ -289,9 +289,34 @@ export function buildSupports(files: Record<string, unknown>, wiki: { a: string;
     const canonical = portraitEntries[String(person.id)]?.name;
     return canonical ? [[canonical, personName(person.id, person.name)]] : [];
   }));
-  const meals = Object.entries(texts.meal ?? {})
+  const importedMeals = rows(files.meals, "meals");
+  const mealPreferences = rows(files.meals, "characters");
+  const mealNames = { ...Object.fromEntries(importedMeals.filter((m) => typeof m.name === "string").map((m) => [String(m.id), m.name])), ...texts.meal };
+  const meals: SupportData["meals"] = Object.entries(mealNames)
     .filter(([id, name]) => /^(?:[0-9]|[12][0-9]|3[01])$/.test(id) && name.trim())
-    .map(([id, name]) => ({ id, name }));
+    .map(([id, name]) => {
+      const row = importedMeals.find((m) => String(m.id) === id);
+      const meal: SupportData["meals"][number] = { id, name };
+      if (Array.isArray(row?.ingredients)) meal.ingredients = row.ingredients.flatMap((item: unknown) => {
+        if (!item || typeof item !== "object") return [];
+        const { id: ingredientId, name: fallback, quantity } = item as Row;
+        const ingredientName = text(texts.ingredient?.[String(ingredientId)], text(fallback));
+        return Number.isInteger(ingredientId) && typeof quantity === "number" && quantity > 0 && ingredientName
+          ? [{ id: ingredientId, name: ingredientName, quantity }] : [];
+      });
+      if (mealPreferences.length) meal.preferences = true;
+      return meal;
+    });
+  for (const preference of mealPreferences) {
+    const person = characters.find((c) => c.id === preference.character);
+    if (!person || typeof person.name !== "string") continue;
+    const name = personName(person.id, person.name);
+    const names = (ids: unknown) => Array.isArray(ids) ? ids.flatMap((id) => {
+      const meal = meals.find((m) => m.id === String(id));
+      return meal ? [meal.name] : [];
+    }) : [];
+    people[name] = { ...people[name], liked_meals: names(preference.liked), disliked_meals: names(preference.disliked) };
+  }
   return { names: displayNames, pairs: updatedPairs, people, meals };
 }
 
@@ -301,8 +326,8 @@ export async function loadImportedSupports(wiki: Parameters<typeof buildSupports
   try {
     const { gameLanguage, loadGameLanguage } = await import("../gameLanguage");
     await loadGameLanguage();
-    const names = ["supports", "gifts", "characters"];
-    const [values, characterGiven, gift, meal] = await Promise.all([Promise.all(names.map((name) => loadGameJson(`data/${name}.json`))), loadGameText("character_given", gameLanguage()), loadGameText("gift", gameLanguage()), loadGameText("meal", gameLanguage())]);
-    return buildSupports(Object.fromEntries(names.map((name, i) => [name, values[i]])), wiki, { character_given: characterGiven, gift, meal }, excludedPairs);
+    const names = ["supports", "gifts", "characters", "meals"];
+    const [values, characterGiven, gift, meal, ingredient] = await Promise.all([Promise.all(names.map((name) => loadGameJson(`data/${name}.json`))), loadGameText("character_given", gameLanguage()), loadGameText("gift", gameLanguage()), loadGameText("meal", gameLanguage()), loadGameText("ingredient", gameLanguage())]);
+    return buildSupports(Object.fromEntries(names.map((name, i) => [name, values[i]])), wiki, { character_given: characterGiven, gift, meal, ingredient }, excludedPairs);
   } catch { return buildSupports({}, wiki); }
 }

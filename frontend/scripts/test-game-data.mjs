@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import { buildCharacters, buildReference, buildSupports, itemSummary, spellSummary } from "../src/reference/gameData.ts";
 
 const structure = { playableCharacters: [], playableClasses: [] };
@@ -101,4 +103,50 @@ assert.deepEqual(bylethSocial.pairs[1].ranks, ["C", "B", "A"]);
 // A gift without a text entry keeps the name from the import.
 const giftSocial = buildSupports({ characters: { characters: [{ id: 501, name: "B" }] }, gifts: { characters: [{ character: 501, liked: [{ id: 2, name: "Plain" }, { id: 7, name: "Raw" }], disliked: [], lost_items: [] }] } }, [], { gift: { 2: "Spelled" } });
 assert.deepEqual(giftSocial.people.B.liked_gifts, ["Plain", "Spelled"]);
+
+// Meal ids link recipes, translated ingredients, and base/DLC character preferences.
+const dining = buildSupports({
+  characters: { characters: [{ id: 501, name_id: 501, name: "Aster" }, { id: 1040, name_id: 550, name: "Bram" }] },
+  gifts: { characters: [{ character: 501, liked: [{ id: 6, name: "Book" }] }] },
+  meals: {
+    meals: [{ id: 0, name: "Test dish", ingredients: [{ id: 96, name: "River fish", quantity: 3 }] }, { id: 31, name: "Other dish", ingredients: [] }, { id: 32, name: "Unused" }],
+    characters: [{ character: 501, liked: [0, 32], disliked: [31] }, { character: 1040, liked: [31], disliked: [0] }, { character: 9999, liked: [0] }],
+  },
+}, [], { character_given: { 501: "Aster translated", 1040: "Bram translated" }, meal: { 0: "Translated dish" }, ingredient: { 96: "Translated fish" } });
+assert.deepEqual(dining.meals, [
+  { id: "0", name: "Translated dish", ingredients: [{ id: 96, name: "Translated fish", quantity: 3 }], preferences: true },
+  { id: "31", name: "Other dish", ingredients: [], preferences: true },
+]);
+assert.deepEqual(dining.people["Aster translated"], { liked_gifts: ["Book"], disliked_gifts: [], lost_items: [], liked_meals: ["Translated dish"], disliked_meals: ["Other dish"] });
+assert.deepEqual(dining.people["Bram translated"], { liked_meals: ["Other dish"], disliked_meals: ["Translated dish"] });
+assert.doesNotThrow(() => buildSupports({ meals: { meals: [null, { id: 0, name: "Dish", ingredients: [null, {}, { id: 96, quantity: -1 }] }], characters: "bad" } }, []));
+
+// Exercise the public loader with only HTTP faked, including an older import being replaced.
+const assetsUrl = new URL("../src/gameAssets.ts", import.meta.url).href;
+const sourceUrl = (source) => `data:text/javascript,${encodeURIComponent(stripTypeScriptTypes(source))}`;
+const languageUrl = sourceUrl(readFileSync(new URL("../src/gameLanguage.ts", import.meta.url), "utf8").replaceAll('"./gameAssets"', JSON.stringify(assetsUrl)));
+const loaderSource = readFileSync(new URL("../src/reference/gameData.ts", import.meta.url), "utf8")
+  .replaceAll('"../gameAssets"', JSON.stringify(assetsUrl))
+  .replaceAll('"../gameLanguage"', JSON.stringify(languageUrl))
+  .replaceAll('"./structure.json"', JSON.stringify(new URL("../src/reference/structure.json", import.meta.url).href));
+const { loadImportedSupports } = await import(sourceUrl(loaderSource));
+const { loadGameAssetsStatus } = await import(assetsUrl);
+let imported = false;
+globalThis.fetch = async (url) => {
+  const files = {
+    "/api/game-assets/status": { available: true, languages: ["GER"], created: String(imported) },
+    "/api/settings": { game_language: "GER" },
+    "/game-assets/data/characters.json": { characters: [{ id: 1040, name_id: 550, name: "Bram" }] },
+    "/game-assets/data/meals.json": imported ? { meals: [{ id: 0, name: "Dish", ingredients: [{ id: 96, name: "Fish", quantity: 3 }] }], characters: [{ character: 1040, liked: [0], disliked: [] }] } : null,
+    "/game-assets/text/GER.json": { categories: { character_given: { 1040: "Translated Bram" }, meal: { 0: "Translated dish" }, ingredient: { 96: "Translated fish" } } },
+  };
+  return { ok: files[url] != null, json: async () => files[url] };
+};
+await loadGameAssetsStatus();
+assert.deepEqual((await loadImportedSupports([], [])).meals, [{ id: "0", name: "Translated dish" }]);
+imported = true;
+await loadGameAssetsStatus(true);
+const loadedDining = await loadImportedSupports([], []);
+assert.deepEqual(loadedDining.meals[0].ingredients, [{ id: 96, name: "Translated fish", quantity: 3 }]);
+assert.deepEqual(loadedDining.people["Translated Bram"].liked_meals, ["Translated dish"]);
 console.log("game-data builder tests passed");

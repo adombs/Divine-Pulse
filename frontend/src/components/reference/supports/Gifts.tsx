@@ -1,5 +1,5 @@
 /**
- * Gifts, Meals, and Lost Items: pick an item to see who it is for, or look up imported dining hall meal names.
+ * Gifts, Meals, and Lost Items: imported recipes and the characters who like or dislike each item.
  */
 import { CONCEPT_ICON } from "../../../icons/concepts";
 import { useMemo, useState } from "react";
@@ -34,6 +34,8 @@ interface Entry {
   title: string;
   groups: Group[];
   search: string[];
+  ingredients?: SupportData["meals"][number]["ingredients"];
+  needsImport?: boolean;
 }
 
 export function Gifts({ data, people, part2 }: { data: SupportData; people: Person[]; part2: boolean }) {
@@ -64,8 +66,17 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
       ],
       search: [g, ...(liked.get(g) ?? []), ...(disliked.get(g) ?? [])],
     }));
+    const likedMeals = invert("liked_meals");
+    const dislikedMeals = invert("disliked_meals");
     const meals: Entry[] = data.meals.map((meal) => ({
-      id: meal.id, title: meal.name, groups: [], search: [meal.name],
+      id: meal.id, title: meal.name,
+      ingredients: meal.ingredients,
+      needsImport: !meal.ingredients || !meal.preferences,
+      groups: meal.preferences ? [
+        { label: "Liked By", names: likedMeals.get(meal.name) ?? [], tone: "good" as const },
+        { label: "Disliked By", names: dislikedMeals.get(meal.name) ?? [], tone: "bad" as const },
+      ] : [],
+      search: [meal.name, ...(meal.ingredients ?? []).map((i) => i.name), ...(likedMeals.get(meal.name) ?? []), ...(dislikedMeals.get(meal.name) ?? [])],
     })).sort((a, b) => a.title.localeCompare(b.title));
     return { lost, gifts, meals } satisfies Record<Kind, Entry[]>;
   }, [data]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -87,7 +98,7 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
         }}
         options={LABELS.map(([id, label]) => [id, <>{label}<span className="seg-count">{counts[id]}</span></>] as const)}
       />
-      <SearchBox placeholder={kind === "meals" ? "Search meals" : "Search items or names"} value={q} onChange={setQ} />
+      <SearchBox placeholder={kind === "meals" ? "Search meals, ingredients or names" : "Search items or names"} value={q} onChange={setQ} />
     </div>
   );
 
@@ -103,14 +114,10 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
   }
 
   return (
-    <MasterDetail wide detail={kind === "meals" ? (
-      <DetailCard title={current?.title ?? "Meals"} label={current?.title ?? "Meals"}>
-        <p>Recipes and character meal preferences are not yet available from the game import.</p>
-      </DetailCard>
-    ) : <ItemCard entry={current} people={people} part2={part2} />}>
+    <MasterDetail wide detail={<ItemCard entry={current} people={people} part2={part2} />}>
       {toolbar}
       {kind === "meals" && lists.meals.length === 0 ? (
-        <EmptyState title="Import meal names">Reimport your game files in Settings to add the dining hall's meals.</EmptyState>
+        <EmptyState title="Import meals">Import your game files in Settings to add the dining hall's meals.</EmptyState>
       ) : rows.length === 0 && (
         <NoMatches what={LABELS.find(([k]) => k === kind)![1].toLowerCase()} onReset={q ? () => setQ("") : undefined} />
       )}
@@ -143,7 +150,7 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
                   <span className="sup-item-text">
                     <span className="sup-item-name">{e.title}</span>
                   </span>
-                  {kind !== "meals" && <span className="sup-item-faces">
+                  {(kind !== "meals" || e.groups.length > 0) && <span className="sup-item-faces">
                     {faces.slice(0, 6).map((n) => (
                       <KeyPortrait key={n} portraitKey={keyFor(people, n)} name={n} part2={part2} size={28} />
                     ))}
@@ -200,12 +207,17 @@ function ItemCard({
   if (!entry)
     return (
       <DetailCard title="Nothing picked" label="Nothing picked">
-        <EmptyState title="Nothing to show">Search for an item.</EmptyState>
+        <EmptyState title="Nothing to show">Search or select an entry.</EmptyState>
       </DetailCard>
     );
   return (
     <DetailCard title={entry.title} label={entry.title}>
+      {entry.needsImport && <p className="muted">Reimport your game files in Settings to add recipes and meal preferences.</p>}
       <div className="sup-preference-groups">
+        {entry.ingredients && <section className="sup-preference-group">
+          <h3><Icon name={CONCEPT_ICON.meals} /> Recipe</h3>
+          <ul>{entry.ingredients.map((item) => <li key={item.id}>{item.name} × {item.quantity}</li>)}</ul>
+        </section>}
         {entry.groups.map((g) => (
           <div key={g.label} className={`sup-preference-group${g.tone ? ` ${g.tone}` : ""}`}>
             <h3>

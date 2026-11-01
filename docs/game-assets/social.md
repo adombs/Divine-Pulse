@@ -1,4 +1,4 @@
-# Game assets: supports, gifts, lost items
+# Game assets: supports, gifts, lost items and meals
 
 Inputs: base game + update 1.2.0 RomFS (`patch4/nx/data/fixed_*.bin`; no patch file overrides these in DATA).
 Strings are referenced by index only.
@@ -8,8 +8,8 @@ Strings are referenced by index only.
 - **Support pairs and reachable ranks: found, verified.** `fixed_persondata.bin` section 10: 270 rows, 267 real pairs.
 - **Gift preferences and lost items: found, verified.** `fixed_presentdata.bin` section 1: one 17-byte row per
   character.
-- **Not found in any `fixed_*.bin`:** liked/disliked meals, recipes, meal events, tea preferences and tea topics,
-  faculty training and advanced drills; see Not decoded.
+- **Meal recipes and preferences: found, verified.** `fixed_lobby_activity.bin` sections 1 and 2; see Dining below.
+- **Not decoded:** meal events, tea preferences and tea topics, faculty training and advanced drills.
 
 ## Sources found
 
@@ -22,7 +22,10 @@ Strings are referenced by index only.
 | Dish names | same pool, `9857 + dish id` (0-31) | | verified |
 | Imported meal names | indexed file 2 strings `9852 + dish id` (0-31), category `meal` | excludes unused slots | verified |
 | Tea names | same pool, `5253 + tea id` (0-17) | | likely (names only) |
-| Liked/disliked meals, recipes, teas, tea topics, drills | not found | | not found |
+| Meal recipes | `fixed_lobby_activity.bin` (DATA entry 26), section 1 (100 x 18) | first 32 rows; material IDs and quantities | verified |
+| Meal preferences | same file, section 2 (100 x 45) | first 32 rows; one signed byte per character column | verified |
+| Ingredient names | indexed file 2 strings `5056 + material id` (96-164), category `ingredient` | fish, crops and meat | verified |
+| Teas, tea topics, drills | not found | | not found |
 
 Section format (as in [tables](tables.md)): `u32 n`; then `n` (offset, size) pairs of u32 at +4; at each table
 section a `00 19 12 16` tag, `u32 count` at +4, `u32 stride` at +8, rows at section + 0x40.
@@ -67,14 +70,26 @@ Item id -> name: pool string `10147 + id`. Rows: 2-34 are character ids; 35 Jera
 
 ## Not decoded
 
-- Meals and tea: tried and not found in any `fixed_*.bin` (all sections of `fixed_persondata`, `fixed_data`,
-  `fixed_presentdata`, `fixed_materialdata`, `fixed_lobby_*`, `fixed_act_data`, `fixed_onlinedata`, `fixed_calendardata`):
-  dish id bytes (0-31) in a row, a 32-bit like/dislike bitmask, a dish-by-character bitmask, a 2-bit packing, and
-  a single-column correlation across character rows (>=94% agreement). Meal preference may be derived from
-  dish taste categories, or live in script data (`common/common/scrdata.bin`, `gwscrdata.bin`), a DATA1 entry, or
-  the main executable. The 32 dish names are at pool index 9857-9888.
-- Meal recipes and events: not found.
+- Tea preferences and topics per character: not located. Earlier searches also missed meals in the fixed tables;
+  the meal table is transposed (one row per dish, not per person). Recheck the actual layouts before ruling out a file.
+- Meal events: not decoded.
 - Faculty training and advanced drills: not located; `fixed_persondata` sections 3-9 (45 rows) hold per-student
   data (class, skills); not decoded.
 - Tea topics are text in the pool; the per-character topic list was not located.
 - Byleth S-rank gender split: not derivable (single row).
+
+## Dining
+
+For update 1.2.0, `fixed_lobby_activity.bin` section 1 has 100 rows with stride 18. Row 0-31 is the meal ID;
+later rows are unused menu entries. At +0, +2 and +4 are three little-endian u16 material IDs. The corresponding
+quantities are bytes +14, +15 and +16. A zero quantity means no ingredient; do not resolve the unused ID 0 as food.
+Byte +13 is the menu ID (0-31 for these rows). Ingredient names use indexed message file 2 at `5056 + material ID`.
+
+Section 2 has 100 rows with stride 45. Row 0-31 is again the meal ID. Each byte is a character's signed preference:
+`01` liked, `FF` disliked, `00` neutral. Columns 2-34 are the base character IDs. Columns 38-41 and 43-44 map to
+1040-1043 and 1045-1046; 0, 1, 35-37 and 42 are empty. Comparing all 32 meals across the 39 dining characters
+matched all 1,248 entries in the prior reference. Row 32 is not a valid meal even though its preferences are nonzero.
+
+The importer writes `data/meals.json`: `meals` contains `{id, name, ingredients: [{id, name, quantity}]}`;
+`characters` contains `{character, liked: [meal ID], disliked: [meal ID]}`. The frontend resolves localized names
+through `meal`, `ingredient` and `character_given`. Import format 3 marks older imports for reimport.
