@@ -377,7 +377,7 @@ npm test
 npm run build
 ```
 
-The build includes TypeScript checks. There is no CI; these local checks are required by the contributing guide.
+The build includes TypeScript checks. CI runs the same checks on every pull request.
 Public tests use synthetic inputs and need no game files. Optional private-data tests use
 `DIVINE_PULSE_GAME_ASSETS`, `DIVINE_PULSE_GAME_DUMP` and `DIVINE_PULSE_CAPTURES`; see
 [Contributing](.github/CONTRIBUTING.md#optional-test-inputs) for their meanings.

@@ -90,8 +90,9 @@ close the issue when it merges. Commits on your branch can be worded however hel
 1. Ordinary changes go on a branch and are proposed to `main` in a pull request. Only a maintainer runs a release,
    which commits directly to a clean, current `main`; see [the release guide](../docs/releasing.md).
 2. Add a line under `## Unreleased` in `CHANGELOG.md` for anything a player would notice.
-3. Run the local checks before opening or merging a pull request. There is no CI, so these are the only checks a change
-   gets. Use the project venv explicitly so the commands do not depend on whichever Python happens to be on `PATH`:
+3. Run the local checks before opening a pull request. CI runs the same ones on every pull request, with no game files.
+   A first-time contributor's run starts once a maintainer has read the change and approved it. Use the project venv
+   explicitly so the commands do not depend on whichever Python happens to be on `PATH`:
 
 ```
 cd backend
