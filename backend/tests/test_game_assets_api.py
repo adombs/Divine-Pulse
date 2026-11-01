@@ -212,3 +212,63 @@ def test_candidates_last_dump_and_parent_and_dedupe(tmp_path):
     found = importer.candidates(str(mine), env={})
     assert [item["romfs"] for item in found] == [str(mine)]
     assert importer.candidates(str(tmp_path / "missing"), env={}) == []
+
+
+def test_nsp_import_success_and_picker_routes(tmp_path, assets, monkeypatch):
+    from app.infrastructure import nsp_extractor, paths
+
+    tool = tmp_path / "vendor" / "nstool" / "nstool.exe"
+    tool.parent.mkdir(parents=True)
+    tool.touch()
+    monkeypatch.setattr(paths, "FROZEN", False)
+    monkeypatch.setattr(paths, "PROJECT_ROOT", tmp_path)
+    packages = [tmp_path / "base.nsp", tmp_path / "update.nsp"]
+    keys = tmp_path / "prod.keys"
+    for file in [*packages, keys]:
+        file.touch()
+    extraction = []
+
+    def extract(inputs, executable, key_path, output, log):
+        extraction.append(output)
+        assert inputs == packages and executable == tool and key_path == keys
+        log("Extracted packages")
+
+    monkeypatch.setattr(nsp_extractor, "extract_nsps", extract)
+    monkeypatch.setattr(importer.dump, "find", lambda _: fake_dump(tmp_path))
+    monkeypatch.setattr(importer, "run", lambda ctx: {})
+    monkeypatch.setattr(importer.verify, "check", lambda _: importer.verify.Report())
+    app = create_app(tmp_path / "data", background=False)
+    with TestClient(app) as client:
+        assert client.post("/api/game-assets/pick-nsps").status_code == 501
+        app.state.pick_game_nsps = lambda: list(map(str, packages))
+        app.state.pick_game_keys = lambda: str(keys)
+        assert client.post("/api/game-assets/pick-nsps").json()["paths"] == list(map(str, packages))
+        assert client.post("/api/game-assets/pick-keys").json()["path"] == str(keys)
+        response = client.post("/api/game-assets/import-nsps", json={"nsps": list(map(str, packages)), "keys": str(keys)})
+        assert response.status_code == 202
+        assert wait_job(client)["state"] == "done"
+    assert extraction and not extraction[0].exists()
+
+
+def test_nsp_extraction_failure_preserves_existing_assets(tmp_path, assets, monkeypatch):
+    from app.infrastructure import nsp_extractor, paths
+
+    assets.root.mkdir()
+    (assets.root / "old.txt").write_text("old")
+    tool = tmp_path / "vendor" / "nstool" / "nstool.exe"
+    tool.parent.mkdir(parents=True)
+    tool.touch()
+    monkeypatch.setattr(paths, "FROZEN", False)
+    monkeypatch.setattr(paths, "PROJECT_ROOT", tmp_path)
+    package, keys = tmp_path / "base.nsp", tmp_path / "prod.keys"
+    package.touch()
+    keys.touch()
+    def fail(*args):
+        raise ValueError("bad keys")
+    monkeypatch.setattr(nsp_extractor, "extract_nsps", fail)
+    with TestClient(create_app(tmp_path / "data", background=False)) as client:
+        assert client.post("/api/game-assets/import-nsps", json={"nsps": [str(package)], "keys": str(keys)}).status_code == 202
+        job = wait_job(client)
+        assert job["state"] == "failed" and job["error"] == "bad keys"
+        assert client.post("/api/game-assets/import-nsps", json={"nsps": ["missing.nsp"], "keys": str(keys)}).status_code == 400
+    assert (assets.root / "old.txt").read_text() == "old"

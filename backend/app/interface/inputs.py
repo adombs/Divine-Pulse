@@ -32,6 +32,11 @@ class Body(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
+class GameNspsIn(Body):
+    nsps: list[str] = Field(min_length=1, max_length=64)
+    keys: str = Field(min_length=1, max_length=4096)
+
+
 class GameDumpIn(Body):
     dump: str = Field(min_length=1)
 

@@ -17,7 +17,7 @@ from ..application.operations import (
     RunNameTaken,
     UnitMissing,
 )
-from .inputs import EbstIn, GameDumpIn, PortraitIn, RunName, SettingsIn
+from .inputs import EbstIn, GameDumpIn, GameNspsIn, PortraitIn, RunName, SettingsIn
 from ..domain.ebst import EbstConfig
 from ..domain.scans import ScanLogEntry
 from ..domain.runs import RunSummary
@@ -57,6 +57,32 @@ def game_assets_import(body: GameDumpIn, request: Request) -> dict:
         raise HTTPException(409, str(exc)) from exc
     except (OSError, ValueError) as exc:
         raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/game-assets/import-nsps", status_code=202)
+def game_assets_import_nsps(body: GameNspsIn, request: Request) -> dict:
+    try:
+        return {"job": _state(request).game_import.start_nsps(body.nsps, body.keys)}
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except (OSError, ValueError) as exc:
+        raise HTTPException(400, str(exc)) from exc
+
+
+@router.post("/game-assets/pick-nsps")
+def game_assets_pick_nsps(request: Request) -> dict:
+    pick = getattr(request.app.state, "pick_game_nsps", None)
+    if pick is None:
+        raise HTTPException(501, "No desktop window (running in browser mode).")
+    return {"paths": pick()}
+
+
+@router.post("/game-assets/pick-keys")
+def game_assets_pick_keys(request: Request) -> dict:
+    pick = getattr(request.app.state, "pick_game_keys", None)
+    if pick is None:
+        raise HTTPException(501, "No desktop window (running in browser mode).")
+    return {"path": pick()}
 
 
 @router.post("/game-assets/verify")
