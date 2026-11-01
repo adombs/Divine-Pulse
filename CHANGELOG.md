@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Keep Byleth's hair green after chapter 10, including Holy Tomb and later auxiliary battles; recover the correct look in existing rosters and battle recordings.
+
 ## 1.0.4 (2026-10-31)
 
 - Fix Crest Stone markers flooding the Holy Tomb minimap with cyan; show Demonic Beasts across their four tiles and use the Crest Stone Shard weapon icon instead of fists or swords, including older recordings.

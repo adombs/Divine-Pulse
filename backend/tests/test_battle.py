@@ -20,6 +20,22 @@ def army(key="lysithea", level=16, **changes) -> ArmySample:
     return ArmySample(key, key.capitalize(), "Mage", level, {**STATS, **changes})
 
 
+def test_byleth_look_is_correct_on_first_poll_and_look_only_changes_are_reported():
+    tracker = BattleTracker()
+    byleth = replace(army("byleth"), character=0, look="dark")
+    sample = BattleSample((byleth,), scenario=11)
+    tracker.update(sample, "run", T0)
+    assert tracker.battle.units[0].look == "green"
+    tracker.battle.units[0].look = "dark"  # resumed from a recording made with the old rule
+    changed, _ = tracker.update(sample, "run", T0 + timedelta(seconds=1))
+    assert changed
+    assert tracker.battle.units[0].look == "green"
+
+    auxiliary = BattleTracker()
+    auxiliary.update(BattleSample((replace(byleth, look="green"),), scenario=83), "run", T0)
+    assert auxiliary.battle.units[0].look == "green"
+
+
 def enemies(n, level=15) -> tuple[EnemySample, ...]:
     return tuple(EnemySample("Brigand", level, 100.0) for _ in range(n))
 

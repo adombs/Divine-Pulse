@@ -206,9 +206,9 @@ class BattleTracker:
         for unit, a in zip(units, sample.army):
             self._set_resources(unit, a)
         self._set_power(sample)
+        self._set_scenario(sample)
         self._set_located(sample)
         self._set_terrain(sample)
-        self._set_scenario(sample)
         self._set_cursor(sample)
         if sample.turn:  # 0 on the Divine Pulse screen
             battle.turn = sample.turn
@@ -1224,7 +1224,7 @@ class BattleTracker:
         """Army and enemy HP totals, when current HP is located. Returns whether they changed."""
         battle = self.battle
         assert battle is not None
-        before = (battle.army_hp, battle.enemy_hp, [(u.x, u.y, u.acted) for u in battle.units])
+        before = (battle.army_hp, battle.enemy_hp, [(u.x, u.y, u.acted, u.look) for u in battle.units])
         by_key = {u.key: u for u in battle.units}
         for a in sample.army:
             unit = by_key.get(a.key)
@@ -1234,7 +1234,7 @@ class BattleTracker:
                 unit.acted = a.acted
                 unit.class_id, unit.character, unit.female = a.class_id, a.character, a.female
                 unit.weapon = a.weapon
-                unit.look = byleth_look(battle.scenario, True) if a.character in (0, 1) else None
+                unit.look = (byleth_look(battle.scenario, True) or a.look or unit.look) if a.character in (0, 1) else None
         army = [a for a in sample.army if a.hp is not None]
         if army:
             battle.army_hp = sum(a.hp for a in army)
@@ -1257,7 +1257,7 @@ class BattleTracker:
             battle.enemy_max_hp = sum(e.max_hp for e in enemies)
             battle.enemies_defeated = sum(1 for e in enemies if e.hp <= 0)  # defeated units stay in memory with no HP
         self._note_extent((a.x, a.y) for a in (*sample.army, *sample.enemies))
-        return (battle.army_hp, battle.enemy_hp, [(u.x, u.y, u.acted) for u in battle.units]) != before
+        return (battle.army_hp, battle.enemy_hp, [(u.x, u.y, u.acted, u.look) for u in battle.units]) != before
 
     def _set_terrain(self, sample: BattleSample) -> bool:
         """Keep the map's terrain once known (the import's data/maps.json; a later read for another map replaces it).
