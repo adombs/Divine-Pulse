@@ -53,6 +53,8 @@ Filename: "{app}\{#AppExe}"; Description: "Start {#AppName}"; Flags: nowait post
 var
   GamePage: TInputDirWizardPage;
   NspPage: TInputFileWizardPage;
+  ReviewPage: TWizardPage;
+  ReviewList: TNewMemo;
   KeepFiles, ImportFiles: TRadioButton;
   HasImport, Stopped: Boolean;
 
@@ -145,20 +147,18 @@ begin
   ImportFiles.Parent := GamePage.Surface;
   ImportFiles.Caption := 'Import again from this folder';
   ImportFiles.SetBounds(0, ScaleY(124), GamePage.SurfaceWidth, ScaleY(20));
-  NspPage := CreateInputFilePage(GamePage.ID, 'NSP extraction', 'Choose the extraction tools',
+  ReviewPage := CreateCustomPage(GamePage.ID, 'Review game files',
+    'Check the files found in the selected folder before continuing.');
+  ReviewList := TNewMemo.Create(ReviewPage);
+  ReviewList.Parent := ReviewPage.Surface;
+  ReviewList.SetBounds(0, 0, ReviewPage.SurfaceWidth, ReviewPage.SurfaceHeight);
+  ReviewList.ReadOnly := True;
+  ReviewList.ScrollBars := ssVertical;
+  ReviewList.WordWrap := True;
+  NspPage := CreateInputFilePage(ReviewPage.ID, 'NSP extraction', 'Choose the extraction tools',
     'NSP files require NSTool and your own prod.keys. Select the files below.');
   NspPage.Add('NSTool executable:', 'Executable files|*.exe|All files|*.*', '.exe');
   NspPage.Add('Your prod.keys:', 'Key files|*.keys|All files|*.*', '.keys');
-end;
-
-procedure CurPageChanged(CurPageID: Integer);
-begin
-  if CurPageID = GamePage.ID then begin
-    HasImport := HasGameFiles;
-    KeepFiles.Visible := HasImport;
-    ImportFiles.Visible := HasImport;
-    if HasImport and not ImportFiles.Checked then KeepFiles.Checked := True;
-  end;
 end;
 
 function LooksLikeDump(Folder: String; Depth: Integer): Boolean;
@@ -206,11 +206,125 @@ begin
   end;
 end;
 
+// This is a preview of file names and paths, not a validation of their contents or version.
+procedure ListDumpParts(Folder: String; Depth: Integer; Lines: TStrings);
+var
+  FindRec: TFindRec;
+  Child, Name: String;
+begin
+  if FileExists(AddBackslash(Folder) + 'DATA0.bin') and
+     FileExists(AddBackslash(Folder) + 'DATA1.bin') then
+    Lines.Add('RomFS data: ' + Folder);
+  if FileExists(AddBackslash(Folder) + 'main') then
+    Lines.Add('Possible ExeFS main: ' + AddBackslash(Folder) + 'main');
+  if Depth = 0 then Exit;
+  if FindFirst(AddBackslash(Folder) + '*', FindRec) then begin
+    try
+      repeat
+        Name := FindRec.Name;
+        if (FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY <> 0) and
+           (Name <> '.') and (Name <> '..') and
+           (FindRec.Attributes and FILE_ATTRIBUTE_REPARSE_POINT = 0) then begin
+          Child := AddBackslash(Folder) + Name;
+          if CompareText(Copy(Name, 1, 5), 'patch') = 0 then
+            Lines.Add('Possible update folder: ' + Child)
+          else if CompareText(Name, 'nx') <> 0 then
+            ListDumpParts(Child, Depth - 1, Lines);
+        end;
+      until not FindNext(FindRec);
+    finally
+      FindClose(FindRec);
+    end;
+  end;
+end;
+
+procedure DescribeGameFiles(Folder: String; Lines: TStrings);
+var
+  FindRec: TFindRec;
+begin
+  Lines.Clear;
+  Lines.Add('Selected folder: ' + Folder);
+  Lines.Add('');
+  if LooksLikeDump(Folder, 5) then begin
+    Lines.Add('Source: extracted dump folders');
+    if HasNsp(Folder) then
+      Lines.Add('NSP files are also present; setup will import the dump folders.');
+    Lines.Add('');
+    ListDumpParts(Folder, 5, Lines);
+    Lines.Add('');
+    Lines.Add('Setup will verify the game, update, ExeFS and DLC during import.');
+  end else begin
+    Lines.Add('Source: NSP files');
+    Lines.Add('');
+    if FindFirst(AddBackslash(Folder) + '*.nsp', FindRec) then begin
+      try
+        repeat
+          if FindRec.Attributes and FILE_ATTRIBUTE_DIRECTORY = 0 then
+            Lines.Add('NSP: ' + FindRec.Name);
+        until not FindNext(FindRec);
+      finally
+        FindClose(FindRec);
+      end;
+    end;
+    Lines.Add('');
+    Lines.Add('Setup identifies the base game, updates and DLC from their metadata during extraction.');
+  end;
+end;
+
+function ConfirmRetryFolder(Folder: String): Boolean;
+var
+  Form: TSetupForm;
+  Memo: TNewMemo;
+  ConfirmButton, CancelButton: TNewButton;
+begin
+  Form := CreateCustomForm(ScaleX(500), ScaleY(340), False, True);
+  try
+    Form.Caption := 'Review game files';
+    Form.ClientWidth := ScaleX(500);
+    Form.ClientHeight := ScaleY(340);
+    Form.Position := poScreenCenter;
+    Memo := TNewMemo.Create(Form);
+    Memo.Parent := Form;
+    Memo.SetBounds(ScaleX(12), ScaleY(12), ScaleX(476), ScaleY(270));
+    Memo.ReadOnly := True;
+    Memo.ScrollBars := ssVertical;
+    Memo.WordWrap := True;
+    DescribeGameFiles(Folder, Memo.Lines);
+    ConfirmButton := TNewButton.Create(Form);
+    ConfirmButton.Parent := Form;
+    ConfirmButton.SetBounds(ScaleX(300), ScaleY(300), ScaleX(90), ScaleY(26));
+    ConfirmButton.Caption := 'Import';
+    ConfirmButton.ModalResult := mrOk;
+    ConfirmButton.Default := True;
+    CancelButton := TNewButton.Create(Form);
+    CancelButton.Parent := Form;
+    CancelButton.SetBounds(ScaleX(398), ScaleY(300), ScaleX(90), ScaleY(26));
+    CancelButton.Caption := 'Cancel';
+    CancelButton.ModalResult := mrCancel;
+    CancelButton.Cancel := True;
+    Result := Form.ShowModal = mrOk;
+  finally
+    Form.Free;
+  end;
+end;
+
+procedure CurPageChanged(CurPageID: Integer);
+begin
+  if CurPageID = GamePage.ID then begin
+    HasImport := HasGameFiles;
+    KeepFiles.Visible := HasImport;
+    ImportFiles.Visible := HasImport;
+    if HasImport and not ImportFiles.Checked then KeepFiles.Checked := True;
+  end else if CurPageID = ReviewPage.ID then
+    DescribeGameFiles(GamePage.Values[0], ReviewList.Lines);
+end;
+
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  Result := (PageID = NspPage.ID) and
+  Result := ((PageID = ReviewPage.ID) and HasImport and KeepFiles.Checked) or
+    ((PageID = NspPage.ID) and
     ((HasImport and KeepFiles.Checked) or not HasNsp(GamePage.Values[0]) or
-     LooksLikeDump(GamePage.Values[0], 5));
+     LooksLikeDump(GamePage.Values[0], 5)));
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
@@ -321,6 +435,7 @@ begin
     if (MsgBox(Reason + #13#10#13#10 + 'Choose OK to import them again, or Cancel to stop setup.',
         mbError, MB_OKCANCEL) <> IDOK) or
        not BrowseForFolder('Choose your FE3H dump or NSP folder:', Folder, False) then StopSetup(Reason);
+    if not ConfirmRetryFolder(Folder) then StopSetup(Reason);
   end;
   repeat
     if HasNsp(Folder) and not LooksLikeDump(Folder, 5) and not WizardSilent then begin
@@ -347,6 +462,7 @@ begin
         'Choose Retry to select another folder, or Cancel to stop setup.', mbError, MB_RETRYCANCEL) = IDRETRY;
       if Retry then
         Retry := BrowseForFolder('Choose your FE3H dump or NSP folder:', Folder, False);
+      if Retry then Retry := ConfirmRetryFolder(Folder);
       if Retry and HasNsp(Folder) and not LooksLikeDump(Folder, 5) then begin
         Nstool := '';
         Keys := '';
