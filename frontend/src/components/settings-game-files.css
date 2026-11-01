@@ -7,6 +7,30 @@
 .game-files-choice:has(input:checked) { border-color:var(--accent); background:color-mix(in srgb, var(--accent) 12%, var(--row)); }
 .game-files-choice > span { display:grid; min-width:0; }
 .game-files-choice .hint { margin:0; }
+.game-files-source { grid-template-columns:repeat(2, minmax(0, 1fr)); margin:.25rem 0 .5rem; }
+.game-files-source .game-files-choice { padding:1rem; gap:.75rem; }
+.game-files-source input { flex:none; margin-top:.3rem; accent-color:var(--accent); }
+.game-files-choice:focus-within { outline:2px solid var(--accent); outline-offset:2px; }
+.game-files-nsp { display:grid; gap:1.25rem; min-width:0; }
+.game-files-selection { min-width:0; }
+.game-files-selection-head { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.75rem; }
+.game-files-selection-head > div { flex:1 1 18rem; }
+.game-files-selection h3 { margin:0 0 .25rem; font:600 1.12rem var(--display); }
+.game-files-selection-head .btn { display:inline-flex; align-items:center; gap:.4rem; }
+.game-files-selection-summary { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:.5rem; margin:.9rem 0 .5rem; color:var(--ink-soft); font-size:.9em; }
+.game-files-selected { margin:0; padding:0; list-style:none; border-top:1px solid var(--line); }
+.game-files-selected li { display:flex; align-items:center; gap:1rem; padding:.65rem 0; border-bottom:1px solid var(--line); }
+.game-files-selected li > div { display:grid; gap:.15rem; min-width:0; flex:1; }
+.game-files-selected strong { overflow-wrap:anywhere; }
+.game-files-selected .hint { margin:0; line-height:1.4; }
+.game-files-selection-empty { margin-top:.75rem !important; padding:1rem; border:1px dashed var(--line); color:var(--ink-soft); line-height:1.5; }
+.game-files-manual { margin-top:.85rem; }
+.game-files-manual summary { cursor:pointer; color:var(--ink-soft); width:fit-content; }
+.game-files-manual[open] summary { margin-bottom:.75rem; }
+.game-files-manual textarea { box-sizing:border-box; width:100%; min-width:0; resize:vertical; }
+.game-files-keys { display:grid; gap:.35rem; }
+.game-files-import { display:flex; flex-wrap:wrap; align-items:center; gap:1rem; padding-top:1rem; margin-top:.25rem; border-top:1px solid var(--line); }
+.game-files-import > div { display:grid; gap:.5rem; justify-items:start; flex:1; }
 .game-files-card, .spoiler-settings { border:1px solid var(--line); border-radius:2px; min-width:0; }
 .game-files-card { display:grid; gap:.75rem; padding:1rem; background:var(--row); }
 .game-files-card > strong { font-size:.95em; }
@@ -45,6 +69,10 @@
 .spoiler-state.shown { color:var(--amber); }
 .spoiler-setting .hint { display:block; margin:0 0 0 3.2rem; line-height:1.3; }
 @media (max-width:480px) {
+ .game-files-source { grid-template-columns:1fr; }
+ .game-files-source .game-files-choice { padding:.75rem; }
+ .game-files-selection-head > .btn { width:100%; justify-content:center; }
+ .game-files-selected li { gap:.5rem; }
  .game-files-card { padding:.75rem; }
  .game-files-folder label, .game-files-folder .settings-actions, .game-files-layout .settings-actions .btn { flex-basis:100%; width:100%; }
  .spoiler-setting { padding:.6rem .75rem; }

@@ -7,6 +7,7 @@ import { Icon } from "../Icon";
 import { Modal } from "../Modal";
 import { LanguageSelect } from "../LanguageSelect";
 import { SectionHead } from "../ui";
+import { mergeNspPaths } from "./selection";
 import "../settings-game-files.css";
 
 const DLC_NAMES: Record<string, string> = {
@@ -22,6 +23,7 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
   const [dump, setDump] = useState("");
   const [source, setSource] = useState<"dump" | "nsp">("dump");
   const [nsps, setNsps] = useState<string[]>([]);
+  const [pathDraft, setPathDraft] = useState("");
   const [keys, setKeys] = useState("");
   const [scan, setScan] = useState<GameFilesScan | null>(null);
   const [scanning, setScanning] = useState(false);
@@ -69,6 +71,7 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
   const importable = !!scan?.importable;
   const reason = !dump.trim() ? "Choose a dump folder." : scanning ? "Checking the folder..." : !scan ? "Choose a readable dump folder." : !importable ? "Resolve the problems above before importing." : "";
   const showFlow = !status?.available || reimport || running || status?.job?.state === "failed";
+  const nspReason = !nsps.length ? "Add your base game, update and any DLC NSP files." : !keys.trim() ? "Choose your prod.keys file to continue." : "";
   return <>
     <SectionHead>Game files</SectionHead>
     <div className="game-files-layout">
@@ -87,7 +90,7 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
       {showFlow && !running && status && <div className="game-files-flow">
         <h2>Choose your game files</h2>
         <p className="hint">Import an extracted dump or select your base game, update and optional DLC NSP files.</p>
-        <div className="game-files-choices" role="radiogroup" aria-label="Game file source">
+        <div className="game-files-choices game-files-source" role="radiogroup" aria-label="Game file source">
           <label className="game-files-choice"><input type="radio" name="source" checked={source === "dump"} onChange={() => setSource("dump")} /><span><strong>Dump folder</strong><span className="hint">A folder containing the game's RomFS and ExeFS.</span></span></label>
           <label className="game-files-choice"><input type="radio" name="source" checked={source === "nsp"} onChange={() => setSource("nsp")} /><span><strong>NSP files</strong><span className="hint">Select your base game, update and any DLC. Your prod.keys file is also required.</span></span></label>
         </div>
@@ -106,11 +109,27 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
           {scan.problems.length ? <div className="game-files-warning" role="alert"><Icon name={CONCEPT_ICON.warning} /><ul>{scan.problems.map((problem) => <li key={problem}>{problem}</li>)}</ul></div> : !importable && <p role="alert">This game build cannot be imported.</p>}
         </section>}
         </>}
-        {source === "nsp" && <div className="game-files-flow">
-          <div className="game-files-folder"><label><span className="field-label">NSP files</span><textarea rows={3} value={nsps.join("\n")} onChange={(e) => setNsps(e.target.value.split(/\r?\n/).filter(Boolean))} placeholder="One file path per line" /></label>{desktop && <button type="button" className="btn" disabled={busy} onClick={() => action(async () => { const result = await api.pickGameFilesNsps(); if (result.paths.length) setNsps(result.paths); })}>Browse</button>}</div>
-          <div className="game-files-folder"><label><span className="field-label">prod.keys</span><input value={keys} onChange={(e) => setKeys(e.target.value)} /></label>{desktop && <button type="button" className="btn" disabled={busy} onClick={() => action(async () => { const result = await api.pickGameFilesKeys(); if (result.path) setKeys(result.path); })}>Browse</button>}</div>
+        {source === "nsp" && <div className="game-files-nsp">
+          <section className="game-files-selection" aria-labelledby="nsp-selection-title">
+            <div className="game-files-selection-head">
+              <div><h3 id="nsp-selection-title">Selected NSP files</h3><p className="hint" id="nsp-selection-help">Add files from as many folders as you need. Earlier selections stay in the list.</p></div>
+              {desktop && <button type="button" className="btn" disabled={busy} aria-describedby="nsp-selection-help" onClick={() => action(async () => { const result = await api.pickGameFilesNsps(); setNsps((current) => mergeNspPaths(current, result.paths)); })}><Icon name={CONCEPT_ICON.add} />Add NSP files</button>}
+            </div>
+            {nsps.length > 0 ? <>
+              <div className="game-files-selection-summary"><span role="status">{nsps.length} {nsps.length === 1 ? "file" : "files"} selected</span><button type="button" className="link-btn" disabled={busy} onClick={() => setNsps([])}>Clear selection</button></div>
+              <ul className="game-files-selected">{nsps.map((path) => {
+                const name = path.split(/[\\/]/).pop() || path;
+                return <li key={path}><div><strong>{name}</strong><span className="hint game-files-path">{path}</span></div><button type="button" className="btn small" disabled={busy} aria-label={`Remove ${name}`} title={`Remove ${path}`} onClick={() => setNsps((current) => current.filter((item) => item !== path))}>Remove</button></li>;
+              })}</ul>
+            </> : <p className="game-files-selection-empty">No NSP files selected. Add the base game, update and optional DLC to get started.</p>}
+            <details className="game-files-manual" open={desktop ? undefined : true}>
+              <summary>Add file paths manually</summary>
+              <div className="game-files-folder"><label><span className="field-label">NSP file paths</span><textarea rows={3} value={pathDraft} disabled={busy} onChange={(e) => setPathDraft(e.target.value)} placeholder="One full file path per line" /><span className="hint">Paths refer to files on the computer running Divine Pulse. Duplicates are added only once.</span></label><button type="button" className="btn" disabled={busy || !pathDraft.trim()} onClick={() => { setNsps((current) => mergeNspPaths(current, pathDraft.split(/\r?\n/))); setPathDraft(""); }}>Add paths</button></div>
+            </details>
+          </section>
+          <div className="game-files-keys"><div className="game-files-folder"><label><span className="field-label">prod.keys</span><input value={keys} disabled={busy} placeholder="Path to your prod.keys file" onChange={(e) => setKeys(e.target.value)} /></label>{desktop && <button type="button" className="btn" disabled={busy} onClick={() => action(async () => { const result = await api.pickGameFilesKeys(); if (result.path) setKeys(result.path); })}>Choose keys</button>}</div><p className="hint">Required to read your NSP files.</p></div>
         </div>}
-        {source === "dump" ? <div><button type="button" className="btn primary" disabled={busy || scanning || !importable} onClick={() => action(async () => { const result = await api.importGameFiles(dump); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{reason && <p className="hint">{reason}</p>}</div> : <div><button type="button" className="btn primary" disabled={busy || !nsps.length || !keys.trim()} onClick={() => action(async () => { const result = await api.importGameFilesNsps(nsps, keys); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button></div>}
+        <div className="game-files-import"><div>{source === "dump" ? <><button type="button" className="btn primary" disabled={busy || scanning || !importable} onClick={() => action(async () => { const result = await api.importGameFiles(dump); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{reason && <p className="hint">{reason}</p>}</> : <><button type="button" className="btn primary" disabled={busy || !nsps.length || !keys.trim()} onClick={() => action(async () => { const result = await api.importGameFilesNsps(nsps, keys); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{nspReason && <p className="hint">{nspReason}</p>}</>}</div>{status.available && reimport && <button type="button" className="link-btn" disabled={busy} onClick={() => setReimport(false)}>Cancel re-import</button>}</div>
       </div>}
       {status?.job && status.job.state !== "idle" && <div className="game-files-card game-files-progress" aria-live="polite">
         <strong>{running ? (phases[status.job.phase] || "Importing game files") : status.job.state === "done" ? "Import complete" : "Import failed"}</strong>
@@ -119,7 +138,7 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
         {status.job.state === "done" && <span>{[status.version, `${status.files ?? 0} files`, status.created && new Date(status.created).toLocaleString()].filter(Boolean).join(" \u00b7 ")}</span>}
         {status.job.log?.length > 0 && <details><summary>Import details</summary><ul>{status.job.log.map((line, i) => <li key={i}>{line}</li>)}</ul></details>}
       </div>}
-      {error && <p className="field-hint error" role="alert">{error} Check the folder and try again.</p>}
+      {error && <p className="field-hint error" role="alert">{error}</p>}
       {status?.available && <div className="game-files-card"><LanguageSelect /></div>}
     </div>
     <Modal open={confirm} onClose={() => setConfirm(false)} title="Remove imported files">

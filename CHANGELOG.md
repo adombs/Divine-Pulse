@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Add NSP files from multiple folders and manage the selection before importing.
+
 ## 1.2.6 (2026-11-01)
 
 - Import selected NSP files directly from the portable app using bundled extraction tools.
