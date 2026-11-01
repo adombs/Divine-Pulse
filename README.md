@@ -10,7 +10,8 @@ the active run up to date by itself, with nothing to press.
 
 - *Fire Emblem: Three Houses* **with update 1.2.0**, a copy you own, running in the **Eden** emulator on Windows.
 - A dump of your own game files (base game, update and ExeFS; DLC if you have it). How to make one:
-  [docs/game-assets/dumping.md](docs/game-assets/dumping.md).
+  [docs/game-assets/dumping.md](docs/game-assets/dumping.md). If you have NSP files,
+  [NSP Unpacker](https://github.com/adombs/nsp-unpacker) extracts them into a folder you can import.
 
 Divine Pulse includes no game content: no art, text, tables or maps. You import your own dump once, and the program
 builds everything it shows from it, on your PC. Until you do, it shows only the import screen. It reads folders you
@@ -256,6 +257,9 @@ content; you import your own.
 
 Divine Pulse is made by Adombs. Its logo and icons are in [`branding/icons/`](branding/icons/). It's free; to support
 my work on it, you can leave a tip on [Ko-fi](https://ko-fi.com/adombs).
+
+[NSP Unpacker](https://github.com/adombs/nsp-unpacker), a separate tool by the same author for extracting NSP files, runs
+[NSTool](https://github.com/jakcron/nstool) by Jack (jakcron). Neither is included with Divine Pulse.
 
 It builds on the work of the Fire Emblem community:
 

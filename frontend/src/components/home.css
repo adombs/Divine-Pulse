@@ -120,6 +120,7 @@
     --title: calc(15 * var(--type)); --title-long: calc(12.5 * var(--type)); --chapter: calc(12.5 * var(--type)); --facts: calc(11 * var(--type));
     --stair: calc(11.5 * var(--type)); --stair-h: 48px; --stair-gap: 8px;
   }
+  .home-tip { max-width: 7.5em; padding: 0.3em 0.6em; white-space: normal; line-height: 1.25; }
   .home-title { gap: 2px; }
   .home-stage { --chair: 108px; --word: calc(22 * var(--type)); --by: calc(9 * var(--type)); --by-indent: calc(12 * var(--type)); }
   .home-run { gap: 10px; }
