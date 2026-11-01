@@ -3,6 +3,18 @@
 import json
 from pathlib import Path
 
+from app.gamefiles.dump import SUPPORTED_BUILDS, GameDump
+
+
+def fake_dump(root: Path) -> GameDump:
+    """A folder that passes as a complete 1.2.0 dump, holding no game data."""
+    (root / "nx").mkdir(parents=True, exist_ok=True)
+    (root / "patch4").mkdir(exist_ok=True)
+    (root / "DATA0.bin").write_bytes(b"0")
+    (root / "DATA1.bin").write_bytes(b"0")
+    (root / "main").write_bytes(b"NSO0" + b"\0" * 60 + bytes.fromhex(next(iter(SUPPORTED_BUILDS))))
+    return GameDump(root, root, updates=[root])
+
 
 def write_fake_import(root: Path) -> None:
     files = {

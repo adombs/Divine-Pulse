@@ -7,7 +7,7 @@ You need:
 
 - **Base game with update 1.2.0** (required): the RomFS, including `DATA0.bin`, `DATA1.bin` and the update's
   `patch1` to `patch4` folders.
-- **ExeFS** `main` from 1.2.0 (needed for sprite and icon rectangles; the importer stops on any other build).
+- **ExeFS** `main` from 1.2.0 (required; the importer stops on any other build).
 - **DLC** RomFS for any DLC you own (optional).
 
 Put the parts under one folder, with any folder names you like, and select that folder in the installer, in

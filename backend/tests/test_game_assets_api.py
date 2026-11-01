@@ -6,7 +6,7 @@ import time
 import pytest
 from fastapi.testclient import TestClient
 
-from app.gamefiles.dump import GameDump
+from helpers.fake_import import fake_dump
 from app.infrastructure import game_assets as assets_module
 from app.infrastructure import game_assets_import as importer
 from app.main import create_app
@@ -55,7 +55,7 @@ def test_running_conflicts_and_failed_import_preserves_old(tmp_path, assets, mon
     (assets.root / "old.txt").write_text("old")
     (assets.root / "manifest.json").write_text(json.dumps({"files": {}}))
     entered, release = threading.Event(), threading.Event()
-    monkeypatch.setattr(importer.dump, "find", lambda _: GameDump(tmp_path))
+    monkeypatch.setattr(importer.dump, "find", lambda _: fake_dump(tmp_path))
 
     def failing(ctx):
         entered.set()
@@ -79,7 +79,7 @@ def test_running_conflicts_and_failed_import_preserves_old(tmp_path, assets, mon
 def test_successful_import_swaps_and_emits_status(tmp_path, assets, monkeypatch):
     assets.root.mkdir()
     (assets.root / "old.txt").write_text("old")
-    monkeypatch.setattr(importer.dump, "find", lambda _: GameDump(tmp_path))
+    monkeypatch.setattr(importer.dump, "find", lambda _: fake_dump(tmp_path))
 
     def extract(ctx):
         ctx.log("data:")
@@ -109,7 +109,7 @@ def test_successful_import_swaps_and_emits_status(tmp_path, assets, monkeypatch)
 
 @pytest.mark.parametrize("fail_replacement", [False, True])
 def test_progress_waits_for_verification_and_replacement(tmp_path, assets, monkeypatch, fail_replacement):
-    monkeypatch.setattr(importer.dump, "find", lambda _: GameDump(tmp_path))
+    monkeypatch.setattr(importer.dump, "find", lambda _: fake_dump(tmp_path))
     monkeypatch.setattr(importer, "run", lambda ctx: {})
     verifying, finish_verify = threading.Event(), threading.Event()
     replacing, finish_replace = threading.Event(), threading.Event()

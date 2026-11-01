@@ -131,7 +131,7 @@ end;
 procedure InitializeWizard;
 begin
   GamePage := CreateInputDirPage(wpSelectDir, 'Game files', 'Import your game files',
-    'The app needs your own game files; nothing is uploaded.', False, '');
+    'The app needs your own game files: the game with update 1.2.0. DLC is optional. Nothing is uploaded.', False, '');
   GamePage.Add('FE3H 1.2.0 dump folder:');
   GamePage.Values[0] := LastDump;
   KeepFiles := TRadioButton.Create(GamePage);

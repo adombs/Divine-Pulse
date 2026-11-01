@@ -1,6 +1,6 @@
 """Check an output folder: every file in the manifest is there, undamaged and readable.
 
-The dump itself is checked before and during extraction (dump.py: a supported game build; the extractors fail on an
+The dump itself is checked before and during extraction (dump.py: a 1.2.0 dump; the extractors fail on an
 archive that can't be read). Nothing here compares the output with a stored copy, so a change to what the app
 extracts never fails an import.
 """

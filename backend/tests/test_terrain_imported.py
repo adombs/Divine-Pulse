@@ -28,7 +28,8 @@ def test_the_imported_table_names_every_terrain_id_and_its_effects():
 
 def test_every_map_is_known():
     maps = map_grids()
-    assert sorted(maps) == list(range(37)) + [38, 39, 40, 41]  # the base game's, then Cindered Shadows'
+    assert sorted(m for m in maps if m < 37) == list(range(37))  # the base game's, always there
+    assert set(maps) - set(range(37)) <= {38, 39, 40, 41}  # Cindered Shadows', when that DLC was imported
     for grid in maps.values():
         assert 1 <= len(grid) <= GRID and all(1 <= len(row) <= GRID for row in grid)
         assert all(terrain(t) is not None for row in grid for t in row)

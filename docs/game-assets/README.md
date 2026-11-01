@@ -10,7 +10,7 @@ folder, how to check it, and what is in it. How to dump the game: [dumping.md](d
 | Part | Required | How to get it |
 |---|---|---|
 | Base game + update 1.2.0 RomFS (`DATA0.bin`, `DATA1.bin`, `patch1`-`patch4/`) | yes | nstool (`nstool -x` on the base NSP with the update applied), or an emulator's *Dump RomFS* |
-| ExeFS `main` (1.2.0, build `89048449BA238C8CF565518B83BF02D3`) | for sprite and icon rectangles | nstool's `exefs/`, or the emulator's ExeFS dump |
+| ExeFS `main` (1.2.0, build `89048449BA238C8CF565518B83BF02D3`) | yes | nstool's `exefs/`, or the emulator's ExeFS dump |
 | DLC RomFS (any of the six) | optional | nstool on each DLC NSP, or *Dump RomFS* per DLC. Cindered Shadows (`010055D009F79001`) adds maps 38-41 |
 
 Point the tool at the folder that holds them. It finds the parts by their files and by the title ids in folder
@@ -30,8 +30,8 @@ in `game-assets-import.log` in the app's data folder.
 ```
 
 `extract` takes `--out <folder>` and `--only <family> ...` (families: `exe_tables text data portraits icons map`).
-It stops if the ExeFS shows an unsupported game build. A missing optional part is skipped with a reason, never an
-error.
+It stops unless the dump is 1.2.0: the base game, the update and its ExeFS. A missing DLC is skipped with a reason,
+never an error.
 
 ## Checking the assets
 

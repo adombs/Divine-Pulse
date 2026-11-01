@@ -26,8 +26,9 @@ def test_the_battle_is_matched_to_its_map():
     assert battle_map(99, units) is None  # a map with no grid
     assert battle_map(0, [(10, 17), (9, 17), (11, 17), (10, 18), (9, 19)])[0] == 0  # the prologue's starting units
     assert fits(map_grids()[0], [(0, 16)])  # the prologue's wall is fliers-only
-    assert not fits(map_grids()[39], [(11, 0)])  # a wall nobody can enter
-    assert fits(map_grids()[39], [(11, 0), (1, 0)], allowed=1)
+    if 39 in map_grids():  # Cindered Shadows, when that DLC was imported
+        assert not fits(map_grids()[39], [(11, 0)])  # a wall nobody can enter
+        assert fits(map_grids()[39], [(11, 0), (1, 0)], allowed=1)
     assert not fits(map_grids()[0], [(30, 2)])  # off the map
 
 
