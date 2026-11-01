@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Find game dumps and NSP files in nested folders during setup, with clearer setup instructions.
+
 ## 1.2.1 (2026-11-01)
 
 - Review the NSP files or dump folders found before importing them during setup.

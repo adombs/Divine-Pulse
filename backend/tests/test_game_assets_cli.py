@@ -61,7 +61,10 @@ def test_cli_extracts_nsp_before_import_and_removes_temporary_files(tmp_path, mo
     source = tmp_path / "packages"
     source.mkdir()
     (source / "base.nsp").touch()
-    (source / "update.NSP").touch()
+    nested = source / "update" / "files"
+    nested.mkdir(parents=True)
+    (nested / "update.NSP").touch()
+    (nested / "notes.txt").touch()
     extracted = []
 
     def extract_nsps(inputs, tool, keys, output, log):
@@ -78,6 +81,27 @@ def test_cli_extracts_nsp_before_import_and_removes_temporary_files(tmp_path, mo
     monkeypatch.setattr(importer, "run", run)
     assert entry.import_game_files(str(source), "nstool.exe", "prod.keys") == 0
     assert not extracted[0].exists()
+    assert (data / "game-assets" / "data" / "example.json").exists()
+
+
+def test_cli_prefers_nested_dump_over_nested_nsps(tmp_path, monkeypatch):
+    from app.infrastructure import nsp_extractor
+
+    data, dump = configure(tmp_path, monkeypatch)
+    packages = dump / "packages"
+    packages.mkdir()
+    (packages / "base.nsp").touch()
+
+    def unexpected_extraction(*_args):
+        pytest.fail("A dump should be imported without extracting NSPs")
+
+    def run(ctx):
+        ctx.out.json("data/example.json", {"ok": True}, source="test")
+        return {"data": {"files": 1, "skipped": []}}
+
+    monkeypatch.setattr(nsp_extractor, "extract_nsps", unexpected_extraction)
+    monkeypatch.setattr(importer, "run", run)
+    assert entry.import_game_files(str(dump)) == 0
     assert (data / "game-assets" / "data" / "example.json").exists()
 
 
