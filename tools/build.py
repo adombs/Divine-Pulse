@@ -26,6 +26,7 @@ BACKEND, FRONTEND, PACKAGING = ROOT / "backend", ROOT / "frontend", ROOT / "pack
 BUILD, RELEASE = ROOT / "build", ROOT / "release"
 VENV = BUILD / "venv"
 APP_NAME = "Divine Pulse"
+NSTOOL = ROOT / "vendor" / "nstool" / "nstool.exe"
 
 
 def step(text: str) -> None:
@@ -121,9 +122,18 @@ def notes(folder: Path, v: str) -> None:
 
 def package(made: Path, v: str) -> list[Path]:
     step("Release files")
+    if not NSTOOL.is_file():
+        raise FileNotFoundError(f"Bundled NSTool is missing: {NSTOOL}")
+    licenses = NSTOOL.parent / "licenses"
+    if not licenses.is_dir() or not any(licenses.iterdir()):
+        raise FileNotFoundError(f"Bundled NSTool licenses are missing: {licenses}")
     RELEASE.mkdir(exist_ok=True)
     out: list[Path] = []
     notes(made, v)
+    tools_dir = made / "tools"
+    tools_dir.mkdir(exist_ok=True)
+    shutil.copy2(NSTOOL, tools_dir / "nstool.exe")
+    shutil.copytree(licenses, tools_dir / "nstool-licenses", dirs_exist_ok=True)
     out.append(Path(shutil.make_archive(str(RELEASE / f"Divine-Pulse-{v}-windows-portable"), "zip", made.parent, made.name)))
     return out
 

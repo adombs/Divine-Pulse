@@ -17,13 +17,12 @@ layout it recognises, and the commands, are in [README.md](README.md).
 ## From NSP files
 
 In the Windows installer, select a folder containing your base game, update and optional DLC NSPs (including in
-subfolders), then select
-NSTool and your own `prod.keys`. The installer extracts them to temporary storage and imports the resulting files;
-allow enough free space for both the unpacked NCAs and extracted files. NSPs and keys remain untouched.
-Download [NSTool](https://github.com/jakcron/nstool) separately. Compressed NSZ files are not supported.
+subfolders), then select your own `prod.keys`. The installer includes [NSTool](https://github.com/jakcron/nstool)
+and uses it to extract the NSPs to temporary storage before importing the resulting files. Allow enough free space
+for both the unpacked NCAs and extracted files. NSPs and keys remain untouched. Compressed NSZ files are not supported.
 
 [NSP Unpacker](https://github.com/adombs/nsp-unpacker) is a separate Windows tool by the same author. It extracts the RomFS and ExeFS from base,
 update and DLC NSPs into one output folder, which you can then select here.
 
-It's a GUI for [NSTool](https://github.com/jakcron/nstool), written by Jack (jakcron), which does the extraction. You download NSTool separately
-and supply your own `prod.keys`. Neither tool comes with Divine Pulse, and none of them provide keys or game files.
+It's a GUI for NSTool, written by Jack (jakcron), which does the extraction. NSP Unpacker is separate from Divine Pulse
+and requires its own NSTool download. Neither tool provides keys or game files.

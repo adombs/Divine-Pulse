@@ -9,11 +9,12 @@ Divine Pulse contains no game content: no art, text, tables or maps. Players imp
 program builds everything it shows from it on their PC. The repository and the release are checked for this
 (`tools/game_content.py`).
 
-## Tools linked, not included
+## NSP extraction tools
 
 The installer includes extraction code from [NSP Unpacker](https://github.com/adombs/nsp-unpacker) (MIT, © 2026 adombs;
-the license is included in the source). It runs [NSTool](https://github.com/jakcron/nstool) (MIT, © 2019 Jack), which
-is supplied separately by the player.
+the license is included in the source). Windows releases include [NSTool](https://github.com/jakcron/nstool)
+(MIT, © 2019 Jack). Its license and dependency notices ship in `tools/nstool-licenses/` alongside the program.
+The executable's version, source, hashes and dependency revisions are recorded in `vendor/nstool/README.md`.
 
 ## Fire Emblem Wiki text
 

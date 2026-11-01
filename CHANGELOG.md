@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Bundle NSTool with Windows setup so importing NSP files no longer requires a separate download.
+
 ## 1.2.2 (2026-11-01)
 
 - Find game dumps and NSP files in nested folders during setup, with clearer setup instructions.
