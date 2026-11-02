@@ -82,13 +82,16 @@ Every branch and pull request has one of these types:
 | Bug issue title | What goes wrong | `Roster shows the wrong HP after a level-up` |
 | Feature issue title | The change, starting with a verb | `Add a filter for units in reserve` |
 
-Pull requests are squash-merged, so the title becomes the commit on `main`. Put `Closes #42` in the description to
-close the issue when it merges. Commits on your branch can be worded however helps you.
+Pull requests are squash-merged, so the title becomes the commit on the target branch. Put `Closes #42` in the
+description to close the issue when it merges. Commits on your branch can be worded however helps you. Release
+branches are named `release/<version>` and urgent hotfix branches `hotfix/<version>`.
 
 ## Day to day
 
-1. Ordinary changes go on a branch and are proposed to `main` in a pull request. Only a maintainer runs a release,
-   which commits directly to a clean, current `main`; see [the release guide](../docs/releasing.md).
+1. The maintainer creates a `release/<version>` branch from `main` for the next release. Create ordinary changes on
+   their own branches and open pull requests into that release branch. Feature, fix, docs, refactor, test and chore
+   branches must not target `main`. Only a `release/*` or `hotfix/*` branch may be proposed to `main`; see
+   [the release guide](../docs/releasing.md).
 2. Add a line under `## Unreleased` in `CHANGELOG.md` for anything a player would notice.
 3. Run the local checks before opening a pull request. CI runs the same ones on every pull request, with no game files.
    A first-time contributor's run starts once a maintainer has read the change and approved it. Use the project venv
@@ -111,15 +114,5 @@ for that check alone.
 
 ## Releasing
 
-Full checklist: [the release guide](../docs/releasing.md). In short:
-
-1. `git checkout main && git pull`
-2. Run `powershell -ExecutionPolicy Bypass -File tools\build_windows.ps1` and try the build on a clean PC.
-3. `python tools/release.py 0.2.0 --push`: runs the local checks and Windows build, versions, commits, tags, pushes,
-   and creates a **draft** GitHub release from the local artifacts.
-4. GitHub → Releases → check the draft → *Publish release*.
-
-Versions: bug fixes only 0.1.0 → 0.1.1; new features 0.1.0 → 0.2.0.
-
-If release work fails after the tag is pushed, do not reuse that tag. Follow the maintainer recovery policy in
-[the release guide](../docs/releasing.md) and use the next patch version when another release is required.
+Only a maintainer runs a release. Merge the reviewed release or hotfix branch into `main` through a pull request,
+then follow [the release guide](../docs/releasing.md) to tag and publish the tested commit.

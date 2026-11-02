@@ -10,16 +10,15 @@
 
 Each build writes checksums only for the artifacts it produced. Old artifacts for other versions can remain in
 `release/`; only the current
-version's Windows portable zip, installer, and `SHA256SUMS.txt` are selected by the release script for upload.
+version's Windows portable zip, installer, and `SHA256SUMS.txt` should be uploaded.
 
 None needs Python, Node.js or anything else on the player's PC. Windows 10/11 (64-bit) is the tested platform.
 
 ## Checklist
 
 1. **Authorization and changelog.** A maintainer must authorize a release before starting. Ordinary code and docs
-   changes go through a pull request; the release script's clean-`main` requirement is a controlled maintainer
-   exception for the version/changelog commit. Write what changed under `## Unreleased` in `CHANGELOG.md` (pull
-   requests can add to it as they go).
+   changes go through a release branch and a pull request to `main`. Write what changed under `## Unreleased`
+   in `CHANGELOG.md` (pull requests can add to it as they go).
 2. **Prerequisites.** Releases are built on Windows. Install Python 3.12+, Node.js 22.12+ (24.x recommended), Inno
    Setup 6, and the GitHub CLI; authenticate it with `gh auth login`. The installer step needs
    [Inno Setup 6](https://jrsoftware.org/isinfo.php) (without it you get the zip only):
@@ -50,26 +49,24 @@ None needs Python, Node.js or anything else on the player's PC. Windows 10/11 (6
    asked about saved data. Check that the tracker closed, the program folder and Start menu entries went, and the data
    folder (`%LOCALAPPDATA%\Divine Pulse`) survived. Choosing Yes deletes that folder, so try it only on data you can
    lose.
-4. **Version, build, tag, and create the draft.** On an up-to-date `main` with nothing uncommitted:
+4. **Prepare the release PR.** On `release/<version>` (or `hotfix/<version>`), set the version in
+   `backend/app/__init__.py`, `backend/pyproject.toml`, `frontend/package.json`, and both version fields in
+   `frontend/package-lock.json`. Move the unreleased changelog entries under a dated version heading, leaving a new
+   empty `## Unreleased` heading. Commit and open a PR to `main`; merge only after checks and review.
+5. **Build and draft from the merged commit.** Check out the clean, up-to-date `main`, rerun the checks and Windows
+   build above, and verify the version, artifacts, and SHA-256 checksums. Create an annotated `v<version>` tag on
+   that merged commit and push the tag. Create a GitHub draft release for that tag, upload the installer, portable zip,
+   and `SHA256SUMS.txt`, and copy the version's changelog notes. Inspect the draft before publishing it manually.
 
+   Before tagging, validate the artifacts and scan the portable zip (replace `0.2.0` with the release version):
+
+   ```powershell
+   python -c "import sys; sys.path.insert(0, 'tools'); import release, game_content; files = release.release_files('0.2.0'); problems = game_content.check_zip(files[0]); print('\n'.join(problems) if problems else 'Release artifacts verified'); sys.exit(bool(problems))"
    ```
-   python tools/release.py 0.2.0 --push
-   ```
 
-   This sets the version (`backend/app/__init__.py`, `backend/pyproject.toml`, `frontend/package.json`), turns
-   `## Unreleased` into `## 0.2.0 (date)`, runs the local validation and Windows build, commits, tags `v0.2.0`, and
-   pushes both. It then creates a GitHub **draft** release with the local installer, portable zip, checksum file, and
-   the version's changelog section as its notes. The script requires the expected Windows artifacts to exist and
-   verifies their SHA-256 entries in `SHA256SUMS.txt` against the actual files before upload. Leave out `--push` to
-   create only the local commit and tag; it does not run checks or builds in that mode.
-5. **Publish** (manual). On GitHub → Releases, open the draft, check the notes and files, press *Publish release*.
-
-If local checks or the build fail during a new release attempt, the script restores the version and changelog files;
-no release commit or tag is made. If a later step fails after the local release commit and tag are created, inspect
-the local state before retrying. If push succeeds but draft creation or upload fails, the commit and tag are already
-on the remote. The script prints a recovery message suggesting creation of a draft for that same tag; follow the
-project policy below instead: do not reuse a pushed tag. Fix the issue on `main` and release the next patch version.
-The script never publishes the draft.
+`tools/release.py` is disabled because it previously committed and pushed directly to `main`. Do not use it until it
+has been redesigned for this workflow. If a pushed tag or release fails, do not reuse the tag: fix the problem through
+a release or hotfix PR and use the next patch version.
 
 ## Where an installed copy keeps things
 
@@ -91,8 +88,8 @@ PC are fixed on start:
   installer with a code-signing certificate removes both.
 - **WebView2.** The window uses Microsoft Edge WebView2, which Windows 11 includes and most Windows 10 PCs have via
   Edge. Without it, the tracker opens in the default browser instead.
-- **Content.** The release contains no game content. `tools/release.py` scans the built zip with the same rules the
-  repository test uses (`tools/game_content.py`): it refuses game images, game file formats or data, and a missing
+- **Content.** The release must contain no game content. Before publishing, scan the built zip using
+  `tools/game_content.py` (`check_zip`); it checks for game images, game file formats or data, and a missing
   `LICENSE.txt`, `Third-party notices.txt`, `GFDL-1.3.txt` or `Third-party licenses` folder beside the program.
   Players import their own dump on first run.
 - **Licenses.** `tools/build.py` copies each bundled package's license text into `Third-party licenses`, and stops if

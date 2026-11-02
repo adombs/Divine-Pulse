@@ -170,6 +170,7 @@ def create_draft(tag: str, version: str, files: list[Path]) -> None:
 
 
 def main() -> None:
+    fail("release automation is disabled: it pushes directly to main; follow docs/releasing.md")
     parser = argparse.ArgumentParser(description="Set the version, build a Windows release, commit, tag, and optionally upload a draft.")
     parser.add_argument("version", help="e.g. 0.2.0")
     parser.add_argument("--push", action="store_true", help="build locally, push main and tag, and create a draft GitHub release")

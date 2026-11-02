@@ -1,0 +1,29 @@
+name: Main source branch
+
+# Evaluate the trusted base-branch workflow; never check out or run PR code here.
+on:
+  pull_request_target:
+    branches: [main]
+    types: [opened, synchronize, reopened, edited]
+
+permissions: {}
+
+jobs:
+  main-source-branch:
+    name: main source branch
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require a release or hotfix branch from this repository
+        env:
+          HEAD_REPOSITORY: ${{ github.event.pull_request.head.repo.full_name }}
+          BASE_REPOSITORY: ${{ github.repository }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          if [[ "$HEAD_REPOSITORY" != "$BASE_REPOSITORY" ]]; then
+            echo 'Pull requests to main must come from a branch in this repository.' >&2
+            exit 1
+          fi
+          case "$HEAD_BRANCH" in
+            release/?*|hotfix/?*) ;;
+            *) echo 'Pull requests to main must come from release/* or hotfix/*.' >&2; exit 1 ;;
+          esac
