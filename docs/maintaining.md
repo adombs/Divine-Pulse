@@ -14,6 +14,9 @@ CI runs the checks from CONTRIBUTING on GitHub's machines, without game files or
 run waits for your approval, so read the change first, especially anything under `.github/`, `tools/` or `packaging/`
 and any new dependency. A pull request's own version of the workflow is what runs.
 
+Ordinary change branches target the current `release/*` branch; only `release/*` and `hotfix/*` branches from
+this repository may target `main`. Review the release pull request as the full set of changes being promoted.
+
 CI can't test against real game data. To do that, check the change out and run it on your PC, which holds your game
 files, only once you trust it; use a separate Windows account or Windows Sandbox if you're unsure:
 
@@ -22,7 +25,7 @@ gh pr checkout <number>
 ```
 
 Look for game files as well as bugs: `backend/tests/test_no_game_content.py` catches most, not all. Merge with
-**Squash and merge**, the only method turned on. The pull request's title becomes the commit message, so correct it
+**Squash and merge**, the only method turned on. The pull request's title becomes the commit message on its target branch, so correct it
 first if it doesn't follow the naming rules.
 
 ## Triage
@@ -35,21 +38,29 @@ New issues arrive labelled `needs triage`. For each one:
 
 ## Branch and tag rules
 
-The rules are in `.github/rulesets/`. GitHub doesn't read that folder by itself: apply them with the commands below.
+The rules are in `.github/rulesets/`. GitHub does not read that folder automatically; apply or update the live rulesets separately.
 
 | File | What it does | Who can skip it |
 |---|---|---|
 | `main-history.json` | `main` can't be deleted or force-pushed | Nobody |
-| `main-pull-requests.json` | Changes to `main` go through a pull request that passes CI, with a straight history | Repository admins |
+| `main-pull-requests.json` | Changes to `main` go through a pull request that passes CI and the source-branch check, with a straight history | Nobody |
 | `release-tags.json` | A `v*` tag can't be moved or deleted | Nobody |
 
-No approvals are required, because GitHub doesn't let you approve your own pull request. Admins can skip the pull
-request rule because `tools/release.py` pushes its version commit directly to `main`. To change that, make the release
-script open a pull request first. The required checks are named after the jobs in `.github/workflows/ci.yml`, so change
-both together.
+No approvals are required, because GitHub doesn't let you approve your own pull request. In GitHub **Settings > Rules > Rulesets**, update the existing `main` pull-request ruleset (don't create a duplicate) to require the
+source-branch check alongside both CI checks, and remove administrator bypass. The check must run successfully on
+a pull request before GitHub offers it in the required checks list. Select GitHub Actions as its expected source.
+Protect the workflow file and release/hotfix branch creation and updates from unauthorized changes: the check only
+verifies the source name and repository, not the provenance or content of that branch. Administrators who can edit
+rulesets can still change the policy.
+
+The required checks are named after jobs in `.github/workflows/`, so change the workflow and ruleset together.
+After applying them, verify an ordinary branch PR to `main` is blocked, a same-repository release branch PR passes
+the source check, and direct pushes to `main` are blocked. Do not merge the test PRs.
 
 GitHub offers these rules on a private repository only with GitHub Pro. On a free plan they apply once the repository
 is public.
+
+For a new repository with no existing rulesets, create them with:
 
 ```
 gh api --method POST repos/adombs/Divine-Pulse/rulesets --input .github/rulesets/main-history.json
