@@ -1,5 +1,8 @@
 # Divine Pulse
 
+Divine Pulse was originally created by Adombs. Copyright (c) 2026 Adombs.
+Licensed under GPL-3.0-only; see [LICENSE](LICENSE).
+
 <img src="branding/icons/app-icon-rounded-1024.png" alt="" width="96" align="right">
 
 **Stats and battle replays for Fire Emblem: Three Houses.** Divine Pulse is a free, open-source Windows app that
