@@ -1,12 +1,10 @@
-"""Starts a Windows release (docs/releasing.md): versions, builds, tags, and optionally creates a draft release.
+"""Prepare a release branch, or build and draft its merged main commit.
 
-    python tools/release.py 0.2.0 [--push]
+    python tools/release.py prepare 1.2.10
+    python tools/release.py finalize 1.2.10
 
-Sets the version in backend/app/__init__.py, backend/pyproject.toml and frontend/package.json (+ lock), turns
-CHANGELOG.md's "## Unreleased" into "## 0.2.0 (date)" under a fresh empty Unreleased section, commits and tags v0.2.0.
-Run it on an up-to-date main with nothing uncommitted. --push runs the local Windows checks and build, pushes main and
-the tag, then uses the authenticated GitHub CLI to create a draft release and upload the local artifacts. It never
-publishes that draft. Without --push, it prepares the local commit and tag and prints the push command.
+Preparation commits version and changelog changes on the matching release or hotfix branch.
+Finalization checks the clean current main against origin, builds, pushes only the tag, and creates a draft.
 """
 
 from __future__ import annotations
@@ -19,6 +17,7 @@ import re
 import subprocess
 import sys
 import tempfile
+import tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -67,6 +66,8 @@ def set_json_version(path: Path, version: str, lock: bool) -> None:
 def changelog(version: str) -> None:
     path = ROOT / "CHANGELOG.md"
     text = path.read_text("utf-8")
+    if re.search(rf"^## {re.escape(version)} \(", text, re.M):
+        fail(f"CHANGELOG.md already has a {version} section")
     m = re.search(r"^## Unreleased\n(.*?)(?=^## |\Z)", text, flags=re.M | re.S)
     if not m or not m.group(1).strip():
         fail("CHANGELOG.md has nothing under '## Unreleased'")
@@ -169,66 +170,94 @@ def create_draft(tag: str, version: str, files: list[Path]) -> None:
         notes.unlink(missing_ok=True)
 
 
-def main() -> None:
-    fail("release automation is disabled: it pushes directly to main; follow docs/releasing.md")
-    parser = argparse.ArgumentParser(description="Set the version, build a Windows release, commit, tag, and optionally upload a draft.")
-    parser.add_argument("version", help="e.g. 0.2.0")
-    parser.add_argument("--push", action="store_true", help="build locally, push main and tag, and create a draft GitHub release")
-    args = parser.parse_args()
-    version, tag = args.version.removeprefix("v"), f"v{args.version.removeprefix('v')}"
-    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
-        fail("version must look like 1.2.3")
-    if git("branch", "--show-current") != "main":
-        fail("not on main")
+def check_versions(version: str) -> None:
+    """Reject a partially prepared or mismatched release before tagging."""
+    pyproject = tomllib.loads((ROOT / "backend/pyproject.toml").read_text("utf-8"))
+    package = json.loads((ROOT / "frontend/package.json").read_text("utf-8"))
+    lock = json.loads((ROOT / "frontend/package-lock.json").read_text("utf-8"))
+    versions = [app_version(), pyproject["project"]["version"], package["version"],
+                lock["version"], lock["packages"][""]["version"]]
+    if any(item != version for item in versions):
+        fail(f"version files do not all match {version}")
+    text = (ROOT / "CHANGELOG.md").read_text("utf-8")
+    section = re.search(rf"^## {re.escape(version)} \(\d{{4}}-\d{{2}}-\d{{2}}\)[ \t]*\n(.*?)(?=^## |\Z)",
+                        text, re.M | re.S)
+    if not section or not section.group(1).strip():
+        fail(f"CHANGELOG.md has no nonempty dated {version} section")
+
+
+def prepare(version: str) -> None:
+    branch = git("branch", "--show-current")
+    if branch not in {f"release/{version}", f"hotfix/{version}"}:
+        fail(f"prepare must run on release/{version} or hotfix/{version}")
     if git("status", "--porcelain"):
         fail("uncommitted changes")
-    existing_tag = bool(git("tag", "--list", tag))
-    if existing_tag and not args.push:
-        fail(f"{tag} already exists")
-    if existing_tag and not tag_is_head(tag):
-        fail(f"{tag} does not point to HEAD")
-    if existing_tag and app_version() != version:
-        fail(f"the current app version is not {version}")
-    if args.push:
-        preflight_push(tag)
+    if git("tag", "--list", f"v{version}"):
+        fail(f"v{version} already exists locally")
+    originals = {path: path.read_bytes() for path in VERSION_FILES}
+    try:
+        sub(ROOT / "backend/app/__init__.py", r'^__version__ = ".*"$', f'__version__ = "{version}"')
+        sub(ROOT / "backend/pyproject.toml", r'^version = "[^"]*"$', f'version = "{version}"')
+        set_json_version(ROOT / "frontend/package.json", version, lock=False)
+        set_json_version(ROOT / "frontend/package-lock.json", version, lock=True)
+        changelog(version)
+        check_versions(version)
+    except (Exception, SystemExit):
+        for path, original in originals.items():
+            path.write_bytes(original)
+        raise
+    git("add", "backend/app/__init__.py", "backend/pyproject.toml", "frontend/package.json",
+        "frontend/package-lock.json", "CHANGELOG.md")
+    git("commit", "-m", f"Release {version}")
+    print(f"Prepared {version} on {branch}. Push the branch and merge its PR into main before finalizing.")
 
-    if existing_tag:
-        try:
-            files = build_and_check(version)
-        except (subprocess.CalledProcessError, RuntimeError) as error:
-            fail(f"local checks or build failed ({error})")
-    else:
-        originals = {path: path.read_bytes() for path in VERSION_FILES}
-        try:
-            sub(ROOT / "backend/app/__init__.py", r'^__version__ = ".*"$', f'__version__ = "{version}"')
-            sub(ROOT / "backend/pyproject.toml", r'^version = "[^"]*"$', f'version = "{version}"')
-            set_json_version(ROOT / "frontend/package.json", version, lock=False)
-            set_json_version(ROOT / "frontend/package-lock.json", version, lock=True)
-            changelog(version)
-            files = build_and_check(version) if args.push else []
-        except (subprocess.CalledProcessError, RuntimeError) as error:
-            for path, original in originals.items():
-                path.write_bytes(original)
-            fail(f"local checks or build failed ({error}); version and changelog files were restored")
-        except SystemExit:
-            for path, original in originals.items():
-                path.write_bytes(original)
-            raise
 
-        git("add", "backend/app/__init__.py", "backend/pyproject.toml", "frontend/package.json",
-            "frontend/package-lock.json", "CHANGELOG.md")
-        git("commit", "-m", f"Release {version}")
-        git("tag", "-a", tag, "-m", f"Divine Pulse {version}")
-        print(f"Committed and tagged {tag}.")
-    if args.push:
-        git("push", "origin", "main", tag)
-        try:
-            create_draft(tag, version, files)
-        except subprocess.CalledProcessError:
-            fail("pushed the commit and tag, but creating the draft release failed; fix the issue and create the draft "
-                 f"for {tag} with the files in release/")
+def check_current_main() -> None:
+    if git("branch", "--show-current") != "main":
+        fail("finalize must run on main")
+    if git("status", "--porcelain"):
+        fail("uncommitted changes")
+    remote = git("ls-remote", "--exit-code", "origin", "refs/heads/main").split()
+    if len(remote) != 2 or remote[0] != git("rev-parse", "HEAD"):
+        fail("main does not match origin/main; update your checkout before finalizing")
+
+
+def finalize(version: str) -> None:
+    tag = f"v{version}"
+    check_current_main()
+    check_versions(version)
+    if git("tag", "--list", tag):
+        fail(f"{tag} already exists locally")
+    preflight_push(tag)
+    try:
+        files = build_and_check(version)
+    except (subprocess.CalledProcessError, RuntimeError) as error:
+        fail(f"local checks or build failed ({error}); no tag was created")
+    check_current_main()
+    check_versions(version)
+    git("tag", "-a", tag, "-m", f"Divine Pulse {version}")
+    try:
+        git("push", "origin", f"refs/tags/{tag}")
+    except subprocess.CalledProcessError:
+        fail(f"tag {tag} exists locally but push failed; inspect remote and local state before retrying")
+    try:
+        create_draft(tag, version, files)
+    except subprocess.CalledProcessError:
+        fail(f"tag {tag} was pushed, but draft creation failed; do not reuse the tag; follow docs/releasing.md")
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description="Prepare a release branch or finalize a merged release on main.")
+    parser.add_argument("action", choices=("prepare", "finalize"))
+    parser.add_argument("version", help="e.g. 1.2.10")
+    args = parser.parse_args()
+    version = args.version.removeprefix("v")
+    if not re.fullmatch(r"\d+\.\d+\.\d+", version):
+        fail("version must look like 1.2.3")
+    if args.action == "prepare":
+        prepare(version)
     else:
-        print(f"Push and create the local Windows release:  python tools/release.py {version} --push")
+        finalize(version)
 
 
 if __name__ == "__main__":
