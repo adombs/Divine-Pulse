@@ -1,5 +1,10 @@
 # Third-party notices
 
+## Divine Pulse authorship and copyright
+
+Divine Pulse was originally created by Adombs. Copyright (c) 2026 Adombs.
+Divine Pulse is licensed under the GNU General Public License version 3 only; see `LICENSE.txt`.
+
 Divine Pulse is a fan-made tool. It isn't affiliated with or endorsed by Nintendo, Intelligent Systems or Koei Tecmo.
 *Fire Emblem: Three Houses* is © Nintendo / Intelligent Systems / Koei Tecmo.
 

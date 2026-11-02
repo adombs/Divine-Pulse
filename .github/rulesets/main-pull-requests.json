@@ -25,13 +25,12 @@
       "parameters": {
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
+          { "context": "main source branch", "integration_id": 15368 },
           { "context": "checks (Python 3.12, Node 22.12.0)", "integration_id": 15368 },
           { "context": "checks (Python 3.14, Node 24)", "integration_id": 15368 }
         ]
       }
     }
   ],
-  "bypass_actors": [
-    { "actor_id": 5, "actor_type": "RepositoryRole", "bypass_mode": "always" }
-  ]
+  "bypass_actors": []
 }
