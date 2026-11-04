@@ -1,7 +1,9 @@
+import { useId } from "react";
+import type { CSSProperties } from "react";
 import type { Tier } from "../../reference/types";
 
-/** The plate colours of the class-change screen: light and dark edge of each tier's metal. */
-const METAL: Record<Tier, [string, string, string]> = {
+/** The plate colours of the class-change screen: light, middle and dark edge of each tier's metal. */
+export const TIER_METAL: Record<Tier, [string, string, string]> = {
   Beginner: ["#c9a27a", "#7c5636", "#3b2616"],
   Intermediate: ["#f4f6f8", "#a2aab3", "#4a5159"],
   Advanced: ["#f3d682", "#b58a2c", "#5a4010"],
@@ -11,14 +13,28 @@ const METAL: Record<Tier, [string, string, string]> = {
 };
 const CHEVRONS: Record<Tier, number> = { Beginner: 1, Intermediate: 2, Advanced: 3, Master: 4, Unique: 0, DLC: 3 };
 
-/** A class's tier as the game's metal plate: more chevrons for a higher tier, a diamond for unique classes. */
-export function TierIcon({ tier, size = 36 }: { tier: Tier; size?: number }) {
-  const [light, mid, dark] = METAL[tier];
-  const id = `tier-${tier}`;
+/** A tier's metal as CSS custom properties (--tier-light, --tier-mid, --tier-dark), for styles tinted by the tier. */
+export function tierMetalStyle(tier: Tier): CSSProperties {
+  const [light, mid, dark] = TIER_METAL[tier];
+  return { "--tier-light": light, "--tier-mid": mid, "--tier-dark": dark } as CSSProperties;
+}
+
+/** A class's tier as the game's metal plate: more chevrons for a higher tier, a diamond for unique classes.
+ * `decorative` when the tier is named beside it: hidden from screen readers and without a tooltip. */
+export function TierIcon({ tier, size = 36, decorative = false }: { tier: Tier; size?: number; decorative?: boolean }) {
+  const [light, mid, dark] = TIER_METAL[tier];
+  // One gradient per plate: a shared id breaks every plate when the first one sits in a hidden menu.
+  const id = `tier-${tier}-${useId().replace(/[^\w-]/g, "")}`;
   const n = CHEVRONS[tier];
   return (
-    <svg className="tier-icon" viewBox="0 0 32 32" width={size} height={size} role="img" aria-label={`${tier} tier`}>
-      <title>{tier}</title>
+    <svg
+      className="tier-icon"
+      viewBox="0 0 32 32"
+      width={size}
+      height={size}
+      {...(decorative ? { "aria-hidden": true } : { role: "img", "aria-label": `${tier} tier` })}
+    >
+      {!decorative && <title>{tier}</title>}
       <defs>
         <linearGradient id={id} x1="0" y1="0" x2="1" y2="1">
           <stop offset="0" stopColor={light} />
@@ -37,5 +53,15 @@ export function TierIcon({ tier, size = 36 }: { tier: Tier; size?: number }) {
         })
       )}
     </svg>
+  );
+}
+
+/** A tier's plate with its name beside it (the Classes filters and their chips). */
+export function TierLabel({ tier }: { tier: Tier }) {
+  return (
+    <span className="tier-label">
+      <TierIcon tier={tier} size={18} decorative />
+      {tier}
+    </span>
   );
 }
