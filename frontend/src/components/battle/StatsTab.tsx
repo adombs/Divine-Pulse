@@ -11,6 +11,7 @@ import { useNav } from "../../nav";
 import { Portrait } from "../ui";
 import { useAffiliationIcon } from "../AffiliationIcon";
 import { CharacterPopup } from "../CharacterPopup";
+import { CharLink } from "../Links";
 import { clock, plural } from "../../format";
 import "./history.css";
 import { BattleKindChip } from "./BattleList";
@@ -18,6 +19,7 @@ import { Carousel } from "./Carousel";
 import { battleName } from "./scenarios";
 import { Num } from "./parts";
 import { RunCharacterCard } from "./RunCharacterCard";
+import { PortraitFlip, unitSprite } from "../character/CharacterFace";
 import { CharacterStats, characterStats, leader, RunStats, runStats, timelines } from "./stats";
 
 type Col = "name" | "battles" | "fights" | "defeats" | "dealt" | "taken" | "healing" | "level_ups" | "left";
@@ -150,15 +152,14 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
           </MasterDetail>
         </Section>
       </div>
-      <CharacterPopup open={!!current} onClose={() => nav.go({ page: "history", tab: "stats" }, { replace: true })} context="stats" title={current?.name ?? ""} icon={popupIcon}>
+      <CharacterPopup open={!!current} onClose={() => nav.go({ page: "history", tab: "stats" }, { replace: true })} context="stats" title={current ? <CharLink charKey={shownUnit ? characterKeyOfUnit(shownUnit) : null} title="Base stats, growths and skills">{shownUnit?.full_name || current.name}</CharLink> : ""} icon={popupIcon}>
         {current && (() => {
           const unit = portraitOf.get(current.key);
           return (
             <RunCharacterCard
               stats={current}
-              portrait={unit ? <Portrait unit={unit} part2={part2} size={88} /> : <span className="award-initial">{current.name[0]}</span>}
-              charKey={unit ? characterKeyOfUnit(unit) : null}
-              fullName={unit?.full_name}
+              face={<PortraitFlip portrait={unit ? <Portrait unit={unit} part2={part2} size={88} /> : <span className="award-initial">{current.name[0]}</span>} sprite={unit ? unitSprite(unit) : null} name={current.name} className={unit?.class_name} size={88} />}
+              className={unit?.class_name}
               icon={popupIcon}
               onOpen={onOpen}
               onRoster={unit ? () => nav.go({ page: "roster", id: unit.key }) : undefined}

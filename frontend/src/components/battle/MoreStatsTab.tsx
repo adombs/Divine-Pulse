@@ -12,8 +12,11 @@ import { CSSProperties, KeyboardEvent, ReactNode, useMemo, useRef, useState } fr
 import type { Battle, BattleUnit } from "../../api";
 import { useNav } from "../../nav";
 import { characterKeyOfName } from "../../portraits";
+import { PortraitFlip } from "../character/CharacterFace";
+import { armySprite } from "./map";
 import { Modal } from "../Modal";
 import { CharacterPopup } from "../CharacterPopup";
+import { CharLink } from "../Links";
 import { Icon, IconName } from "../Icon";
 import { clock, plural } from "../../format";
 import { armyId, armyTotals, Item, statGains } from "./model";
@@ -212,15 +215,16 @@ function RunCards({ battle, history, children }: { battle: Battle; history: Batt
   if (current) last.current = current;
   const c = current ?? last.current;
   const id = c ? armyId(c.key) : "";
+  const unit = c ? battle.units.find((u) => u.key === c.key) ?? c.appearances[0]?.unit : undefined;
   return (
     <BattleNavContext.Provider value={nav}>
       {children}
-      <CharacterPopup open={!!current} onClose={() => setKey(null)} context="stats" title={c?.name ?? ""} icon={c ? <HouseMark id={id} /> : undefined}>
+      <CharacterPopup open={!!current} onClose={() => setKey(null)} context="stats" title={c ? <CharLink charKey={characterKeyOfName(c.name)} title="Base stats, growths and skills">{c.name}</CharLink> : ""} icon={c ? <HouseMark id={id} /> : undefined}>
         {c && (
           <RunCharacterCard
             stats={c}
-            portrait={<UnitFace id={id} name={c.name} size="lg" />}
-            charKey={characterKeyOfName(c.name)}
+            face={<PortraitFlip portrait={<UnitFace id={id} name={c.name} size="lg" />} sprite={unit ? armySprite(unit) : null} name={c.name} className={unit?.class_name} size={88} />}
+            className={unit?.class_name}
             icon={<HouseMark id={id} />}
             onOpen={(battleId, at) => { setKey(null); go({ page: "battle", id: battleId, q: at }); }}
             onRoster={parent.ebstConfig?.(c.key) ? () => go({ page: "roster", id: c.key }) : undefined}
