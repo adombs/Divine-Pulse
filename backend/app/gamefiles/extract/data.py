@@ -547,6 +547,10 @@ def extract(ctx: Context) -> None:
         recs = combat_arts(section(fixed, 7), text)
         write(ctx, "combat-arts", {"combat_arts": recs}, f"{src} section 7")
         recs = battalions(section(fixed, 11), text, section(fixed, 3), section(fixed, 8))
+        for rec in recs:
+            icon = f"images/icons/battalions/{rec['id']}.png"
+            if icon in ctx.out.files:
+                rec["icon"] = icon
         write(ctx, "battalions", {"battalions": recs}, f"{src} sections 3, 8, 11")
     if skill:
         recs = abilities(section(skill, 0), text)

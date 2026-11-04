@@ -152,6 +152,9 @@ def test_battalion_fields():
 
 def test_extract_battalion_reference_with_gambit(tmp_path, monkeypatch):
     from types import SimpleNamespace
+    from PIL import Image
+    from app.gamefiles import rects
+    from app.gamefiles.extract import exe_tables
     from app.gamefiles.output import Output
 
     company, attack, target = bytearray(44), bytearray(24), bytearray(13)
@@ -169,13 +172,24 @@ def test_extract_battalion_reference_with_gambit(tmp_path, monkeypatch):
     monkeypatch.setattr(data, "load", lambda ctx, name: fixed if name == "fixed_data.bin" else None)
     strings = [""] * 11000
     strings[9096], strings[9297], strings[6615], strings[6915] = "Test company", "Test description", "Test move", "Test effect"
-    ctx = SimpleNamespace(text=lambda: [[], [], strings], out=Output(tmp_path), skip=lambda _: None)
+    out = Output(tmp_path)
+    ctx = SimpleNamespace(text=lambda: [[], [], strings], out=out, skip=lambda _: None,
+                          main=object(), table=lambda name, section: [bytes(company)])
+    rectangle = rects.Rect(4, 4, 2, 0, 0, 0, 4, 4)
+    monkeypatch.setattr(exe_tables.rects, "icons", lambda _: [rectangle] * 725)
+    monkeypatch.setattr(exe_tables, "_atlas", lambda _: lambda n: Image.new("RGBA", (4, 4), (10, 20, 30, 255)))
+    monkeypatch.setattr(exe_tables, "_abilities", lambda *args: None)
+    monkeypatch.setattr(exe_tables, "_crests", lambda *args: None)
+    monkeypatch.setattr(exe_tables, "_items", lambda *args: {})
+    exe_tables.extract(ctx)
     data.extract(ctx)
     [record] = json.loads((tmp_path / "data/battalions.json").read_text())["battalions"]
     assert record["stats"] == {"phys_atk": -2, "mag_atk": 3, "hit": 15, "crit": 5,
                                "avo": -5, "prt": 2, "rsl": 1, "cha": 4}
     assert [level["phys_atk"] for level in record["stats_by_level"]] == [-2, -2, -1, -1, 0]
     assert [level["hit"] for level in record["stats_by_level"]] == [15, 16, 17, 18, 20]
+    assert record["icon"] == "images/icons/battalions/0.png"
+    assert (tmp_path / record["icon"]).is_file()
     assert record["gambit"] == {"id": 1, "name": "Test move", "description": "Test effect", "uses": 2,
                                 "might": 6, "hit": 70, "range": [2, 3]}
 

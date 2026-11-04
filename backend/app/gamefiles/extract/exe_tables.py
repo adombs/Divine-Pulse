@@ -76,6 +76,14 @@ def item_sprite_id(raw: bytes, name: str = "") -> int | None:
     return None
 
 
+def battalion_sprite_id(row: bytes) -> int:
+    """Battalion panel selector at main+0x63716c (also used at +0x63ddc4)."""
+    rank, flags = row[0x26], row[0x28]
+    base = 0x22B if rank < 2 else 0x233 if rank < 4 else 0x237
+    movement = 3 if flags & 8 else 2 if flags & 4 else 1 if flags & 2 else 0
+    return base + movement
+
+
 def _rows(ctx: Context, name: str, section: int) -> list[bytes]:
     return ctx.table(name, section)
 
@@ -145,6 +153,27 @@ def _crests(ctx: Context, table: list[rects.Rect], atlas: Callable[[int], Image.
         ctx.out.image(rel, tile, source=f"DATA {ICON_ATLAS} texture 1 sprite {sprite} (crest id {crest})")
 
 
+def _battalions(ctx: Context, table: list[rects.Rect], atlas: Callable[[int], Image.Image]) -> None:
+    try:
+        rows = _rows(ctx, "fixed_data.bin", 11)
+    except FileNotFoundError:
+        ctx.skip("battalion icons: nx/data/fixed_data.bin is missing")
+        return
+    for ident, row in enumerate(rows):
+        sprite = battalion_sprite_id(row)
+        if sprite >= len(table):
+            continue
+        rect = table[sprite]
+        try:
+            tile = _crop(atlas(rect.texture), rect)
+        except (ValueError, struct.error):
+            continue
+        if tile is None or tile.getchannel("A").getbbox() is None:
+            continue
+        ctx.out.image(f"images/icons/battalions/{ident}.png", tile,
+                      source=f"DATA {ICON_ATLAS} texture {rect.texture} sprite {sprite} (battalion {ident})")
+
+
 def _items(ctx: Context, table: list[rects.Rect], atlas: Callable[[int], Image.Image]) -> dict:
     names = _weapon_names(ctx)
     sections = (
@@ -193,6 +222,7 @@ def extract(ctx: Context) -> None:
     atlas = _atlas(ctx)
     _abilities(ctx, table, atlas)
     _crests(ctx, table, atlas)
+    _battalions(ctx, table, atlas)
     kinds = _items(ctx, table, atlas)
     ctx.out.json(
         "data/exe/item-icons.json",
