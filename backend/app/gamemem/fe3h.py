@@ -55,11 +55,13 @@ PLAYER_NAME_SIZE = 0x40
 
 # Slot fields
 _ITEMS = 0x00  # 6 x (u16 item ID, u16 uses)
-# Candidate assignment fields: an earlier live observation associated these bytes with two assignments and
-# unassigned slots with stale ID bytes. Independent before/after assignment and removal captures are still needed.
+# The assigned battalion: a u16 at _BATTALION_SLOT (NO_BATTALION = none) and its ID (u8, data/battalions.json:
+# 0 Church of Seiros Soldiers, 1 Seiros Mercenaries ...) at _BATTALION. Seen live: assigning Church of
+# Seiros Soldiers to Byleth and Seiros Mercenaries to Claude set the IDs to 0 and 1; unassigned slots keep stale bytes.
 _BATTALION_SLOT = 0x18
 _BATTALION = 0x1E
 NO_BATTALION = 0xFFFF
+BATTALIONS = 200
 _CHARACTER = 0x24  # u16; 0xFFFF = empty slot
 _LEVEL = 0x4A
 _CLASS = 0x4B
@@ -153,7 +155,7 @@ def decode_roster(data: bytes) -> list[RosterUnit]:
             for spell, uses in zip(s[_SPELL_IDS : _SPELL_IDS + SPELL_SLOTS], s[_SPELL_USES : _SPELL_USES + SPELL_SLOTS])
             if spell < NO_SPELL
         )
-        battalion = s[_BATTALION] if struct.unpack_from("<H", s, _BATTALION_SLOT)[0] != NO_BATTALION else None
+        battalion = s[_BATTALION] if struct.unpack_from("<H", s, _BATTALION_SLOT)[0] != NO_BATTALION and s[_BATTALION] < BATTALIONS else None
         units.append(
             RosterUnit(
                 character, s[_LEVEL], s[_CLASS], raw, abilities, accessory, decode_arts(s), carried, spells,
