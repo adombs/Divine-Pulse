@@ -12,6 +12,7 @@ import { clock, plural } from "../../format";
 import { DetailCard, Section } from "../layout";
 import { ClassLink } from "../Links";
 import { CharacterHero } from "../character/CharacterHero";
+import { useReference } from "../../reference/types";
 import { IconButton } from "../Icon";
 import { BattleKindChip } from "./BattleList";
 import { battleName } from "./scenarios";
@@ -37,6 +38,8 @@ interface Props {
 const avg = (total: number | null, n: number) => (total === null ? null : n ? Math.round((10 * total) / n) / 10 : 0);
 
 export function RunCharacterCard({ stats: c, face, className, icon, onOpen, onRoster, onThisBattle }: Props) {
+  const ref = useReference();
+  const character = ref?.characters.find((person) => person.name === c.name || person.full_name === c.name);
   const level = c.first_level !== c.level ? `${c.first_level} → ${c.level}` : String(c.level);
   const actions = (onRoster || onThisBattle) && (
     <>
@@ -45,14 +48,19 @@ export function RunCharacterCard({ stats: c, face, className, icon, onOpen, onRo
     </>
   );
   return (
-    <DetailCard title={c.name} icon={icon} label={`${c.name} over this run's battles`} actions={actions}>
-      <CharacterHero layout="flip" scope="stats" face={face} facts={[
+    <DetailCard title={c.name} scope="stats" icon={icon} label={`${c.name} over this run's battles`} actions={actions}>
+      <CharacterHero key={c.key} name={c.name} layout="flip" scope="stats" face={face} facts={[
         ["Class", (className || c.class_name) ? <ClassLink name={className || c.class_name} /> : "—"],
         ["Level", level],
         ["Battles", c.battles],
         ["In battle", clock(c.seconds)],
         [<span title="Battles in which they killed the most">Top unit</span>, c.mvp, "top"],
         [<span title="Battles they ended off the map (fell or retreated)">Fell</span>, c.left || "never", "fell"],
+      ]} backFacts={[
+        ["Gender", character?.gender || "—"],
+        ["Affiliation", character?.house || "—"],
+        ["Birthday", character?.birthday || "—"],
+        ["Height", character?.height || "—"],
       ]} />
       <Section title="Combat" icon={CONCEPT_ICON.attack}>
         <CombatLedger c={c} />

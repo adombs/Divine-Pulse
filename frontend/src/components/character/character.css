@@ -12,7 +12,7 @@
 }
 .modal-backdrop:has(> .character-popup) { padding: 1rem; }
 .modal.character-popup > .modal-body {
-  display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 0.6rem 1.1rem 0.7rem;
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 0.6rem 1.1rem 0.7rem 0;
 }
 /* The card fills the window: its hero stays put, the picked section is the only part that scrolls. */
 .modal.character-popup > .modal-body > .unit-card.in-popup { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
@@ -24,6 +24,16 @@
   scrollbar-color: var(--line) transparent; padding-right: 0.3rem;
 }
 .cv-popup-scope { display: inline-flex; flex: none; }
+.cv-banner-name { display: inline-flex; align-items: center; gap: 0.6rem; max-width: 100%; }
+.cv-banner-name .cv-scope { flex: none; color: var(--head-ink); border-color: rgb(255 255 255 / 0.3); background: rgb(0 0 0 / 0.14); text-shadow: none; }
+.character-card > .name-banner .banner-title { overflow: visible; white-space: normal; }
+.character-popup > .modal-head .banner-title { white-space: normal; }
+/* Keep the section's title bar on the same left edge as the character's name banner. */
+.character-card .card-pane > .sec-head { margin-left: 0; }
+.roster-page .character-card .card-pane { padding-left: 0; }
+.modal.character-popup .character-card .cv-hero-box { margin-left: 1.1rem; }
+.modal.character-popup .character-card .card-pane { padding-left: 1.1rem; }
+.modal.character-popup .character-card .card-pane > .sec-head { margin-left: -1.1rem; }
 /* The window's header names the scope; its hero never repeats it. */
 .modal.character-popup .cv-hero-meta > .cv-scope { display: none; }
 .modal.character-popup .cv-hero-meta:not(:has(> :not(.cv-scope))) { display: none; }
@@ -39,11 +49,11 @@
 /* ---------- The hero: face, facts, scope. ---------- */
 .cv-hero {
   --cv-face: 6.5rem;
-  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "face facts" "meta meta";
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "face facts";
   column-gap: 1.1rem; row-gap: 0.55rem; align-items: center; margin: 0.25rem 0 0.55rem; min-width: 0;
 }
 .cv-hero.split {
-  grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "face facts sprite" "meta meta meta";
+  grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "face facts sprite";
 }
 .cv-hero-face { grid-area: face; display: grid; place-items: center; }
 .cv-facts { grid-area: facts; display: grid; align-content: center; margin: 0; min-width: 0; }
@@ -65,6 +75,22 @@
 
 /* A wide card (the Archive's): the facts in two columns, so the sections get the height. */
 .cv-hero-box { container-type: inline-size; min-width: 0; }
+.cv-information { perspective: 1000px; cursor: pointer; padding: 0.3rem 0.4rem 0; }
+.cv-information-turn { display: grid; transform-style: preserve-3d; transition: transform 0.25s ease; }
+.cv-information.is-flipped .cv-information-turn { transform: rotateY(180deg); }
+.cv-information .cv-info-side { grid-area: 1 / 1; backface-visibility: hidden; -webkit-backface-visibility: hidden; }
+.cv-information .cv-info-back { transform: rotateY(180deg); }
+.cv-information .cv-hero.flip .cv-facts { grid-template-columns: minmax(0, 1fr); }
+.character-card .card-main { overflow-x: hidden; }
+.cv-information-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 0.35rem; margin: 0.25rem auto 0.3rem;
+  padding: 0.25rem 0.6rem; border: 1px solid var(--line); border-radius: 4px; background: var(--paper-2);
+  color: var(--ink); font: 600 0.9rem var(--display); cursor: pointer;
+}
+.cv-information-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.cv-information-toggle:hover { border-color: var(--accent); }
+.cv-hero-box .crest-marks { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.3rem 0.5rem; }
+.cv-hero-box .crest-marks > span { display: inline-flex; align-items: center; gap: 0.2rem; }
 @container (min-width: 34rem) {
   .cv-hero.flip .cv-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.4rem; }
 }
@@ -80,7 +106,7 @@
 /* What the view covers. */
 .cv-scope {
   display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.12rem 0.55rem 0.12rem 0.45rem; border-radius: 999px;
-  font: 600 0.78rem var(--ui); letter-spacing: 0.02em; white-space: nowrap;
+  font: 600 0.85rem var(--display); white-space: nowrap;
   color: var(--ink); background: var(--row); border: 1px solid var(--row-border);
 }
 .cv-scope .icon { font-size: 0.95rem; color: var(--cv-scope-ink, var(--ink-soft)); }
@@ -133,9 +159,7 @@
 /* The back: the sprite standing on a map tile. */
 .cv-flip-side.back {
   transform: rotateY(180deg);
-  background:
-    linear-gradient(transparent 70%, color-mix(in srgb, var(--team-player) 16%, transparent) 70%),
-    radial-gradient(circle at 50% 40%, var(--paper) 45%, var(--bar-bg));
+  background: transparent;
 }
 .cv-flip-side.back .cv-sprite { width: 82%; height: 82%; margin-top: -4%; }
 .cv-flip.turned .cv-flip-card { transform: rotateY(180deg); }
@@ -171,11 +195,7 @@
 .cv-hero.split .cv-face > :is(img, span) { border-radius: 50%; overflow: hidden; }
 .cv-tile {
   position: relative; display: grid; place-items: end center; width: var(--cv-sprite); height: var(--cv-sprite); overflow: hidden;
-  border-radius: 10px; border: 1px solid var(--line);
-  background:
-    linear-gradient(transparent 74%, color-mix(in srgb, var(--cv-team, var(--team-player)) 18%, transparent) 74%),
-    linear-gradient(180deg, var(--paper), var(--paper-2));
-  box-shadow: inset 0 1px 0 rgb(255 255 255 / 0.35);
+  border: 0; background: transparent;
 }
 .cv-tile.team-enemy { --cv-team: var(--team-enemy); }
 .cv-tile.team-ally { --cv-team: var(--team-ally); }
@@ -183,6 +203,12 @@
 .cv-tile .cv-sprite { width: 92%; height: 92%; }
 .cv-tile.empty { place-items: center; color: var(--ink-soft); font: 600 0.75rem var(--ui); text-align: center; padding: 0.4rem; }
 .cv-tile :is(.unit-face) { width: 100%; height: 100%; border: 0; background: none; box-shadow: none; }
+.cv-hero-box .cv-sprite { background: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  .cv-information-turn, .cv-information.is-flipped .cv-information-turn { transform: none; transition: none; }
+  .cv-information .cv-info-side { transform: none; backface-visibility: visible; }
+  .cv-information .cv-info-side[aria-hidden="true"] { visibility: hidden; }
+}
 
 /* Narrow windows: the face and the sprite above the facts. */
 @media (max-width: 560px) {

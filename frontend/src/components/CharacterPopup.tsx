@@ -61,11 +61,11 @@ export function CharacterPopup({
     <Modal
       open={open}
       onClose={onClose}
-      title={last.current.title}
+      title={<span className="cv-banner-name">{last.current.title}<span className="cv-popup-scope">{scope ?? <ScopeTag scope={SCOPE_OF[context]} />}</span></span>}
+      ariaLabel={typeof last.current.title === "string" ? last.current.title : undefined}
       icon={last.current.icon}
       actions={
         <>
-          <span className="cv-popup-scope">{scope ?? <ScopeTag scope={SCOPE_OF[context]} />}</span>
           <span className="popup-card-actions" ref={setSlot} />
         </>
       }
