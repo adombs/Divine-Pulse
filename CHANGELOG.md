@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- Reorganize Battle Records into a battle ledger, themed standouts, each unit's share of the fighting and comparisons with other battles. Keep the share table accessible in shorter windows.
+- Show run-wide character statistics when selecting a name in a battle's standouts, with Combat, Form, Growth, Arsenal and Battles sections.
+- Organize battle graphs by topic, with turn charts above unit charts, and add accessible carousel controls with pause and reduced-motion support.
+- Group Settings behind a section list with unsaved-change indicators and a Save bar that stays visible.
+- Move Characters and Crests into the Archive and add a Battalions reference tab. Keep general character reference separate from run-specific information and preserve old character links.
+- Give character views a shared design, with portrait-to-sprite interaction on the Roster and in the Archive, larger side-by-side portrait and sprite in battle windows, and fixed window dimensions across sections.
+- Fit the updated views within the window with internal scrolling, including phone layouts, and prevent battle-header controls from overlapping.
+- Preserve assigned battalion names when imported reference data is incomplete. Add battalion panels that display verified available data and identify fields not yet supported by imports or the game reader.
+- Restore the corrected Home chair image from Brand Pack v8 without changing code or layout.
+
 ## 1.2.9 (2026-11-01)
 
 First public release. Versions through 1.2.8 were unpublished development builds.
