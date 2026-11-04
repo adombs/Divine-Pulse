@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Import native battalion icons, stat progression and gambit details from player-owned game files.
+
 ## 1.2.9 (2026-11-01)
 
 First public release. Versions through 1.2.8 were unpublished development builds.
