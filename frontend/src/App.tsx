@@ -26,8 +26,7 @@ const Dashboard = lazy(() => import("./components/Dashboard").then((module) => (
 const Runs = lazy(() => import("./components/Runs").then((module) => ({ default: module.Runs })));
 const SettingsPage = lazy(() => import("./components/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 const HistoryPage = lazy(() => import("./components/HistoryPage").then((module) => ({ default: module.HistoryPage })));
-const CharactersPage = lazy(() => import("./components/reference/CharactersPage").then((module) => ({ default: module.CharactersPage })));
-const ClassesPage = lazy(() => import("./components/reference/ClassesPage").then((module) => ({ default: module.ClassesPage })));
+const ArchivePage = lazy(() => import("./components/reference/ArchivePage").then((module) => ({ default: module.ArchivePage })));
 const SupportsPage = lazy(() => import("./components/reference/SupportsPage").then((module) => ({ default: module.SupportsPage })));
 
 /** Units whose loss ends the battle in defeat (as CRITICAL in backend/app/domain/battle.py). */
@@ -38,7 +37,6 @@ const PAGES: { id: Page; label: string }[] = [
   { id: "roster", label: "Roster" },
   { id: "battle", label: "Battle" },
   { id: "history", label: "History" },
-  { id: "characters", label: "Characters" },
   { id: "archive", label: "Archive" },
   { id: "supports", label: "Supports" },
   { id: "runs", label: "Runs" },
@@ -446,8 +444,7 @@ export default function App() {
                 onOpenRecording={openRecording}
               />
             )}
-            {page === "characters" && <CharactersPage units={units} part2={showPart2(appearance.appearance.portraits, units)} />}
-            {page === "archive" && <ClassesPage units={units} part2={showPart2(appearance.appearance.portraits, units)} />}
+            {page === "archive" && <ArchivePage units={units} part2={showPart2(appearance.appearance.portraits, units)} />}
             {page === "supports" && <SupportsPage units={units} part2={showPart2(appearance.appearance.portraits, units)} />}
             {loaded && page === "runs" && <Runs runs={runs} activeRunId={activeRunId} onActivate={switchRun} toasts={toasts} entries={scans} onUndo={undo} />}
             {page === "settings" && (

@@ -6,7 +6,7 @@
  */
 import type { IconName } from "../components/Icon";
 
-type SharedConcept = "weapon" | "actions" | "affiliation" | "lostItem" | "finalBlow" | "add" | "archive" | "levelUp";
+type SharedConcept = "weapon" | "actions" | "affiliation" | "lostItem" | "finalBlow" | "add" | "levelUp";
 
 export const CONCEPT_ICON = {
   // Pages.
@@ -16,7 +16,7 @@ export const CONCEPT_ICON = {
   history: "history",
   characters: "characters",
   classes: "classes",
-  archive: "classes",
+  archive: "archive",
   supports: "supports",
   runs: "runs",
   settings: "settings",
@@ -89,6 +89,7 @@ export const CONCEPT_ICON = {
   // Unit sections and monastery activities.
   ability: "ability",
   battalion: "battalion",
+  flip: "flip",
   crest: "crest",
   growth: "growth",
   position: "position",

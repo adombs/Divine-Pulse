@@ -18,8 +18,8 @@ export function CharLink({ charKey, children, title }: { charKey: string | null 
   if (!charKey) return <>{children}</>;
   return (
     <RefLink
-      onClick={() => nav.go({ page: "characters", tab: "characters", id: charKey })}
-      title={title ?? "Open on the Characters page"}
+      onClick={() => nav.go({ page: "archive", tab: "characters", id: charKey })}
+      title={title ?? "Open in the Archive"}
     >
       {children}
     </RefLink>
@@ -92,9 +92,17 @@ export function ItemLink({ name, children }: { name: string; children?: ReactNod
 }
 
 
-/** A battalion by name, as plain text (there's no battalions page to open). */
+/** A battalion by name, linked to its entry in the Archive's Battalions tab (plain text when the import doesn't list it). */
 export function BattalionLink({ name, children }: { name: string; children?: ReactNode }) {
-  return <>{children ?? name}</>;
+  const nav = useNav();
+  const ref = useReference();
+  const known = ref?.battalions?.length ? canonical(name, ref.battalions.map((b) => b.name)) : null;
+  if (!known) return <>{children ?? name}</>;
+  return (
+    <RefLink onClick={() => nav.go({ page: "archive", tab: "battalions", id: known })} title={`Open ${known} in the Archive`}>
+      {children ?? name}
+    </RefLink>
+  );
 }
 
 /** A crest by name, as text linked to its entry on the Crests page. */
@@ -105,7 +113,7 @@ export function CrestLink({ name, children }: { name: string; children?: ReactNo
   if (isMysteryCrest(name)) return <>Mystery Crest</>;
   if (!known) return <>{children ?? name}</>;
   return (
-    <RefLink onClick={() => nav.go({ page: "characters", tab: "crests", id: known })} title={`Open ${known} on the Crests page`}>
+    <RefLink onClick={() => nav.go({ page: "archive", tab: "crests", id: known })} title={`Open ${known} in the Archive`}>
       {children ?? name}
     </RefLink>
   );

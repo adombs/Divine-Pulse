@@ -1,17 +1,26 @@
 /**
- * The window a character opens in, wherever one can be clicked. What it shows depends on where it was opened from:
+ * The window a character opens in, wherever one can be clicked. What it shows depends on where it was opened from,
+ * and its header says so (the scope tag):
  * - "battle": the unit in that battle (its stats, HP, inventory, what it did), from the Battle page (units, map, log);
  * - "roster": the run's unit (its Status page), from the Roster;
- * - "stats": the character over the run's battles, from History;
- * - "reference": the character in general (growths, classes, supports), from the Characters page.
- * Each page passes in its own card; the cards are DetailCards, which drop their banner inside the popup (the window
- * has its own). Closes on the X, Escape or a click outside it.
+ * - "stats": the character over the run's battles, from History and the battle's Records;
+ * - "reference": the character in general (growths, classes, supports), from the Archive.
+ *
+ * Every window is the same size (components/character/character.css: --character-popup-w / -h), whichever view and
+ * section is showing: the card's hero stays put and the picked section scrolls inside it. Each page passes in its
+ * own card; the cards are DetailCards, which drop their banner inside the popup (the window has its own). Closes on
+ * the X, Escape or a click outside it.
  */
 import { createContext, ReactNode, useContext, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Modal } from "./Modal";
+import { ScopeTag } from "./character/CharacterHero";
+import type { CharacterScope } from "./character/CharacterHero";
+import "./character/character.css";
 
 export type CharacterContext = "battle" | "roster" | "stats" | "reference";
+
+const SCOPE_OF: Record<CharacterContext, CharacterScope> = { battle: "battle", roster: "run", stats: "stats", reference: "reference" };
 
 const InPopup = createContext(false);
 const ActionSlot = createContext<HTMLElement | null>(null);
@@ -31,6 +40,7 @@ export function CharacterPopup({
   title,
   icon,
   context,
+  scope,
   children,
 }: {
   open: boolean;
@@ -38,6 +48,8 @@ export function CharacterPopup({
   title: ReactNode;
   icon?: ReactNode;
   context: CharacterContext;
+  /** Replaces the header's scope tag (by default, the one for `context`). */
+  scope?: ReactNode;
   children: ReactNode;
 }) {
   // While it closes, it keeps showing the character it had.
@@ -51,7 +63,12 @@ export function CharacterPopup({
       onClose={onClose}
       title={last.current.title}
       icon={last.current.icon}
-      actions={<span className="popup-card-actions" ref={setSlot} />}
+      actions={
+        <>
+          <span className="cv-popup-scope">{scope ?? <ScopeTag scope={SCOPE_OF[context]} />}</span>
+          <span className="popup-card-actions" ref={setSlot} />
+        </>
+      }
       className={`character-popup ${context}`}
     >
       <InPopup.Provider value>

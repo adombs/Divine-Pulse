@@ -90,7 +90,8 @@ export const ICON: Record<string, IconName> = {
   left: CONCEPT_ICON.left,
   enemies: CONCEPT_ICON.enemies,
   defeated: CONCEPT_ICON.defeat,
-
+  // A battalion's gambit, once the tracker reads one (no gambit event is verified yet).
+  gambit: CONCEPT_ICON.battalion,
 };
 
 /** One thing that happened: from the game's log or one of the tracker's events. */

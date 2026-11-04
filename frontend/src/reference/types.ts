@@ -161,6 +161,54 @@ export interface Crest {
   bearers: { major: string[]; minor: string[] };
 }
 
+/** A battalion's eight modifiers, as the game's battalion panel lists them. */
+export const BATTALION_STAT_KEYS = ["phys_atk", "mag_atk", "hit", "crit", "avo", "prt", "rsl", "cha"] as const;
+export type BattalionStatKey = (typeof BATTALION_STAT_KEYS)[number];
+export const BATTALION_STAT_LABEL: Record<BattalionStatKey, string> = {
+  phys_atk: "Phys Atk", mag_atk: "Mag Atk", hit: "Hit", crit: "Crit", avo: "Avo", prt: "Prt", rsl: "Rsl", cha: "Cha",
+};
+export type BattalionStats = Partial<Record<BattalionStatKey, number>>;
+
+/** A gambit's area: the tiles it hits, relative to the user's tile (dx right, dy forward when negative). */
+export interface GambitArea {
+  cells: [number, number][];
+  /** The user's tile, when it isn't (0, 0). */
+  origin?: [number, number];
+  /** Which way the area faces; "forward" is away from the user, drawn upward. */
+  direction?: "forward";
+}
+
+export interface Gambit {
+  id?: number;
+  name: string;
+  description: string;
+  /** game-assets relative image path. */
+  icon?: string;
+  /** Uses per battle. */
+  uses?: number;
+  might?: number;
+  hit?: number;
+  range?: [number, number];
+  area?: GambitArea;
+}
+
+/** A battalion from the player's import (data/battalions.json). Every field past the name, description and endurance is
+ * optional: the importer adds it only once it's verified, and the app shows "—" with the reason while it's missing. */
+export interface Battalion {
+  /** The game's battalion ID (absent in imports read before it was kept). */
+  id?: number;
+  name: string;
+  description: string;
+  /** Maximum endurance. */
+  endurance: number;
+  /** game-assets relative image path. */
+  icon?: string;
+  /** Modifiers at level 1, and by level (index 0 is level 1). */
+  stats?: BattalionStats;
+  stats_by_level?: BattalionStats[];
+  gambit?: Gambit;
+}
+
 export interface ReferenceData {
   sources: { name: string; url: string }[];
   characters: Character[];
@@ -170,7 +218,7 @@ export interface ReferenceData {
   crests: Crest[];
   magic: Magic[];
   items: ReferenceItem[];
-  battalions?: { name: string; description: string; endurance: number }[];
+  battalions?: Battalion[];
 }
 
 let cache: Promise<ReferenceData> | null = null;

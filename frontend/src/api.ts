@@ -69,6 +69,15 @@ export interface Unit {
   learned_abilities?: string[];
   learned_arts?: string[];
   battalion?: string;
+  /** The assigned battalion as the game has it now (game memory only, each absent until its read is verified). */
+  battalion_id?: number | null;
+  battalion_level?: number | null;
+  battalion_endurance?: number | null;
+  battalion_endurance_max?: number | null;
+  /** The panel's modifiers: `value` as shown, `adjust` the separate +/- figure beside it. */
+  battalion_stats?: Partial<Record<"phys_atk" | "mag_atk" | "hit" | "crit" | "avo" | "prt" | "rsl" | "cha", { value: number; adjust?: number }>> | null;
+  gambit_uses?: number | null;
+  gambit_uses_max?: number | null;
   /** Current skill progress from game memory, when its roster fields are known. */
   skills?: Partial<Record<SkillKey, { rank: string; exp: number }>>;
   updated_at: string;

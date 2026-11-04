@@ -27,6 +27,18 @@
 .battle-page > .page-header > .page-status { grid-column: 1; align-self: center; padding-bottom: 0.2rem; }
 .battle-page > .page-header > .sub-tabs { grid-column: 2; margin: 0; border-bottom: 0; }
 .battle-page.fit > .page-header { margin-bottom: 0.5rem; }
+/* Phones: no room beside each other (the tabs took their width and the chips ran under them), so the chips get a row
+   of their own and the tabs become one row that scrolls sideways; the title shrinks to keep the header short. */
+@media (max-width: 760px) {
+  .battle-page > .page-header { grid-template-columns: minmax(0, 1fr); row-gap: 0.25rem; }
+  .battle-page > .page-header > :is(.sec-head, .page-status, .sub-tabs) { grid-column: 1; min-width: 0; }
+  .battle-page > .page-header > .sec-head h2 { font-size: 1.2rem; line-height: 1.2; }
+  .battle-page > .page-header > .page-status { padding-bottom: 0; }
+  .battle-page > .page-header > .sub-tabs {
+    display: flex; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  .battle-page > .page-header > .sub-tabs > * { flex: none; }
+}
 
 /* Overview: the same three columns, with less around them. The outlook is one slim card, the key numbers one row. */
 @media (min-width: 1251px) {
@@ -150,13 +162,8 @@
 :is(.battle-page, .character-popup.battle) .card-frame { grid-template-columns: minmax(0, 1fr); }
 :is(.battle-page, .character-popup.battle) .card-bar { min-width: 0; max-width: 100%; flex-wrap: nowrap; justify-content: center; }
 :is(.battle-page, .character-popup.battle) :is(.card-frame, .card-main, .card-swap, .card-pane, .profile, .facts, .facts dd) { min-width: 0; max-width: 100%; overflow-wrap: anywhere; }
-:is(.battle-page, .character-popup.battle) .battle-unit-profile { flex-wrap: nowrap; grid-template-columns: auto minmax(0, 1fr) auto; gap: 0.5rem; }
 :is(.battle-page, .character-popup.battle) .profile-rows.facts { grid-template-columns: auto minmax(0, 1fr); }
 :is(.battle-page, .character-popup.battle) .profile-rows.facts dd { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }
-:is(.battle-page, .character-popup.battle) .class-portrait { display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.15rem; width: 5.5rem; max-width: 100%; min-width: 0; }
-:is(.battle-page, .character-popup.battle) .class-portrait-label { max-width: 100%; color: var(--ink-soft); font: 600 0.72rem var(--ui); text-align: center; white-space: normal; overflow-wrap: anywhere; }
-:is(.battle-page, .character-popup.battle) .class-portrait .unit-face { flex: none; width: 5.5rem; height: 5.5rem; border: 0; border-radius: 0; background: transparent; box-shadow: none; }
-:is(.battle-page, .character-popup.battle) .class-portrait .unit-face { transform: translateY(-0.6rem); }
 .tl-card { max-height: calc(100vh - 16px); overflow: auto; pointer-events: auto; font-size: 0.85rem; }
 :is(.battle-page, .character-popup.battle) .inventory { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
 :is(.battle-page, .character-popup.battle) .inventory-item { display: grid; grid-template-columns: 1.3rem minmax(0, 1fr) auto auto; gap: 0.35rem; min-width: 0; }
@@ -169,16 +176,8 @@
 :is(.battle-page, .character-popup.battle) .mini-table { width: 100%; table-layout: fixed; font-size: 0.85rem; }
 :is(.battle-page, .character-popup.battle) .mini-table :is(th, td) { overflow-wrap: anywhere; white-space: normal; padding-inline: 0.2rem; }
 @media (max-width: 420px) {
-  /* Too narrow for portrait, facts and sprite side by side: the facts take their own row under them. */
-  :is(.battle-page, .character-popup.battle) .battle-unit-profile { gap: 0.25rem; grid-template-columns: auto minmax(0, 1fr); }
-  :is(.battle-page, .character-popup.battle) .battle-unit-profile > .facts { grid-column: 1 / -1; grid-row: 2; }
-  :is(.battle-page, .character-popup.battle) .battle-unit-profile > .facts dd { overflow-wrap: normal; }
-  :is(.battle-page, .character-popup.battle) .battle-unit-profile > :last-child { justify-self: end; }
   .character-popup .modal-head { gap: 0.3rem; padding-right: 0.4rem; }
   .character-popup .modal-head .name-banner { flex: 1 1 auto; }
-  :is(.battle-page, .character-popup.battle) .battle-unit-profile > .profile-portrait :is(.portrait, .unit-face) { width: 4.25rem !important; height: 4.25rem !important; }
-  :is(.battle-page, .character-popup.battle) .class-portrait { width: 4.25rem; }
-  :is(.battle-page, .character-popup.battle) .class-portrait .unit-face { width: 4.25rem; height: 4.25rem; }
   :is(.battle-page, .character-popup.battle) .inventory-item { grid-template-columns: 1.3rem minmax(0, 1fr) auto; }
   :is(.battle-page, .character-popup.battle) .inventory-battle-uses { grid-column: 2; text-align: left; }
   :is(.battle-page, .character-popup.battle) .inventory-uses { grid-column: 3; grid-row: 1 / span 2; }
@@ -198,12 +197,7 @@
 .position-map-zoom input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
 /* Unit popup content and inventory polish (UnitPopup.tsx / detail.tsx). */
-.character-popup.battle { width: min(680px, calc(100vw - 3rem)); height: min(760px, calc(100dvh - 4rem)); }
-.character-popup.battle .modal-body { overflow: hidden; display: flex; }
-.character-popup.battle .unit-card.in-popup { display: flex; flex-direction: column; min-height: 0; }
-.character-popup.battle .card-frame { flex: 1 1 auto; min-height: 0; }
-.character-popup.battle .card-main { min-height: 0; }
-.character-popup.battle .card-pane { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin; }
+/* The window's size and scrolling are the shell's, the same for every character window (character/character.css). */
 :is(.battle-page, .character-popup.battle) .art-list { display: flex; flex-direction: column; align-items: flex-start; justify-content: flex-start; gap: 0.25rem; }
 :is(.battle-page, .character-popup.battle) .art-chip { justify-content: flex-start; }
 :is(.battle-page, .character-popup.battle) .inventory-item > .inventory-icon { display: inline-flex; align-items: center; justify-content: center; width: 1.3rem; height: 1.3rem; padding: 0; border: 0; border-radius: 0; background: transparent; }
