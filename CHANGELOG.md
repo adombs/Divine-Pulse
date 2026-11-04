@@ -11,6 +11,7 @@
 - Fit the updated views within the window with internal scrolling, including phone layouts, and prevent battle-header controls from overlapping.
 - Preserve assigned battalion names when imported reference data is incomplete. Add battalion panels that display verified available data and identify fields not yet supported by imports or the game reader.
 - Restore the corrected Home chair image from Brand Pack v8 without changing code or layout.
+- Import native battalion icons, stat progression and gambit details from player-owned game files.
 
 ## 1.2.9 (2026-11-01)
 
