@@ -1,0 +1,137 @@
+/* Settings (SettingsPage.tsx): the section rail beside a panel of grouped rows; the Save bar pinned to the panel's
+   foot. On desktop the page fits the sheet and only the panel scrolls. Row and group classes (.set-*) are also used
+   by the About window, so they don't depend on .settings-page. */
+
+.settings-page { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.settings-page > .page-header { flex: none; }
+.settings-shell { flex: 1 1 auto; min-height: 0; display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); gap: 1.1rem; }
+
+/* The rail */
+.settings-rail { min-height: 0; overflow-y: auto; scrollbar-width: thin; padding: 0.15rem 0.1rem 0.15rem 0; }
+.rail-list { display: grid; gap: 0.2rem; }
+.rail-tab {
+  position: relative; display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: 0.6rem;
+  width: 100%; padding: 0.45rem 0.6rem 0.45rem 0.45rem; text-align: left; font: inherit; color: var(--ink-soft); cursor: pointer;
+  background: none; border: 1px solid transparent; border-radius: 6px;
+  transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+.rail-tab:hover { background: var(--row-hover); color: var(--ink); }
+.rail-tab:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rail-tab.on { color: var(--ink); background: var(--row); border-color: var(--row-border); box-shadow: 0 1px 2px rgb(0 0 0 / 0.06); }
+.rail-tab.on::before {
+  content: ""; position: absolute; left: -1px; top: 0.55rem; bottom: 0.55rem; width: 1px; background: var(--accent);
+}
+.rail-icon {
+  display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 6px;
+  color: var(--ink-soft); background: color-mix(in srgb, var(--ink) 6%, transparent); transition: color 0.15s, background-color 0.15s;
+}
+.rail-icon .icon { width: 1.1rem; height: 1.1rem; }
+.rail-tab.on .rail-icon { color: #fff; background: linear-gradient(160deg, var(--banner-2), var(--banner-1)); }
+.rail-text { display: grid; min-width: 0; }
+.rail-label { font: 600 1.05rem/1.2 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-blurb { font: 0.78rem/1.3 var(--ui); color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rail-mark { width: 0.55rem; height: 0.55rem; border-radius: 50%; background: var(--amber); box-shadow: 0 0 0 2px var(--paper); }
+.rail-mark.error { background: var(--red); }
+.set-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* The panel */
+.settings-panel {
+  position: relative; min-height: 0; min-width: 0; display: flex; flex-direction: column; margin: 0;
+  border: 1px solid var(--line); border-radius: 6px; background: color-mix(in srgb, var(--row) 35%, transparent); overflow: hidden;
+}
+.settings-scroll {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; padding: 0.9rem 1.2rem 1.4rem;
+  scrollbar-width: thin; scrollbar-color: var(--row-border) transparent; scroll-padding-bottom: 5rem;
+}
+.settings-panel-head { display: flex; align-items: baseline; flex-wrap: wrap; gap: 0.2rem 0.9rem; margin: 0 0 0.9rem; padding-bottom: 0.6rem; border-bottom: 1px solid var(--line); }
+.settings-panel-head h2 { margin: 0; font: 600 1.55rem/1.15 var(--display); color: var(--ink); letter-spacing: 0.01em; }
+.settings-panel-head p { margin: 0; font: 0.9rem var(--ui); color: var(--ink-soft); }
+.settings-body { display: grid; gap: 1.1rem; max-width: 60rem; animation: set-in 0.22s cubic-bezier(0.16, 1, 0.3, 1) both; }
+
+/* Groups and rows */
+.set-group { display: grid; gap: 0.35rem; min-width: 0; }
+.set-group-head { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.4rem 1rem; min-height: 1.9rem; }
+.set-group-head h3 { margin: 0; font: 600 0.78rem var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
+.set-group-right .btn.small { height: auto; min-height: 0; padding: 0.15rem 0.6rem; }
+.set-group-note { margin: 0 0 0.15rem; font: 0.88rem/1.45 var(--ui); color: var(--ink-soft); max-width: 70ch; }
+.set-rows { display: grid; min-width: 0; background: var(--row); border: 1px solid var(--row-border); border-radius: 6px; }
+.set-row {
+  display: grid; grid-template-columns: minmax(12rem, 1fr) minmax(0, auto); align-items: center; gap: 0.5rem 1.4rem;
+  padding: 0.7rem 0.95rem; min-width: 0;
+}
+.set-row + .set-row { border-top: 1px solid var(--line); }
+.set-row.wide { grid-template-columns: minmax(0, 1fr); }
+.set-text { display: grid; gap: 0.15rem; min-width: 0; }
+.set-label { font: 600 1.08rem/1.25 var(--display); color: var(--ink); }
+.set-hint { font: 0.86rem/1.45 var(--ui); color: var(--ink-soft); max-width: 62ch; }
+.set-hint code { font-size: 0.85em; }
+.set-error { font: 600 0.86rem var(--ui); color: var(--red); }
+.set-row.invalid .set-label { color: var(--red); }
+.set-control { display: flex; justify-content: flex-end; align-items: center; min-width: 0; }
+.set-row.wide .set-control { justify-content: stretch; }
+.set-control .segmented { flex-wrap: nowrap; }
+.set-control .with-unit input { width: 6.5rem; }
+/* The switch's own text repeats the row's name, so only assistive technology hears it here. */
+.set-control .switch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.set-control .switch { padding: 0.15rem; border-radius: 999px; }
+.set-control .switch:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+.set-control .switch input:focus-visible + .switch-track { outline: none; }
+.set-control .memory-check { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.4rem 0.6rem; font: 0.9rem var(--ui); color: var(--ink-soft); }
+.set-control .font-grid { width: 100%; }
+.set-value { font: 1.05rem var(--nums); font-variant-numeric: tabular-nums; color: var(--ink); }
+.set-path { flex-wrap: wrap; justify-content: flex-start; width: 100%; }
+.set-path code { overflow-wrap: anywhere; }
+.set-prose { display: grid; gap: 0.55rem; padding: 0.8rem 0.95rem; font: 0.95rem/1.55 var(--text); color: var(--ink); max-width: 75ch; }
+.set-prose p { margin: 0; }
+.set-prose .credits { margin: 0; }
+.set-about { display: grid; gap: 1.1rem; }
+.set-empty { margin: 0; padding: 1rem; color: var(--ink-soft); border: 1px dashed var(--line); border-radius: 6px; }
+.set-apply { display: flex; justify-content: flex-end; }
+
+/* Game files keeps its own layout inside the panel. */
+.settings-body .game-files-layout { max-width: none; }
+
+/* The Save bar: pinned to the panel's foot, it rises in when something changes. */
+.settings-save {
+  flex: none; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.5rem 1rem;
+  padding: 0.6rem 1.2rem; border-top: 1px solid var(--row-border);
+  background: color-mix(in srgb, var(--amber-bg) 60%, var(--paper)); box-shadow: 0 -6px 16px rgb(0 0 0 / 0.06);
+  animation: set-save-in 0.26s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.settings-save.invalid { background: color-mix(in srgb, var(--red) 9%, var(--paper)); }
+.settings-save-text { font: 0.92rem var(--ui); color: var(--ink); }
+.settings-save.invalid .settings-save-text { color: var(--red); }
+
+@keyframes set-in { from { opacity: 0; transform: translateY(4px); } }
+@keyframes set-save-in { from { transform: translateY(100%); opacity: 0; } }
+
+@media (max-width: 1000px) {
+  .settings-shell { grid-template-columns: 4.2rem minmax(0, 1fr); }
+  .rail-tab { grid-template-columns: 2rem; justify-content: center; padding: 0.45rem; }
+  .rail-text { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .rail-mark { position: absolute; top: 0.3rem; right: 0.3rem; }
+  .set-row { grid-template-columns: minmax(0, 1fr); }
+  .set-control { justify-content: flex-start; }
+  .set-control .segmented { flex-wrap: wrap; }
+}
+/* Phones: the app fits the screen; the sections become a strip on top and only the panel scrolls. */
+@media (max-width: 760px) {
+  .app:has(.settings-page) { height: 100vh; height: 100dvh; }
+  .app:has(.settings-page) > .sheet { overflow: hidden; display: flex; flex-direction: column; }
+  .settings-page { flex: 1 1 auto; height: auto; }
+  .settings-shell { display: flex; flex-direction: column; gap: 0.5rem; }
+  .settings-rail { flex: none; overflow-x: auto; overflow-y: hidden; padding: 0 0 0.15rem; scrollbar-width: none; }
+  .rail-list { display: flex; gap: 0.25rem; }
+  .rail-tab { flex: none; width: auto; grid-template-columns: 2rem auto; padding: 0.3rem 0.6rem 0.3rem 0.3rem; }
+  .rail-text { position: static; width: auto; height: auto; overflow: visible; clip-path: none; }
+  .rail-blurb { display: none; }
+  .rail-tab.on::before { inset: auto 0.6rem -1px 0.6rem; width: auto; height: 2px; }
+  .settings-panel { flex: 1 1 auto; }
+  .settings-scroll { padding: 0.7rem 0.75rem 1rem; }
+  .settings-panel-head h2 { font-size: 1.3rem; }
+  .set-row { padding: 0.6rem 0.7rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-body, .settings-save { animation: none; }
+  .rail-tab, .rail-icon { transition: none; }
+}

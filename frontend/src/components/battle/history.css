@@ -3,3 +3,17 @@
 .rh-figures .award-carousel .award-grid > li { flex-basis: 9.5rem; }
 .rh-figures .rh-figure { height: 100%; padding: 0.2rem 0.5rem; border-left: 1px solid var(--line); }
 .rh-figures .rh-figure:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Wide screens: the characters table takes what's left and scrolls in itself, so the page never scrolls. */
+@media (min-width: 1151px) {
+  .history-page .stats-tab > .stats-chars { min-height: 9rem; }
+  .history-page .stats-tab .block > .sec-head { margin-top: 0.55rem; margin-bottom: 0.4rem; }
+}
+.history-page .award-carousel .award-controls { align-self: center; }
+/* Phones: the app fits the screen; the run's numbers, battles, records and characters scroll inside the page. */
+@media (max-width: 760px) {
+  .app:has(.history-page) { height: 100vh; height: 100dvh; }
+  .app:has(.history-page) > .sheet { overflow: hidden; display: flex; flex-direction: column; }
+  .history-page { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+  .history-page > .page-header { flex: none; }
+  .history-page > .stats-tab { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+}
