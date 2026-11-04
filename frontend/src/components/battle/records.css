@@ -5,6 +5,10 @@
 
 .battle-page .ms-records-main { min-height: 0; min-width: 0; display: grid; grid-template-rows: minmax(0, auto) minmax(9rem, 1fr); gap: 0.8rem; }
 .battle-page .ms-records-main:not(:has(.ms-share)) { grid-template-rows: minmax(0, 1fr); }
+/* The switch between the two left panels only shows on short windows (below). */
+.battle-page .ms-left-tabs { display: none; justify-self: start; flex-wrap: nowrap; border-radius: 4px; overflow: hidden; }
+.battle-page .ms-left-tabs button { padding: 0.15rem 0.75rem; font-size: 0.95rem; white-space: nowrap; }
+.battle-page .ms-left-tabs [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 
 /* The ledger */
 .battle-page .ms-ledger {
@@ -130,9 +134,11 @@
   .battle-page .standout { padding-top: 0.26rem; padding-bottom: 0.26rem; }
   .battle-page .standout-value { font-size: 1.25rem; }
   .battle-page .compare-row { padding: 0.24rem 0.2rem 0.3rem; }
-  /* The per-unit numbers are in Graphs too; short windows give the standouts the room. */
-  .battle-page .ms-share { display: none; }
-  .battle-page .ms-records-main { grid-template-rows: minmax(0, 1fr); }
+  /* Short windows: the standouts and the share of the fighting take turns, picked with the switch above them. */
+  .battle-page .ms-records-main:has(> .ms-left-tabs) { grid-template-rows: auto minmax(0, 1fr); gap: 0.45rem; }
+  .battle-page .ms-records-main > .ms-left-tabs { display: inline-flex; }
+  .battle-page .ms-records-main[data-show="standouts"] > .ms-share,
+  .battle-page .ms-records-main[data-show="share"] > .ms-standouts { display: none; }
 }
 @media (max-width: 1250px) {
   .battle-page .ms-ledger { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }

@@ -103,13 +103,20 @@ function TabStrip<T extends string>({ label, value, options, onChange, className
 
 // Records
 
+const LEFT: [Left, string][] = [["standouts", "Standouts"], ["share", "Share of the Fighting"]];
+type Left = "standouts" | "share";
+
 function RecordsPart({ battle, seconds, stats, history }: View) {
+  // Short windows show one of the two left panels at a time, picked here; taller ones show both (records.css).
+  const [left, setLeft] = useState<Left>("standouts");
+  const share = shareRows(stats).length > 0;
   return (
     <div className="ms-records">
       <Ledger battle={battle} seconds={seconds} fights={stats.fights} />
       <div className="ms-records-body">
         <RunCards battle={battle} history={history}>
-          <div className="ms-records-main">
+          <div className="ms-records-main" data-show={share ? left : "standouts"}>
+            {share && <TabStrip label="Records panels" value={left} options={LEFT} onChange={setLeft} className="segmented ms-left-tabs" panel={`ms-${left}`} />}
             <Standouts battle={battle} stats={stats} />
             <Share stats={stats} />
           </div>
@@ -301,7 +308,7 @@ function Standouts({ battle, stats: s }: { battle: Battle; stats: MoreStats }) {
   ];
   const shown = columns.map(([title, icon, cards]) => [title, icon, cards.filter(Boolean)] as const).filter(([, , cards]) => cards.length);
   return (
-    <section className="ms-panel ms-standouts" aria-labelledby="ms-standouts-title">
+    <section className="ms-panel ms-standouts" id="ms-standouts" aria-labelledby="ms-standouts-title">
       <header className="ms-panel-head">
         <h3 id="ms-standouts-title">Standouts</h3>
         <span className="ms-panel-hint">Select a name to see them across the whole run</span>
@@ -323,13 +330,15 @@ function Standouts({ battle, stats: s }: { battle: Battle; stats: MoreStats }) {
 }
 
 /** Each of your units' part in the battle: their share of the army's damage, and their other numbers beside it. */
+const shareRows = (stats: MoreStats) => stats.units.filter((u) => u.fights || u.dealt || u.healing || u.tiles).sort((a, b) => b.dealt - a.dealt || b.fights - a.fights);
+
 function Share({ stats }: { stats: MoreStats }) {
-  const rows = stats.units.filter((u) => u.fights || u.dealt || u.healing || u.tiles).sort((a, b) => b.dealt - a.dealt || b.fights - a.fights);
+  const rows = shareRows(stats);
   const total = rows.reduce((n, u) => n + u.dealt, 0);
   const top = Math.max(1, ...rows.map((u) => u.dealt));
   if (!rows.length) return null;
   return (
-    <section className="ms-panel ms-share" aria-labelledby="ms-share-title">
+    <section className="ms-panel ms-share" id="ms-share" aria-labelledby="ms-share-title">
       <header className="ms-panel-head">
         <h3 id="ms-share-title">Share of the Fighting</h3>
         <span className="ms-panel-hint">your units, by damage dealt</span>
