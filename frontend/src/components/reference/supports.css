@@ -733,10 +733,10 @@ table.sup-matrix {
   align-items: center;
   min-width: 24px;
   min-height: 24px;
-  color: #fff;
+  color: var(--link-ink, #fff);
   text-decoration: none;
 }
-.sup-lost-card .ref-link:hover {
-  color: var(--accent);
+.sup-lost-card .ref-link:is(:hover, :focus-visible) {
+  color: var(--link-hover, #b9a5ef);
   text-decoration: underline;
 }
