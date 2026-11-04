@@ -118,7 +118,7 @@
 .battle-page .share-table tbody tr:hover { background: var(--row-hover); }
 .battle-page .share-col { width: 32%; }
 .battle-page td.share-col { display: flex; align-items: center; gap: 0.6rem; }
-.battle-page .share-bar { flex: 1 1 auto; height: 0.5rem; border-radius: 999px; background: color-mix(in srgb, var(--bar-bg) 60%, transparent); overflow: hidden; }
+.battle-page .share-bar { flex: 1 1 4rem; min-width: 3rem; height: 0.5rem; border-radius: 999px; background: color-mix(in srgb, var(--bar-bg) 60%, transparent); overflow: hidden; }
 .battle-page .share-bar > span {
   display: block; height: 100%; border-radius: 999px; background: var(--dealt); transform-origin: left;
   animation: ms-grow-x 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(var(--i) * 30ms);
