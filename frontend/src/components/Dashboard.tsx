@@ -30,6 +30,10 @@ import { ToastState } from "./Toasts";
 import { Portrait, StatTip, Switch, TypeButtons } from "./ui";
 import { useAffiliationIcon } from "./AffiliationIcon";
 import { DetailCard, EmptyState, MasterDetail, PageHeader, Section, StatusChip } from "./layout";
+import { CharacterHero } from "./character/CharacterHero";
+import type { Fact } from "./character/CharacterHero";
+import { PortraitFlip, unitSprite } from "./character/CharacterFace";
+import { BattalionBadge, BattalionPanel } from "./character/Battalion";
 import { tidyAbility } from "../appearance";
 import { plural } from "../format";
 
@@ -532,32 +536,17 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
         </>
       }
     >
-      <div className="profile">
-        <span className="profile-portrait">
-          <Portrait unit={unit} part2={part2} size={104} />
-        </span>
-        <dl className="profile-rows">
-          <dt>Name</dt>
-          <dd>
-            <CharLink charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills on the Characters page">
-              {unit.full_name || unit.name}
-            </CharLink>
-          </dd>
-          <dt>Class</dt>
-          <dd>{unit.class_name ? <ClassLink name={unit.class_name} /> : "—"}</dd>
-          {unit.gender && (
-            <>
-              <dt>Gender</dt>
-              <dd title={unit.gender}>
-                <Icon name={unit.gender.toLowerCase().startsWith("f") ? CONCEPT_ICON.female : CONCEPT_ICON.male} />
-              </dd>
-            </>
-          )}
-          {isByleth(unit) && (
-            <>
-              <dt>Portrait</dt>
-              <dd>
+      <CharacterHero
+        layout="flip"
+        scope="run"
+        face={<PortraitFlip portrait={<Portrait unit={unit} part2={part2} size={104} />} sprite={unitSprite(unit)} name={unit.name} className={unit.class_name} size={104} />}
+        facts={[
+          ["Name", <CharLink key="name" charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills in the Archive">{unit.full_name || unit.name}</CharLink>],
+          ["Class", unit.class_name ? <ClassLink key="class" name={unit.class_name} /> : "—"],
+          ...(unit.gender ? [["Gender", <span key="gender" title={unit.gender}><Icon name={unit.gender.toLowerCase().startsWith("f") ? CONCEPT_ICON.female : CONCEPT_ICON.male} /></span>] as Fact] : []),
+          ...(isByleth(unit) ? [["Portrait", (
                 <Segmented
+                  key="portrait"
                   size="mini"
                   label="Byleth's portrait"
                   value={unit.portrait_gender}
@@ -568,11 +557,10 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
                     ["female", "Female", "Always the female portrait"],
                   ]}
                 />
-              </dd>
-            </>
-          )}
-        </dl>
-      </div>
+          )] as Fact] : []),
+        ]}
+        meta={<BattalionBadge unit={unit} />}
+      />
 
       <Section
         title="Stats"
@@ -721,8 +709,8 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
         )}
       </Section>
 
-      <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={unit.battalion}>
-        {unit.battalion ? <p>{unit.battalion}</p> : <p className="muted">No battalion</p>}
+      <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={unit.battalion || (unit.battalion === "" ? "No battalion" : "Not read yet")}>
+        <BattalionPanel unit={unit} scope="run" />
       </Section>
 
       <Section title="Crest" icon={CONCEPT_ICON.crest}>

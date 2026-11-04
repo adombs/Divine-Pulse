@@ -7,6 +7,7 @@ import type { Unit } from "../../api";
 import { characterPortraitKey, runCharacterKeys } from "../../portraits";
 import { portraitCharacterId } from "../../portraits";
 import { SpriteIndex, UnitSprite, useSprites } from "../battle/mapIcons";
+import { CLASS_UNIT, EXCLUSIVE_CLASS_OWNERS } from "../../reference/classSprites";
 import "./classes.css";
 import { useNav } from "../../nav";
 import { canonical, normalize, searchMatches } from "../../fuzzy";
@@ -28,11 +29,10 @@ import {
   SkillKey,
   TIERS,
   Tier,
-  useReference,
 } from "../../reference/types";
 import { KeyPortrait, revealCard } from "../ui";
 import { AbilityIcon, ArtIcon, ItemIcon, SkillIcons, SpellIcon, WeaponIcon } from "../../reference/icons";
-import { DetailCard, MasterDetail, PageHeader, Section } from "../layout";
+import { DetailCard, MasterDetail, Section } from "../layout";
 import { artSummary } from "./CharactersPage";
 import { TierIcon } from "./TierIcon";
 import { Icon } from "../Icon";
@@ -41,7 +41,6 @@ import {
   CheckChips,
   CheckList,
   FilterMenu,
-  Loading,
   NoMatches,
   RefLink,
   RowCaret,
@@ -53,7 +52,6 @@ import {
 const compareValues = (a: number | string, b: number | string) => typeof a === "number" && typeof b === "number" ? a - b : String(a).localeCompare(String(b), gameLanguageLocale());
 
 type View = "growths" | "boosts" | "bases";
-type Tab = "classes" | "arts" | "abilities" | "magic" | "weapons" | "items";
 type ColKey = keyof ClassStats;
 type SortKey = "name" | "tier" | ColKey | "total";
 
@@ -70,86 +68,6 @@ interface Props {
   part2: boolean;
 }
 
-/**
- * The unit each class is shown as: the character the game and its players most associate with it, by Characters page
- * key, with the game's class ID for the body sprite (frontend/public/game/class-sprites.json). A class only one
- * character can be in (the lords' unique classes, Death Knight) uses that character. Where the atlas has no body for
- * the class — the lords' classes, the DLC fliers — the character's own finished sprite stands in; where the atlas has
- * no head for the character (the Ashen Wolves, Jeritza), the body gets a generic head of the right gender.
- */
-const EXCLUSIVE_CLASS_OWNERS: Record<string, string> = {
-  "Enlightened One": "byleth",
-  "Armored Lord": "edelgard",
-  Emperor: "edelgard",
-  "High Lord": "dimitri",
-  "Great Lord": "dimitri",
-  "Wyvern Master": "claude",
-  Barbarossa: "claude",
-  "Death Knight": "jeritza",
-};
-
-const CLASS_UNIT: Record<string, { id: number; who: string }> = {
-  // Exclusive classes keep their canonical owners and do not consume a character in the
-  // rotation. Ordinary classes use every playable character once before beginning repeats.
-  Noble: { id: 0, who: "edelgard" },
-  Commoner: { id: 1, who: "byleth" },
-  Dancer: { id: 43, who: "dorothea" }, // the songstress of the Black Eagles
-  "Enlightened One": { id: 42, who: "byleth" },
-  "Armored Lord": { id: 56, who: "edelgard" },
-  "High Lord": { id: 57, who: "dimitri" },
-  "Wyvern Master": { id: 58, who: "claude" },
-  Emperor: { id: 40, who: "edelgard" },
-  "Great Lord": { id: 44, who: "dimitri" },
-  Barbarossa: { id: 17, who: "claude" },
-  // Beginner
-  Myrmidon: { id: 2, who: "felix" },
-  Soldier: { id: 3, who: "ingrid" },
-  Fighter: { id: 4, who: "anna" },
-  Monk: { id: 5, who: "linhardt" },
-  // Intermediate
-  Lord: { id: 6, who: "dimitri" }, // one of the three house leaders eligible for the shared class
-  Mercenary: { id: 7, who: "leonie" }, // Jeralt's apprentice mercenary
-  Thief: { id: 8, who: "ashe" }, // a thief before House Gaspard took him in
-  "Armored Knight": { id: 9, who: "dedue" },
-  Cavalier: { id: 10, who: "ferdinand" },
-  Brigand: { id: 11, who: "raphael" },
-  Archer: { id: 12, who: "ignatz" },
-  Brawler: { id: 13, who: "balthus" },
-  Mage: { id: 14, who: "lysithea" },
-  "Dark Mage": { id: 15, who: "hubert" },
-  Priest: { id: 16, who: "mercedes" },
-  "Pegasus Knight": { id: 23, who: "annette" },
-  // Advanced
-  Hero: { id: 18, who: "alois" },
-  Swordmaster: { id: 19, who: "catherine" },
-  Assassin: { id: 20, who: "petra" },
-  "Fortress Knight": { id: 21, who: "gilbert" },
-  Paladin: { id: 22, who: "sylvain" },
-  "Wyvern Rider": { id: 24, who: "cyril" },
-  Warrior: { id: 25, who: "hilda" },
-  Sniper: { id: 26, who: "shamir" },
-  Grappler: { id: 27, who: "caspar" },
-  Warlock: { id: 28, who: "hanneman" },
-  "Dark Bishop": { id: 29, who: "jeritza" },
-  Bishop: { id: 30, who: "flayn" },
-  // Master
-  "Falcon Knight": { id: 31, who: "marianne" },
-  "Wyvern Lord": { id: 32, who: "seteth" },
-  "Mortal Savant": { id: 33, who: "manuela" },
-  "Great Knight": { id: 34, who: "lorenz" },
-  "Bow Knight": { id: 35, who: "claude" },
-  "Dark Knight": { id: 36, who: "hapi" },
-  "Holy Knight": { id: 37, who: "bernadetta" },
-  "War Master": { id: 38, who: "jeralt" },
-  Gremory: { id: 39, who: "constance" },
-  // DLC (Cindered Shadows): the Ashen Wolves have no map head, so these fall back to a generic one.
-  Trickster: { id: 84, who: "yuri" },
-  "War Monk": { id: 85, who: "balthus" },
-  "War Cleric": { id: 85, who: "mercedes" },
-  "Dark Flier": { id: 86, who: "annette" },
-  Valkyrie: { id: 87, who: "marianne" },
-  "Death Knight": { id: 59, who: "jeritza" },
-};
 
 /** Catch accidental duplicate sprite choices while developing the reference data. */
 export function assertClassSpriteRotation(classes: GameClass[], characters: Character[]) {
@@ -203,48 +121,37 @@ const GENDERS = [
   ["Female", "Women"],
 ] as const;
 
-export function ClassesPage(props: Props) {
-  return <ClassesContent {...props} />;
+export type ClassesTab = "classes" | "arts" | "abilities" | "magic" | "weapons" | "items";
+
+/** The Archive's tab counts for the classes and gear tabs (ArchivePage.tsx draws the header). */
+export function classesTabCounts(data: ReferenceData | null, showStoryClasses: boolean): Record<ClassesTab, number | undefined> {
+  return {
+    classes: data?.classes.filter((c) => showStoryClasses || !isStoryClass(c.name)).length,
+    arts: data?.combat_arts.length,
+    abilities: data?.abilities.length,
+    magic: data?.magic.length,
+    weapons: data?.items.filter((i) => i.kind === "Weapon").length,
+    items: data?.items.filter((i) => i.kind !== "Weapon").length,
+  };
 }
 
-function ClassesContent({ units, part2 }: Props) {
-  const data = useReference();
+/** One of the Archive's classes and gear tabs. */
+export function ClassesView({ tab, data, units, part2 }: Props & { tab: ClassesTab; data: ReferenceData }) {
   const nav = useNav();
-  if (import.meta.env.DEV && data) assertClassSpriteRotation(data.classes, data.characters);
-  const [showStoryClasses] = useSpoiler("storyClasses");
-  const tab = (nav.route.tab as Tab | undefined) ?? "classes";
-  const setTab = (t: Tab) => nav.go({ page: "archive", tab: t });
-  return (
-    <div className="ref-page classes-page">
-      <PageHeader
-        title="Archive"
-        tabs={[
-          { id: "classes", label: "Classes", count: data?.classes.filter((c) => showStoryClasses || !isStoryClass(c.name)).length },
-          { id: "arts", label: "Combat Arts", count: data?.combat_arts.length },
-          { id: "abilities", label: "Abilities", count: data?.abilities.length },
-          { id: "magic", label: "Magic", count: data?.magic.length },
-          { id: "weapons", label: "Weapons", count: data?.items.filter((i) => i.kind === "Weapon").length },
-          { id: "items", label: "Items", count: data?.items.filter((i) => i.kind !== "Weapon").length },
-        ]}
-        tab={tab}
-        onTab={setTab}
-      />
-      {!data ? (
-        <Loading />
-      ) : tab === "classes" ? (
-        <ClassTable data={data} units={units} part2={part2} />
-      ) : tab === "arts" ? (
-        <ArtsTable key={nav.route.q ?? ""} data={data} initial={nav.route.q ?? ""} />
-      ) : tab === "magic" ? (
-        <MagicTable key={nav.route.q ?? ""} data={data} initial={nav.route.q ?? ""} />
-      ) : tab === "weapons" ? (
-        <InventoryTable key={`weapons-${nav.route.q ?? ""}`} data={data} initial={nav.route.q ?? ""} weapons />
-      ) : tab === "items" ? (
-        <InventoryTable key={`items-${nav.route.q ?? ""}`} data={data} initial={nav.route.q ?? ""} />
-      ) : (
-        <AbilitiesTable key={nav.route.q ?? ""} data={data} initial={nav.route.q ?? ""} />
-      )}
-    </div>
+  if (import.meta.env.DEV) assertClassSpriteRotation(data.classes, data.characters);
+  const q = nav.route.q ?? "";
+  return tab === "classes" ? (
+    <ClassTable data={data} units={units} part2={part2} />
+  ) : tab === "arts" ? (
+    <ArtsTable key={q} data={data} initial={q} />
+  ) : tab === "magic" ? (
+    <MagicTable key={q} data={data} initial={q} />
+  ) : tab === "weapons" ? (
+    <InventoryTable key={`weapons-${q}`} data={data} initial={q} weapons />
+  ) : tab === "items" ? (
+    <InventoryTable key={`items-${q}`} data={data} initial={q} />
+  ) : (
+    <AbilitiesTable key={q} data={data} initial={q} />
   );
 }
 
@@ -619,7 +526,7 @@ function PeopleRow({ people, part2, skills }: { people: Character[]; part2: bool
   return (
     <div className="people unit-grid">
       {people.map((ch) => (
-        <RefLink key={ch.key} onClick={() => nav.go({ page: "characters", tab: "characters", id: ch.key })} title={`Open ${ch.name} on the Characters page`}>
+        <RefLink key={ch.key} onClick={() => nav.go({ page: "archive", tab: "characters", id: ch.key })} title={`Open ${ch.name} in the Archive`}>
           <span className="person">
             <KeyPortrait portraitKey={characterPortraitKey(ch.key)} name={ch.name} part2={part2} size={72} />
             <span className="person-name">{ch.name}</span>

@@ -1,5 +1,5 @@
-export type Page = "home" | "roster" | "battle" | "history" | "characters" | "archive" | "supports" | "runs" | "settings";
-const PAGES: Page[] = ["home", "roster", "battle", "history", "characters", "archive", "supports", "runs", "settings"];
+export type Page = "home" | "roster" | "battle" | "history" | "archive" | "supports" | "runs" | "settings";
+const PAGES: Page[] = ["home", "roster", "battle", "history", "archive", "supports", "runs", "settings"];
 
 export interface Route {
   page: Page;
@@ -22,6 +22,8 @@ export function fromHash(hash: string): Route {
     const [page, tab, id] = parts;
     const q = new URLSearchParams(query ?? "").get("q") ?? undefined;
     if (page === "battle" && tab) return { page: "battle", id: tab, q };
+    // Characters and Crests moved into the Archive: older links and bookmarks still open them there.
+    if (page === "characters") return { page: "archive", tab: tab === "crests" ? "crests" : "characters", id: id || undefined, q };
     return { page: PAGES.includes(page as Page) ? (page as Page) : "home", tab: tab || undefined, id: id || undefined, q };
   } catch {
     return { page: "home" };

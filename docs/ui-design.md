@@ -115,8 +115,29 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
 
 - **Roster:** header with the unit count and chips for what changes the view (in-battle filter, units to check,
   "Comparing as"); the run picker is the header's action. Table and unit card as before (`DetailCard`).
-- **Characters, Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
-  with a `DetailCard`.
+- **Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
+  with a `DetailCard`. The Archive's tabs: Characters, Crests, Battalions, Classes, Combat Arts, Abilities, Magic,
+  Weapons, Items (old `#/characters/...` links open its Characters and Crests tabs).
+
+## Character views
+
+One look for a character wherever one shows (components/character): the battle window and the Units tab, the
+Roster's card, the Archive's character card and the run's stats window.
+
+- **Scope, always said.** `ScopeTag`: *In this battle* (that battle only), *This run* (the Roster: the run's unit as
+  last read), *Whole run* (History: added up over finished battles), *General reference* (the Archive: the same in
+  every run). A character window says it in its header. A general card that shows something of the run sets it apart
+  in an *In this run* section.
+- **The hero** (`CharacterHero`): the face, the key facts, the scope and the battalion badge. Roster and Archive use
+  `PortraitFlip`: the round portrait turns over to the map sprite while the pointer is on it, and stays turned on a
+  click, tap, Enter or Space; with reduced motion it swaps without turning. The battle window uses the split layout: a
+  larger portrait on the left, the sprite on a tile in its army's colour on the right, and HP, Level, Class, Status
+  between them (portrait and sprite side by side above the facts in a narrow card).
+- **The window** (`CharacterPopup`): one fixed size for every view and section (`--character-popup-w` / `-h` in
+  character.css); the hero stays put and only the picked section scrolls.
+- **Battalions** (`BattalionPanel`): laid out like the game's panel, battalion beside gambit, with the eight modifiers
+  (gains blue, losses red, an adjustment after an arrow), the gambit's uses, Mt, Hit and a little map of the tiles it
+  hits (the user's tile blue, facing up). Missing values show "—" with why; nothing is filled in.
 - **Scan Log:** header with the session's count and chips for updates to check and those not saved; filter by outcome
   (All, Saved, To check, Not saved).
 - **Runs:** a new-run box and the runs as a `RowList`; selecting one shows its card: facts, Make active / Rename /

@@ -231,7 +231,7 @@ export function ByCharacter({ data, people, selected, onSelect, pairsFor, routeO
                         {other.charKey && (
                           <CharLink charKey={other.charKey}>
                             <span className="btn small as-link">
-                              Characters page <Icon name={CONCEPT_ICON.go} />
+                              In the Archive <Icon name={CONCEPT_ICON.go} />
                             </span>
                           </CharLink>
                         )}
@@ -328,7 +328,7 @@ function PersonCard({ me, info, part2 }: { me: Person; info?: MonasteryPerson; p
       {me.charKey && (
         <p className="card-link">
           <CharLink charKey={me.charKey}>
-            Stats and skills on the Characters page <Icon name={CONCEPT_ICON.go} />
+            Stats and skills in the Archive <Icon name={CONCEPT_ICON.go} />
           </CharLink>
         </p>
       )}

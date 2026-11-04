@@ -1,4 +1,4 @@
-import type { ReferenceData, SkillKey, Stats, ReferenceItem, Magic, Character } from "./types";
+import type { Battalion, BattalionStats, Gambit, GambitArea, ReferenceData, SkillKey, Stats, ReferenceItem, Magic, Character } from "./types";
 import type { SupportData, SupportRank } from "./supports";
 import structureData from "./structure.json" with { type: "json" };
 
@@ -226,7 +226,7 @@ function enrichReference(base: ReferenceData, files: Record<string, unknown>, te
       const minor = text(texts?.crest_minor_description?.[String(r.id)]);
       return { ...c, major_description: major || c.major_description, minor_description: minor || c.minor_description, effect: major || minor || c.effect };
     }),
-    battalions: rows(files.battalions, "battalions").length ? rows(files.battalions, "battalions").filter((r) => typeof r.name === "string" && r.name).map((r) => ({ name: r.name, description: description(r, "battalion_description"), endurance: number(r.endurance, 0) })) : base.battalions,
+    battalions: rows(files.battalions, "battalions").length ? rows(files.battalions, "battalions").map((r) => parseBattalion(r, description(r, "battalion_description"))).filter((b): b is Battalion => !!b) : base.battalions,
   };
 }
 
@@ -330,4 +330,70 @@ export async function loadImportedSupports(wiki: Parameters<typeof buildSupports
     const [values, characterGiven, gift, meal, ingredient] = await Promise.all([Promise.all(names.map((name) => loadGameJson(`data/${name}.json`))), loadGameText("character_given", gameLanguage()), loadGameText("gift", gameLanguage()), loadGameText("meal", gameLanguage()), loadGameText("ingredient", gameLanguage())]);
     return buildSupports(Object.fromEntries(names.map((name, i) => [name, values[i]])), wiki, { character_given: characterGiven, gift, meal, ingredient }, excludedPairs);
   } catch { return buildSupports({}, wiki); }
+}
+
+/* Battalion rows (data/battalions.json). The importer writes id, name, description and endurance today; icons,
+   modifiers and gambits are optional and taken only when well formed, so nothing is filled in that the import doesn't
+   hold. */
+type BRow = Record<string, unknown>;
+// The modifiers in the panel's order (the same keys as BATTALION_STAT_KEYS in types.ts).
+const BATTALION_KEYS = ["phys_atk", "mag_atk", "hit", "crit", "avo", "prt", "rsl", "cha"] as const;
+
+const isBRow = (v: unknown): v is BRow => !!v && typeof v === "object" && !Array.isArray(v);
+const bNum = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+const bStr = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v : undefined);
+const bPair = (v: unknown): [number, number] | undefined =>
+  Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === "number" && Number.isInteger(n)) ? [v[0], v[1]] : undefined;
+
+function bStats(v: unknown): BattalionStats | undefined {
+  if (!isBRow(v)) return undefined;
+  const out: BattalionStats = {};
+  for (const k of BATTALION_KEYS) {
+    const n = bNum(v[k]);
+    if (n !== undefined) out[k] = n;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function bArea(v: unknown): GambitArea | undefined {
+  if (!isBRow(v) || !Array.isArray(v.cells)) return undefined;
+  const cells = v.cells.map(bPair).filter((c): c is [number, number] => !!c);
+  if (!cells.length) return undefined;
+  const origin = bPair(v.origin);
+  return { cells, ...(origin ? { origin } : {}), ...(v.direction === "forward" ? { direction: "forward" as const } : {}) };
+}
+
+function bGambit(v: unknown): Gambit | undefined {
+  if (!isBRow(v)) return undefined;
+  const name = bStr(v.name);
+  if (!name) return undefined;
+  const r = bPair(v.range);
+  const a = bArea(v.area);
+  const out: Gambit = { name, description: bStr(v.description) ?? "" };
+  const id = bNum(v.id), icon = bStr(v.icon), uses = bNum(v.uses), might = bNum(v.might), hit = bNum(v.hit);
+  if (id !== undefined) out.id = id;
+  if (icon) out.icon = icon;
+  if (uses !== undefined) out.uses = uses;
+  if (might !== undefined) out.might = might;
+  if (hit !== undefined) out.hit = hit;
+  if (r) out.range = r;
+  if (a) out.area = a;
+  return out;
+}
+
+/** One import row as a Battalion, its description from the language's text when there is one. Null when unnamed. */
+export function parseBattalion(r: BRow, description: string): Battalion | null {
+  const name = bStr(r.name);
+  if (!name) return null;
+  const out: Battalion = { name, description, endurance: bNum(r.endurance) ?? 0 };
+  const id = bNum(r.id), icon = bStr(r.icon), base = bStats(r.stats), g = bGambit(r.gambit);
+  if (id !== undefined) out.id = id;
+  if (icon) out.icon = icon;
+  if (base) out.stats = base;
+  if (Array.isArray(r.stats_by_level)) {
+    const levels = r.stats_by_level.map(bStats);
+    if (levels.length && levels.every(Boolean)) out.stats_by_level = levels as BattalionStats[];
+  }
+  if (g) out.gambit = g;
+  return out;
 }

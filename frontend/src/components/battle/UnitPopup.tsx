@@ -10,16 +10,20 @@ import { AffiliationIcon } from "../AffiliationIcon";
 import { CharacterPopup } from "../CharacterPopup";
 import { characterKeyOfUnit } from "../../portraits";
 import { IconButton } from "../Icon";
-import { DetailCard, Facts, Section } from "../layout";
+import { DetailCard, Section } from "../layout";
+import { CharacterHero } from "../character/CharacterHero";
+import { SpriteFigure, useHasSprite } from "../character/CharacterFace";
+import { BattalionBadge, BattalionPanel } from "../character/Battalion";
+import { armySprite, isObject, spriteOf } from "./map";
+import type { Sprite } from "./mapIcons";
 import { Portrait } from "../ui";
 import { CombatTiles, FightsAndActions } from "./detail";
-import { isObject } from "./map";
 import { useSpoiler } from "../../spoilers";
 import { crestsOf } from "./factions";
 import { crestLabel } from "../../reference/crests";
 import { MapSection } from "./Minimap";
 import { alertsFor, armyId, enemies, enemyId, Item, LOW_WEAPON, statGains, tally } from "./model";
-import { AbilityLink, ArtLink, BattalionLink, ClassLink, CrestLink } from "../Links";
+import { AbilityLink, ArtLink, ClassLink, CrestLink } from "../Links";
 import { GearIcon } from "./gameIcons";
 import { Gains, Supplies, UnitFace, useBattleNav } from "./parts";
 import { AbilityIcon, CrestMark } from "../../reference/icons";
@@ -90,7 +94,6 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
   const level = u.level_ups ? `${u.start_level} → ${u.level}` : String(u.level);
   const gained = statGains(u);
   const nav = useNav();
-  const faces = useBattleNav().mapLook?.myFaces ?? "portraits";
   const status = !u.on_map ? (
     <span className="form-error" title="Left the battle">Left</span>
   ) : u.adjutant_of ? (
@@ -115,19 +118,19 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
         </>
       }
     >
-      <div className="profile battle-unit-profile">
-        <span className="profile-portrait">
-          {roster && faces === "portraits" ? <Portrait unit={roster} part2={part2} size={88} /> : <UnitFace id={id} name={u.name} size="lg" />}
-        </span>
-        <Facts
-          rows={[
-            ["HP", <HpBar key="hp" hp={u.hp} max={u.now.hp} />],
-            ["Level", level],
-            ["Status", status],
-          ]}
-        />
-        <ClassSprite id={id} name={u.name} className={u.class_name} />
-      </div>
+      <CharacterHero
+        layout="split"
+        scope="battle"
+        face={<span className="cv-face">{roster ? <Portrait unit={roster} part2={part2} size={120} /> : <UnitFace id={id} name={u.name} size="lg" look="portraits" />}</span>}
+        sprite={<SpriteTile sprite={armySprite(u)} name={u.name} className={u.class_name} />}
+        facts={[
+          ["HP", <HpBar key="hp" hp={u.hp} max={u.now.hp} />],
+          ["Level", level],
+          ["Class", <ClassLink key="class" name={u.class_name} />],
+          ["Status", status],
+        ]}
+        meta={<BattalionBadge unit={roster} />}
+      />
       <Section title="Equipment" icon={CONCEPT_ICON.equipment} summary={inventorySummary(equipment)} open>
         {u.inventory ? <Inventory items={equipment} usage={u.usage} kinds={["weapon", "item"]} /> : <Supplies unit={u} />}
       </Section>
@@ -141,8 +144,7 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
         {abilities.length ? <IconRow names={abilities} /> : <p className="muted">{roster ? "No abilities." : "Not read yet."}</p>}
       </Section>
       <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={roster?.battalion || (roster?.battalion === "" ? "No battalion" : "Not read yet")}>
-        <p title={ref?.battalions?.find((b) => b.name === roster?.battalion)?.description}>{roster?.battalion ? <BattalionLink name={roster.battalion} /> : roster?.battalion === "" ? "No battalion." : "Not read yet."}</p>
-        {ref?.battalions?.find((b) => b.name === roster?.battalion) && <p className="desc">{ref.battalions.find((b) => b.name === roster?.battalion)?.description} · Endurance {ref.battalions.find((b) => b.name === roster?.battalion)?.endurance}</p>}
+        <BattalionPanel unit={roster} scope="battle" />
       </Section>
       <Section title="Growth" icon={CONCEPT_ICON.growth} summary={growthSummary(u.level_ups, gained)}>
         <Gains gains={u.gains} />
@@ -171,19 +173,18 @@ function EnemyCard({ enemy: e, battle, items }: { enemy: EnemyStats; battle: Bat
   const hp = e.hp === null ? null : Math.max(0, e.hp);
   return (
     <DetailCard title={e.label} icon={<BattleAffiliation id={id} />} label={`${e.label} in this battle`}>
-      <div className="profile battle-unit-profile">
-        <span className="profile-portrait">
-          <UnitFace id={id} name={e.label} size="lg" />
-        </span>
-        <Facts
-          rows={[
-            ["HP", <HpBar key="hp" hp={hp} max={e.max_hp} />],
-            ["Level", e.level],
-            ["Status", <span className={!e.on_map ? "form-error" : undefined} title={!e.on_map && e.defeated_by ? `Killed by ${e.defeated_by}` : !e.on_map && e.left ? "Left the map" : undefined}>{enemyStatus(e)}</span>],
-          ]}
-        />
-        <ClassSprite id={id} name={e.label} className={classOf(e)} />
-      </div>
+      <CharacterHero
+        layout="split"
+        scope="battle"
+        face={<span className="cv-face"><UnitFace id={id} name={e.label} size="lg" look="portraits" /></span>}
+        sprite={<SpriteTile sprite={isObject(e) ? null : spriteOf(e)} name={e.label} className={classOf(e)} />}
+        facts={[
+          ["HP", <HpBar key="hp" hp={hp} max={e.max_hp} />],
+          ["Level", e.level],
+          ["Class", <ClassLink key="class" name={classOf(e)} />],
+          ["Status", <span key="status" className={!e.on_map ? "form-error" : undefined} title={!e.on_map && e.defeated_by ? `Killed by ${e.defeated_by}` : !e.on_map && e.left ? "Left the map" : undefined}>{enemyStatus(e)}</span>],
+        ]}
+      />
       {!isObject(e) && <>
         <Section title="Equipment" icon={CONCEPT_ICON.equipment} summary={inventorySummary(e.inventory?.filter((i) => i.kind !== "spell"))} open>
           <Inventory items={e.inventory?.filter((i) => i.kind !== "spell")} usage={e.usage} kinds={["weapon", "item"]} />
@@ -250,11 +251,16 @@ export function ArtList({ arts }: { arts: string[] }) {
   );
 }
 
-function ClassSprite({ id, name, className }: { id: string; name: string; className: string }) {
-  return <span className="class-portrait">
-    <span className="class-portrait-label"><ClassLink name={className} /></span>
-    <UnitFace id={id} name={name} size="lg" look="sprites" />
-  </span>;
+/** The unit's map sprite on a tile in its army's colour, on the right of the battle window's hero. */
+function SpriteTile({ sprite, name, className }: { sprite: Sprite | null; name: string; className: string }) {
+  const has = useHasSprite(sprite);
+  const team = sprite ? `team-${sprite.side}` : "";
+  if (!has) return <span className={`cv-tile empty ${team}`}>No map sprite</span>;
+  return (
+    <span className={`cv-tile ${team}`}>
+      <SpriteFigure sprite={sprite} label={`${name}'s map sprite${className ? ` as a ${className}` : ""}`} />
+    </span>
+  );
 }
 
 function CrestSection({ character, fallback }: { character?: number | null; fallback?: { name: string; major: boolean }[] }) {

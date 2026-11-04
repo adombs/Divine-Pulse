@@ -22,7 +22,7 @@ play: the app sits in the tray and keeps it up to date, without opening menus in
   roster and compare effective base stat totals (eBST), with or without ability bonuses.
 - **Keep every battle across your runs.** Each playthrough has its own run. History combines its battles into
   totals, records and character statistics, with saved maps, logs and replays.
-- **Browse the game's data from your own copy.** Characters, Archive and Supports provide an offline reference
+- **Browse the game's data from your own copy.** The Archive and Supports provide an offline reference
   matching your imported language and DLC. Spoilers stay hidden until enabled.
 
 No account, telemetry or internet connections made by the app itself. It only reads emulator memory; it never
@@ -138,6 +138,9 @@ The **Battle** page follows the battle in progress live:
 - each deployed unit's level and stat gains this battle, weapon attacks, spells cast and items used, and what it
   has left (spell uses, its most worn weapon, Vulneraries), with a **Running low** list;
 - the other units on the map, each with its own card (HP, who it fought, who killed it);
+- a unit's window shows its portrait and its map sprite side by side, with HP, level, class and status between them,
+  and is the same size whichever section you pick. Yours also show their battalion as last read for the run, marked
+  unconfirmed while the place it's read from in memory is unconfirmed;
 - on the **Overview**, a map: every unit on the battle map's terrain (forest, water, walls…), and a replay of the
   battle step by step along a timeline under the map (who moved where, who attacked or healed whom), with the log
   following along beside it. A unit's card shows what it stands on and its bonuses. Small maps are on each battle's
@@ -208,17 +211,25 @@ class. Later portraits stay hidden until they are enabled in **Settings → Spoi
 custom name (by *Professor's Guidance*), and their gender in the game picks the male or female art. To override that,
 set **Portrait** on Byleth's roster card to Male or Female (Auto follows the game); the choice sticks.
 
-### Characters, Archive and Supports pages
+### Archive and Supports pages
 
-Game reference built from your import, so it matches the language and DLC you imported. It works offline.
+Game reference built from your import, so it matches the language and DLC you imported. It works offline. Everything
+here is general, the same in every run; each card says so with a *General reference* tag, and what belongs to your run
+(the Roster) or one battle is tagged *This run* or *In this battle* wherever a character shows.
 
-- **Characters**: base stats, growth rates and max stats for the playable units, sortable and filterable by house,
+- **Archive → Characters**: base stats, growth rates and max stats for the playable units, sortable and filterable by house,
   with an optional class picked to show total growths (character + class). A character's card shows age, birthday,
   height, Crest (story reveals behind a *Spoiler* button), starting class, a stats table (with your unit's current
   stats if they're in the active run), skill strengths, weaknesses, budding talent and starting ranks, personal
-  ability, the abilities and combat arts they learn, their Reason / Faith spells, and their battalion. A **Crests**
-  tab lists every crest with its bearers.
-- **Archive**: **Classes** (growth rates, stat boosts with mounted extras, base stats, class abilities, mastery,
+  ability, the abilities and combat arts they learn, and their Reason / Faith spells. If they're in your run, an
+  **In this run** section links to their Roster card. The portrait turns over to their map sprite in their starting
+  class while the pointer is on it; click or tap it (or press Enter or Space) to keep it turned. **Crests** lists every
+  crest with its bearers.
+- **Archive → Battalions**: every battalion in your import with its endurance and description, and who in your run
+  has it. The card is laid out like the game's battalion panel (icon, endurance, the eight modifiers, and the gambit
+  with its uses, Mt, Hit and the tiles it hits), but your import doesn't hold icons, modifiers or gambits yet, so those
+  show "—" until the importer can read them.
+- **Archive → Classes** (growth rates, stat boosts with mounted extras, base stats, class abilities, mastery,
   proficiencies and who can use each, filterable by tier and gender), **Combat Arts**, **Abilities**, **Magic**,
   **Weapons** and **Items** (stats, ranges, uses and who can obtain them), with icons from your import.
 - **Supports**: *By Character* shows each partner's ranks, when they unlock and paired endings (endings behind a

@@ -13,6 +13,24 @@ assert.equal(adapted.abilities[0].description, "game text");
 assert.equal(adapted.items[0].effect, "Restore HP");
 assert.deepEqual(buildReference({}, {}, structure, []).items, []);
 assert.doesNotThrow(() => buildReference({ characters: { characters: [null, []] }, items: { items: "damaged" } }, {}, structure, []));
+
+// Battalions: today's import (id, name, description, endurance) keeps working; the optional panel fields are taken only
+// when well formed, and nothing is filled in that the row doesn't hold. Made-up rows.
+const battalions = buildReference({ battalions: { battalions: [
+  { id: 7, name: "Test Company", description: "plain", endurance: 40 },
+  { id: 8, name: "Full Company", description: "full", endurance: 50, icon: "images/x.png", stats: { phys_atk: 2, avo: -3, bogus: 9 },
+    stats_by_level: [{ hit: 1 }, { hit: 2 }],
+    gambit: { name: "Test Gambit", description: "g", uses: 2, might: 6, hit: 70, area: { cells: [[0, -1], [0, "x"]], origin: [0, 0], direction: "forward" } } },
+  { id: 9, name: "Broken Company", endurance: "lots", stats: "bad", gambit: { description: "no name" }, stats_by_level: [{ hit: 1 }, null] },
+  { id: 10, description: "unnamed" },
+] } }, { battalion_description: { 7: "game text" } }, structure, []).battalions;
+assert.deepEqual(battalions.map((b) => b.name), ["Test Company", "Full Company", "Broken Company"]);
+assert.deepEqual(battalions[0], { id: 7, name: "Test Company", description: "game text", endurance: 40 });
+assert.deepEqual(battalions[1].stats, { phys_atk: 2, avo: -3 });
+assert.deepEqual(battalions[1].stats_by_level, [{ hit: 1 }, { hit: 2 }]);
+assert.deepEqual(battalions[1].gambit, { name: "Test Gambit", description: "g", uses: 2, might: 6, hit: 70, area: { cells: [[0, -1]], origin: [0, 0], direction: "forward" } });
+assert.equal(battalions[1].icon, "images/x.png");
+assert.deepEqual(battalions[2], { id: 9, name: "Broken Company", description: "", endurance: 0 });
 assert.match(itemSummary({ name: "Blade", kind: "Weapon", description: "A blade", might: 5, hit: 80, crit: 0, weight: 3, range: "1", uses: 20 }), /Mt 5.*Hit 80.*Crit 0.*Wt 3.*Range 1.*Uses 20/);
 assert.match(spellSummary({ name: "Spark", type: "Black", might: 3, hit: 90, range: "1–2", uses: 10, effect: "Magic" }), /Magic\nMt 3/);
 
