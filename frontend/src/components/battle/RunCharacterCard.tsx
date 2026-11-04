@@ -10,7 +10,8 @@ import type { ValueKey } from "../../api";
 import { STAT_LABEL, STAT_ORDER } from "./model";
 import { clock, plural } from "../../format";
 import { DetailCard, Section } from "../layout";
-import { CharLink, ClassLink } from "../Links";
+import { ClassLink } from "../Links";
+import { CharacterHero } from "../character/CharacterHero";
 import { IconButton } from "../Icon";
 import { BattleKindChip } from "./BattleList";
 import { battleName } from "./scenarios";
@@ -21,10 +22,9 @@ import "./run-card.css";
 interface Props {
   stats: CharacterStats;
   /** The face beside the facts (a roster portrait, or the battle's face for the unit). */
-  portrait: ReactNode;
-  /** The character's key on the Characters page, for the name link (null: no link). */
-  charKey: string | null;
-  fullName?: string;
+  face: ReactNode;
+  /** Class shown by the face, when the current unit is available. */
+  className?: string;
   icon?: ReactNode;
   /** Open one of their battles (at this character). */
   onOpen: (battleId: string, key?: string) => void;
@@ -36,7 +36,7 @@ interface Props {
 
 const avg = (total: number | null, n: number) => (total === null ? null : n ? Math.round((10 * total) / n) / 10 : 0);
 
-export function RunCharacterCard({ stats: c, portrait, charKey, fullName, icon, onOpen, onRoster, onThisBattle }: Props) {
+export function RunCharacterCard({ stats: c, face, className, icon, onOpen, onRoster, onThisBattle }: Props) {
   const level = c.first_level !== c.level ? `${c.first_level} → ${c.level}` : String(c.level);
   const actions = (onRoster || onThisBattle) && (
     <>
@@ -46,23 +46,14 @@ export function RunCharacterCard({ stats: c, portrait, charKey, fullName, icon, 
   );
   return (
     <DetailCard title={c.name} icon={icon} label={`${c.name} over this run's battles`} actions={actions}>
-      <div className="run-hero-card">
-        <span className="rc-portrait">{portrait}</span>
-        <div className="rc-id">
-          <span className="rc-name">
-            <CharLink charKey={charKey} title="Base stats, growths and skills">{fullName || c.name}</CharLink>
-          </span>
-          <span className="rc-class">
-            {c.class_name ? <ClassLink name={c.class_name} /> : "—"} · Lv {level}
-          </span>
-        </div>
-        <dl className="rc-facts">
-          <div><dt>Battles</dt><dd>{c.battles}</dd></div>
-          <div><dt>In battle</dt><dd>{clock(c.seconds)}</dd></div>
-          <div title="Battles in which they killed the most"><dt>Top unit</dt><dd>{c.mvp}</dd></div>
-          <div className={c.left ? "bad" : ""} title="Battles they ended off the map (fell or retreated)"><dt>Fell</dt><dd>{c.left || "never"}</dd></div>
-        </dl>
-      </div>
+      <CharacterHero layout="flip" scope="stats" face={face} facts={[
+        ["Class", (className || c.class_name) ? <ClassLink name={className || c.class_name} /> : "—"],
+        ["Level", level],
+        ["Battles", c.battles],
+        ["In battle", clock(c.seconds)],
+        [<span title="Battles in which they killed the most">Top unit</span>, c.mvp, "top"],
+        [<span title="Battles they ended off the map (fell or retreated)">Fell</span>, c.left || "never", "fell"],
+      ]} />
       <Section title="Combat" icon={CONCEPT_ICON.attack}>
         <CombatLedger c={c} />
       </Section>

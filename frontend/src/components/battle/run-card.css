@@ -1,31 +1,9 @@
-/* RunCharacterCard: a character over the whole run (History, the battle's records). Scoped to .run-hero-card and
-   .rc-*; the popup shell (fixed size, the pane as the one scroll region) belongs to CharacterPopup. */
-
-.run-hero-card {
-  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "face id" "face facts";
-  align-items: center; gap: 0.35rem 1rem; padding: 0.15rem 0 0.75rem; border-bottom: 1px solid var(--line);
-}
-.rc-portrait {
-  grid-area: face; display: grid; place-items: center; padding: 4px; border-radius: 50%;
-  background: radial-gradient(circle, var(--paper) 60%, var(--bar-bg));
-  box-shadow: 0 0 0 1px var(--line), 0 0 0 5px var(--paper), 0 0 0 6px var(--line);
-}
-.rc-portrait .portrait { border: 0; }
-.rc-id { grid-area: id; display: grid; justify-items: start; gap: 0.05rem; min-width: 0; align-self: end; text-align: left; }
-.rc-name { font: 600 1.2rem/1.15 var(--display); color: var(--ink); }
-.rc-class { font: 600 1rem var(--display); color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.rc-facts {
-  grid-area: facts; align-self: start; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0.2rem 0 0;
-  border: 1px solid var(--row-border); border-radius: 6px; background: var(--row); overflow: hidden;
-}
-.rc-facts > div { display: grid; gap: 0.05rem; padding: 0.3rem 0.6rem; min-width: 0; }
-.rc-facts > div + div { border-left: 1px solid var(--row-border); }
-.rc-facts dt, .rc-growth-sum dt {
+/* Run-wide sections; the shared hero and popup shell belong to the character components. */
+.rc-growth-sum dt {
   font: 600 0.72rem var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft);
   white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
-.rc-facts dd, .rc-growth-sum dd { margin: 0; font: 1.25rem/1.15 var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink); }
-.rc-facts .bad dd { color: var(--red); }
+.rc-growth-sum dd { margin: 0; font: 1.25rem/1.15 var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink); }
 
 .rc-note { margin: 0.55rem 0 0; font: 0.88rem var(--ui); color: var(--ink-soft); }
 .rc-note b { font: 700 1rem var(--nums); color: var(--ink); }
@@ -118,10 +96,6 @@
 @media (max-width: 560px) {
   .rc-ledger td { width: 4.5rem; padding-inline: 0.35rem; }
   .rc-ledger tbody th { padding-inline: 0.35rem; font-size: 0.95rem; }
-  .run-hero-card { grid-template-areas: "face id" "facts facts"; }
-  .rc-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .rc-facts > div:nth-child(3) { border-left: 0; }
-  .rc-facts > div:nth-child(n + 3) { border-top: 1px solid var(--row-border); }
 }
 @media (prefers-reduced-motion: reduce) {
   .rc-col-bar, .rc-gain-track > span { animation: none; }
