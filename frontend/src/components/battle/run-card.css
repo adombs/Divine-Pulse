@@ -1,0 +1,129 @@
+/* RunCharacterCard: a character over the whole run (History, the battle's records). Scoped to .run-hero-card and
+   .rc-*; the popup shell (fixed size, the pane as the one scroll region) belongs to CharacterPopup. */
+
+.run-hero-card {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "face id" "face facts";
+  align-items: center; gap: 0.35rem 1rem; padding: 0.15rem 0 0.75rem; border-bottom: 1px solid var(--line);
+}
+.rc-portrait {
+  grid-area: face; display: grid; place-items: center; padding: 4px; border-radius: 50%;
+  background: radial-gradient(circle, var(--paper) 60%, var(--bar-bg));
+  box-shadow: 0 0 0 1px var(--line), 0 0 0 5px var(--paper), 0 0 0 6px var(--line);
+}
+.rc-portrait .portrait { border: 0; }
+.rc-id { grid-area: id; display: grid; justify-items: start; gap: 0.05rem; min-width: 0; align-self: end; text-align: left; }
+.rc-name { font: 600 1.2rem/1.15 var(--display); color: var(--ink); }
+.rc-class { font: 600 1rem var(--display); color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-facts {
+  grid-area: facts; align-self: start; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0.2rem 0 0;
+  border: 1px solid var(--row-border); border-radius: 6px; background: var(--row); overflow: hidden;
+}
+.rc-facts > div { display: grid; gap: 0.05rem; padding: 0.3rem 0.6rem; min-width: 0; }
+.rc-facts > div + div { border-left: 1px solid var(--row-border); }
+.rc-facts dt, .rc-growth-sum dt {
+  font: 600 0.72rem var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.rc-facts dd, .rc-growth-sum dd { margin: 0; font: 1.25rem/1.15 var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink); }
+.rc-facts .bad dd { color: var(--red); }
+
+.rc-note { margin: 0.55rem 0 0; font: 0.88rem var(--ui); color: var(--ink-soft); }
+.rc-note b { font: 700 1rem var(--nums); color: var(--ink); }
+.rc-ledger .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+
+/* Combat: totals beside the per-battle average. */
+.rc-ledger { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums lining-nums; }
+.rc-ledger thead th { padding: 0 0.6rem 0.3rem; font: 600 0.72rem var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); text-align: right; }
+.rc-ledger tbody th { padding: 0.32rem 0.6rem; font: 600 1.02rem var(--display); color: var(--ink); text-align: left; }
+.rc-ledger td { padding: 0.32rem 0.6rem; font: 1.15rem var(--nums); text-align: right; color: var(--ink); width: 8rem; }
+.rc-ledger td.soft { color: var(--ink-soft); }
+.rc-ledger tbody tr { border-top: 1px solid var(--line); }
+.rc-ledger tbody tr:hover { background: var(--row-hover); }
+
+/* Form: one column per battle. */
+.rc-form { margin: 0; display: grid; gap: 0.4rem; }
+.rc-form-key { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1rem; font: 0.82rem var(--ui); color: var(--ink-soft); }
+.rc-key::before { content: ""; display: inline-block; width: 0.7rem; height: 0.7rem; margin-right: 0.3rem; border-radius: 2px; vertical-align: -0.05rem; }
+.rc-key.dealt::before { background: var(--blue); }
+.rc-key.kill::before { border-radius: 50%; background: var(--accent); }
+.rc-key.fell::before { background: var(--red); height: 3px; vertical-align: 0.2rem; }
+.rc-form-max { margin-left: auto; font-variant-numeric: tabular-nums; }
+.rc-form-plot {
+  display: grid; grid-template-columns: repeat(var(--n), minmax(0, 1fr)); align-items: end; gap: clamp(2px, 0.6%, 6px);
+  height: 12rem; padding-top: 1.2rem; border-bottom: 1px solid var(--line);
+  background: repeating-linear-gradient(to top, transparent 0 calc(25% - 1px), color-mix(in srgb, var(--line) 60%, transparent) calc(25% - 1px) 25%);
+}
+.rc-col {
+  position: relative; height: 100%; display: flex; flex-direction: column; justify-content: flex-end; align-items: stretch;
+  padding: 0; border: 0; border-radius: 3px 3px 0 0; background: none; cursor: pointer; color: inherit;
+  transition: background-color 0.15s;
+}
+.rc-col:hover { background: var(--row-hover); }
+.rc-col:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rc-col-bar {
+  display: block; min-height: 2px; border-radius: 3px 3px 0 0;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--blue) 92%, white), var(--blue));
+  transform-origin: bottom; animation: rc-grow-y 0.42s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(min(var(--i), 20) * 18ms);
+}
+.rc-col.fell { box-shadow: inset 0 -3px 0 var(--red); }
+.rc-col-kills {
+  position: absolute; left: 50%; top: -1.1rem; transform: translateX(-50%);
+  font: 700 0.7rem/1 var(--ui); color: var(--accent); font-variant-numeric: tabular-nums;
+}
+.rc-col.top .rc-col-kills { color: #fff; background: var(--accent); padding: 0.12rem 0.25rem; border-radius: 999px; }
+.rc-form-plot.dense .rc-col-kills { top: -0.7rem; width: 0.4rem; height: 0.4rem; padding: 0; border-radius: 50%; background: var(--accent); }
+.rc-form-plot.dense .rc-col.top .rc-col-kills { width: 0.55rem; height: 0.55rem; box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--accent); }
+
+/* In the character window the Form chart fills its section, which has a fixed height there. */
+.character-popup .card-pane:has(> .rc-form) { display: flex; flex-direction: column; }
+.character-popup .card-pane > .rc-form { flex: 1 1 auto; min-height: 15rem; grid-template-rows: auto minmax(0, 1fr) auto; }
+.character-popup .card-pane > .rc-form .rc-form-plot { height: auto; min-height: 9rem; }
+
+/* Growth: gains per stat on one scale. */
+.rc-growth, .rc-arsenal { display: grid; gap: 0.75rem; }
+.rc-growth-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; margin: 0; }
+.rc-growth-sum > div { display: grid; gap: 0.05rem; padding: 0.35rem 0.6rem; background: var(--row); border: 1px solid var(--row-border); border-radius: 6px; min-width: 0; }
+.rc-gains { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) 2.6rem; gap: 0.3rem 0.7rem; align-items: center; }
+.rc-gains li { display: contents; }
+.rc-gain-label { font: 600 0.95rem var(--display); color: var(--ink-soft); }
+.rc-gain-track { height: 0.55rem; background: var(--bar-bg); border-radius: 999px; overflow: hidden; }
+.rc-gain-track > span {
+  display: block; height: 100%; background: var(--bar); border-radius: 999px; transform-origin: left;
+  animation: rc-grow-x 0.45s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(var(--i) * 25ms);
+}
+.rc-gains li.down .rc-gain-track > span { background: var(--red); }
+.rc-gain-value { font: 1.05rem var(--nums); font-variant-numeric: tabular-nums lining-nums; text-align: right; color: var(--ink); }
+
+/* Battles: each one a row to open. */
+.rc-battles { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }
+.rc-battle {
+  width: 100%; display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.7rem;
+  padding: 0.4rem 0.6rem; text-align: left; font: inherit; color: var(--ink); cursor: pointer;
+  background: var(--row); border: 1px solid var(--row-border); border-radius: 6px;
+  transition: background-color 0.15s, border-color 0.15s;
+}
+.rc-battle:hover { background: var(--row-hover); border-color: var(--sel-border); }
+.rc-battle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.rc-battle-main { display: grid; min-width: 0; }
+.rc-battle-name { font: 600 1rem/1.2 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rc-battle-facts { display: flex; flex-wrap: wrap; gap: 0 0.75rem; font: 0.82rem var(--ui); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.rc-battle-flags { display: flex; gap: 0.25rem; }
+.rc-flag { font: 600 0.72rem var(--ui); padding: 0.05rem 0.45rem; border-radius: 999px; border: 1px solid currentColor; }
+.rc-flag.top { color: var(--accent); }
+.rc-flag.fell { color: var(--red); }
+
+@keyframes rc-grow-y { from { transform: scaleY(0); } }
+@keyframes rc-grow-x { from { transform: scaleX(0); } }
+
+@media (max-width: 560px) {
+  .rc-ledger td { width: 4.5rem; padding-inline: 0.35rem; }
+  .rc-ledger tbody th { padding-inline: 0.35rem; font-size: 0.95rem; }
+  .run-hero-card { grid-template-areas: "face id" "facts facts"; }
+  .rc-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rc-facts > div:nth-child(3) { border-left: 0; }
+  .rc-facts > div:nth-child(n + 3) { border-top: 1px solid var(--row-border); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rc-col-bar, .rc-gain-track > span { animation: none; }
+  .rc-col, .rc-battle { transition: none; }
+}

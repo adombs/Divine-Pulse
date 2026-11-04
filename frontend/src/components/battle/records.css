@@ -1,0 +1,166 @@
+/* More Stats > Records (MoreStatsTab.tsx): the ledger across the top, then the standouts carousel beside this battle
+   against the run's others. Colours for dealt / taken / healing come from .more-stats (styles.css). */
+.battle-page .ms-records { flex: 1 1 auto; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); gap: 0.7rem; }
+.battle-page .ms-records-body { min-height: 0; display: grid; grid-template-columns: minmax(0, 1fr) minmax(20rem, 0.38fr); gap: 0.8rem; }
+
+.battle-page .ms-records-main { min-height: 0; min-width: 0; display: grid; grid-template-rows: minmax(0, auto) minmax(9rem, 1fr); gap: 0.8rem; }
+.battle-page .ms-records-main:not(:has(.ms-share)) { grid-template-rows: minmax(0, 1fr); }
+/* The switch between the two left panels only shows on short windows (below). */
+.battle-page .ms-left-tabs { display: none; justify-self: start; flex-wrap: nowrap; border-radius: 4px; overflow: hidden; }
+.battle-page .ms-left-tabs button { padding: 0.15rem 0.75rem; font-size: 0.95rem; white-space: nowrap; }
+.battle-page .ms-left-tabs [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* The ledger */
+.battle-page .ms-ledger {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: stretch; gap: 0 1.2rem;
+  padding: 0.55rem 0.9rem; border: 1px solid var(--row-border); border-radius: 6px;
+  background: linear-gradient(100deg, color-mix(in srgb, var(--accent) 7%, var(--row)), var(--row) 55%);
+}
+.battle-page .ledger-main { display: grid; grid-template-columns: auto 8.5rem auto auto; align-items: center; gap: 0 1.3rem; padding-right: 1.2rem; border-right: 1px solid var(--line); }
+.battle-page .ledger-figure { display: grid; gap: 0; min-width: 0; }
+.battle-page .ledger-label, .battle-page .ledger-minor dt { font: 600 0.72rem var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; }
+.battle-page .ledger-value { font: 2.15rem/1.05 var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink); }
+.battle-page .ledger-figure.dealt .ledger-value { color: var(--dealt); }
+.battle-page .ledger-figure.taken .ledger-value { color: var(--taken); }
+.battle-page .ledger-figure.heal .ledger-value { color: var(--heal); }
+.battle-page .ledger-note { font: 0.8rem var(--ui); color: var(--ink-soft); white-space: nowrap; min-height: 1.1em; }
+.battle-page .ledger-exchange { display: grid; gap: 0.3rem; justify-items: center; align-self: center; padding-top: 0.6rem; }
+.battle-page .exchange-bar { position: relative; display: block; width: 100%; height: 0.5rem; border-radius: 999px; background: var(--taken); overflow: hidden; }
+.battle-page .exchange-dealt {
+  position: absolute; inset: 0 auto 0 0; width: calc(var(--share) * 100%); background: var(--dealt);
+  box-shadow: 1px 0 0 var(--row); transform-origin: left; animation: ms-grow-x 0.6s cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+.battle-page .ledger-minor { margin: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0.3rem 1rem; align-content: center; }
+.battle-page .ledger-minor > div { display: grid; min-width: 0; }
+.battle-page .ledger-minor dd { margin: 0; display: flex; align-items: baseline; gap: 0.4rem; min-width: 0; font: 1.2rem/1.2 var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink); white-space: nowrap; }
+.battle-page .ledger-minor small { font: 0.78rem var(--ui); color: var(--ink-soft); overflow: hidden; text-overflow: ellipsis; }
+.battle-page .ledger-minor small .bad { color: var(--red); }
+.battle-page .ledger-meter { display: inline-block; flex: 1 1 auto; max-width: 4.5rem; height: 0.35rem; align-self: center; border-radius: 999px; background: var(--bar-bg); overflow: hidden; }
+.battle-page .ledger-meter > span { display: block; height: 100%; background: var(--bar); }
+
+/* Standouts: themed columns, each a stack of rows. */
+.battle-page .standout-carousel { flex: 1 1 auto; min-height: 0; }
+.battle-page .standout-carousel .award-carousel { height: 100%; }
+.battle-page .standout-carousel .award-controls { align-self: start; }
+.battle-page .standout-carousel .award-window, .battle-page .standout-carousel .award-grid { height: 100%; }
+.battle-page .standout-carousel .award-grid { gap: 0.7rem; padding: 0; }
+.battle-page .standout-carousel .award-track { gap: 0.7rem; }
+.battle-page .standout-carousel .award-grid > li.standout-column { flex: 0 0 17.5rem; height: 100%; list-style: none; }
+.battle-page .standout-stack { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.battle-page .standout-group {
+  flex: none; display: flex; align-items: center; gap: 0.4rem; margin: 0 0 0.35rem; padding: 0 0 0.3rem;
+  font: 600 0.78rem var(--ui); letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft);
+  border-bottom: 1px solid var(--line);
+}
+.battle-page .standout-group .icon { width: 1rem; height: 1rem; color: var(--accent); }
+.battle-page .standout-count { margin-left: auto; font-variant-numeric: tabular-nums; opacity: 0.8; }
+.battle-page .standout-list {
+  flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.3rem; overflow-y: auto; overscroll-behavior: contain;
+  scrollbar-width: thin; scrollbar-color: var(--row-border) transparent; padding-right: 0.1rem;
+}
+.battle-page .standout {
+  flex: none; display: grid; grid-template-columns: 2rem minmax(0, 1fr) auto; align-items: center; gap: 0.6rem;
+  padding: 0.38rem 0.6rem 0.38rem 0.45rem; background: var(--row); border: 1px solid var(--row-border); border-radius: 6px;
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.battle-page .standout:hover { border-color: var(--sel-border); box-shadow: 0 2px 8px rgb(0 0 0 / 0.08); }
+.battle-page .standout-icon {
+  display: grid; place-items: center; width: 2rem; height: 2rem; border-radius: 6px;
+  color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--row));
+}
+.battle-page .standout-icon .icon { width: 1.15rem; height: 1.15rem; }
+.battle-page .standout-text { display: grid; min-width: 0; }
+.battle-page .standout-title { font: 600 0.72rem var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.battle-page .standout-who {
+  display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; line-clamp: 2; overflow: hidden;
+  font: 0.95rem/1.25 var(--display); color: var(--ink);
+}
+.battle-page .standout-who .who-link { font-weight: 700; }
+.battle-page .standout-value { display: grid; justify-items: end; font: 1.45rem/1.05 var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink); white-space: nowrap; }
+.battle-page .standout-value small { font: 0.72rem var(--ui); color: var(--ink-soft); max-width: 7.5rem; overflow: hidden; text-overflow: ellipsis; }
+
+/* Against your other battles: a bar for this battle, a tick for the average, and how far apart they are. */
+.battle-page .compare-rows { flex: 1 1 auto; min-height: 0; list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; overflow-y: auto; scrollbar-width: thin; }
+.battle-page .compare-row {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto 5.2rem; grid-template-areas: "label now delta" "track track of";
+  align-items: center; gap: 0.2rem 0.8rem; padding: 0.4rem 0.2rem 0.45rem; border-top: 1px solid var(--line);
+}
+.battle-page .compare-row:first-child { border-top: 0; }
+.battle-page .compare-row:hover { background: var(--row-hover); }
+.battle-page .compare-label { grid-area: label; font: 600 1rem var(--display); color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.battle-page .compare-now { grid-area: now; font: 700 1.1rem var(--nums); font-variant-numeric: tabular-nums lining-nums; text-align: right; color: var(--ink); }
+.battle-page .cmp-track { grid-area: track; position: relative; height: 0.5rem; border-radius: 999px; background: var(--bar-bg); }
+.battle-page .cmp-fill {
+  position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: color-mix(in srgb, var(--ink-soft) 70%, var(--bar-bg));
+  transform-origin: left; animation: ms-grow-x 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(var(--i) * 30ms);
+}
+.battle-page .compare-row.good .cmp-fill { background: var(--green); }
+.battle-page .compare-row.bad .cmp-fill { background: var(--red); }
+.battle-page .cmp-avg { position: absolute; top: -0.3rem; bottom: -0.3rem; width: 2px; margin-left: -1px; border-radius: 1px; background: var(--ink); }
+.battle-page .compare-delta { grid-area: delta; text-align: right; font: 600 0.85rem var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-soft); white-space: nowrap; }
+.battle-page .compare-row.good .compare-delta { color: var(--green); }
+.battle-page .compare-row.bad .compare-delta { color: var(--red); }
+.battle-page .compare-of { grid-area: of; text-align: right; font: 0.76rem var(--ui); font-variant-numeric: tabular-nums; color: var(--ink-soft); white-space: nowrap; }
+
+/* Share of the fighting: one row per unit, the damage share as a bar. */
+.battle-page .share-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--row-border) transparent; }
+.battle-page .share-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums lining-nums; }
+.battle-page .share-table thead th {
+  position: sticky; top: 0; z-index: 1; padding: 0 0.5rem 0.3rem; text-align: right; background: color-mix(in srgb, var(--row) 45%, var(--paper));
+  font: 600 0.72rem var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); border-bottom: 1px solid var(--line);
+}
+.battle-page .share-table .left { text-align: left; }
+.battle-page .share-table tbody th { padding: 0.24rem 0.5rem; font: 1rem var(--display); white-space: nowrap; }
+.battle-page .share-table tbody th .who-link { font-weight: 700; }
+.battle-page .share-table td { padding: 0.24rem 0.5rem; text-align: right; font: 1.02rem var(--nums); color: var(--ink); }
+.battle-page .share-table tbody tr { border-top: 1px solid var(--line); }
+.battle-page .share-table tbody tr:first-child { border-top: 0; }
+.battle-page .share-table tbody tr:hover { background: var(--row-hover); }
+.battle-page .share-col { width: 32%; }
+.battle-page td.share-col { display: flex; align-items: center; gap: 0.6rem; }
+.battle-page .share-bar { flex: 1 1 4rem; min-width: 3rem; height: 0.5rem; border-radius: 999px; background: color-mix(in srgb, var(--bar-bg) 60%, transparent); overflow: hidden; }
+.battle-page .share-bar > span {
+  display: block; height: 100%; border-radius: 999px; background: var(--dealt); transform-origin: left;
+  animation: ms-grow-x 0.55s cubic-bezier(0.16, 1, 0.3, 1) both; animation-delay: calc(var(--i) * 30ms);
+}
+.battle-page .share-pct { flex: none; width: 2.8rem; text-align: right; font: 0.88rem var(--ui); color: var(--ink-soft); }
+
+@keyframes ms-grow-x { from { transform: scaleX(0); } }
+
+/* Shorter windows: tighter rows so more of each column shows. */
+@media (max-height: 820px) {
+  .battle-page .ms-ledger { padding: 0.4rem 0.8rem; }
+  .battle-page .ledger-value { font-size: 1.8rem; }
+  .battle-page .standout { padding-top: 0.26rem; padding-bottom: 0.26rem; }
+  .battle-page .standout-value { font-size: 1.25rem; }
+  .battle-page .compare-row { padding: 0.24rem 0.2rem 0.3rem; }
+  /* Short windows: the standouts and the share of the fighting take turns, picked with the switch above them. */
+  .battle-page .ms-records-main:has(> .ms-left-tabs) { grid-template-rows: auto minmax(0, 1fr); gap: 0.45rem; }
+  .battle-page .ms-records-main > .ms-left-tabs { display: inline-flex; }
+  .battle-page .ms-records-main[data-show="standouts"] > .ms-share,
+  .battle-page .ms-records-main[data-show="share"] > .ms-standouts { display: none; }
+}
+@media (max-width: 1250px) {
+  .battle-page .ms-ledger { grid-template-columns: minmax(0, 1fr); gap: 0.5rem; }
+  .battle-page .ledger-main { padding-right: 0; border-right: 0; padding-bottom: 0.45rem; border-bottom: 1px solid var(--line); }
+  .battle-page .ms-records-body { grid-template-columns: minmax(0, 1fr) minmax(17rem, 0.42fr); }
+}
+@media (max-width: 760px) {
+  .battle-page .ms-records { display: flex; flex-direction: column; }
+  .battle-page .ms-records-body { display: flex; flex-direction: column; }
+  .battle-page .ledger-main { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 1rem; }
+  .battle-page .ledger-exchange { grid-column: 1 / -1; grid-row: 2; }
+  .battle-page .ledger-minor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .battle-page .standout-carousel { height: 25rem; flex: none; }
+  .battle-page .standout-carousel .award-carousel.overflowing { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .battle-page .standout-carousel .award-controls { justify-self: center; align-self: center; }
+  .battle-page .standout-carousel .award-grid > li.standout-column { flex-basis: min(17.5rem, 80vw); }
+  .battle-page .ms-records-main { display: flex; flex-direction: column; }
+  .battle-page .ms-records, .battle-page .ms-records-body, .battle-page .ms-records-main, .battle-page .ms-records .ms-panel { flex: none; min-height: auto; }
+  .battle-page .compare-rows, .battle-page .share-scroll { flex: none; overflow: visible; }
+  .battle-page .share-scroll { overflow-x: auto; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .battle-page .exchange-dealt, .battle-page .cmp-fill, .battle-page .share-bar > span { animation: none; }
+  .battle-page .standout { transition: none; }
+}
