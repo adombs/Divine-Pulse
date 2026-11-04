@@ -1,7 +1,7 @@
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { isStoryClass } from "../../reference/links";
 import { gameLanguageLocale } from "../../gameLanguage";
-import { Fragment, useMemo, useState } from "react";
+import { Fragment, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { Unit } from "../../api";
 import { characterPortraitKey, runCharacterKeys } from "../../portraits";
@@ -421,6 +421,37 @@ function ClassCard({
 }
 
 /**
+ * A class's description. A compact card clamps it to two lines (classes.css); "Show all" appears only when the clamp
+ * actually hides text, and opens it in place.
+ */
+function ClassLore({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const [clamped, setClamped] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setClamped(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const watch = new ResizeObserver(check);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, []);
+  return (
+    <div className={`class-lore-wrap${open ? " open" : ""}`}>
+      <p ref={ref} className="class-lore">
+        <LinkedDescription text={text} />
+      </p>
+      {(clamped || open) && (
+        <button type="button" className="class-lore-more" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? "Show less" : "Show all"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
  * The top of a class card: its unit on a dais lit in the tier's metal, what the class is, what it takes to get in and
  * how it moves, and where it sits on the class-change ladder.
  */
@@ -456,11 +487,7 @@ function ClassHero({
         </div>
         <div className="class-hero-body">
           <p className="class-kicker">{kicker}</p>
-          {c.description && (
-            <p className="class-lore">
-              <LinkedDescription text={c.description} />
-            </p>
-          )}
+          {c.description && <ClassLore text={c.description} />}
           <dl className="class-exam">
             <div>
               <dt>Requires</dt>
@@ -641,7 +668,7 @@ function ClassAbilities({ c, data }: { c: GameClass; data: ReferenceData }) {
       {(c.mastery_ability || c.mastery_art) && (
         <>
           <h3 className="class-subhead">Mastery rewards</h3>
-          <p className="class-subnote">Kept for good once the class is mastered.</p>
+          <p className="class-subnote">Unlocked through class mastery.</p>
           <div className="class-mastery">
             {c.mastery_ability && (
               <article className="mastery-tile">

@@ -250,7 +250,7 @@
 .ref-card .profile-rows.more {
   grid-column: 1 / -1;
 }
-.ref-card:has(.profile, .class-hero) .card-pane > .sec-head {
+.ref-card:has(.profile, .class-head) .card-pane > .sec-head {
   display: none;
 }
 .ref-card .profile-rows dd:not(.wide):not(.crest-marks) {
@@ -262,18 +262,20 @@
    Every class card takes its tier's metal (TierIcon.tsx TIER_METAL: --tier-light, --tier-mid, --tier-dark) as its one
    accent: the dais the unit stands on, the hero's top edge, the step it holds on the ladder and its mastery rewards. */
 .class-detail { display: contents; }
+/* The class card's section headings repeat the tab below it; its own headings carry the structure. */
+.ref-card:has(.class-hero) .card-pane > .sec-head { display: none; }
 
-/* Links in the card stay the text's colour until pointed at. */
+/* Links in the card follow the app's text links: white at rest with no underline, purple and underlined when pointed
+   at or focused (--link-ink / --link-hover, with the same values as fallbacks). */
 .class-detail :is(.ref-link, a) {
-  color: var(--ink);
+  color: var(--link-ink, #fff);
   text-decoration: none;
+  text-underline-offset: 3px;
 }
-.class-detail :is(.ref-link, a):hover,
-.class-detail :is(.ref-link, a):focus-visible {
-  color: var(--accent);
+.class-detail :is(.ref-link, a):is(:hover, :focus-visible) {
+  color: var(--link-hover, #b9a5ef);
   text-decoration: underline;
   text-decoration-color: currentColor;
-  text-underline-offset: 3px;
 }
 
 .class-hero {
@@ -462,31 +464,12 @@
   opacity: 1;
   filter: drop-shadow(0 0 6px color-mix(in srgb, var(--tier-light) 70%, transparent));
 }
-.rung-name { font: 600 0.95rem var(--display); }
+.class-detail .rung-name { font: 600 0.95rem var(--display); }
 .class-rail li.here .rung-name { font-weight: 700; }
-.rung-gate {
+.class-detail .rung-gate {
   font: 0.9rem var(--nums);
   font-variant-numeric: lining-nums;
   color: var(--ink-soft);
-}
-
-/* A narrow card (a smaller screen, or filter chips widening the list): the unit stands above the facts. */
-@container (max-width: 34rem) {
-  .class-hero-top {
-    grid-template-columns: minmax(0, 1fr);
-    row-gap: 0.4rem;
-  }
-  .class-dais { min-height: 6.4rem; }
-  .class-dais::before { left: 50%; right: auto; width: 8rem; translate: -50% 0; height: 1.2rem; }
-  .class-dais::after { left: 50%; right: auto; width: 5.5rem; translate: -50% 0; bottom: 0.6rem; }
-  .class-dais .class-sprite,
-  .class-dais .class-sprite svg { width: 76px; height: 76px; }
-  .class-dais .class-sprite { margin-bottom: 0.55rem; }
-}
-@container (max-width: 24rem) {
-  .rung-name { font-size: 0.8rem; }
-  .rung-gate { font-size: 0.78rem; }
-  .class-wiki { margin-left: 0; }
 }
 
 .class-notes {
@@ -519,6 +502,107 @@
 .class-wiki {
   margin-left: auto;
   font: 500 0.95rem var(--display);
+}
+
+.class-lore-more {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 600 0.95rem var(--display);
+  color: var(--link-ink, #fff);
+  cursor: pointer;
+  text-underline-offset: 3px;
+}
+.class-lore-more:is(:hover, :focus-visible) {
+  color: var(--link-hover, #b9a5ef);
+  text-decoration: underline;
+}
+.class-lore-wrap { display: grid; gap: 0.15rem; }
+
+/* A compact card (shorter desktops, where the card is narrow, or filter chips widening the list): the unit sits small
+   beside its tier and facts, the description keeps two lines until opened, and the ladder gives way (the tier and
+   its exam level are still said), so the picked section starts within the first screen. */
+@container (max-width: 34rem) {
+  .class-hero {
+    row-gap: 0.45rem;
+    padding: 0.6rem 0.75rem 0.6rem;
+  }
+  .class-hero-top {
+    grid-template-columns: 4.4rem minmax(0, 1fr);
+    grid-template-areas:
+      "dais kicker"
+      "dais exam"
+      "lore lore";
+    column-gap: 0.75rem;
+    row-gap: 0.35rem;
+  }
+  .class-hero-body { display: contents; }
+  .class-dais {
+    grid-area: dais;
+    align-self: start;
+    min-height: 0;
+    height: 4.4rem;
+  }
+  .class-dais::before { left: 4%; right: 4%; bottom: 0.1rem; height: 0.85rem; }
+  .class-dais::after { left: 16%; right: 16%; bottom: 0.32rem; height: 0.42rem; }
+  .class-dais .class-sprite,
+  .class-dais .class-sprite svg { width: 60px; height: 60px; }
+  .class-dais .class-sprite { margin-bottom: 0.3rem; }
+  .class-kicker { grid-area: kicker; align-self: end; font-size: 1rem; }
+  /* "Show all" sits beside the description's last line rather than under it. */
+  .class-lore-wrap {
+    grid-area: lore;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    column-gap: 0.6rem;
+  }
+  .class-lore {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: 1rem;
+  }
+  .class-lore-wrap.open .class-lore {
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+  }
+  /* The facts as label and value rows. */
+  .class-exam {
+    grid-area: exam;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.2rem 0.6rem;
+    margin: 0;
+    clip-path: none;
+  }
+  .class-exam > div { display: contents; }
+  .class-exam dt { font-size: 0.88rem; }
+  .class-exam-big { font-size: 1.15rem; }
+  .class-exam-note { font-size: 0.92rem; }
+  .class-req .skill-icon { font-size: 1rem; }
+  .class-req-rank { font-size: 1.05rem; }
+  .class-rail { display: none; }
+  .class-note { font-size: 0.9rem; }
+}
+/* The narrowest card: the facts take the full width under a smaller unit. */
+@container (max-width: 20rem) {
+  .class-hero-top {
+    grid-template-columns: 3.4rem minmax(0, 1fr);
+    grid-template-areas:
+      "dais kicker"
+      "exam exam"
+      "lore lore";
+  }
+  .class-dais { height: 3.4rem; }
+  .class-dais .class-sprite,
+  .class-dais .class-sprite svg { width: 48px; height: 48px; }
+  .class-dais .class-sprite { margin-bottom: 0.25rem; }
+  .class-kicker { align-self: center; }
+  .class-wiki { margin-left: 0; }
 }
 
 /* Headings inside the card's sections: the section's own heading repeats the tab, so these carry the structure. */
@@ -570,29 +654,29 @@
   text-align: left;
 }
 .class-ledger tbody tr:hover { background: var(--row-hover); }
-.ledger-base {
+.class-detail .ledger-base {
   width: 4.2rem;
   font: 600 1.25rem var(--nums);
 }
-.ledger-boost {
+.class-detail .ledger-boost {
   width: 5.2rem;
   font: 1.12rem var(--nums);
   color: var(--ink-soft);
 }
-.ledger-boost.up { color: var(--ink); }
-.ledger-boost.down { color: var(--red); }
+.class-detail .ledger-boost.up { color: var(--ink); }
+.class-detail .ledger-boost.down { color: var(--red); }
 .class-ledger .ledger-growth {
   padding-left: 1.2rem;
   text-align: left;
 }
 .class-ledger thead .ledger-growth { text-align: center; }
-.ledger-mount {
+.class-detail .ledger-mount {
   margin-left: 0.2rem;
   font: 600 0.78rem/1 var(--nums);
   color: var(--green);
   vertical-align: super;
 }
-.ledger-mount.neg { color: var(--red); }
+.class-detail .ledger-mount.neg { color: var(--red); }
 .class-ledger .ledger-mv :is(th, td) { border-top: 2px solid color-mix(in srgb, var(--tier-mid) 35%, var(--line)); }
 .class-ledger .ledger-aside {
   font: italic 0.95rem var(--text);
@@ -605,18 +689,18 @@
 .class-ledger .ledger-total .ledger-growth { text-align: right; }
 
 /* A growth change from the middle line: gains to the right, losses to the left, all classes on one scale. */
-.growth-bar {
+.class-detail .growth-bar {
   display: grid;
   grid-template-columns: minmax(5rem, 1fr) 3.6rem;
   align-items: center;
   gap: 0.6rem;
 }
-.growth-track {
+.class-detail .growth-track {
   position: relative;
   height: 0.55rem;
   background: color-mix(in srgb, var(--ink) 7%, transparent);
 }
-.growth-track::before {
+.class-detail .growth-track::before {
   content: "";
   position: absolute;
   left: 50%;
@@ -625,32 +709,32 @@
   width: 1px;
   background: color-mix(in srgb, var(--ink-soft) 70%, transparent);
 }
-.growth-fill {
+.class-detail .growth-fill {
   position: absolute;
   top: 0;
   bottom: 0;
 }
-.growth-bar.up .growth-fill { left: 50%; background: var(--green); }
-.growth-bar.down .growth-fill { right: 50%; background: var(--red); }
-.growth-value,
-.growth-sum {
+.class-detail .growth-bar.up .growth-fill { left: 50%; background: var(--green); }
+.class-detail .growth-bar.down .growth-fill { right: 50%; background: var(--red); }
+.class-detail .growth-value,
+.class-detail .growth-sum {
   font: 1.12rem var(--nums);
   text-align: right;
   color: var(--ink-soft);
 }
-.growth-bar.up .growth-value,
-.growth-sum.up { color: var(--green); }
-.growth-bar.down .growth-value,
-.growth-sum.down { color: var(--red); }
-.growth-sum { font-weight: 600; }
+.class-detail .growth-bar.up .growth-value,
+.class-detail .growth-sum.up { color: var(--green); }
+.class-detail .growth-bar.down .growth-value,
+.class-detail .growth-sum.down { color: var(--red); }
+.class-detail .growth-sum { font-weight: 600; }
 /* Too narrow for the bars: just the figures. */
 @container (max-width: 24rem) {
   .class-ledger th,
   .class-ledger td { padding-inline: 0.3rem; }
   .class-ledger .ledger-growth { padding-left: 0.3rem; text-align: right; }
   .class-ledger thead .ledger-growth { text-align: right; }
-  .growth-bar { grid-template-columns: auto; justify-content: end; }
-  .growth-track { display: none; }
+  .class-detail .growth-bar { grid-template-columns: auto; justify-content: end; }
+  .class-detail .growth-track { display: none; }
   .class-ledger .ledger-aside { white-space: normal; text-align: right; }
 }
 
@@ -688,7 +772,7 @@
   grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
   gap: 0.6rem;
 }
-.mastery-tile {
+.class-detail .mastery-tile {
   display: grid;
   align-content: start;
   gap: 0.3rem;
@@ -697,17 +781,17 @@
   border: 1px solid color-mix(in srgb, var(--tier-mid) 45%, var(--row-border));
   border-top: 3px solid var(--tier-mid);
 }
-.mastery-kind {
+.class-detail .mastery-kind {
   font: 600 0.9rem var(--display);
   color: var(--ink-soft);
 }
-.mastery-tile b {
+.class-detail .mastery-tile b {
   display: flex;
   align-items: center;
   gap: 0.15rem;
   font: 600 1.15rem var(--display);
 }
-.mastery-tile p {
+.class-detail .mastery-tile p {
   margin: 0;
   font: 1rem/1.35 var(--text);
   color: var(--ink-soft);
