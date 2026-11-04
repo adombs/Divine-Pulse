@@ -145,7 +145,10 @@
   .battle-page .ledger-main { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.5rem 1rem; }
   .battle-page .ledger-exchange { grid-column: 1 / -1; grid-row: 2; }
   .battle-page .ledger-minor { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .battle-page .standout-carousel { height: 24rem; flex: none; }
+  .battle-page .standout-carousel { height: 25rem; flex: none; }
+  .battle-page .standout-carousel .award-carousel.overflowing { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; }
+  .battle-page .standout-carousel .award-controls { justify-self: center; align-self: center; }
+  .battle-page .standout-carousel .award-grid > li.standout-column { flex-basis: min(17.5rem, 80vw); }
   .battle-page .ms-records-main { display: flex; flex-direction: column; }
   .battle-page .ms-records, .battle-page .ms-records-body, .battle-page .ms-records-main, .battle-page .ms-records .ms-panel { flex: none; min-height: auto; }
   .battle-page .compare-rows, .battle-page .share-scroll { flex: none; overflow: visible; }

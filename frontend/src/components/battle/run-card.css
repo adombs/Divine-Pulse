@@ -12,7 +12,7 @@
 }
 .rc-portrait .portrait { border: 0; }
 .rc-id { grid-area: id; display: grid; justify-items: start; gap: 0.05rem; min-width: 0; align-self: end; text-align: left; }
-.rc-name { font: 600 1.4rem/1.15 var(--display); color: var(--ink); }
+.rc-name { font: 600 1.2rem/1.15 var(--display); color: var(--ink); }
 .rc-class { font: 600 1rem var(--display); color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .rc-facts {
   grid-area: facts; align-self: start; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0.2rem 0 0;
@@ -67,12 +67,17 @@
 }
 .rc-col.fell { box-shadow: inset 0 -3px 0 var(--red); }
 .rc-col-kills {
-  position: absolute; left: 50%; top: 0; transform: translate(-50%, -0.1rem);
+  position: absolute; left: 50%; top: -1.1rem; transform: translateX(-50%);
   font: 700 0.7rem/1 var(--ui); color: var(--accent); font-variant-numeric: tabular-nums;
 }
 .rc-col.top .rc-col-kills { color: #fff; background: var(--accent); padding: 0.12rem 0.25rem; border-radius: 999px; }
-.rc-form-plot.dense .rc-col-kills { width: 0.4rem; height: 0.4rem; padding: 0; border-radius: 50%; background: var(--accent); transform: translate(-50%, 0.2rem); }
+.rc-form-plot.dense .rc-col-kills { top: -0.7rem; width: 0.4rem; height: 0.4rem; padding: 0; border-radius: 50%; background: var(--accent); }
 .rc-form-plot.dense .rc-col.top .rc-col-kills { width: 0.55rem; height: 0.55rem; box-shadow: 0 0 0 2px var(--paper), 0 0 0 3px var(--accent); }
+
+/* In the character window the Form chart fills its section, which has a fixed height there. */
+.character-popup .card-pane:has(> .rc-form) { display: flex; flex-direction: column; }
+.character-popup .card-pane > .rc-form { flex: 1 1 auto; min-height: 15rem; grid-template-rows: auto minmax(0, 1fr) auto; }
+.character-popup .card-pane > .rc-form .rc-form-plot { height: auto; min-height: 9rem; }
 
 /* Growth: gains per stat on one scale. */
 .rc-growth, .rc-arsenal { display: grid; gap: 0.75rem; }
@@ -111,6 +116,8 @@
 @keyframes rc-grow-x { from { transform: scaleX(0); } }
 
 @media (max-width: 560px) {
+  .rc-ledger td { width: 4.5rem; padding-inline: 0.35rem; }
+  .rc-ledger tbody th { padding-inline: 0.35rem; font-size: 0.95rem; }
   .run-hero-card { grid-template-areas: "face id" "facts facts"; }
   .rc-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .rc-facts > div:nth-child(3) { border-left: 0; }
