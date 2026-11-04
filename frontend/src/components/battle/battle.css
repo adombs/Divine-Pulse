@@ -27,6 +27,18 @@
 .battle-page > .page-header > .page-status { grid-column: 1; align-self: center; padding-bottom: 0.2rem; }
 .battle-page > .page-header > .sub-tabs { grid-column: 2; margin: 0; border-bottom: 0; }
 .battle-page.fit > .page-header { margin-bottom: 0.5rem; }
+/* Phones: no room beside each other (the tabs took their width and the chips ran under them), so the chips get a row
+   of their own and the tabs become one row that scrolls sideways; the title shrinks to keep the header short. */
+@media (max-width: 760px) {
+  .battle-page > .page-header { grid-template-columns: minmax(0, 1fr); row-gap: 0.25rem; }
+  .battle-page > .page-header > :is(.sec-head, .page-status, .sub-tabs) { grid-column: 1; min-width: 0; }
+  .battle-page > .page-header > .sec-head h2 { font-size: 1.2rem; line-height: 1.2; }
+  .battle-page > .page-header > .page-status { padding-bottom: 0; }
+  .battle-page > .page-header > .sub-tabs {
+    display: flex; flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none;
+  }
+  .battle-page > .page-header > .sub-tabs > * { flex: none; }
+}
 
 /* Overview: the same three columns, with less around them. The outlook is one slim card, the key numbers one row. */
 @media (min-width: 1251px) {
