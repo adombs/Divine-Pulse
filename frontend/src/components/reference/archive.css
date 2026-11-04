@@ -10,3 +10,8 @@
 .battalion-table .who { display: flex; align-items: center; gap: 0.45rem; }
 .battalion-table td.small { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .archive-battalions .unit-card .sub-title { margin-top: 0.9rem; }
+/* Phones: the nine tabs are one row that scrolls sideways, so the header that stays put stays short. */
+@media (max-width: 760px) {
+  .archive-page .sub-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .archive-page .sub-tabs > * { flex: none; }
+}

@@ -2,17 +2,15 @@
  * The Archive: the game's reference in one place. Characters, Crests and Battalions (who and what you field), then
  * Classes and gear. Everything here is general: the same in every run; the run's own units are on the Roster.
  */
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import type { Unit } from "../../api";
 import { useNav } from "../../nav";
 import { useSpoiler } from "../../spoilers";
 import { searchMatches } from "../../fuzzy";
 import { useReference } from "../../reference/types";
 import type { ReferenceData } from "../../reference/types";
-import { characterKeyOfUnit, characterPortraitKey } from "../../portraits";
 import { DetailCard, MasterDetail, PageHeader } from "../layout";
-import { Loading, NoMatches, RefLink, SearchBox } from "../common";
-import { KeyPortrait } from "../ui";
+import { Loading, NoMatches, SearchBox } from "../common";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { Icon } from "../Icon";
 import { CharacterTable, CrestTable } from "./CharactersPage";
@@ -62,7 +60,7 @@ export function ArchivePage({ units, part2 }: Props) {
       ) : tab === "crests" ? (
         <CrestTable data={data} units={units} part2={part2} />
       ) : tab === "battalions" ? (
-        <BattalionTable data={data} units={units} part2={part2} />
+        <BattalionTable data={data} />
       ) : (
         <ClassesView tab={tab} data={data} units={units} part2={part2} />
       )}
@@ -70,22 +68,12 @@ export function ArchivePage({ units, part2 }: Props) {
   );
 }
 
-/** Every battalion in the import, and who in this run has it (as last read). */
-function BattalionTable({ data, units, part2 }: { data: ReferenceData } & Props) {
+/** Every battalion in the import. General only: who has one in the run is on the Roster. */
+function BattalionTable({ data }: { data: ReferenceData }) {
   const nav = useNav();
   const [filter, setFilter] = useState(nav.route.q ?? "");
   const list = data.battalions ?? [];
-  const holders = useMemo(() => {
-    const map = new Map<string, Unit[]>();
-    for (const u of units) {
-      if (!u.battalion) continue;
-      const key = u.battalion.toLowerCase();
-      map.set(key, [...(map.get(key) ?? []), u]);
-    }
-    return map;
-  }, [units]);
-  const holdersOf = (name: string) => holders.get(name.toLowerCase()) ?? [];
-  const rows = list.filter((b) => searchMatches(filter, b.name, b.description, b.gambit?.name ?? "", ...holdersOf(b.name).map((u) => u.name)));
+  const rows = list.filter((b) => searchMatches(filter, b.name, b.description, b.gambit?.name ?? ""));
   if (!list.length) {
     return (
       <div className="archive-empty">
@@ -103,7 +91,6 @@ function BattalionTable({ data, units, part2 }: { data: ReferenceData } & Props)
     </div>
   );
   if (!current) return <>{toolbar}<NoMatches what="battalions" onReset={() => setFilter("")} /></>;
-  const held = holdersOf(current.name);
   return (
     <MasterDetail
       wide
@@ -117,21 +104,6 @@ function BattalionTable({ data, units, part2 }: { data: ReferenceData } & Props)
             <ScopeTag scope="reference" />
           </div>
           <BattalionPanel name={current.name} scope="reference" />
-          <h4 className="sub-title">In this run</h4>
-          {held.length ? (
-            <div className="people unit-grid">
-              {held.map((u) => (
-                <RefLink key={u.key} onClick={() => nav.go({ page: "roster", id: u.key })} title={`Open ${u.name} on the Roster`}>
-                  <span className="person">
-                    <KeyPortrait portraitKey={characterPortraitKey(characterKeyOfUnit(u) ?? u.key, units)} name={u.name} part2={part2} size={56} />
-                    <span className="person-name">{u.name}</span>
-                  </span>
-                </RefLink>
-              ))}
-            </div>
-          ) : (
-            <p className="muted">No unit in this run has been read with it.</p>
-          )}
         </DetailCard>
       }
     >
@@ -143,12 +115,10 @@ function BattalionTable({ data, units, part2 }: { data: ReferenceData } & Props)
               <th className="left">Battalion</th>
               <th title="Endurance, from your imported game files">End</th>
               <th className="left">Gambit</th>
-              <th className="left">In this run</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((b) => {
-              const who = holdersOf(b.name);
               return (
                 <tr
                   key={b.id ?? b.name}
@@ -166,7 +136,6 @@ function BattalionTable({ data, units, part2 }: { data: ReferenceData } & Props)
                   </td>
                   <td className="num">{b.endurance || "—"}</td>
                   <td className="left small">{b.gambit?.name ?? <span className="muted" title="Not in your imported game files yet">—</span>}</td>
-                  <td className="left small">{who.length ? who.map((u) => u.name).join(", ") : <span className="muted">—</span>}</td>
                 </tr>
               );
             })}

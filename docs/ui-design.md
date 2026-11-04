@@ -126,8 +126,8 @@ Roster's card, the Archive's character card and the run's stats window.
 
 - **Scope, always said.** `ScopeTag`: *In this battle* (that battle only), *This run* (the Roster: the run's unit as
   last read), *Whole run* (History: added up over finished battles), *General reference* (the Archive: the same in
-  every run). A character window says it in its header. A general card that shows something of the run sets it apart
-  in an *In this run* section.
+  every run). A character window says it in its header (its hero doesn't repeat it). The Archive is general only: no run
+  stats, gear or battalion on its cards, just a button to the Roster.
 - **The hero** (`CharacterHero`): the face, the key facts, the scope and the battalion badge. Roster and Archive use
   `PortraitFlip`: the round portrait turns over to the map sprite while the pointer is on it, and stays turned on a
   click, tap, Enter or Space; with reduced motion it swaps without turning. The battle window uses the split layout: a
@@ -138,6 +138,10 @@ Roster's card, the Archive's character card and the run's stats window.
 - **Battalions** (`BattalionPanel`): laid out like the game's panel, battalion beside gambit, with the eight modifiers
   (gains blue, losses red, an adjustment after an arrow), the gambit's uses, Mt, Hit and a little map of the tiles it
   hits (the user's tile blue, facing up). Missing values show "—" with why; nothing is filled in.
+- **No page-wide scrolling, phones included.** On the Roster, the Archive and the battle's Overview and Units tab the
+  app stays the screen's height below 760px too (page-scoped `:has()` rules in character.css; Settings, History and
+  More Stats do the same in their own CSS); the header stays and the view scrolls inside. The Archive's tabs become one
+  row that scrolls sideways.
 - **Scan Log:** header with the session's count and chips for updates to check and those not saved; filter by outcome
   (All, Saved, To check, Not saved).
 - **Runs:** a new-run box and the runs as a `RowList`; selecting one shows its card: facts, Make active / Rename /

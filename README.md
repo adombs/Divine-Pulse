@@ -214,19 +214,18 @@ set **Portrait** on Byleth's roster card to Male or Female (Auto follows the gam
 ### Archive and Supports pages
 
 Game reference built from your import, so it matches the language and DLC you imported. It works offline. Everything
-here is general, the same in every run; each card says so with a *General reference* tag, and what belongs to your run
-(the Roster) or one battle is tagged *This run* or *In this battle* wherever a character shows.
+here is general, the same in every run, and each card says so with a *General reference* tag; what belongs to your run
+is on the Roster (*This run*) and what happened in one battle on its unit windows (*In this battle*).
 
 - **Archive → Characters**: base stats, growth rates and max stats for the playable units, sortable and filterable by house,
   with an optional class picked to show total growths (character + class). A character's card shows age, birthday,
-  height, Crest (story reveals behind a *Spoiler* button), starting class, a stats table (with your unit's current
-  stats if they're in the active run), skill strengths, weaknesses, budding talent and starting ranks, personal
-  ability, the abilities and combat arts they learn, and their Reason / Faith spells. If they're in your run, an
-  **In this run** section links to their Roster card. The portrait turns over to their map sprite in their starting
+  height, Crest (story reveals behind a *Spoiler* button), starting class, a stats table (base, growth and max),
+  skill strengths, weaknesses, budding talent and starting ranks, personal
+  ability, the abilities and combat arts they learn, and their Reason / Faith spells. If they're in your run, a button
+  opens their Roster card. The portrait turns over to their map sprite in their starting
   class while the pointer is on it; click or tap it (or press Enter or Space) to keep it turned. **Crests** lists every
   crest with its bearers.
-- **Archive → Battalions**: every battalion in your import with its endurance and description, and who in your run
-  has it. The card is laid out like the game's battalion panel (icon, endurance, the eight modifiers, and the gambit
+- **Archive → Battalions**: every battalion in your import with its endurance and description. The card is laid out like the game's battalion panel (icon, endurance, the eight modifiers, and the gambit
   with its uses, Mt, Hit and the tiles it hits), but your import doesn't hold icons, modifiers or gambits yet, so those
   show "—" until the importer can read them.
 - **Archive → Classes** (growth rates, stat boosts with mounted extras, base stats, class abilities, mastery,

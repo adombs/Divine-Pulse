@@ -24,16 +24,16 @@
   scrollbar-color: var(--line) transparent; padding-right: 0.3rem;
 }
 .cv-popup-scope { display: inline-flex; flex: none; }
-/* The window's header names the scope; its hero doesn't repeat it (except on a phone, where the header hides it). */
+/* The window's header names the scope; its hero never repeats it. */
 .modal.character-popup .cv-hero-meta > .cv-scope { display: none; }
 .modal.character-popup .cv-hero-meta:not(:has(> :not(.cv-scope))) { display: none; }
 @media (max-width: 560px) {
   .modal.character-popup { --character-popup-w: calc(100vw - 1rem); --character-popup-h: calc(100dvh - 1rem); }
   .modal-backdrop:has(> .character-popup) { padding: 0.5rem; }
   .modal.character-popup > .modal-body { padding: 0.5rem 0.7rem 0.6rem; }
-  .cv-popup-scope { display: none; }
-  .modal.character-popup .cv-hero-meta > .cv-scope { display: inline-flex; }
-  .modal.character-popup .cv-hero-meta:not(:has(> :not(.cv-scope))) { display: flex; }
+  /* A phone's header keeps the scope as its icon alone (the label stays for screen readers and the tooltip). */
+  .cv-popup-scope .cv-scope { padding: 0.2rem; gap: 0; font-size: 0; }
+  .cv-popup-scope .cv-scope .icon { font-size: 1rem; }
 }
 
 /* ---------- The hero: face, facts, scope. ---------- */
@@ -256,3 +256,25 @@
 
 /* A general card's link to the run (the Archive's character card): what's run-specific, set apart and labelled. */
 .cv-run-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin: 0.2rem 0 0.4rem; }
+
+/* ---------- Phones: no page-wide scrolling on the views this module owns. ----------
+   styles.css lets the app grow and the page scroll below 760px; for the Roster, the Archive and the battle's Units
+   tab and Overview (its unit list and log are this worker's) the app stays the screen's height and each view scrolls inside itself, under a header that stays put. Scoped by
+   :has() so other pages keep their own behaviour (Settings, History and More Stats bound themselves the same way in
+   their own CSS). */
+@media (max-width: 760px) {
+  /* (:has can't nest, so the Units tab is matched by its body.) */
+  .app:has(> .sheet > :is(.roster-page, .archive-page), .battle-body:is(.view-units, .view-overview)) { height: 100dvh; min-height: 0; }
+  .app > .sheet:has(> :is(.roster-page, .archive-page), .battle-body:is(.view-units, .view-overview)) {
+    min-height: 0; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .sheet > :is(.roster-page, .archive-page) {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin;
+  }
+  .sheet > :is(.roster-page, .archive-page) > .page-header {
+    position: sticky; top: 0; z-index: 3; background: var(--paper); padding-bottom: 0.3rem;
+  }
+  .sheet > .battle-page:has(> .battle-body:is(.view-units, .view-overview)) { flex: 1 1 auto; min-height: 0; height: auto; display: flex; flex-direction: column; gap: 0; }
+  .sheet > .battle-page:has(> .battle-body:is(.view-units, .view-overview)) > :not(.battle-body) { flex: none; }
+  .sheet > .battle-page > .battle-body:is(.view-units, .view-overview) { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+}

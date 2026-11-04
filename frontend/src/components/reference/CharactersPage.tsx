@@ -1,7 +1,7 @@
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { gameLanguageLocale } from "../../gameLanguage";
 import { Fragment, useMemo, useState } from "react";
-import { Icon } from "../Icon";
+import { Icon, IconButton } from "../Icon";
 import { useSpoiler } from "../../spoilers";
 import type { Unit } from "../../api";
 import { characterPortraitKey, runCharacterKeys, unitForCharacter } from "../../portraits";
@@ -26,15 +26,12 @@ import { DetailCard, MasterDetail, Section } from "../layout";
 import { CharacterHero } from "../character/CharacterHero";
 import type { Fact } from "../character/CharacterHero";
 import { characterSprite, PortraitFlip } from "../character/CharacterFace";
-import { ScopeTag } from "../character/CharacterHero";
-import { BattalionBadge } from "../character/Battalion";
 import { useNav } from "../../nav";
 import { AFFILIATIONS, passes, usePeopleFilters } from "../../filters";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../PeopleFilters";
-import { AbilityLink, ArtLink, ClassLink, CrestLink, ItemLink, SupportsLink, SpellLink, LinkedDescription } from "../Links";
-import { itemSummary, spellSummary } from "../../reference/gameData";
-import { GearIcon } from "../battle/gameIcons";
-import { AbilityIcon, ArtIcon, CrestMark, ItemIcon, SpellIcon } from "../../reference/icons";
+import { AbilityLink, ArtLink, ClassLink, CrestLink, SupportsLink, SpellLink, LinkedDescription } from "../Links";
+import { spellSummary } from "../../reference/gameData";
+import { AbilityIcon, ArtIcon, CrestMark, SpellIcon } from "../../reference/icons";
 import "./classes.css";
 import "./characters.css";
 import {
@@ -238,11 +235,16 @@ function CharacterCard({
       {a.skill && <SkillIcon skill={a.skill} />} {a.rank}
     </>
   );
-  const carried = (unit?.inventory ?? []).filter((it) => it.kind !== "spell");
   const hiddenCrests = c.crests_spoiler && crestText(c.crests_spoiler) !== crestText(c.crests) ? crestText(c.crests_spoiler) : null;
 
   return (
-    <DetailCard title={c.name} icon={<AffiliationIcon house={c.house} />} label={`${c.name} reference`}>
+    <DetailCard
+      title={c.name}
+      icon={<AffiliationIcon house={c.house} />}
+      label={`${c.name} reference`}
+      // General only: what the run's unit has is on the Roster, one click away.
+      actions={unit && <IconButton icon={CONCEPT_ICON.roster} label={`Open ${unit.name} on the Roster`} onClick={() => nav.go({ page: "roster", id: unit.key })} />}
+    >
       <CharacterHero
         layout="flip"
         scope="reference"
@@ -294,7 +296,6 @@ function CharacterCard({
               <th title="Chance (%) to gain a point each level">Growth</th>
               {withClass && <th title={`Growth as a ${withClass.name}`}>+{withClass.name.split(" ")[0]}</th>}
               <th title="Highest the stat can go">Max</th>
-              {unit && <th title={`${unit.name} in your active run (bonuses from abilities removed)`}>Yours</th>}
             </tr>
           </thead>
           <tbody>
@@ -312,7 +313,6 @@ function CharacterCard({
                 </td>
                 {withClass && <td>{c.growths[k] + withClass.growths[k]}%</td>}
                 <td>{c.maxes[k]}</td>
-                {unit && <td className={unit.base_values[k] >= c.maxes[k] ? "capped" : ""}>{unit.base_values[k] || "—"}</td>}
               </tr>
             ))}
             <tr className="total">
@@ -321,60 +321,13 @@ function CharacterCard({
               <td>{STAT_KEYS.reduce((n, k) => n + c.growths[k], 0)}%</td>
               {withClass && <td>{STAT_KEYS.reduce((n, k) => n + c.growths[k] + withClass.growths[k], 0)}%</td>}
               <td>{STAT_KEYS.reduce((n, k) => n + c.maxes[k], 0)}</td>
-              {unit && <td />}
             </tr>
           </tbody>
         </table>
         </div>
       </Section>
 
-      {unit && (
-        <>
-          <Section title="Equipment" icon={CONCEPT_ICON.equipment}>
-            {carried.length > 0 || unit.accessory ? (
-              <ul className="item-list">
-                {carried.map((it, i) => (
-                  <li key={`${it.id}-${i}`} title={itemSummary(data.items.find((item) => item.name === it.name))}>
-                    <span>
-                      <GearIcon kind={it.kind === "other" ? "item" : it.kind} weapon={it.weapon} name={it.name} /> <ItemLink name={it.name} />
-                    </span>
-                    <span className="rank">{it.full ? `${it.uses}/${it.full}` : `×${it.uses}`}</span>
-                  </li>
-                ))}
-                {unit.accessory && (
-                  <li title={itemSummary(data.items.find((item) => item.name === unit.accessory))}>
-                    <span>
-                      <ItemIcon name={unit.accessory} />
-                      <ItemLink name={unit.accessory} />
-                    </span>
-                  </li>
-                )}
-              </ul>
-            ) : (
-              <p className="muted">No equipment</p>
-            )}
-          </Section>
-
-        </>
-      )}
-
       <Section title="Abilities" icon={CONCEPT_ICON.ability}>
-        {unit && (unit.personal_ability || unit.abilities.length > 0) && (
-          <>
-            <h4 className="sub-title">Equipped in your run</h4>
-            <ul className="item-list">
-              {[unit.personal_ability, ...unit.abilities].filter(Boolean).map((name, i) => (
-                <li key={`${name}-${i}`} title={data.abilities.find((a) => a.name === name)?.description} className={i === 0 && unit.personal_ability ? "personal" : ""}>
-                  <span>
-                    <AbilityIcon name={name} />
-                    <AbilityLink name={name} />
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <h4 className="sub-title">Personal and learned</h4>
-          </>
-        )}
         <ul className="item-list">
           {c.personal.map((p) => (
             <li key={p.name} className="personal" title="Personal ability">
@@ -441,23 +394,6 @@ function CharacterCard({
             </li>
           </ul>
         )}
-        {unit && <>
-          <h4 className="sub-title">Equipped in your run</h4>
-            {unit.combat_arts?.length ? (
-              <ul className="item-list">
-                {unit.combat_arts.map((name) => (
-                  <li key={name} title={art(name) ? artSummary(art(name)!) : undefined}>
-                    <span>
-                      <ArtIcon name={name} />
-                      <ArtLink name={name} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="muted">No combat arts</p>
-            )}
-        </>}
         <h4 className="sub-title">Learned from skill ranks</h4>
         {c.arts.length > 0 ? (
           <>
@@ -505,23 +441,6 @@ function CharacterCard({
         )}
         {c.spells.reason.length === 0 && c.spells.faith.length === 0 && <p className="muted">No spells</p>}
       </Section>
-
-      {unit && (
-        <Section title="In this run" icon={CONCEPT_ICON.roster}>
-          <div className="cv-run-strip">
-            <ScopeTag scope="run" />
-            <span>
-              {unit.name}, {unit.class_name ? <ClassLink name={unit.class_name} /> : "class not read"}
-            </span>
-            <BattalionBadge unit={unit} />
-          </div>
-          <p>
-            <RefLink onClick={() => nav.go({ page: "roster", id: unit.key })} title={`Open ${unit.name} on the Roster`}>
-              Their stats, gear and battalion on the Roster <Icon name={CONCEPT_ICON.go} />
-            </RefLink>
-          </p>
-        </Section>
-      )}
 
       <p className="card-link">
         <SupportsLink name={c.name}>Supports &amp; gifts <Icon name={CONCEPT_ICON.go} /></SupportsLink>
