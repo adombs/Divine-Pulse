@@ -58,7 +58,7 @@ class GameData:
     # Character IDs that are female, generic ones too (for the map's class sprites).
     female: frozenset[int] = frozenset()
     combat_arts: dict[int, str] = field(default_factory=dict)  # names by art ID
-    battalions: list[str | None] = field(default_factory=list)  # names by battalion ID
+    battalions: list[str] = field(default_factory=list)  # names by battalion ID
 
     @classmethod
     def load(cls) -> GameData:
@@ -144,11 +144,7 @@ def to_reading(
             ),
             learned=[a for a in (data.ability(i) for i in unit.learned_abilities) if a],
             learned_arts=[data.combat_arts[a] for a in unit.learned_arts if a in data.combat_arts],
-            # None means the assignment could not be named, whereas an empty string
-            # explicitly clears a previously stored assignment.
-            battalion=("" if unit.battalion is None else
-                       (data.battalions[unit.battalion] or None)
-                       if 0 <= unit.battalion < len(data.battalions) else None),
+            battalion=data.battalions[unit.battalion] if unit.battalion is not None and 0 <= unit.battalion < len(data.battalions) else "",
             skills=unit.skills,
         ),
         class_name=tidy_class(class_name) if class_name else None,
