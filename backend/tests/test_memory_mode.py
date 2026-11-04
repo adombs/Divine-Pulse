@@ -111,6 +111,56 @@ def test_unchanged_game_logs_nothing(scanner):
     assert len(scanner.log_entries()) == 1
 
 
+def test_battalion_observation_survives_missing_import_and_clears_on_removal(scanner):
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    class Process:
+        roster = bytearray(DATA[:ROSTER_SIZE])
+
+        def read(self, address, size):
+            version = VERSIONS[0]
+            if address == version.build_id_offset:
+                return version.build_id
+            if address == version.roster_offset:
+                return bytes(self.roster) + DATA[ROSTER_SIZE:]
+            return None
+
+    process = Process()
+    memory = GameMemory()
+    memory._process = process
+    memory.version = VERSIONS[0]
+    memory.emulator = SimpleNamespace(layout=SimpleNamespace(heap_regions=lambda _: ()))
+    scanner.memory = memory
+
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == "Test Magic Corps"
+
+    # An assigned ID with no imported name is unknown, not an empty assignment.
+    data = scanner._data()
+    scanner._game_data = replace(data, battalions=[])
+    slot = SLOT_OF[28] * SLOT_SIZE
+    process.roster[slot + MAG] += 1
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == "Test Magic Corps"
+
+    # An unrecognized ID is also unknown, not proof that the slot is empty.
+    scanner._game_data = data
+    process.roster[slot + 0x1E] = 255
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == "Test Magic Corps"
+
+    # A clear slot is an observed removal, even when the old ID byte is stale.
+    struct.pack_into("<H", process.roster, slot + 0x18, 0xFFFF)
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == ""
+    assert scanner.store.get(scanner.run_id).units["hanneman"].battalion == ""
+
+
 def test_a_change_is_applied_once_two_reads_agree(scanner):
     scanner._tick()
     scanner._tick()
