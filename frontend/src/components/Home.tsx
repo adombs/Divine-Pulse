@@ -16,8 +16,6 @@ import { RunIcon } from "./ui";
 import { SpriteIndex, UnitSprite, spriteLayers, useSprites } from "./battle/mapIcons";
 import { chapterTitle } from "./battle/scenarios";
 import { ToastState } from "./Toasts";
-import "@fontsource/cinzel/400.css";
-import "@fontsource/cinzel/700.css";
 import "./home.css";
 
 export interface HomeProps {

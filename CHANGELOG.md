@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Apply the Settings font throughout the app, including Home and UI labels; simplify Home run text and give all text links white resting text with purple, underlined hover and keyboard focus states.
 - Reorganize Battle Records into a battle ledger, themed standouts, each unit's share of the fighting and comparisons with other battles. Keep the share table accessible in shorter windows.
 - Show run-wide character statistics when selecting a name in a battle's standouts, with Combat, Form, Growth, Arsenal and Battles sections.
 - Organize battle graphs by topic, with turn charts above unit charts, and add accessible carousel controls with pause and reduced-motion support.
