@@ -27,14 +27,29 @@ None needs Python, Node.js or anything else on the player's PC. Windows 10/11 (6
    gh auth status
    ```
 
-3. **Build and try it on a clean PC** (or a fresh Windows user account). Build into `release/` with its own build
-   environment; it runs the backend tests and frontend build. Run Ruff separately before releasing:
+3. **Prepare the release PR.** On a clean `release/0.2.0` (or `hotfix/0.2.0`), from the repository root run:
 
+   ```powershell
+   python tools/release.py prepare 0.2.0
    ```
-   powershell -ExecutionPolicy Bypass -File tools\build_windows.ps1
-   cd backend
-   .venv\Scripts\python -m ruff check --config pyproject.toml . ../tools ../packaging
+
+   Replace `0.2.0` with the actual version in both the branch and command. This updates the backend and frontend
+   versions and changelog, then commits them on the release branch. It does not tag, push, or create a release. Push
+   the branch, open a pull request to `main`, and merge it after checks and review.
+4. **Build and create a draft from the merged commit.** Check out clean, current `main` after the release PR merges:
+
+   ```powershell
+   git checkout main
+   git pull --ff-only
+   python tools/release.py finalize 0.2.0
    ```
+
+   On Windows, `finalize` verifies that `main` matches the remote, checks the version and changelog, runs the release
+   checks and build, validates the artifacts and checksums, and scans the portable zip for prohibited game content.
+   It then tags the merged commit, pushes only the tag, and creates a GitHub draft release with the installer, portable
+   ZIP, checksum file, and changelog notes. It never publishes the draft or pushes to `main`.
+5. **Test and publish.** Try the installer and portable ZIP on a clean PC (or fresh Windows user account). Inspect
+   the draft's version, notes, files, and checksums before publishing it manually on GitHub.
 
    The build also runs the packaged executable with `--check-desktop`: it opens and closes a hidden WebView2
    window, without the server, game reader or user data. It tests a temporary copy with Internet-zone markers on
@@ -43,30 +58,15 @@ None needs Python, Node.js or anything else on the player's PC. Windows 10/11 (6
    allows the app's bundled .NET assemblies to load with those markers, without unblocking files or changing
    machine-wide settings.
 
-   Run the installer and import a dump when it asks (or skip it and import from Settings → Game files), start the
+   Run the installer and import a dump when it asks (or skip it and import from Settings > Game files), start the
    tracker, start a new run from the home page, check reading units with Eden running and not running, play a
    battle, quit from the tray, start again, then uninstall with the tracker still in the tray and choose No when
    asked about saved data. Check that the tracker closed, the program folder and Start menu entries went, and the data
    folder (`%LOCALAPPDATA%\Divine Pulse`) survived. Choosing Yes deletes that folder, so try it only on data you can
    lose.
-4. **Prepare the release PR.** On `release/<version>` (or `hotfix/<version>`), set the version in
-   `backend/app/__init__.py`, `backend/pyproject.toml`, `frontend/package.json`, and both version fields in
-   `frontend/package-lock.json`. Move the unreleased changelog entries under a dated version heading, leaving a new
-   empty `## Unreleased` heading. Commit and open a PR to `main`; merge only after checks and review.
-5. **Build and draft from the merged commit.** Check out the clean, up-to-date `main`, rerun the checks and Windows
-   build above, and verify the version, artifacts, and SHA-256 checksums. Create an annotated `v<version>` tag on
-   that merged commit and push the tag. Create a GitHub draft release for that tag, upload the installer, portable zip,
-   and `SHA256SUMS.txt`, and copy the version's changelog notes. Inspect the draft before publishing it manually.
 
-   Before tagging, validate the artifacts and scan the portable zip (replace `0.2.0` with the release version):
-
-   ```powershell
-   python -c "import sys; sys.path.insert(0, 'tools'); import release, game_content; files = release.release_files('0.2.0'); problems = game_content.check_zip(files[0]); print('\n'.join(problems) if problems else 'Release artifacts verified'); sys.exit(bool(problems))"
-   ```
-
-`tools/release.py` is disabled because it previously committed and pushed directly to `main`. Do not use it until it
-has been redesigned for this workflow. If a pushed tag or release fails, do not reuse the tag: fix the problem through
-a release or hotfix PR and use the next patch version.
+If a pushed tag or release fails, do not reuse the tag: fix the problem through a release or hotfix PR and use the next
+patch version. Review the local and remote tag and draft state before retrying after an error.
 
 ## Where an installed copy keeps things
 
@@ -88,7 +88,7 @@ PC are fixed on start:
   installer with a code-signing certificate removes both.
 - **WebView2.** The window uses Microsoft Edge WebView2, which Windows 11 includes and most Windows 10 PCs have via
   Edge. Without it, the tracker opens in the default browser instead.
-- **Content.** The release must contain no game content. Before publishing, scan the built zip using
+- **Content.** The release must contain no game content. The release script scans the built zip using
   `tools/game_content.py` (`check_zip`); it checks for game images, game file formats or data, and a missing
   `LICENSE.txt`, `Third-party notices.txt`, `GFDL-1.3.txt` or `Third-party licenses` folder beside the program.
   Players import their own dump on first run.
