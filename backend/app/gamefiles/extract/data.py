@@ -48,6 +48,7 @@ CLASS, CLASS_DESCRIPTION, ITEM, ITEM_DESCRIPTION = 3453, 3554, 3656, 3856
 WEAPON, WEAPON_DESCRIPTION, EQUIPMENT = 3746, 4246, 4556
 ART, ART_DESCRIPTION, ABILITY, ABILITY_DESCRIPTION = 6014, 6314, 7236, 7536
 SPELL, SPELL_DESCRIPTION, BATTALION, BATTALION_DESCRIPTION = 7836, 8136, 9096, 9297
+GAMBIT, GAMBIT_DESCRIPTION = 6614, 6914
 FACTION, CREST_MAJOR, CREST_MINOR, GIFT = 9498, 9590, 9612, 10142  # 10147 in the NUL-split pool, 5 less by string index
 FACTIONS = 23
 CRESTS = 22
@@ -369,13 +370,32 @@ def abilities(rows: list[bytes], text: Text) -> list[dict]:
     return out
 
 
-def battalions(rows: list[bytes], text: Text) -> list[dict]:
-    """Battalion names, descriptions and endurance for reference pages."""
-    return [
-        {"id": n, "name": text(BATTALION + n), "description": text(BATTALION_DESCRIPTION + n),
-         "endurance": u16(row, 6)}
-        for n, row in enumerate(rows)
-    ]
+def battalions(rows: list[bytes], text: Text, gambits: Sequence[bytes] = (),
+               targets: Sequence[bytes] = ()) -> list[dict]:
+    """Reference values from fixed_data sections 11, 3 and 8, indexed by their game IDs."""
+    # Row fields: https://github.com/three-houses-research-team/010-binary-templates/blob/master/ItemData.bt
+    # Growth is in tenths per level; the accumulated growth is rounded down, not each level's gain.
+    offsets = {"phys_atk": 10, "mag_atk": 8, "hit": 11, "crit": 12,
+               "avo": 13, "prt": 15, "rsl": 16, "cha": 36}
+    growth_offsets = {"phys_atk": 19, "mag_atk": 9, "hit": 20, "crit": 21,
+                      "avo": 22, "prt": 24, "rsl": 25}
+    result = []
+    for n, row in enumerate(rows):
+        record = {"id": n, "name": text(BATTALION + n), "description": text(BATTALION_DESCRIPTION + n),
+                  "endurance": u16(row, 6), "stats": {key: signed(row[at]) for key, at in offsets.items()}}
+        record["stats_by_level"] = [
+            {key: value + row[growth_offsets[key]] * (level - 1) // 10 if key in growth_offsets else value
+             for key, value in record["stats"].items()}
+            for level in range(1, 6)
+        ]
+        ident = row[39]
+        if ident < len(gambits) and ident < len(targets) and text(GAMBIT + ident):
+            attack, target = gambits[ident], targets[ident]
+            record["gambit"] = {"id": ident, "name": text(GAMBIT + ident),
+                                "description": text(GAMBIT_DESCRIPTION + ident), "uses": target[7],
+                                "might": attack[16], "hit": attack[17], "range": [attack[10], attack[7]]}
+        result.append(record)
+    return result
 
 
 def ranks(rows: list[bytes]) -> list[dict]:
@@ -526,8 +546,8 @@ def extract(ctx: Context) -> None:
         write(ctx, "items", {"items": recs}, f"{src} section 6")
         recs = combat_arts(section(fixed, 7), text)
         write(ctx, "combat-arts", {"combat_arts": recs}, f"{src} section 7")
-        recs = battalions(section(fixed, 11), text)
-        write(ctx, "battalions", {"battalions": recs}, f"{src} section 11")
+        recs = battalions(section(fixed, 11), text, section(fixed, 3), section(fixed, 8))
+        write(ctx, "battalions", {"battalions": recs}, f"{src} sections 3, 8, 11")
     if skill:
         recs = abilities(section(skill, 0), text)
         write(ctx, "abilities", {"abilities": recs}, "fixed_skill.bin section 0")

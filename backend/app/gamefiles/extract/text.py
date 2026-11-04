@@ -43,6 +43,8 @@ CATEGORIES = (
     Category("ability_description", range(250), 7536),
     Category("combat_art", range(80), 6014),
     Category("combat_art_description", range(80), 6314),
+    Category("gambit", range(80), 6614),
+    Category("gambit_description", range(80), 6914),
     Category("spell", range(38), 7836),
     Category("spell_description", range(38), 8136),
     Category("weapon", range(10, 510), 3746),

@@ -145,7 +145,39 @@ def test_battalion_fields():
     row = bytearray(44)
     struct.pack_into("<H", row, 6, 60)
     [record] = data.battalions([bytes(row)], text_with(i9096="Company", i9297="Description"))
-    assert record == {"id": 0, "name": "Company", "description": "Description", "endurance": 60}
+    assert record["id"] == 0 and record["endurance"] == 60
+    assert record["name"] == "Company" and record["description"] == "Description"
+    assert set(record["stats"].values()) == {0}
+
+
+def test_extract_battalion_reference_with_gambit(tmp_path, monkeypatch):
+    from types import SimpleNamespace
+    from app.gamefiles.output import Output
+
+    company, attack, target = bytearray(44), bytearray(24), bytearray(13)
+    company[6:8] = (55).to_bytes(2, "little")
+    for offset, value in {8: 3, 10: 254, 11: 15, 12: 5, 13: 251, 15: 2, 16: 1, 36: 4}.items():
+        company[offset] = value
+    company[19], company[20] = 5, 13
+    company[39] = 1
+    attack[7], attack[10], attack[16], attack[17], target[7] = 3, 2, 6, 70, 2
+    sections = [(1, []) for _ in range(12)]
+    sections[3] = (24, [bytes(24), bytes(attack)])
+    sections[8] = (13, [bytes(13), bytes(target)])
+    sections[11] = (44, [bytes(company)])
+    fixed = section_file(*sections)
+    monkeypatch.setattr(data, "load", lambda ctx, name: fixed if name == "fixed_data.bin" else None)
+    strings = [""] * 11000
+    strings[9096], strings[9297], strings[6615], strings[6915] = "Test company", "Test description", "Test move", "Test effect"
+    ctx = SimpleNamespace(text=lambda: [[], [], strings], out=Output(tmp_path), skip=lambda _: None)
+    data.extract(ctx)
+    [record] = json.loads((tmp_path / "data/battalions.json").read_text())["battalions"]
+    assert record["stats"] == {"phys_atk": -2, "mag_atk": 3, "hit": 15, "crit": 5,
+                               "avo": -5, "prt": 2, "rsl": 1, "cha": 4}
+    assert [level["phys_atk"] for level in record["stats_by_level"]] == [-2, -2, -1, -1, 0]
+    assert [level["hit"] for level in record["stats_by_level"]] == [15, 16, 17, 18, 20]
+    assert record["gambit"] == {"id": 1, "name": "Test move", "description": "Test effect", "uses": 2,
+                                "might": 6, "hit": 70, "range": [2, 3]}
 
 
 def test_meals_recipes_and_transposed_preferences():
