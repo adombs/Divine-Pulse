@@ -422,7 +422,8 @@ function ClassCard({
 
 /**
  * A class's description. A compact card clamps it to two lines (classes.css); "Show all" appears only when the clamp
- * actually hides text, and opens it in place.
+ * actually hides text, and opens it in place. Keyed by class, so another class starts closed; it also re-measures
+ * whenever the text changes, since a new text can overflow the same box without resizing it.
  */
 function ClassLore({ text }: { text: string }) {
   const [open, setOpen] = useState(false);
@@ -436,7 +437,7 @@ function ClassLore({ text }: { text: string }) {
     const watch = new ResizeObserver(check);
     watch.observe(el);
     return () => watch.disconnect();
-  }, []);
+  }, [text]);
   return (
     <div className={`class-lore-wrap${open ? " open" : ""}`}>
       <p ref={ref} className="class-lore">
@@ -487,7 +488,7 @@ function ClassHero({
         </div>
         <div className="class-hero-body">
           <p className="class-kicker">{kicker}</p>
-          {c.description && <ClassLore text={c.description} />}
+          {c.description && <ClassLore key={c.name} text={c.description} />}
           <dl className="class-exam">
             <div>
               <dt>Requires</dt>
