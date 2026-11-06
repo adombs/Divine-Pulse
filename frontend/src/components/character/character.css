@@ -31,7 +31,7 @@
 /* Keep the section's title bar on the same left edge as the character's name banner. */
 .character-card .card-pane > .sec-head { margin-left: 0; }
 .roster-page .character-card .card-pane { padding-left: 0; }
-.modal.character-popup .character-card .cv-hero-box { margin-left: 1.1rem; }
+.modal.character-popup .character-card .cv-hero-box { margin-inline: 1.1rem; }
 .modal.character-popup .character-card .card-pane { padding-left: 1.1rem; }
 .modal.character-popup .character-card .card-pane > .sec-head { margin-left: -1.1rem; }
 /* The window's header names the scope; its hero never repeats it. */
