@@ -164,6 +164,7 @@ def test_extract_battalion_reference_with_gambit(tmp_path, monkeypatch):
     company[19], company[20] = 5, 13
     company[39] = 1
     attack[7], attack[10], attack[16], attack[17], target[7] = 3, 2, 6, 70, 2
+    attack[0x16], target[10] = 1, 7  # magic; a row of three
     sections = [(1, []) for _ in range(12)]
     sections[3] = (24, [bytes(24), bytes(attack)])
     sections[8] = (13, [bytes(13), bytes(target)])
@@ -174,7 +175,8 @@ def test_extract_battalion_reference_with_gambit(tmp_path, monkeypatch):
     strings[9096], strings[9297], strings[6615], strings[6915] = "Test company", "Test description", "Test move", "Test effect"
     out = Output(tmp_path)
     ctx = SimpleNamespace(text=lambda: [[], [], strings], out=out, skip=lambda _: None,
-                          main=object(), table=lambda name, section: [bytes(company)])
+                          main=object(), table=lambda name, section: {3: [bytes(24), bytes(attack)],
+                                                                      11: [bytes(company)]}[section])
     rectangle = rects.Rect(4, 4, 2, 0, 0, 0, 4, 4)
     monkeypatch.setattr(exe_tables.rects, "icons", lambda _: [rectangle] * 725)
     monkeypatch.setattr(exe_tables, "_atlas", lambda _: lambda n: Image.new("RGBA", (4, 4), (10, 20, 30, 255)))
@@ -191,7 +193,42 @@ def test_extract_battalion_reference_with_gambit(tmp_path, monkeypatch):
     assert record["icon"] == "images/icons/battalions/0.png"
     assert (tmp_path / record["icon"]).is_file()
     assert record["gambit"] == {"id": 1, "name": "Test move", "description": "Test effect", "uses": 2,
-                                "might": 6, "hit": 70, "range": [2, 3]}
+                                "might": 6, "hit": 70, "range": [2, 3], "icon": "images/icons/gambits/1.png",
+                                "area": {"cells": [[-1, -1], [0, -1], [1, -1]], "direction": "forward"}}
+    assert (tmp_path / "images/icons/gambits/1.png").is_file()
+    assert not (tmp_path / "images/icons/gambits/0.png").exists()  # an empty gambit row has no icon
+
+
+def test_gambit_area_facing_shapes():
+    assert data.gambit_area(3, 0, 1) == {"cells": [[0, -1], [0, -2]], "direction": "forward"}
+    assert data.gambit_area(6, 0, 1)["cells"] == [[0, -1], [0, -2], [0, -3], [0, -4]]
+    assert data.gambit_area(12, 17, 1)["cells"] == [[-1, -1], [0, -1], [1, -1], [-1, -2], [0, -2], [1, -2]]
+    triangle = data.gambit_area(2, 0, 1)["cells"]
+    assert sorted(triangle) == sorted([[x, -1] for x in range(-2, 3)] + [[x, -2] for x in range(-1, 2)] + [[0, -3]])
+
+
+def test_gambit_area_radius_shapes_centre_on_target_or_user():
+    plus = data.gambit_area(1, 0, 2)
+    assert plus["target"] == [0, -2]
+    assert sorted(plus["cells"]) == [[-1, -2], [0, -3], [0, -2], [0, -1], [1, -2]]
+    around_user = data.gambit_area(5, 14, 1)
+    assert "target" not in around_user and "direction" not in around_user
+    assert len(around_user["cells"]) == 12 and [0, 0] not in around_user["cells"]
+    assert len(data.gambit_area(5, 0, 1)["cells"]) == 13
+
+
+def test_gambit_area_unmapped_shapes():
+    assert data.gambit_area(0, 0, 1) is None
+    assert data.gambit_area(9, 0, 1) is None
+
+
+def test_gambit_support_effects_match_the_icon_selector():
+    from app.gamefiles.extract import exe_tables
+
+    for effect in range(256):
+        row = bytearray(24)
+        row[4] = effect
+        assert (exe_tables.gambit_sprite_id(bytes(row)) == 0x23D) == (effect in data.SUPPORT_GAMBIT_EFFECTS)
 
 
 def test_meals_recipes_and_transposed_preferences():
