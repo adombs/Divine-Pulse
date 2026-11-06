@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Center Archive Stats skill chips and match Position zoom to the battle map's notched slider, with terrain and coordinates over the map.
+
 - Refine character Stats, Growth, Position, Fights and Arsenal panels with aligned ledgers, clearer skill ranks and more readable detail rows.
 
 - Put character scope beside the name, move compact crest names into the front facts, and rotate bordered information cards with an inside Flip button while portraits stay still. Preserve keyboard and reduced-motion support, and use eye buttons to reveal spoilers throughout the app. Remove battalion header badges and coloured sprite backgrounds.

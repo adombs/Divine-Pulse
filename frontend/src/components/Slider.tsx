@@ -22,6 +22,8 @@ export function NotchedRange(p: {
   label: string;
   valueText?: string;
   className?: string;
+  /** Vertical controls increase from bottom to top. Horizontal is the default. */
+  orientation?: "vertical";
   /** "timeline": as tall as the buttons beside it, squared off, with a bar for a thumb. */
   variant?: "timeline";
   step?: number | "any";
@@ -44,11 +46,11 @@ export function NotchedRange(p: {
     window.addEventListener("pointercancel", release);
   };
   return (
-    <span ref={box} className={`notched${p.variant ? ` ${p.variant}` : ""}${p.className ? ` ${p.className}` : ""}`} style={{ ["--at" as string]: pct(p.value) }}>
+    <span ref={box} className={`notched${p.variant ? ` ${p.variant}` : ""}${p.orientation ? ` ${p.orientation}` : ""}${p.className ? ` ${p.className}` : ""}`} style={{ ["--at" as string]: pct(p.value) }}>
       <span className="notched-track" aria-hidden>
         <span className="notched-fill" />
         {p.notches.map((n) => (
-          <span key={n.at} className={`notch ${n.className ?? ""}`} style={{ left: pct(n.at) }} />
+          <span key={n.at} className={`notch ${n.className ?? ""}`} style={p.orientation ? { bottom: pct(n.at) } : { left: pct(n.at) }} />
         ))}
       </span>
       <input
@@ -64,6 +66,7 @@ export function NotchedRange(p: {
           p.onChange(v);
         }}
         aria-label={p.label}
+        aria-orientation={p.orientation}
         aria-valuetext={p.valueText}
       />
     </span>

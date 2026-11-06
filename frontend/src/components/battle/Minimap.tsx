@@ -28,6 +28,7 @@ import { Action, Board, boardNow, EMPTY_MINIMAP_INDEX, describe, describeTile, g
 import { ActionBadge, MapLook, miniBadge, miniImage, objectIcon, SpriteIndex, spriteLayers, TileMarkGlyph, UnitSprite, useSprites, WEAPON_LABEL, WeaponGlyph } from "./mapIcons";
 import { ICON, LOW_HP } from "./model";
 import { Icon } from "../Icon";
+import { NotchedRange } from "../Slider";
 import { BattleNavContext, useBattleNav } from "./parts";
 import { CameraTools, DEFAULT_ZOOM, view, ZOOM_TILES, zoomText, useMapCamera } from "./camera";
 import { followed, Replay, ReplayBanner, ReplayBar, StepAnimation } from "./replay";
@@ -788,6 +789,9 @@ export function MapSection({ battle, id }: { battle: Battle; id: string }) {
   }, [id]);
   if (!hasMap(battle) || !piece) return null;
   const zoom = view([piece.x + piece.span / 2, piece.y + piece.span / 2], ZOOM_TILES[level], board);
+  const tile = tileAt(board, piece.x, piece.y);
+  const location = `${tile ? `${tile.name} ` : ""}(${piece.x},${piece.y})`;
+  const locationLabel = `${piece.down ? (piece.army ? "Fell" : "Killed") : "Standing"} on ${location}`;
   return (
     <Section
       title="Position"
@@ -795,15 +799,18 @@ export function MapSection({ battle, id }: { battle: Battle; id: string }) {
     >
       <div className="position-panel">
       <div className="position-map">
-      <label className="position-map-zoom">
+      <div className="position-map-zoom">
         <Icon name={CONCEPT_ICON.zoomIn} />
-        <input type="range" min={0} max={ZOOM_TILES.length - 1} value={level}
-          onChange={(e) => setLevel(Number(e.target.value))}
-          aria-label="Position map zoom" aria-orientation="vertical" aria-valuetext={zoomText(level)} />
+        <NotchedRange
+          min={0} max={ZOOM_TILES.length - 1} value={level} onChange={setLevel}
+          notches={ZOOM_TILES.map((_, at) => ({ at }))}
+          label="Position map zoom" orientation="vertical" valueText={zoomText(level)}
+          variant="timeline" className="slim"
+        />
         <Icon name={CONCEPT_ICON.zoomOut} />
-        <output className="position-zoom-value">{zoomText(level)}</output>
-      </label>
+      </div>
       <div className="map-frame compact">
+        <span className="position-map-location" aria-hidden title={tile ? describeTile(tile) : undefined}>{location}</span>
         <Minimap
           board={board}
           size="compact"
@@ -811,17 +818,10 @@ export function MapSection({ battle, id }: { battle: Battle; id: string }) {
           focus
           zoom={zoom}
           onPick={(other) => other !== id && nav.open(other)}
-          label={`The battle map, with ${piece.name} ringed`}
+          label={`The battle map, with ${piece.name} ringed. ${locationLabel}`}
         />
       </div>
       </div>
-      <p className="muted small map-caption">
-        {piece.down ? `${piece.army ? "Fell" : "Killed"} on tile ${piece.x}, ${piece.y}` : `On tile ${piece.x}, ${piece.y}`}
-        {(() => {
-          const t = tileAt(board, piece.x, piece.y);
-          return t ? `: ${describeTile(t)}.` : ".";
-        })()}
-      </p>
       </div>
     </Section>
   );
