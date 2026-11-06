@@ -54,12 +54,20 @@ var
   GamePage: TInputDirWizardPage;
   SourcePage: TWizardPage;
   NspPage: TInputFileWizardPage;
+  KeepPage: TWizardPage;
+  KeepDumps: TNewCheckBox;
+  DumpDestination: TNewEdit;
+  DumpDestinationLabel, DumpHelp: TNewStaticText;
+  DumpBrowse: TNewButton;
   NspSelectPage: TWizardPage;
   NspList: TNewListBox;
   ReviewPage: TWizardPage;
   ReviewList: TNewMemo;
   UseDump, UseNsps: TRadioButton;
   HasImport, Stopped, WantNsps: Boolean;
+
+function GetFileAttributes(FileName: String): LongWord;
+  external 'GetFileAttributesW@kernel32.dll stdcall';
 
 // The install folder as chosen so far. {app} can't be used before the folder page is done (InitializeWizard
 // reads the last dump folder), so read the wizard's own value.
@@ -151,9 +159,102 @@ begin
   if NspList.ItemIndex >= 0 then NspList.Items.Delete(NspList.ItemIndex);
 end;
 
+procedure KeepDumpsClick(Sender: TObject);
+begin
+  DumpDestinationLabel.Visible := KeepDumps.Checked;
+  DumpDestination.Visible := KeepDumps.Checked;
+  DumpBrowse.Visible := KeepDumps.Checked;
+  DumpHelp.Visible := KeepDumps.Checked;
+end;
+
+procedure DumpBrowseClick(Sender: TObject);
+var
+  Parent: String;
+begin
+  Parent := ExtractFileDir(DumpDestination.Text);
+  if BrowseForFolder('Choose a parent folder for the new raw dump folder:', Parent, False) then
+    DumpDestination.Text := AddBackslash(Parent) + 'Divine Pulse Dump';
+end;
+
+// Probe only a fresh temporary child in the parent. Never create or clear the destination here.
+function DumpDestinationError(Destination: String): String;
+var
+  Parent, Probe, Part, Remaining: String;
+  I: Integer;
+  Created: Boolean;
+begin
+  Result := '';
+  if (Destination = '') or (ExtractFileDrive(Destination) = '') or
+      (CompareText(Destination, ExpandFileName(Destination)) <> 0) then begin
+    Result := 'Enter a full path to a new folder inside an existing parent folder.';
+    Exit;
+  end;
+  Remaining := Copy(Destination, Length(ExtractFileDrive(Destination)) + 2, MaxInt);
+  while Remaining <> '' do begin
+    I := Pos('\', Remaining);
+    if I = 0 then I := Length(Remaining) + 1;
+    Part := Copy(Remaining, 1, I - 1);
+    Delete(Remaining, 1, I);
+    if (Part = '') or (Part = '.') or (Part = '..') or
+        (Copy(Part, Length(Part), 1) = '.') or (Trim(Part) <> Part) then begin
+      Result := 'Choose a valid new folder name without trailing spaces or dots.';
+      Exit;
+    end;
+    for I := 1 to Length(Part) do
+      if (Pos(Part[I], '<>:"|?*') > 0) or (Ord(Part[I]) < 32) then begin
+        Result := 'Choose a valid new folder name without < > : " | ? or *.';
+        Exit;
+      end;
+    Part := Uppercase(Copy(Part, 1, Pos('.', Part + '.') - 1));
+    if (Part = 'CON') or (Part = 'PRN') or (Part = 'AUX') or (Part = 'NUL') or
+        ((Length(Part) = 4) and ((Copy(Part, 1, 3) = 'COM') or (Copy(Part, 1, 3) = 'LPT')) and
+        (Pos(Part[4], '123456789') > 0)) then begin
+      Result := 'Choose a folder name that is not reserved by Windows.';
+      Exit;
+    end;
+  end;
+  if DirExists(Destination) or FileExists(Destination) then begin
+    Result := 'This destination already exists. Add a new child folder name; setup never reuses an existing folder.';
+    Exit;
+  end;
+  if (Pos(Lowercase(AddBackslash(AppDir)), Lowercase(AddBackslash(Destination))) = 1) or
+      (Pos(Lowercase(AddBackslash(DataFolder)), Lowercase(AddBackslash(Destination))) = 1) then begin
+    Result := 'Save raw dumps outside the application installation and data folders.';
+    Exit;
+  end;
+  Parent := ExtractFileDir(Destination);
+  if not DirExists(Parent) then begin
+    Result := 'The parent folder must already exist. Browse to it, then add a new folder name.';
+    Exit;
+  end;
+  Remaining := Parent;
+  while Remaining <> '' do begin
+    if GetFileAttributes(Remaining) and FILE_ATTRIBUTE_REPARSE_POINT <> 0 then begin
+      Result := 'Choose a destination outside linked folders or junctions.';
+      Exit;
+    end;
+    Part := ExtractFileDir(Remaining);
+    if Part = Remaining then Break;
+    Remaining := Part;
+  end;
+  Probe := '';
+  Created := False;
+  try
+    Probe := GenerateUniqueName(Parent, '.tmp');
+    if Probe <> '' then Created := CreateDir(Probe);
+    if not Created then begin
+      Result := 'Setup cannot write to this parent folder. Choose a writable folder.';
+    end;
+  except
+    Result := 'Setup cannot write to this parent folder. Choose a writable folder.';
+  end;
+  if Created then RemoveDir(Probe);
+end;
+
 procedure InitializeWizard;
 var
   AddButton, RemoveButton: TNewButton;
+  TemporaryHelp: TNewStaticText;
 begin
   SourcePage := CreateCustomPage(wpSelectDir, 'Game files',
     'Choose how you will provide your Fire Emblem: Three Houses game files.');
@@ -195,6 +296,42 @@ begin
   NspPage := CreateInputFilePage(ReviewPage.ID, 'Open NSP files', 'Choose your keys file',
     'Setup includes NSTool. To open your NSP files, choose your own prod.keys file.');
   NspPage.Add('Your prod.keys file:', 'Key files|*.keys|All files|*.*', '.keys');
+  KeepPage := CreateCustomPage(NspPage.ID, 'Save raw game files',
+    'Choose whether to keep the files extracted from your NSPs.');
+  KeepDumps := TNewCheckBox.Create(KeepPage);
+  KeepDumps.Parent := KeepPage.Surface;
+  KeepDumps.SetBounds(0, ScaleY(12), KeepPage.SurfaceWidth, ScaleY(24));
+  KeepDumps.Caption := 'Save raw files extracted from NSPs';
+  KeepDumps.Checked := False;
+  KeepDumps.OnClick := @KeepDumpsClick;
+  TemporaryHelp := TNewStaticText.Create(KeepPage);
+  TemporaryHelp.Parent := KeepPage.Surface;
+  TemporaryHelp.SetBounds(0, ScaleY(38), KeepPage.SurfaceWidth, ScaleY(20));
+  TemporaryHelp.Caption := 'Leave unchecked to remove raw files after importing.';
+  DumpDestinationLabel := TNewStaticText.Create(KeepPage);
+  DumpDestinationLabel.Parent := KeepPage.Surface;
+  DumpDestinationLabel.SetBounds(0, ScaleY(60), KeepPage.SurfaceWidth, ScaleY(20));
+  DumpDestinationLabel.Caption := 'New folder for the raw files:';
+  DumpDestination := TNewEdit.Create(KeepPage);
+  DumpDestination.Parent := KeepPage.Surface;
+  DumpDestination.SetBounds(0, ScaleY(84), KeepPage.SurfaceWidth - ScaleX(92), ScaleY(23));
+  DumpDestination.Text := ExpandConstant('{userdocs}\Divine Pulse Dump');
+  DumpDestinationLabel.FocusControl := DumpDestination;
+  DumpBrowse := TNewButton.Create(KeepPage);
+  DumpBrowse.Parent := KeepPage.Surface;
+  DumpBrowse.SetBounds(KeepPage.SurfaceWidth - ScaleX(84), ScaleY(83), ScaleX(84), ScaleY(25));
+  DumpBrowse.Caption := 'Browse...';
+  DumpBrowse.OnClick := @DumpBrowseClick;
+  DumpHelp := TNewStaticText.Create(KeepPage);
+  DumpHelp.Parent := KeepPage.Surface;
+  DumpHelp.SetBounds(0, ScaleY(122), KeepPage.SurfaceWidth, ScaleY(90));
+  DumpHelp.WordWrap := True;
+  DumpHelp.Caption := 'Choose a new child folder inside an existing writable folder. Existing folders are never reused.' + #13#10#13#10 +
+    'Unchecked: raw files are temporary. Checked: raw files are kept only after a successful import. Your NSPs and keys stay where they are.';
+  // Windows accessibility names edits from the preceding label in the window order.
+  DumpDestination.BringToFront;
+  DumpDestinationLabel.BringToFront;
+  KeepDumpsClick(nil);
 end;
 
 function LooksLikeDump(Folder: String): Boolean;
@@ -362,16 +499,35 @@ end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
+  // Native input pages also validate their controls when silent. Use only the command-line preflight then.
+  Result := WizardSilent and ((PageID = SourcePage.ID) or (PageID = GamePage.ID) or
+    (PageID = NspSelectPage.ID) or (PageID = ReviewPage.ID) or
+    (PageID = NspPage.ID) or (PageID = KeepPage.ID));
+  if Result then Exit;
   Result := ((PageID = GamePage.ID) and WantNsps) or
     ((PageID = NspSelectPage.ID) and not WantNsps) or
-    ((PageID = NspPage.ID) and not WantNsps);
+    ((PageID = NspPage.ID) and not WantNsps) or
+    ((PageID = KeepPage.ID) and not WantNsps);
 end;
 
 function NextButtonClick(CurPageID: Integer): Boolean;
 var
-  Folder: String;
+  Folder, Error: String;
 begin
   Result := True;
+  // Silent setup advances these pages too. Its inputs are validated in PrepareToInstall.
+  if WizardSilent then Exit;
+  if CurPageID = KeepPage.ID then begin
+    if KeepDumps.Checked then begin
+      Error := DumpDestinationError(DumpDestination.Text);
+      if Error <> '' then begin
+        MsgBox(Error, mbError, MB_OK);
+        WizardForm.ActiveControl := DumpDestination;
+        Result := False;
+      end;
+    end;
+    Exit;
+  end;
   if CurPageID = SourcePage.ID then begin
     if not UseDump.Checked and not UseNsps.Checked then begin
       MsgBox('Choose either extracted game files or NSP files.', mbError, MB_OK);
@@ -425,6 +581,18 @@ begin
     end else if (ExpandConstant('{param:DUMP|}') <> '') and HasNsp(ExpandConstant('{param:DUMP|}')) and
       not LooksLikeDump(ExpandConstant('{param:DUMP|}')) then
       Result := 'Select NSP files with /NSP1="<file>" and /NSP2="<file>" (up to /NSP16).';
+    if ExpandConstant('{param:KEEPDUMPS|}') <> '' then begin
+      if ExpandConstant('{param:NSP1|}') = '' then
+        Result := '/KEEPDUMPS="<new folder>" requires /NSP1="<file>".'
+      else if Result = '' then
+        Result := DumpDestinationError(ExpandConstant('{param:KEEPDUMPS|}'));
+    end;
+    for I := 1 to ParamCount do
+      if (CompareText(ParamStr(I), '/KEEPDUMPS') = 0) or
+          (CompareText(ParamStr(I), '/KEEPDUMPS=') = 0) then
+        Result := '/KEEPDUMPS requires a full path to a new folder.';
+  end else if WantNsps and KeepDumps.Checked then begin
+    Result := DumpDestinationError(DumpDestination.Text);
   end;
 end;
 
@@ -494,8 +662,11 @@ begin
       (WizardSilent and (ExpandConstant('{param:NSP1|}') <> ''));
     if UsingNsps then begin
       if not WizardSilent and (NspList.Items.Count = 0) then StopSetup('To select NSP files, restart setup.');
-      if not FileExists(Keys) and not GetOpenFileName('Choose your prod.keys', Keys, '',
-          'Key files|*.keys|All files|*.*', 'keys') then StopSetup('Your prod.keys is required.');
+      if not FileExists(Keys) then begin
+        if WizardSilent then StopSetup('Your prod.keys is required.');
+        if not GetOpenFileName('Choose your prod.keys', Keys, '',
+            'Key files|*.keys|All files|*.*', 'keys') then StopSetup('Your prod.keys is required.');
+      end;
     end;
     ShowBusy('Importing your game files...');
     Params := '--import-game-files "' + Folder + '"';
@@ -511,6 +682,13 @@ begin
     end;
     if Nstool <> '' then Params := Params + ' --nstool "' + Nstool + '"';
     if Keys <> '' then Params := Params + ' --keys "' + Keys + '"';
+    if UsingNsps then begin
+      if WizardSilent then begin
+        Reason := ExpandConstant('{param:KEEPDUMPS|}');
+        if Reason <> '' then Params := Params + ' --keep-dumps "' + Reason + '"';
+      end else if KeepDumps.Checked then
+        Params := Params + ' --keep-dumps "' + DumpDestination.Text + '"';
+    end;
     if not Exec(ExpandConstant('{app}\{#AppExe}'), Params,
         '', SW_HIDE, ewWaitUntilTerminated, Code) then Code := -1;
     Success := Code = 0;

@@ -15,7 +15,6 @@ import logging
 import os
 import socket
 import sys
-import tempfile
 import threading
 import time
 import urllib.request
@@ -46,11 +45,14 @@ def _find_nsps(folder: Path) -> list[Path]:
     return sorted(found)
 
 
-def import_game_files(folder: str, nstool: str = "", keys: str = "", nsps: list[str] | None = None) -> int:
+def import_game_files(folder: str, nstool: str = "", keys: str = "", nsps: list[str] | None = None,
+                      keep_dumps: str = "") -> int:
     """Run the same import as Settings without starting the desktop or server."""
     from .gamefiles import dump
     from .infrastructure.game_assets import game_assets
     from .infrastructure.game_assets_import import import_assets
+    from .infrastructure.nsp_workspace import extraction_workspace
+    from .infrastructure.paths import INSTALL_DIR
 
     log_file = None
 
@@ -76,14 +78,19 @@ def import_game_files(folder: str, nstool: str = "", keys: str = "", nsps: list[
             packages = ([source] if source.is_file() and source.suffix.lower() == ".nsp" else
                         _find_nsps(source)
                         if source.is_dir() and not existing.romfs else [])
-        with tempfile.TemporaryDirectory(prefix="divine-pulse-nsp-") as temp:
+        if keep_dumps and not packages:
+            raise ValueError("Saving raw dumps requires NSP inputs. Existing extracted folders are left unchanged.")
+        protected = (DATA_DIR, INSTALL_DIR) if FROZEN else (DATA_DIR,)
+        with extraction_workspace(Path(keep_dumps) if keep_dumps else None, protected=protected) as workspace:
             if packages:
                 if not nstool or not keys:
                     raise ValueError("Choose NSTool and prod.keys to import NSP files.")
                 from .infrastructure.nsp_extractor import extract_nsps
                 output("Extracting NSP files (this can take a while)...")
-                extract_nsps(packages, Path(nstool), Path(keys), Path(temp), output)
-                source = Path(temp)
+                if keep_dumps:
+                    output(f"Raw dump destination: {workspace} (kept only after a successful import).")
+                extract_nsps(packages, Path(nstool), Path(keys), workspace, output)
+                source = workspace
             found = dump.find(source)
             if found.problems:
                 raise ValueError("; ".join(found.problems))
@@ -91,6 +98,8 @@ def import_game_files(folder: str, nstool: str = "", keys: str = "", nsps: list[
             import_assets(found, game_assets().root, lambda message, _out: output(message),
                           lambda: output("Verifying game files..."))
         SettingsStore().update(last_dump=folder)
+        if keep_dumps:
+            output(f"Raw extracted files saved in: {keep_dumps}")
         output("Game files imported successfully.")
         return 0
     except Exception as exc:
@@ -206,7 +215,7 @@ def main() -> None:
     if "--import-game-files" in sys.argv[1:]:
         index = sys.argv.index("--import-game-files")
         folder = sys.argv[index + 1] if index + 1 < len(sys.argv) else ""
-        if "--nstool" in sys.argv or "--keys" in sys.argv or "--nsp" in sys.argv:
+        if any(flag in sys.argv for flag in ("--nstool", "--keys", "--nsp", "--keep-dumps")):
             def option(name: str) -> str:
                 if name not in sys.argv:
                     return ""
@@ -215,6 +224,12 @@ def main() -> None:
 
             selected = [sys.argv[i + 1] if i + 1 < len(sys.argv) else ""
                         for i, arg in enumerate(sys.argv) if arg == "--nsp"]
+            if "--keep-dumps" in sys.argv:
+                destination = option("--keep-dumps")
+                if not destination or destination.startswith("--"):
+                    sys.exit(1)
+                sys.exit(import_game_files(folder, option("--nstool"), option("--keys"),
+                                           selected or None, destination))
             if selected:
                 sys.exit(import_game_files(folder, option("--nstool"), option("--keys"), selected))
             sys.exit(import_game_files(folder, option("--nstool"), option("--keys")))
