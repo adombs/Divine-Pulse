@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Remove the full stop from unknown crest labels in battle character cards.
+- Give Runs a labeled creation form, readable run details and aligned battle summaries; improve Updates scanning, Undo placement and empty states, and allow retrying failed battle loads.
+
 - Let setup optionally save raw NSP extractions in a new folder after a successful import; temporary cleanup remains the default, and existing source folders, NSPs and keys stay untouched.
 - Put character scope beside the name, move compact crest names into the front facts, and rotate bordered information cards with an inside Flip button while portraits stay still. Preserve keyboard and reduced-motion support, and use eye buttons to reveal spoilers throughout the app. Remove battalion header badges and coloured sprite backgrounds.
 
