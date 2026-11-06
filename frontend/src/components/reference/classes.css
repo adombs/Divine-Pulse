@@ -32,26 +32,27 @@
 }
 .class-sprite .tier-icon { align-self: center; }
 
-/* A table row: the sprite beside the class name. */
+/* A table row: the sprite, then the class name with its tier's plate beside it. */
 .class-lead {
   display: flex;
   align-items: center;
   gap: 0.5rem;
 }
+.who-name.class-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.class-name .tier-icon { flex: none; }
+.ref-table tr.selected .class-name .tier-icon { filter: drop-shadow(0 0 1px color-mix(in srgb, var(--sel-ink) 60%, transparent)); }
 
-/* The detail card: a bigger sprite beside the facts. */
-.class-head {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.8rem;
+/* A tier filter (and its chip): the plate beside the tier's name. */
+.tier-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
 }
-.class-head > .ref-facts {
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.class-head .class-sprite {
-  margin-top: 0.1rem;
-}
+.tier-label .tier-icon { flex: none; }
 
 /* ---- Units view ---- */
 .ref-page .unit-grid {
@@ -256,4 +257,550 @@
   white-space: nowrap;
 }
 
-.ref-facts .tier-row .tier-icon { display: inline-block; vertical-align: -0.35em; margin-right: 0.35rem; }
+
+/* ---- Class card (ClassesPage.tsx ClassCard) ----
+   Every class card takes its tier's metal (TierIcon.tsx TIER_METAL: --tier-light, --tier-mid, --tier-dark) as its one
+   accent: the dais the unit stands on, the hero's top edge, the step it holds on the ladder and its mastery rewards. */
+.class-detail { display: contents; }
+/* The class card's section headings repeat the tab below it; its own headings carry the structure. */
+.ref-card:has(.class-hero) .card-pane > .sec-head { display: none; }
+
+/* Links in the card follow the app's text links: white at rest with no underline, purple and underlined when pointed
+   at or focused (--link-ink / --link-hover, with the same values as fallbacks). */
+.class-detail :is(.ref-link, a) {
+  color: var(--link-ink, #fff);
+  text-decoration: none;
+  text-underline-offset: 3px;
+}
+.class-detail :is(.ref-link, a):is(:hover, :focus-visible) {
+  color: var(--link-hover, #b9a5ef);
+  text-decoration: underline;
+  text-decoration-color: currentColor;
+}
+
+.class-hero {
+  container-type: inline-size;
+  display: grid;
+  row-gap: 0.75rem;
+  margin: 0 0 0.35rem;
+  padding: 0.85rem 1rem 0.8rem;
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--tier-mid) 20%, transparent), transparent 60%),
+    var(--paper-2);
+  border: 1px solid color-mix(in srgb, var(--tier-mid) 35%, var(--line));
+  border-top: 3px solid var(--tier-mid);
+}
+
+.class-hero-top {
+  display: grid;
+  grid-template-columns: 9rem minmax(0, 1fr);
+  column-gap: 1.2rem;
+}
+
+/* The unit on a round plinth of the tier's metal, lit from behind. */
+.class-dais {
+  position: relative;
+  display: grid;
+  place-items: end center;
+  min-height: 8.6rem;
+  background: radial-gradient(circle closest-side at 50% 58%, color-mix(in srgb, var(--tier-light) 26%, transparent), transparent);
+}
+.class-dais::before {
+  content: "";
+  position: absolute;
+  left: 12%;
+  right: 12%;
+  bottom: 0.35rem;
+  height: 1.5rem;
+  border-radius: 50%;
+  background: linear-gradient(180deg, var(--tier-light), var(--tier-mid) 48%, var(--tier-dark));
+  box-shadow: 0 0.3rem 0.7rem rgb(0 0 0 / 0.35), inset 0 1px 0 rgb(255 255 255 / 0.45);
+}
+.class-dais::after {
+  content: "";
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 0.72rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: radial-gradient(closest-side, rgb(0 0 0 / 0.38), transparent);
+}
+.class-dais .class-sprite {
+  position: relative;
+  z-index: 1;
+  margin-bottom: 0.7rem;
+}
+
+.class-hero-body {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.5rem;
+}
+.class-kicker {
+  margin: 0;
+  font: 600 1.05rem var(--display);
+  color: color-mix(in srgb, var(--tier-mid) 45%, var(--ink));
+}
+.class-lore {
+  margin: 0;
+  max-width: 40em;
+  font: italic 1.1rem/1.4 var(--text);
+  color: var(--ink);
+  text-wrap: pretty;
+}
+
+/* What it takes and how it moves: three short facts side by side, the figures large. */
+/* The facts wrap onto a new line when the card is narrow. Each has a rule on its left; the strip is pulled left by
+   one rule and its padding and clipped there, so only rules between facts on the same line show. */
+.class-exam {
+  --exam-gap: 1.1rem;
+  display: flex;
+  flex-wrap: wrap;
+  row-gap: 0.6rem;
+  margin: 0.15rem 0 0 calc(-1 * var(--exam-gap) - 1px);
+  clip-path: inset(-0.5rem -0.5rem -0.5rem calc(var(--exam-gap) + 1px));
+}
+.class-exam > div {
+  display: grid;
+  align-content: start;
+  gap: 0.2rem;
+  min-width: 0;
+  padding: 0 var(--exam-gap);
+  border-left: 1px solid color-mix(in srgb, var(--tier-mid) 40%, var(--line));
+}
+.class-exam dt {
+  font: 600 0.92rem var(--display);
+  color: var(--ink-soft);
+}
+.class-exam dd {
+  margin: 0;
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 0.1rem 0.45rem;
+  font: 500 1rem var(--display);
+}
+.class-exam-big {
+  font: 600 1.5rem/1 var(--nums);
+  font-variant-numeric: lining-nums tabular-nums;
+}
+.class-exam-note {
+  font: 500 0.98rem var(--display);
+  color: var(--ink-soft);
+}
+.class-exam-text { font: 500 1.02rem var(--display); }
+
+.class-reqs {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+.class-req {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.4rem 0.1rem 0.25rem;
+  background: var(--row);
+  border: 1px solid var(--row-border);
+  border-bottom: 2px solid var(--tier-mid);
+}
+.class-req .skill-icon {
+  font-size: 1.15rem;
+  vertical-align: 0;
+}
+.class-req-rank {
+  font: 600 1.25rem/1 var(--nums);
+}
+.class-reqs-or {
+  font: italic 0.95rem var(--text);
+  color: var(--ink-soft);
+}
+
+/* The class-change ladder: four steps, the class's own lit in its metal, the ones below it walked. */
+.class-rail {
+  list-style: none;
+  margin: 0;
+  padding: 0.55rem 0 0;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  border-top: 1px solid color-mix(in srgb, var(--tier-mid) 30%, var(--line));
+}
+.class-rail li {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  gap: 0.05rem;
+  color: var(--ink-soft);
+}
+/* The track from the step before to this one. */
+.class-rail li + li::before {
+  content: "";
+  position: absolute;
+  top: 15px;
+  right: calc(50% + 20px);
+  width: calc(100% - 40px);
+  height: 2px;
+  background: var(--line);
+}
+.class-rail li:is(.past, .here) + li:is(.past, .here)::before {
+  background: color-mix(in srgb, var(--tier-mid) 75%, var(--line));
+}
+.class-rail .tier-icon {
+  transform: scale(0.72);
+  opacity: 0.4;
+  filter: grayscale(0.7);
+}
+.class-rail li.past .tier-icon {
+  opacity: 0.85;
+  filter: none;
+}
+.class-rail li.here { color: var(--ink); }
+.class-rail li.here .tier-icon {
+  transform: none;
+  opacity: 1;
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--tier-light) 70%, transparent));
+}
+.class-detail .rung-name { font: 600 0.95rem var(--display); }
+.class-rail li.here .rung-name { font-weight: 700; }
+.class-detail .rung-gate {
+  font: 0.9rem var(--nums);
+  font-variant-numeric: lining-nums;
+  color: var(--ink-soft);
+}
+
+/* The notes sit centred on the card, under the ladder; the wiki link gets its own line at the right, so it never
+   pushes them off centre or squeezes itself onto two lines beside a long restriction. */
+.class-notes {
+  display: grid;
+  gap: 0.35rem;
+}
+.class-note-group {
+  justify-self: center;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.35rem 0.5rem;
+}
+.class-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.08rem 0.55rem;
+  font: 500 0.95rem var(--display);
+  color: var(--ink);
+  background: var(--row);
+  border: 1px solid var(--row-border);
+}
+.class-note.warn {
+  color: var(--red);
+  background: color-mix(in srgb, var(--red) 8%, var(--row));
+  border-color: color-mix(in srgb, var(--red) 40%, var(--row-border));
+}
+.class-note.plain {
+  padding: 0;
+  color: var(--ink-soft);
+  background: none;
+  border: 0;
+}
+.class-wiki {
+  justify-self: end;
+  font: 500 0.95rem var(--display);
+}
+
+.class-lore-more {
+  justify-self: start;
+  padding: 0;
+  border: 0;
+  background: none;
+  font: 600 0.95rem var(--display);
+  color: var(--link-ink, #fff);
+  cursor: pointer;
+  text-underline-offset: 3px;
+}
+.class-lore-more:is(:hover, :focus-visible) {
+  color: var(--link-hover, #b9a5ef);
+  text-decoration: underline;
+}
+.class-lore-wrap { display: grid; gap: 0.15rem; }
+
+/* A compact card (shorter desktops, where the card is narrow, or filter chips widening the list): the unit sits small
+   beside its tier and facts, the description keeps two lines until opened, and the ladder gives way (the tier and
+   its exam level are still said), so the picked section starts within the first screen. */
+@container (max-width: 34rem) {
+  .class-hero {
+    row-gap: 0.45rem;
+    padding: 0.6rem 0.75rem 0.6rem;
+  }
+  .class-hero-top {
+    grid-template-columns: 4.4rem minmax(0, 1fr);
+    grid-template-areas:
+      "dais kicker"
+      "dais exam"
+      "lore lore";
+    column-gap: 0.75rem;
+    row-gap: 0.35rem;
+  }
+  .class-hero-body { display: contents; }
+  .class-dais {
+    grid-area: dais;
+    align-self: start;
+    min-height: 0;
+    height: 4.4rem;
+  }
+  .class-dais::before { left: 4%; right: 4%; bottom: 0.1rem; height: 0.85rem; }
+  .class-dais::after { left: 16%; right: 16%; bottom: 0.32rem; height: 0.42rem; }
+  .class-dais .class-sprite,
+  .class-dais .class-sprite svg { width: 60px; height: 60px; }
+  .class-dais .class-sprite { margin-bottom: 0.3rem; }
+  .class-kicker { grid-area: kicker; align-self: end; font-size: 1rem; }
+  /* "Show all" sits beside the description's last line rather than under it. */
+  .class-lore-wrap {
+    grid-area: lore;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: end;
+    column-gap: 0.6rem;
+  }
+  .class-lore {
+    display: -webkit-box;
+    -webkit-box-orient: vertical;
+    -webkit-line-clamp: 2;
+    overflow: hidden;
+    font-size: 1rem;
+  }
+  .class-lore-wrap.open .class-lore {
+    display: block;
+    -webkit-line-clamp: unset;
+    overflow: visible;
+  }
+  /* The facts as label and value rows. */
+  .class-exam {
+    grid-area: exam;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+    gap: 0.2rem 0.6rem;
+    margin: 0;
+    clip-path: none;
+  }
+  .class-exam > div { display: contents; }
+  .class-exam dt { font-size: 0.88rem; }
+  .class-exam-big { font-size: 1.15rem; }
+  .class-exam-note { font-size: 0.92rem; }
+  .class-req .skill-icon { font-size: 1rem; }
+  .class-req-rank { font-size: 1.05rem; }
+  .class-rail { display: none; }
+  .class-note { font-size: 0.9rem; }
+}
+/* The narrowest card: the facts take the full width under a smaller unit. */
+@container (max-width: 20rem) {
+  .class-hero-top {
+    grid-template-columns: 3.4rem minmax(0, 1fr);
+    grid-template-areas:
+      "dais kicker"
+      "exam exam"
+      "lore lore";
+  }
+  .class-dais { height: 3.4rem; }
+  .class-dais .class-sprite,
+  .class-dais .class-sprite svg { width: 48px; height: 48px; }
+  .class-dais .class-sprite { margin-bottom: 0.25rem; }
+  .class-kicker { align-self: center; }
+}
+
+/* Headings inside the card's sections: the section's own heading repeats the tab, so these carry the structure. */
+.class-subhead {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 1rem 0 0.45rem;
+  font: 600 1.1rem var(--display);
+  color: var(--ink);
+}
+.class-subhead:first-child { margin-top: 0.25rem; }
+.class-subhead::after {
+  content: "";
+  flex: 1 1 auto;
+  height: 1px;
+  background: linear-gradient(90deg, color-mix(in srgb, var(--tier-mid) 55%, var(--line)), transparent);
+}
+.class-subnote {
+  margin: -0.2rem 0 0.55rem;
+  font: italic 0.98rem var(--text);
+  color: var(--ink-soft);
+}
+.class-detail .who-filters + .class-subhead { margin-top: 0.6rem; }
+.class-detail .shared-skill-chips { margin: 0; }
+
+/* ---- Stats: one ledger ---- */
+.class-ledger-wrap { container-type: inline-size; }
+.class-ledger {
+  width: 100%;
+  border-collapse: collapse;
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.class-ledger th,
+.class-ledger td {
+  padding: 0.2rem 0.55rem;
+  border-bottom: 1px solid var(--line);
+  text-align: right;
+  white-space: nowrap;
+}
+.class-ledger thead th {
+  font: 600 0.92rem var(--display);
+  color: var(--ink-soft);
+  border-bottom: 1px solid color-mix(in srgb, var(--tier-mid) 50%, var(--line));
+}
+.class-ledger :is(tbody, tfoot) th {
+  width: 3.4rem;
+  font: 600 1.05rem var(--display);
+  text-align: left;
+}
+.class-ledger tbody tr:hover { background: var(--row-hover); }
+.class-detail .ledger-base {
+  width: 4.2rem;
+  font: 600 1.25rem var(--nums);
+}
+.class-detail .ledger-boost {
+  width: 5.2rem;
+  font: 1.12rem var(--nums);
+  color: var(--ink-soft);
+}
+.class-detail .ledger-boost.up { color: var(--ink); }
+.class-detail .ledger-boost.down { color: var(--red); }
+.class-ledger .ledger-growth {
+  padding-left: 1.2rem;
+  text-align: left;
+}
+.class-ledger thead .ledger-growth { text-align: center; }
+.class-detail .ledger-mount {
+  margin-left: 0.2rem;
+  font: 600 0.78rem/1 var(--nums);
+  color: var(--green);
+  vertical-align: super;
+}
+.class-detail .ledger-mount.neg { color: var(--red); }
+.class-ledger .ledger-mv :is(th, td) { border-top: 2px solid color-mix(in srgb, var(--tier-mid) 35%, var(--line)); }
+.class-ledger .ledger-aside {
+  font: italic 0.95rem var(--text);
+  color: var(--ink-soft);
+}
+.class-ledger .ledger-total :is(th, td) {
+  border-bottom: 0;
+  color: var(--ink-soft);
+}
+.class-ledger .ledger-total .ledger-growth { text-align: right; }
+
+/* A growth change from the middle line: gains to the right, losses to the left, all classes on one scale. */
+.class-detail .growth-bar {
+  display: grid;
+  grid-template-columns: minmax(5rem, 1fr) 3.6rem;
+  align-items: center;
+  gap: 0.6rem;
+}
+.class-detail .growth-track {
+  position: relative;
+  height: 0.55rem;
+  background: color-mix(in srgb, var(--ink) 7%, transparent);
+}
+.class-detail .growth-track::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -0.2rem;
+  bottom: -0.2rem;
+  width: 1px;
+  background: color-mix(in srgb, var(--ink-soft) 70%, transparent);
+}
+.class-detail .growth-fill {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+.class-detail .growth-bar.up .growth-fill { left: 50%; background: var(--green); }
+.class-detail .growth-bar.down .growth-fill { right: 50%; background: var(--red); }
+.class-detail .growth-value,
+.class-detail .growth-sum {
+  font: 1.12rem var(--nums);
+  text-align: right;
+  color: var(--ink-soft);
+}
+.class-detail .growth-bar.up .growth-value,
+.class-detail .growth-sum.up { color: var(--green); }
+.class-detail .growth-bar.down .growth-value,
+.class-detail .growth-sum.down { color: var(--red); }
+.class-detail .growth-sum { font-weight: 600; }
+/* Too narrow for the bars: just the figures. */
+@container (max-width: 24rem) {
+  .class-ledger th,
+  .class-ledger td { padding-inline: 0.3rem; }
+  .class-ledger .ledger-growth { padding-left: 0.3rem; text-align: right; }
+  .class-ledger thead .ledger-growth { text-align: right; }
+  .class-detail .growth-bar { grid-template-columns: auto; justify-content: end; }
+  .class-detail .growth-track { display: none; }
+  .class-ledger .ledger-aside { white-space: normal; text-align: right; }
+}
+
+/* ---- Abilities ---- */
+.class-perks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+}
+.class-perks li {
+  display: grid;
+  grid-template-columns: 2rem minmax(0, 1fr);
+  align-items: start;
+  gap: 0.65rem;
+  padding: 0.5rem 0.3rem;
+  border-bottom: 1px solid var(--line);
+}
+.class-perks li > .ref-icons {
+  margin: 0;
+  font-size: 1.55rem;
+  vertical-align: 0;
+}
+.class-perks b { font: 600 1.1rem var(--display); }
+.class-perk-desc {
+  display: block;
+  margin-top: 0.1rem;
+  font: 1rem/1.35 var(--text);
+  color: var(--ink-soft);
+  white-space: pre-line;
+}
+
+.class-mastery {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+  gap: 0.6rem;
+}
+.class-detail .mastery-tile {
+  display: grid;
+  align-content: start;
+  gap: 0.3rem;
+  padding: 0.65rem 0.8rem 0.75rem;
+  background: linear-gradient(180deg, color-mix(in srgb, var(--tier-mid) 16%, var(--row)), var(--row) 75%);
+  border: 1px solid color-mix(in srgb, var(--tier-mid) 45%, var(--row-border));
+  border-top: 3px solid var(--tier-mid);
+}
+.class-detail .mastery-kind {
+  font: 600 0.9rem var(--display);
+  color: var(--ink-soft);
+}
+.class-detail .mastery-tile b {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  font: 600 1.15rem var(--display);
+}
+.class-detail .mastery-tile p {
+  margin: 0;
+  font: 1rem/1.35 var(--text);
+  color: var(--ink-soft);
+  white-space: pre-line;
+}

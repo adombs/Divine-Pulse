@@ -13,6 +13,7 @@
 - Fit the updated views within the window with internal scrolling, including phone layouts, and prevent battle-header controls from overlapping.
 - Add battalion panels that display verified available data and identify fields not yet supported by imports or the game reader.
 - Restore the corrected Home chair image from Brand Pack v8 without changing code or layout.
+- Show each class's tier plate beside its name in the Archive's Classes list and tier filters, and redesign the class card: the class's unit on a dais in its tier's colour, its requirements, exam and movement at a glance, its place on the class-change ladder, a stats ledger with growth bars, and mastery rewards set apart.
 
 ## 1.2.9 (2026-11-01)
 
