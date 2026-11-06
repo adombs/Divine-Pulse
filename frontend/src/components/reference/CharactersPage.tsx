@@ -32,6 +32,7 @@ import { spellSummary } from "../../reference/gameData";
 import { AbilityIcon, ArtIcon, CrestMark, SpellIcon } from "../../reference/icons";
 import "./classes.css";
 import "./characters.css";
+import "../character/panels.css";
 import {
   FilterChip,
   FilterMenu,
@@ -283,22 +284,23 @@ function CharacterCard({
       />
 
       <Section title="Stats" icon={CONCEPT_ICON.growth}>
+        <div className="archive-stat-panel">
         <SkillChips character={c} />
         <div className="stats-split character-stats">
         <table className="ref-stats">
           <thead>
             <tr>
-              <th />
-              <th title="Stats when the character joins">Base</th>
-              <th title="Chance (%) to gain a point each level">Growth</th>
-              {withClass && <th title={`Growth as a ${withClass.name}`}>+{withClass.name.split(" ")[0]}</th>}
-              <th title="Highest the stat can go">Max</th>
+              <th scope="col" className="left">Stat</th>
+              <th scope="col" title="Stats when the character joins">Base</th>
+              <th scope="col" title="Chance (%) to gain a point each level">Growth</th>
+              {withClass && <th scope="col" title={`Growth as a ${withClass.name}`}>+{withClass.name.split(" ")[0]}</th>}
+              <th scope="col" title="Highest the stat can go">Max</th>
             </tr>
           </thead>
           <tbody>
             {STAT_KEYS.map((k) => (
               <tr key={k}>
-                <th>{STAT_LABEL[k]}</th>
+                <th scope="row">{STAT_LABEL[k]}</th>
                 <td>{c.bases[k]}</td>
                 <td>
                   <span className="growth">
@@ -313,7 +315,7 @@ function CharacterCard({
               </tr>
             ))}
             <tr className="total">
-              <th>Total</th>
+              <th scope="row">Total</th>
               <td>{STAT_KEYS.reduce((n, k) => n + c.bases[k], 0)}</td>
               <td>{STAT_KEYS.reduce((n, k) => n + c.growths[k], 0)}%</td>
               {withClass && <td>{STAT_KEYS.reduce((n, k) => n + c.growths[k] + withClass.growths[k], 0)}%</td>}
@@ -321,6 +323,7 @@ function CharacterCard({
             </tr>
           </tbody>
         </table>
+        </div>
         </div>
       </Section>
 

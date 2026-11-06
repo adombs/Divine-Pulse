@@ -1,0 +1,104 @@
+/* The seven character-panel interiors. Keep the shared hero, shell and page styles outside this scope. */
+.roster-stat-panel, .archive-stat-panel { container-type: inline-size; }
+.roster-stat-panel .roster-skills,
+.archive-stat-panel .shared-skill-chips {
+  display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.3rem;
+  margin: 0 0 0.9rem; max-width: none;
+}
+.roster-stat-panel .skill-chip,
+.archive-stat-panel .skill-chip {
+  display: flex; align-items: center; justify-content: flex-start; flex-wrap: nowrap;
+  gap: 0.3rem; padding: 0.25rem 0.3rem; white-space: nowrap;
+}
+.roster-stat-panel .skill-chip { background: var(--row); border: 1px solid var(--row-border); border-bottom-width: 2px; font: 600 0.9rem var(--display); }
+.roster-stat-panel .skill-chip.strong { border-bottom-color: var(--green); }
+.roster-stat-panel .skill-chip.weak { border-bottom-color: var(--red); }
+.roster-stat-panel :is(.skill-chip.budding, .skill-chip.weak_budding) { border-bottom-color: var(--accent); }
+.roster-stat-panel .skill-icon { width: 1.2rem; height: 1.2rem; }
+.roster-stat-panel .vitals { gap: 0.7rem; margin-bottom: 0.8rem; }
+.roster-stat-panel .stat-row { grid-template-columns: 3.4rem minmax(1rem, 1fr) auto; gap: 0.5rem; padding-block: 0.45rem; }
+.roster-stat-panel .vital .stat-row { grid-template-columns: 3.4rem minmax(0, 1fr); min-height: 2.7rem; box-sizing: border-box; }
+.roster-stat-panel .stat-value { padding-right: 0; min-width: 2ch; }
+.roster-stat-panel .stat-value:has(.mark) { padding-right: 1.3rem; }
+.roster-stat-panel .stat-grid { gap: 0 1.25rem; }
+.roster-stat-panel .stat-bar { height: 0.35rem; border-radius: 2px; overflow: hidden; }
+.roster-stat-panel .ebst-setup { gap: 0.35rem; margin: 0 0 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); }
+.roster-stat-panel .type-buttons { display: grid; grid-template-columns: 4.4rem minmax(0, 1fr); gap: 0.5rem; }
+.roster-stat-panel .type-label { min-width: 0; font: 600 0.8rem var(--ui); }
+.roster-stat-panel .segmented { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-width: 0; }
+.roster-stat-panel .segmented button { padding: 0.35rem 0.15rem; min-width: 0; font-size: 0.85rem; }
+.roster-stat-panel .stat-row.excluded :is(.stat-label, .stat-value) { opacity: 0.75; }
+.roster-stat-panel .stat-row.excluded .stat-bar { opacity: 0.45; }
+.roster-stat-panel button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* A quiet ledger, matching More Stats: aligned figures with one shared rule, rather than separate boxes. */
+.panel-ledger {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(5.5rem, 1fr)); gap: 0.6rem 1rem;
+  margin: 0 0 0.9rem; padding: 0.65rem 0; border: 0; border-bottom: 1px solid var(--line);
+  font-variant-numeric: tabular-nums lining-nums;
+}
+.panel-ledger > div { display: grid; align-content: start; gap: 0.25rem; min-width: 0; padding: 0; border: 0; border-radius: 0; background: none; }
+.panel-ledger dt { font: 600 0.72rem/1.3 var(--ui); letter-spacing: 0.025em; text-transform: uppercase; color: var(--ink-soft); white-space: normal; overflow: visible; }
+.panel-ledger dd { margin: 0; font: 1.6rem/1.1 var(--nums); color: var(--ink); }
+.battle-growth-panel .panel-ledger { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.battle-growth-panel .chip-list { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.battle-growth-panel .gain-chip { padding: 0.25rem 0.5rem; font-variant-numeric: tabular-nums; }
+.growth-events { list-style: none; margin: 1rem 0 0; padding: 0; }
+.growth-events li { padding: 0.65rem 0; border-top: 1px solid var(--line); line-height: 1.5; }
+
+.fights-panel .combat-totals { margin-top: 0; }
+.fights-panel .card-subtitle { margin: 1rem 0 0.5rem; font: 600 0.85rem var(--ui); }
+.panel-table-scroll { overflow-x: auto; scrollbar-width: thin; scrollbar-color: var(--row-border) transparent; }
+.panel-table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.fights-panel .opponents-table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
+.fights-panel .opponents-table th { font: 600 0.7rem var(--ui); color: var(--ink-soft); }
+.fights-panel .opponents-table :is(th, td) { padding: 0.5rem 0.45rem; }
+.fights-panel .opponents-table :is(th, td):first-child { padding-left: 0; }
+.fights-panel .opponents-table :is(th, td):last-child { padding-right: 0; }
+.fights-panel .opponents-table td:not(.left) { text-align: right; }
+.fights-panel .opponents-table th:not(.left) { text-align: right; }
+.fights-panel .opponents-table .outcome { white-space: nowrap; }
+:is(.battle-page, .character-popup.battle) .fights-panel .recent-actions-list { max-height: 15rem; padding-right: 0.35rem; }
+.character-popup .fights-panel { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: 0 1.25rem; }
+.character-popup .fights-panel .panel-ledger { grid-column: 1 / -1; }
+.character-popup .fights-panel :is(.fights-opponents, .fights-actions) { min-width: 0; }
+.character-popup .fights-panel .card-subtitle { margin-top: 0.25rem; }
+.character-popup .fights-panel .opponents-table :is(th, td) { padding: 0.4rem 0.3rem; }
+.character-popup .fights-panel .opponents-table { table-layout: fixed; }
+.character-popup .fights-panel .opponents-table thead th { white-space: nowrap; }
+.character-popup .fights-panel .opponents-table th:first-child { width: 35%; }
+.character-popup .fights-panel .opponents-table th:not(:first-child):not(:last-child) { width: 13%; }
+.character-popup .fights-panel .opponents-table th:last-child { width: 26%; }
+.character-popup .fights-panel .opponents-table .who-link { white-space: normal; }
+.character-popup .card-pane:has(> .fights-panel) { display: flex; flex-direction: column; overflow: hidden; }
+.character-popup .fights-panel { flex: 1 1 auto; min-height: 0; grid-template-rows: auto minmax(0, 1fr); }
+.character-popup .fights-panel :is(.fights-opponents, .fights-actions) { display: flex; flex-direction: column; min-height: 0; }
+.character-popup .fights-panel :is(.panel-table-scroll, .recent-actions-list) { min-height: 0; overflow-y: auto; overscroll-behavior: contain; }
+
+/* Position alone owns this sizing; the Overview map is unchanged. */
+.position-panel { display: grid; gap: 0.6rem; }
+.position-panel .position-map { grid-template-columns: 2.6rem minmax(0, 1fr); gap: 0.7rem; }
+.position-panel .map-frame { display: grid; place-items: center; padding: 0.5rem; background: var(--row); }
+.position-panel .minimap.compact { width: 100%; max-height: 23rem; }
+.character-popup .position-panel .minimap.compact { max-height: 14rem; }
+.position-panel .position-map-zoom { padding-block: 0.4rem; }
+.position-panel .position-map-zoom input { min-height: 7rem; }
+.position-zoom-value { font: 0.72rem/1.25 var(--ui); text-align: center; overflow-wrap: normal; }
+.position-panel .map-caption { margin: 0; padding: 0.5rem 0; border-top: 1px solid var(--line); color: var(--ink); font: 0.88rem/1.45 var(--ui); }
+
+.archive-stat-panel .stats-split { display: block; overflow-x: auto; }
+.archive-stat-panel .ref-stats { width: 100%; }
+.archive-stat-panel .ref-stats :is(th, td) { padding: 0.45rem 0.65rem; }
+.archive-stat-panel .ref-stats :is(th, td):first-child { padding-left: 0; }
+.archive-stat-panel .ref-stats :is(th, td):last-child { padding-right: 0; }
+.archive-stat-panel .ref-stats thead th { font: 600 0.72rem var(--ui); text-transform: uppercase; letter-spacing: 0.025em; }
+.archive-stat-panel .ref-stats thead th:first-child { text-align: left; }
+.archive-stat-panel .ref-stats .growth { display: grid; grid-template-columns: minmax(2rem, 5rem) 3.3rem; justify-content: end; gap: 0.7rem; align-items: center; }
+.archive-stat-panel .growth .stat-bar { width: auto; height: 0.35rem; border-radius: 2px; overflow: hidden; }
+.archive-stat-panel .ref-stats tr.total :is(th, td) { padding-top: 0.65rem; border-top: 2px solid var(--line); }
+@container (max-width: 19rem) {
+  .roster-stat-panel .roster-skills, .archive-stat-panel .shared-skill-chips { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .roster-stat-panel .type-buttons { grid-template-columns: minmax(0, 1fr); gap: 0.25rem; }
+  .roster-stat-panel .stat-grid { gap: 0 0.7rem; }
+  .roster-stat-panel .stat-row { gap: 0.35rem; grid-template-columns: 3rem minmax(0.5rem, 1fr) auto; }
+}

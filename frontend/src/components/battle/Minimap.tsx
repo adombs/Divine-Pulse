@@ -15,6 +15,7 @@
  * tile cursor where it is in the game.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
+import "../character/panels.css";
 import { MapImage, useGameImageUrl } from "../GameImage";
 import { loadGameJson, onGameAssetsChange } from "../../gameAssets";
 import { flushSync } from "react-dom";
@@ -792,6 +793,7 @@ export function MapSection({ battle, id }: { battle: Battle; id: string }) {
       title="Position"
       summary={piece.down ? `${piece.army ? "Fell" : "Killed"} on ${piece.x}, ${piece.y}` : `Tile ${piece.x}, ${piece.y}`}
     >
+      <div className="position-panel">
       <div className="position-map">
       <label className="position-map-zoom">
         <Icon name={CONCEPT_ICON.zoomIn} />
@@ -799,6 +801,7 @@ export function MapSection({ battle, id }: { battle: Battle; id: string }) {
           onChange={(e) => setLevel(Number(e.target.value))}
           aria-label="Position map zoom" aria-orientation="vertical" aria-valuetext={zoomText(level)} />
         <Icon name={CONCEPT_ICON.zoomOut} />
+        <output className="position-zoom-value">{zoomText(level)}</output>
       </label>
       <div className="map-frame compact">
         <Minimap
@@ -819,6 +822,7 @@ export function MapSection({ battle, id }: { battle: Battle; id: string }) {
           return t ? `: ${describeTile(t)}.` : ".";
         })()}
       </p>
+      </div>
     </Section>
   );
 }
