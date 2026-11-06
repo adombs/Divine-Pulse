@@ -533,19 +533,24 @@ function ClassHero({
 
       {(weakTo.length > 0 || c.gender || c.restriction) && (
         <div className="class-notes">
-          {weakTo.map((w) => (
-            <span key={w} className="class-note warn">
-              <Icon name={CONCEPT_ICON.warning} />
-              Weak to {w}
-            </span>
-          ))}
-          {c.gender && (
-            <span className="class-note">
-              <Icon name={c.gender === "Male" ? CONCEPT_ICON.male : CONCEPT_ICON.female} />
-              {c.gender === "Male" ? "Men" : "Women"} only
-            </span>
+          {/* Centred on the card under the ladder; the wiki link takes its own line at the right. */}
+          {(weakTo.length > 0 || c.gender || (c.requirements.length > 0 && c.restriction)) && (
+            <div className="class-note-group">
+              {weakTo.map((w) => (
+                <span key={w} className="class-note warn">
+                  <Icon name={CONCEPT_ICON.warning} />
+                  Weak to {w}
+                </span>
+              ))}
+              {c.gender && (
+                <span className="class-note">
+                  <Icon name={c.gender === "Male" ? CONCEPT_ICON.male : CONCEPT_ICON.female} />
+                  {c.gender === "Male" ? "Men" : "Women"} only
+                </span>
+              )}
+              {c.requirements.length > 0 && c.restriction && <span className="class-note plain">{restriction}</span>}
+            </div>
           )}
-          {c.requirements.length > 0 && c.restriction && <span className="class-note plain">{restriction}</span>}
           {c.restriction && (
             <a className="class-wiki" href="https://fireemblemwiki.org/wiki/Class_change" target="_blank" rel="noreferrer">
               Class change on Fire Emblem Wiki

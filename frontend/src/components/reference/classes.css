@@ -472,9 +472,17 @@
   color: var(--ink-soft);
 }
 
+/* The notes sit centred on the card, under the ladder; the wiki link gets its own line at the right, so it never
+   pushes them off centre or squeezes itself onto two lines beside a long restriction. */
 .class-notes {
+  display: grid;
+  gap: 0.35rem;
+}
+.class-note-group {
+  justify-self: center;
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   align-items: center;
   gap: 0.35rem 0.5rem;
 }
@@ -500,7 +508,7 @@
   border: 0;
 }
 .class-wiki {
-  margin-left: auto;
+  justify-self: end;
   font: 500 0.95rem var(--display);
 }
 
@@ -602,7 +610,6 @@
   .class-dais .class-sprite svg { width: 48px; height: 48px; }
   .class-dais .class-sprite { margin-bottom: 0.25rem; }
   .class-kicker { align-self: center; }
-  .class-wiki { margin-left: 0; }
 }
 
 /* Headings inside the card's sections: the section's own heading repeats the tab, so these carry the structure. */
