@@ -15,7 +15,7 @@ import {
   pairRoutes,
 } from "../../../reference/supports";
 import { Switch } from "../../ui";
-import { FilterChip, FilterMenu, Segmented, Spoiler } from "../../common";
+import { FilterChip, FilterMenu, Segmented, Spoiler, SpoilerButton } from "../../common";
 import { useSpoiler, spoilerShown } from "../../../spoilers";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../../PeopleFilters";
 import { Icon } from "../../Icon";
@@ -170,7 +170,7 @@ export function Legend({ ranks }: { ranks?: boolean }) {
       )}
       {shown ? (
         <span className="sup-key"><span className="ending"><Icon name={CONCEPT_ICON.ending} weight="fill" /></span> paired ending</span>
-      ) : <button type="button" className="spoiler-btn" onClick={() => setShown(true)}>Show support spoilers</button>}
+      ) : <SpoilerButton onClick={() => setShown(true)} label="Show support spoilers" />}
       <span className="sup-key">
         <span className="atk">
           <Icon name={CONCEPT_ICON.linked} />

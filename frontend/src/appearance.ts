@@ -46,12 +46,12 @@ export const FONTS: FontOption[] = [
   {
     id: "cinzel",
     label: "Cinzel",
-    description: "Carved Roman capitals for titles and names, with Crimson Pro for text and numbers.",
+    description: "Carved Roman letterforms throughout the app, including text and numbers.",
     heading: `'Cinzel', ${SERIF_FALLBACK}`,
-    text: `'Crimson Pro', ${SERIF_FALLBACK}`,
-    nums: `'Crimson Pro', ${SERIF_FALLBACK}`,
+    text: `'Cinzel', ${SERIF_FALLBACK}`,
+    nums: `'Cinzel', ${SERIF_FALLBACK}`,
     scale: 0.94,
-    load: () => Promise.all([import("@fontsource/cinzel/latin-500.css"), import("@fontsource/cinzel/latin-600.css"), import("@fontsource/cinzel/latin-700.css"), import("@fontsource/crimson-pro/latin-400.css"), import("@fontsource/crimson-pro/latin-500.css"), import("@fontsource/crimson-pro/latin-600.css"), import("@fontsource/crimson-pro/latin-700.css")]),
+    load: () => Promise.all([import("@fontsource/cinzel/latin-400.css"), import("@fontsource/cinzel/latin-500.css"), import("@fontsource/cinzel/latin-600.css"), import("@fontsource/cinzel/latin-700.css")]),
   },
   {
     id: "alegreya",

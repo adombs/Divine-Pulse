@@ -1,6 +1,6 @@
 import { CONCEPT_ICON } from "../icons/concepts";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { Icon, IconButton } from "./Icon";
+import { IconButton } from "./Icon";
 import { api, LABELS, PortraitGender, RunSummary, STAT_KEYS, StatKey, Unit, VALUE_KEYS, ValueKey } from "../api";
 import { characterKeyOfUnit, isByleth } from "../portraits";
 import { useNav } from "../nav";
@@ -11,7 +11,7 @@ import { crestLabel } from "../reference/crests";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "./PeopleFilters";
 import { FilterMenu, NoMatches, SearchBox, Segmented, compareValues, useSort } from "./common";
 import { AbilityLink, ArtLink, CharLink, ClassLink, CrestLink, ItemLink, SpellLink } from "./Links";
-import { AbilityIcon, ArtIcon, CrestIcon, ItemIcon } from "../reference/icons";
+import { AbilityIcon, ArtIcon, ItemIcon } from "../reference/icons";
 import { SkillIcon } from "./SkillIcon";
 import { SKILL_LABEL, type SkillKey } from "../reference/types";
 import { GearIcon } from "./battle/gameIcons";
@@ -31,9 +31,7 @@ import { Portrait, StatTip, Switch, TypeButtons } from "./ui";
 import { useAffiliationIcon } from "./AffiliationIcon";
 import { DetailCard, EmptyState, MasterDetail, PageHeader, Section, StatusChip } from "./layout";
 import { CharacterHero } from "./character/CharacterHero";
-import type { Fact } from "./character/CharacterHero";
-import { PortraitFlip, unitSprite } from "./character/CharacterFace";
-import { BattalionBadge, BattalionPanel } from "./character/Battalion";
+import { BattalionPanel } from "./character/Battalion";
 import { tidyAbility } from "../appearance";
 import { plural } from "../format";
 
@@ -527,6 +525,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
   return (
     <DetailCard
       title={unit.name}
+      scope="run"
       icon={icon}
       label={`${unit.name} details`}
       actions={
@@ -537,14 +536,18 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
       }
     >
       <CharacterHero
+        key={unit.key}
+        name={unit.name}
         layout="flip"
         scope="run"
-        face={<PortraitFlip portrait={<Portrait unit={unit} part2={part2} size={104} />} sprite={unitSprite(unit)} name={unit.name} className={unit.class_name} size={104} />}
+        face={<span className="cv-face"><Portrait unit={unit} part2={part2} size={104} /></span>}
         facts={[
           ["Name", <CharLink key="name" charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills in the Archive">{unit.full_name || unit.name}</CharLink>],
           ["Class", unit.class_name ? <ClassLink key="class" name={unit.class_name} /> : "—"],
-          ...(unit.gender ? [["Gender", <span key="gender" title={unit.gender}><Icon name={unit.gender.toLowerCase().startsWith("f") ? CONCEPT_ICON.female : CONCEPT_ICON.male} /></span>] as Fact] : []),
-          ...(isByleth(unit) ? [["Portrait", (
+          ["Crest", crests.length ? <span className="crest-marks">{crests.map((c) => <span key={`${c.name}-${c.major}`}><CrestLink name={c.name}>{crestLabel(c.name, c.major)}</CrestLink></span>)}</span> : "None"],
+        ]}
+        backFacts={[
+          ["Gender", isByleth(unit) ? (
                 <Segmented
                   key="portrait"
                   size="mini"
@@ -557,9 +560,11 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
                     ["female", "Female", "Always the female portrait"],
                   ]}
                 />
-          )] as Fact] : []),
+          ) : unit.gender || character?.gender || "—"],
+          ["Affiliation", character?.house || "—"],
+          ["Birthday", character?.birthday || "—"],
+          ["Height", character?.height || "—"],
         ]}
-        meta={<BattalionBadge unit={unit} />}
       />
 
       <Section
@@ -711,22 +716,6 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
 
       <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={unit.battalion || (unit.battalion === "" ? "No battalion" : "Not read yet")}>
         <BattalionPanel unit={unit} scope="run" />
-      </Section>
-
-      <Section title="Crest" icon={CONCEPT_ICON.crest}>
-        {crests.length > 0 ? (
-          <ul className="item-list">
-            {crests.map((c) => (
-              <li key={`${c.name}-${c.major}`}>
-                <span>
-                  <CrestIcon name={c.name} major={c.major} /> <CrestLink name={c.name}>{crestLabel(c.name, c.major)}</CrestLink>
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">No crest</p>
-        )}
       </Section>
 
       {unit.boosted_unexplained.length > 0 && (

@@ -46,6 +46,12 @@ export function useHasSprite(sprite: Sprite | null): boolean {
   return !!(sprites && sprite && (spriteLayers(sprites, sprite, true) ?? spriteLayers(sprites, sprite, false)));
 }
 
+/** Use the portrait when the player's import cannot draw this sprite. */
+export function SpriteFace({ sprite, portrait, name }: { sprite: Sprite | null; portrait: ReactNode; name: string }) {
+  const has = useHasSprite(sprite);
+  return <span className="cv-face">{has ? <SpriteFigure sprite={sprite} label={`${name}'s map sprite`} /> : portrait}</span>;
+}
+
 /**
  * The portrait, turning over to the map sprite on hover, and on click / tap / Enter / Space (which keeps it turned).
  * Without a sprite it's just the portrait. `className` is the class the sprite shows, for the label.

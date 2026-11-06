@@ -22,6 +22,7 @@ export function Modal({
   children,
   wide,
   className,
+  ariaLabel,
 }: {
   open: boolean;
   onClose: () => void;
@@ -32,6 +33,7 @@ export function Modal({
   children: ReactNode;
   wide?: boolean;
   className?: string;
+  ariaLabel?: string;
 }) {
   // Kept on screen a moment after closing, for the way out.
   const [shown, setShown] = useState(open);
@@ -89,7 +91,7 @@ export function Modal({
   if (!shown) return null;
   return createPortal(
     <div className={`modal-backdrop${closing ? " closing" : ""}`} onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div className={`modal${wide ? " wide" : ""}${className ? ` ${className}` : ""}`} role="dialog" aria-modal="true" aria-label={typeof title === "string" ? title : undefined} tabIndex={-1} ref={panel}>
+      <div className={`modal${wide ? " wide" : ""}${className ? ` ${className}` : ""}`} role="dialog" aria-modal="true" aria-label={ariaLabel ?? (typeof title === "string" ? title : undefined)} tabIndex={-1} ref={panel}>
         <header className="modal-head">
           <CardBanner title={title} icon={icon} />
           <span className="modal-actions">
