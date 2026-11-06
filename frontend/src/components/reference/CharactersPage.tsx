@@ -3,6 +3,7 @@ import { gameLanguageLocale } from "../../gameLanguage";
 import { Fragment, useMemo, useState } from "react";
 import { Icon, IconButton } from "../Icon";
 import { useSpoiler } from "../../spoilers";
+import { isStoryClass } from "../../reference/links";
 import type { Unit } from "../../api";
 import { characterPortraitKey, runCharacterKeys, unitForCharacter } from "../../portraits";
 import { crestLabel, crestName } from "../../reference/crests";
@@ -16,12 +17,13 @@ import {
   STAT_KEYS,
   STAT_LABEL,
   StatKey,
-  TIERS,
 } from "../../reference/types";
 import { KeyPortrait } from "../ui";
 import { AffiliationIcon } from "../AffiliationIcon";
 import { SkillIcon } from "../SkillIcon";
 import { SkillChips } from "./SkillChips";
+import { ClassGrowthFilter } from "./ClassGrowthFilter";
+import { TierIcon } from "./TierIcon";
 import { DetailCard, MasterDetail, Section } from "../layout";
 import { CharacterHero } from "../character/CharacterHero";
 import { useNav } from "../../nav";
@@ -32,6 +34,7 @@ import { spellSummary } from "../../reference/gameData";
 import { AbilityIcon, ArtIcon, CrestMark, SpellIcon } from "../../reference/icons";
 import "./classes.css";
 import "./characters.css";
+import "../character/panels.css";
 import {
   FilterChip,
   FilterMenu,
@@ -59,6 +62,7 @@ export function CharacterTable({ data, units, part2 }: { data: ReferenceData } &
   const nav = useNav();
   const [people] = usePeopleFilters();
   const [showIdentities] = useSpoiler("identities");
+  const [showStoryClasses] = useSpoiler("storyClasses");
   const [peopleCount, clearPeople] = usePeopleFilterCount(["affiliation", "run"]);
   const [view, setView] = useState<View>("growths");
   const [filter, setFilter] = useState("");
@@ -67,7 +71,8 @@ export function CharacterTable({ data, units, part2 }: { data: ReferenceData } &
   const select = (key: string) => nav.go({ page: "archive", tab: "characters", id: key });
   const { sort, header } = useSort<SortKey>({ key: "house", dir: 1 }, ["name", "house"]);
 
-  const cls = view === "growths" ? data.classes.find((c) => c.name === withClass) : undefined;
+  const availableClasses = data.classes.filter((c) => showStoryClasses || !isStoryClass(c.name));
+  const cls = view === "growths" ? availableClasses.find((c) => c.name === withClass) : undefined;
   const inRun = useMemo(() => runCharacterKeys(units), [units]);
   const value = (c: Character, k: StatKey) => c[view][k] + (cls ? cls.growths[k] : 0);
   const total = (c: Character) => STAT_KEYS.reduce((n, k) => n + value(c, k), 0);
@@ -110,29 +115,13 @@ export function CharacterTable({ data, units, part2 }: { data: ReferenceData } &
           }}
           chips={
             <>
-              {cls && <FilterChip onClear={() => setWithClass("")}>Growths as a {cls.name}</FilterChip>}
+              {cls && <FilterChip onClear={() => setWithClass("")}><span className="filter-label"><TierIcon tier={cls.tier} size={18} decorative />Growths as a {cls.name}</span></FilterChip>}
               <PeopleFilterChips fields={["affiliation", "run"]} />
             </>
           }
         >
           <PeopleFilterFields fields={["affiliation", "run"]} />
-          <label className="field" title="Growth rates in a class are the character's own plus the class's">
-            <span>Growths in a class</span>
-            <select value={withClass} onChange={(e) => setWithClass(e.target.value)}>
-              <option value="">Own growths only</option>
-              {TIERS.map((t) => (
-                <optgroup key={t} label={t}>
-                  {data.classes
-                    .filter((c) => c.tier === t)
-                    .map((c) => (
-                      <option key={c.name} value={c.name}>
-                        + {c.name}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
+          <ClassGrowthFilter classes={availableClasses} value={availableClasses.some((c) => c.name === withClass) ? withClass : ""} onChange={setWithClass} />
         </FilterMenu>
         <span className="toolbar-end">
           <Segmented label="Values" value={view} onChange={setView} options={(Object.keys(VIEW_LABEL) as View[]).map((v) => [v, VIEW_LABEL[v]] as const)} />
@@ -283,22 +272,23 @@ function CharacterCard({
       />
 
       <Section title="Stats" icon={CONCEPT_ICON.growth}>
+        <div className="archive-stat-panel">
         <SkillChips character={c} />
         <div className="stats-split character-stats">
         <table className="ref-stats">
           <thead>
             <tr>
-              <th />
-              <th title="Stats when the character joins">Base</th>
-              <th title="Chance (%) to gain a point each level">Growth</th>
-              {withClass && <th title={`Growth as a ${withClass.name}`}>+{withClass.name.split(" ")[0]}</th>}
-              <th title="Highest the stat can go">Max</th>
+              <th scope="col" className="left">Stat</th>
+              <th scope="col" title="Stats when the character joins">Base</th>
+              <th scope="col" title="Chance (%) to gain a point each level">Growth</th>
+              {withClass && <th scope="col" title={`Growth as a ${withClass.name}`}>+{withClass.name.split(" ")[0]}</th>}
+              <th scope="col" title="Highest the stat can go">Max</th>
             </tr>
           </thead>
           <tbody>
             {STAT_KEYS.map((k) => (
               <tr key={k}>
-                <th>{STAT_LABEL[k]}</th>
+                <th scope="row">{STAT_LABEL[k]}</th>
                 <td>{c.bases[k]}</td>
                 <td>
                   <span className="growth">
@@ -313,7 +303,7 @@ function CharacterCard({
               </tr>
             ))}
             <tr className="total">
-              <th>Total</th>
+              <th scope="row">Total</th>
               <td>{STAT_KEYS.reduce((n, k) => n + c.bases[k], 0)}</td>
               <td>{STAT_KEYS.reduce((n, k) => n + c.growths[k], 0)}%</td>
               {withClass && <td>{STAT_KEYS.reduce((n, k) => n + c.growths[k] + withClass.growths[k], 0)}%</td>}
@@ -321,6 +311,7 @@ function CharacterCard({
             </tr>
           </tbody>
         </table>
+        </div>
         </div>
       </Section>
 

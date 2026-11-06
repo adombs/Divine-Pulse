@@ -7,6 +7,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import type { Battle, Unit } from "../../api";
 import { EmptyState, Section } from "../layout";
 import { Icon } from "../Icon";
+import { FilterLabel } from "../FilterLabel";
 import { Modal } from "../Modal";
 import { Portrait } from "../ui";
 import { CheckChips, CheckList, FilterChip, FilterMenu, NoMatches, SearchBox, Segmented } from "../common";
@@ -35,8 +36,8 @@ const KIND_OPTIONS = (Object.keys(KIND_LABEL) as Kind[]).map((k) => [k, KIND_LAB
 const SORTS = [
   ["newest", "Newest"],
   ["oldest", "Oldest"],
-  ["longest", "Longest"],
-  ["turns", "Most turns"],
+  ["longest", <FilterLabel key="longest" icon={CONCEPT_ICON.speed}>Longest</FilterLabel>],
+  ["turns", <FilterLabel key="turns" icon={CONCEPT_ICON.turn}>Most turns</FilterLabel>],
 ] as const;
 
 const lost = (b: Battle) => b.units.filter((u) => !u.on_map && !u.adjutant_of).length;
@@ -133,7 +134,7 @@ export function BattleCards({ history, live, roster, part2, onOpenRecording, onS
                 <CheckChips options={KIND_OPTIONS} value={filters.kinds} onChange={(kinds) => set({ kinds })} />
                 {filters.flawless && <FilterChip onClear={() => set({ flawless: false })}>Flawless</FilterChip>}
                 {filters.pulse !== "any" && (
-                  <FilterChip onClear={() => set({ pulse: "any" })}>{filters.pulse === "yes" ? "Divine Pulse used" : "No Divine Pulse"}</FilterChip>
+                  <FilterChip onClear={() => set({ pulse: "any" })}><FilterLabel icon={CONCEPT_ICON.pulse}>{filters.pulse === "yes" ? "Divine Pulse used" : "No Divine Pulse"}</FilterLabel></FilterChip>
                 )}
                 {filters.part !== "any" && <FilterChip onClear={() => set({ part: "any" })}>Part {filters.part === "1" ? "I" : "II"}</FilterChip>}
               </>
@@ -155,7 +156,7 @@ export function BattleCards({ history, live, roster, part2, onOpenRecording, onS
                   label="Divine Pulse"
                   size="mini"
                   value={filters.pulse}
-                  options={[["any", "Any"], ["yes", "Used"], ["no", "Not used"]] as const}
+                  options={[["any", "Any"], ["yes", <FilterLabel key="used" icon={CONCEPT_ICON.pulse}>Used</FilterLabel>], ["no", <FilterLabel key="unused" icon={CONCEPT_ICON.pulse}>Not used</FilterLabel>]] as const}
                   onChange={(pulse) => set({ pulse })}
                 />
               </Field>

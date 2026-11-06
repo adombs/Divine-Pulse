@@ -3,6 +3,7 @@
  * log): its class, level and HP, its fights, growth, inventory, where it went on the map, who it fought and what it did.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
+import "../character/panels.css";
 import type { Battle, BattleUnit, EnemyStats, InventoryItem, Unit, Usage } from "../../api";
 import { plural } from "../../format";
 import { useNav } from "../../nav";
@@ -158,15 +159,20 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
         <BattalionPanel unit={roster} scope="battle" />
       </Section>
       <Section title="Growth" icon={CONCEPT_ICON.growth} summary={growthSummary(u.level_ups, gained)}>
-        <Gains gains={u.gains} />
-        {growth.length > 0 && (
-          <ul className="plain-list">
-            {growth.map((e, i) => (
-              <li key={i}>{e.text}</li>
-            ))}
-          </ul>
-        )}
-        {gained > 0 && <p className="muted small">{plural(gained, "stat point")} gained this battle.</p>}
+        <div className="battle-growth-panel">
+          <dl className="panel-ledger">
+            <div><dt>Level-ups</dt><dd>{u.level_ups}</dd></div>
+            <div><dt>Stat points gained</dt><dd>{gained}</dd></div>
+          </dl>
+          <Gains gains={u.gains} />
+          {growth.length > 0 && (
+            <ul className="growth-events" aria-label="Growth events in this battle">
+              {growth.map((e, i) => (
+                <li key={i}>{e.text}</li>
+              ))}
+            </ul>
+          )}
+        </div>
       </Section>
       <MapSection battle={battle} id={id} />
       <FightsAndActions items={items} id={id} totals={<CombatTiles
@@ -294,8 +300,8 @@ function CrestFact({ character, fallback }: { character?: number | null; fallbac
     <span className="cv-crest-fact">
       {none ? "None" : shown && crests?.length ? <>
         <Crests crests={crests} />
-        <button type="button" className="link-btn" onClick={() => setShown(false)}>Hide crest spoilers</button>
-      </> : <span className="muted">Unknown. {crests?.length ? <SpoilerButton onClick={() => setShown(true)} label="Show crest spoilers" /> : null}</span>}
+        <SpoilerButton conceal onClick={() => setShown(false)} label="Hide crest spoilers" />
+      </> : <span className="muted">Unknown {crests?.length ? <SpoilerButton onClick={() => setShown(true)} label="Show crest spoilers" /> : null}</span>}
     </span>
   );
 }

@@ -4,24 +4,27 @@
  */
 import { AFFILIATIONS, NO_FILTERS, PeopleFilters, usePeopleFilters } from "../filters";
 import { ROUTES, type RouteId } from "../reference/supports";
-import { Switch } from "./ui";
+import { RunIcon, Switch } from "./ui";
+import { Icon } from "./Icon";
 import { AffiliationIcon } from "./AffiliationIcon";
 import { CheckChips, CheckList, FilterChip, SpoilerButton } from "./common";
 import { useSpoiler } from "../spoilers";
+import { CONCEPT_ICON } from "../icons/concepts";
+import { FilterLabel } from "./FilterLabel";
 
 const AFFILIATION_OPTIONS = AFFILIATIONS.map(
   (a) =>
     [
       a,
       <span key={a} className="with-crest">
-        <span className="crest-sm">
+        <span className="crest-sm" aria-hidden="true">
           <AffiliationIcon house={a} />
         </span>
         {a}
       </span>,
     ] as const,
 );
-const ROUTE_OPTIONS = ROUTES.map((r) => [r.id, r.name] as const);
+const ROUTE_OPTIONS = ROUTES.map((r) => [r.id, <span key={r.id} className="with-crest"><span className="crest-sm" aria-hidden="true"><RunIcon route={r.id} /></span>{r.name}</span>] as const);
 
 type Field = "affiliation" | "run" | "route";
 
@@ -31,7 +34,7 @@ export function PeopleFilterFields({ fields = ["affiliation", "run", "route"] }:
   const set = (patch: Partial<PeopleFilters>) => setF({ ...f, ...patch });
   return (
     <div className="people-filter-fields">
-      {fields.includes("run") && <Switch checked={f.runOnly} onChange={(runOnly) => set({ runOnly })} label="Current run only" />}
+      {fields.includes("run") && <span className="filter-label"><Icon name={CONCEPT_ICON.inRun} /><Switch checked={f.runOnly} onChange={(runOnly) => set({ runOnly })} label="Current run only" /></span>}
       {fields.includes("affiliation") && (
         <CheckList
           label="Affiliation"
@@ -42,13 +45,13 @@ export function PeopleFilterFields({ fields = ["affiliation", "run", "route"] }:
         />
       )}
       {fields.includes("route") && (showRoutes ? (
-        <CheckList<RouteId>
+        <><SpoilerButton conceal onClick={() => setShowRoutes(false)} label="Hide route spoilers" /><CheckList<RouteId>
           label="Route"
           columns={2}
           options={ROUTE_OPTIONS}
           value={f.routes}
           onChange={(routes) => set({ routes })}
-        />
+        /></>
       ) : <SpoilerButton onClick={() => setShowRoutes(true)} label="Show route spoilers" />)}
     </div>
   );
@@ -58,7 +61,7 @@ export function PeopleFilterChips({ fields = ["affiliation", "run", "route"] }: 
   const [f, setF] = usePeopleFilters();
   return (
     <>
-      {fields.includes("run") && f.runOnly && <FilterChip onClear={() => setF({ ...f, runOnly: false })}>Current run</FilterChip>}
+      {fields.includes("run") && f.runOnly && <FilterChip onClear={() => setF({ ...f, runOnly: false })}><FilterLabel icon={CONCEPT_ICON.inRun}>Current run</FilterLabel></FilterChip>}
       {fields.includes("affiliation") && (
         <CheckChips options={AFFILIATION_OPTIONS} value={f.affiliations} onChange={(affiliations) => setF({ ...f, affiliations })} />
       )}
