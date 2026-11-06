@@ -93,7 +93,6 @@ function CombatLedger({ c }: { c: CharacterStats }) {
     ["Healing received", c.healed, "HP restored to them"],
     ["Tiles moved", c.tiles_moved, "tiles walked or flown"],
   ];
-  const perFight = c.fights && c.damage_dealt !== null ? Math.round((10 * c.damage_dealt) / c.fights) / 10 : null;
   return (
     <div className="rc-combat">
       <table className="rc-ledger">
@@ -114,11 +113,6 @@ function CombatLedger({ c }: { c: CharacterStats }) {
           ))}
         </tbody>
       </table>
-      {perFight !== null && (
-        <p className="rc-note">
-          <b>{perFight}</b> damage per fight on average{c.defeats && c.fights !== null ? <> · a kill every <b>{Math.round((10 * c.fights) / c.defeats) / 10}</b> fights</> : null}
-        </p>
-      )}
     </div>
   );
 }
