@@ -137,7 +137,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
   const houseOf = useMemo(() => new Map(ref?.characters.map((c) => [c.key, c.house] as const) ?? []), [ref]);
   const [nameWidth, setNameWidth] = useState(() => {
     const stored = Number(localStorage.getItem("divine-pulse-roster-name-width"));
-    return stored >= 140 && stored <= 420 ? stored : 200;
+    return stored >= 140 && stored <= 420 ? stored : 184;
   });
   const resizeStart = useRef<{ x: number; width: number } | null>(null);
   const [compare, setCompare] = useCompare();

@@ -352,14 +352,13 @@
   text-wrap: pretty;
 }
 
-/* What it takes and how it moves: three short facts side by side, the figures large. */
-/* The facts wrap onto a new line when the card is narrow. Each has a rule on its left; the strip is pulled left by
-   one rule and its padding and clipped there, so only rules between facts on the same line show. */
+/* What it takes and how it moves: three short facts side by side on one row, the figures large. */
+/* Each fact has a rule on its left; the strip is pulled left by one rule and its padding and clipped there, so only
+   the rules between facts show. When the row is tight the exam's seal goes under its level first, then the
+   requirements wrap; the movement never wraps or leaves the row. */
 .class-exam {
   --exam-gap: 1.1rem;
   display: flex;
-  flex-wrap: wrap;
-  row-gap: 0.6rem;
   margin: 0.15rem 0 0 calc(-1 * var(--exam-gap) - 1px);
   clip-path: inset(-0.5rem -0.5rem -0.5rem calc(var(--exam-gap) + 1px));
 }
@@ -367,10 +366,12 @@
   display: grid;
   align-content: start;
   gap: 0.2rem;
-  min-width: 0;
   padding: 0 var(--exam-gap);
   border-left: 1px solid color-mix(in srgb, var(--tier-mid) 40%, var(--line));
 }
+.class-exam-level { flex-shrink: 8; }
+.class-exam-moves { flex-shrink: 0; }
+.class-exam-moves dd { flex-wrap: nowrap; white-space: nowrap; }
 .class-exam dt {
   font: 600 0.92rem var(--display);
   color: var(--ink-soft);
