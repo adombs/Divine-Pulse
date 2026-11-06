@@ -95,7 +95,6 @@
 .cv-info-side.with-face > .cv-info-face { grid-area: face; display: grid; place-items: center; padding: 6px; }
 .cv-info-side.with-face > .cv-facts { grid-area: facts; }
 .cv-info-side.with-face > .cv-information-toggle { grid-area: toggle; }
-.cv-info-face .cv-face .cv-sprite { width: 82%; height: 82%; margin-top: -4%; }
 .cv-information .cv-facts { grid-area: auto; grid-template-columns: minmax(0, 1fr); }
 .character-card .card-main { overflow-x: hidden; }
 .cv-information-toggle {
@@ -114,7 +113,7 @@
 /* A narrow card (the battle's Units tab): portrait and sprite side by side, the facts under them at full width. */
 @container (max-width: 30rem) {
   .cv-hero.split {
-    --cv-face: 6.5rem; --cv-sprite: 6rem;
+    --cv-face: 6.5rem;
     grid-template-columns: 1fr 1fr; grid-template-areas: "face sprite" "facts facts" "meta meta"; justify-items: center;
   }
   .cv-hero.split .cv-information, .cv-hero.split .cv-hero-meta { width: 100%; }
@@ -201,21 +200,16 @@
   .cv-flip:not(.held):hover .cv-flip-side.front { opacity: 0; }
 }
 
-/* ---------- The battle window's split hero: a larger portrait, the facts, the sprite on its tile. ---------- */
-.cv-hero.split { --cv-face: 7.5rem; --cv-sprite: 6.75rem; }
+/* ---------- The battle window's split hero: a larger portrait, the facts, the sprite in a matching medallion. ---------- */
+.cv-hero.split { --cv-face: 7.5rem; }
 .cv-hero.split .cv-face .unit-face { border-radius: 50%; }
 .cv-hero.split .cv-face { background: radial-gradient(circle, var(--paper) 60%, var(--bar-bg)); overflow: visible; }
 .cv-hero.split .cv-face > :is(img, span) { border-radius: 50%; overflow: hidden; }
-.cv-tile {
-  position: relative; display: grid; place-items: end center; width: var(--cv-sprite); height: var(--cv-sprite); overflow: hidden;
-  border: 0; background: transparent;
-}
-.cv-tile.team-enemy { --cv-team: var(--team-enemy); }
-.cv-tile.team-ally { --cv-team: var(--team-ally); }
-.cv-tile.team-third { --cv-team: var(--team-third); }
-.cv-tile .cv-sprite { width: 92%; height: 92%; }
-.cv-tile.empty { place-items: center; color: var(--ink-soft); font: 600 0.75rem var(--ui); text-align: center; padding: 0.4rem; }
-.cv-tile :is(.unit-face) { width: 100%; height: 100%; border: 0; background: none; box-shadow: none; }
+/* The map sprite in a medallion like the portrait's (the battle window; the back of the Roster and Archive cards). */
+.cv-sprite-face { background: radial-gradient(circle, var(--paper) 60%, var(--bar-bg)); }
+.cv-sprite-disc { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; }
+.cv-sprite-disc .cv-sprite { width: 82%; height: 82%; margin-top: -4%; }
+.cv-sprite-face.empty { color: var(--ink-soft); font: 600 0.75rem var(--ui); text-align: center; padding: 0.4rem; }
 .cv-hero-box .cv-sprite { background: transparent; }
 @media (prefers-reduced-motion: reduce) {
   .cv-information-turn, .cv-information.is-flipped .cv-information-turn { transform: none; transition: none; }
@@ -227,7 +221,7 @@
 @media (max-width: 560px) {
   .cv-hero { --cv-face: 5rem; column-gap: 0.8rem; }
   .cv-hero.split {
-    --cv-face: 5.25rem; --cv-sprite: 5.25rem;
+    --cv-face: 5.25rem;
     grid-template-columns: 1fr 1fr; grid-template-areas: "face sprite" "facts facts" "meta meta"; justify-items: center;
   }
   .cv-hero.split .cv-facts { width: 100%; }
