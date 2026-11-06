@@ -74,6 +74,13 @@ ACTION_ART = 0x01
 # (Ignatz's Rally Speed on Cyril ended "15 22 ..": 21 Ignatz, 34 Cyril). Seen live once.
 ACTION_RALLY = 0x17
 RALLY_TAIL = 4
+# A battalion's gambit (ACTION and KIND 0x13). The gambit's ID is at GAMBIT (the same byte as SPELL/ART; the
+# battalion's gambit ID, as at +0x1F of its record), TARGET the unit aimed at (0xFF for one on the user's area) and
+# ITEM as for an attack, for the target only; every unit it hit or moved follows with its new state. Seen live (1.2.0,
+# docs/battalions.md): Byleth's Assembly (ID 1) on two bandits held 1103 (11 damage each), Marianne's Stride (ID 25)
+# held 0 and listed seven of your units (the ones in its area).
+ACTION_GAMBIT = 0x13
+GAMBIT = 0x26
 NO_UNIT = 0xFF
 
 FULL_SIZE = 0x10C  # player's units: the start of a battle record (gamemem.battle offsets apply)
@@ -121,6 +128,7 @@ class HistoryEntry:
     art: int | None = None  # ART, for ACTION_ART (KIND)
     rally: bool = False  # ACTION_RALLY (KIND)
     rallied: int | None = None  # the character ID of the unit rallied (player's units only)
+    gambit: int | None = None  # GAMBIT, for ACTION_GAMBIT (KIND): the gambit used (the battalion's gambit ID)
 
 
 def decode_entry(data: bytes, hp: int, x: int, y: int) -> HistoryEntry | None:
@@ -162,13 +170,14 @@ def decode_entry(data: bytes, hp: int, x: int, y: int) -> HistoryEntry | None:
         action=data[ACTION] if action else 0,
         actor=data[ACTOR] if action else None,
         target=target,
-        moved=action and data[ACTION] != ACTION_SPELL and kind != ACTION_ART and data[MOVED] == 1,  # (an art's ID is there)
+        moved=action and data[ACTION] != ACTION_SPELL and kind not in (ACTION_ART, ACTION_GAMBIT) and data[MOVED] == 1,  # (an art's or gambit's ID is there)
         units=tuple(units),
         item=struct.unpack_from("<H", data, ITEM)[0] if action else 0,
         spell=data[SPELL] if action and data[ACTION] == ACTION_SPELL else None,
         art=data[ART] if kind == ACTION_ART else None,
         rally=kind == ACTION_RALLY,
         rallied=rallied,
+        gambit=data[GAMBIT] if kind == ACTION_GAMBIT else None,
     )
 
 

@@ -23,6 +23,7 @@ const NOT_IMPORTED = "Not in your imported game files yet.";
 const NOT_READ = "Not read from the game yet.";
 const NOT_RECORDED = "Not recorded for this battle.";
 const SPENT = "No endurance left: the unit gets none of these until the battalion is replenished.";
+const RATTLED = "Rattled by a gambit when last read: the unit gets none of these until it recovers.";
 
 /** The import's entry for a battalion name (matched loosely, as names saved by older versions may differ). */
 export function useBattalion(name: string | null | undefined, id?: number | null): Battalion | undefined {
@@ -96,7 +97,7 @@ const Missing = ({ why }: { why: string }) => (
   </span>
 );
 
-type BattalionState = Pick<BattleUnit, "battalion" | "battalion_id" | "battalion_exp" | "battalion_endurance" | "gambit_uses">;
+type BattalionState = Pick<BattleUnit, "battalion" | "battalion_id" | "battalion_exp" | "battalion_endurance" | "gambit_uses"> & { rattled?: boolean | null };
 
 /**
  * The battalion panel. `unit` is the selected battle's recorded assignment or the run's last-read unit, according
@@ -119,11 +120,13 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
   const enduranceMax = entry?.endurance;
   const enduranceNow = general ? undefined : unit?.battalion_endurance;
   const spent = enduranceNow === 0;
+  const shaken = scope === "battle" && unit?.rattled === true;
+  const off = spent ? SPENT : shaken ? RATTLED : null;
   const stat = (k: BattalionStatKey): ReactNode => {
     const v = imported?.[k];
     if (v === undefined) return <Missing why={`${BATTALION_STAT_LABEL[k]}: ${NOT_IMPORTED}`} />;
-    return spent
-      ? <span className="bp-val even spent" title={SPENT}>{signed(v)}</span>
+    return off
+      ? <span className="bp-val even spent" title={off}>{signed(v)}</span>
       : <span className={`bp-val ${tone(v)}`} title={`From your imported game files, ${importedAt}`}>{signed(v)}</span>;
   };
   const g = entry?.gambit;
@@ -142,7 +145,7 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
   ].filter(Boolean) as string[];
   const notes = general ? [] : [
     scope === "battle" && "Assignment recorded for this battle.",
-    spent && SPENT,
+    off,
     imported && level === null && `Modifiers are level 1 reference values; the battalion level is ${scope === "battle" ? "not recorded for this battle" : "not read"}.`,
     missingParts.length > 0 && `Not available yet: ${missingParts.join(", ")}.`,
   ].filter(Boolean) as string[];

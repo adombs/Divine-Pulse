@@ -25,7 +25,7 @@ export function WeaponIcon({ kind, label }: { kind?: string | null; label?: stri
   return url || crystal ? <span className="game-icon weapon" role="img" aria-label={tip} title={tip} style={maskStyle(url || crystal)} /> : null;
 }
 
-const KIND_LABEL = { weapon: "Weapon", spell: "Spell", art: "Combat art", item: "Item", equipment: "Equipment", other: "Item", rally: "Rally" } as const;
+const KIND_LABEL = { weapon: "Weapon", spell: "Spell", art: "Combat art", item: "Item", equipment: "Equipment", other: "Item", rally: "Rally", gambit: "Gambit" } as const;
 
 /** What a weapon, spell, combat art, item, piece of equipment or Rally is, as an icon: a weapon by its type, a spell by
  * its magic, an art by its own icon and its weapon's; the rest by the kit's. */
@@ -43,7 +43,7 @@ export function GearIcon({ kind, weapon, name }: { kind: keyof typeof KIND_LABEL
     const src = artIconUrl(name);
     return src ? <span className="game-icon" title={tip}><RefIcon src={src} className="gear" /></span> : <Icon name={CONCEPT_ICON.art} title={tip} />;
   }
-  return <Icon name={kind === "equipment" ? CONCEPT_ICON.equipment : kind === "rally" ? CONCEPT_ICON.rally : CONCEPT_ICON.item} title={tip} />;
+  return <Icon name={kind === "equipment" ? CONCEPT_ICON.equipment : kind === "rally" ? CONCEPT_ICON.rally : kind === "gambit" ? CONCEPT_ICON.battalion : CONCEPT_ICON.item} title={tip} />;
 }
 
 /** A saved inventory can lack its category; recover it from the game's weapon naming where it is unambiguous. */

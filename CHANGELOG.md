@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Show gambits in the battle log and usage, read enemies' battalions and the rattled status, and leave out battalion bonuses while a unit is rattled.
 - Include the game's battle history entries in battle recordings, so actions the tracker can't name yet (such as gambits) can be studied from them.
 - Remove the full stop from unknown crest labels in battle character cards.
 - Give Runs a labeled creation form, readable run details and aligned battle summaries; improve Updates scanning, Undo placement and empty states, and allow retrying failed battle loads.

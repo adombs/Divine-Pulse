@@ -366,6 +366,21 @@ def test_decodes_the_battalion_runtime_and_rejects_impossible_values():
     assert fe3h.gambit_uses(bytes(none)) is None
 
 
+def test_other_units_battalions_have_no_owner_and_rattled_is_a_flag():
+    # As seen on bandits: owner 0xFFFF, a real battalion (made-up ID 7), 300 exp, 75 endurance, gambit uses 1.
+    record = bytearray(max(fe3h.RATTLED, fe3h.GAMBIT_USES) + 1)
+    struct.pack_into("<HHHBB", record, 0x18, 0xFFFF, 300, 75, 7, 4)
+    record[fe3h.GAMBIT_USES] = 1
+    assert fe3h.decode_battalion(bytes(record), owned=False) == (7, 300, 75)
+    assert fe3h.gambit_uses(bytes(record), owned=False) == 1
+    assert fe3h.decode_battalion(bytes(record)) == (None, None, None)  # yours: no owner is no battalion
+    record[0x1E] = fe3h.NO_BATTALION_ID  # what units without one hold
+    assert fe3h.decode_battalion(bytes(record), owned=False) == (None, None, None)
+    assert fe3h.rattled(bytes(record)) is False
+    record[fe3h.RATTLED] |= fe3h.RATTLED_BIT
+    assert fe3h.rattled(bytes(record)) is True and fe3h.rattled(b"\0" * 8) is None
+
+
 HEAP = 0x2_0000_0000
 
 

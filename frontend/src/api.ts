@@ -184,6 +184,8 @@ export interface BattleUnit {
   battalion_exp?: number | null;
   battalion_endurance?: number | null;
   gambit_uses?: number | null;
+  /** Rattled by a gambit when last read: its battalion's modifiers don't apply. Null/absent: not read. */
+  rattled?: boolean | null;
   /** What it used, most used first, from the game's history (null or absent = not tracked). */
   usage?: Usage[] | null;
   /** Current HP; the rest from the game's record of the battle (null = not tracked). */
@@ -229,7 +231,7 @@ export interface BattleEvent {
 
 /** spell: a staff that changed no HP (Rescue, Ward...); art: a combat art that isn't an attack (Swap, Draw Back...);
  * act: an action the tracker can't identify. */
-export type LogKind = "phase" | "move" | "wait" | "attack" | "defeat" | "fell" | "heal" | "spell" | "item" | "art" | "rally" | "act" | "pulse";
+export type LogKind = "phase" | "move" | "wait" | "attack" | "defeat" | "fell" | "heal" | "spell" | "item" | "art" | "rally" | "gambit" | "act" | "pulse";
 
 /** One line of the action log, like the game's Divine Pulse list. */
 export interface LogEntry {
@@ -277,7 +279,7 @@ export interface Branch {
 
 /** A weapon, spell, combat art, item or Rally a unit used in a battle. */
 export interface Usage {
-  kind: "weapon" | "spell" | "art" | "item" | "rally";
+  kind: "weapon" | "spell" | "art" | "item" | "rally" | "gambit";
   id: number;
   name: string;
   /** Actions it was used in (a weapon's counterattacks too). */

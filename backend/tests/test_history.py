@@ -66,6 +66,17 @@ def test_decodes_phase_starts_and_actions():
     assert h.decode_entry(entry(fulls=(full(0, 41, 3, 29),))[:-1], F.hp, F.x, F.y) is None  # cut short
 
 
+def test_decodes_a_gambit():
+    data = bytearray(entry(start=False, action=h.ACTION_GAMBIT, actor=0, target=30, fulls=(full(0, 43, 6, 17),),
+                           compacts=(compact(29, 28, 9, 17), compact(30, 30, 7, 17))))
+    data[h.KIND], data[h.GAMBIT], data[h.MOVED] = h.ACTION_GAMBIT, 1, 1  # (MOVED is the gambit's byte)
+    struct.pack_into("<H", data, h.ITEM, 1103)
+    gambit = decode(bytes(data))
+    assert (gambit.gambit, gambit.target, gambit.item, gambit.moved, gambit.art, gambit.rally) == (1, 30, 1103, False, None, False)
+    assert [u.index for u in gambit.units if u.index is not None] == [29, 30]  # every unit it hit
+    assert decode(entry(start=False, actor=8, moved=True, fulls=(full(22, 33, 1, 27),))).gambit is None
+
+
 def test_pool_start_from_where_units_stand():
     entries = [decode(entry(compacts=(compact(20, 41, 1, 7), compact(30, 30, 9, 15), compact(31, 31, 1, 5))))]
     live = {1020: (1, 7, 41), 1030: (9, 15, 30), 1031: (1, 5, 31), 1050: (4, 4, 20)}

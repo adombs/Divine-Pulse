@@ -104,6 +104,12 @@ test("historical battalion detail uses the saved assignment independently of the
       assert.equal((html.match(/bp-val even spent/g) ?? []).length, 3);
       assert.doesNotMatch(html, /bp-val (up|down)/);
     });
+    await t.test("a rattled unit's modifiers are marked as not applying, with endurance left", () => {
+      const html = battlePanel({ ...recorded, battalion_exp: 115, battalion_endurance: 31, gambit_uses: 1, rattled: true });
+      assert.match(html, /Rattled by a gambit when last read/);
+      assert.equal((html.match(/bp-val even spent/g) ?? []).length, 3);
+      assert.doesNotMatch(html, /No endurance left|bp-gauge spent/);
+    });
     await t.test("battle uses that weren't recorded stay unknown rather than refilled", () => {
       const html = battlePanel({ ...recorded, battalion_exp: 0, battalion_endurance: 40, gambit_uses: null });
       assert.match(html, /Uses left: Not recorded for this battle/);

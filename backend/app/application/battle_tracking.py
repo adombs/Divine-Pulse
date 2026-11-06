@@ -57,6 +57,7 @@ def _battalion_fields(a: ArmySample) -> dict:
         "battalion_exp": a.battalion_exp if named else None,
         "battalion_endurance": a.battalion_endurance if named else None,
         "gambit_uses": a.gambit_uses if named else None,
+        "rattled": a.rattled,
     }
 
 
@@ -286,6 +287,9 @@ class BattleTracker:
                     for k, v in fields.items():
                         setattr(unit, k, v)
                     changed = True
+            if a.rattled is not None and unit.rattled != a.rattled:
+                unit.rattled = a.rattled
+                changed = True
             if self._set_resources(unit, a):
                 changed = True
             if (a.level, a.values) == (unit.level, unit.now):
@@ -982,7 +986,11 @@ class BattleTracker:
             self._note_extent((x, y) for x, y, _ in placed.values())
 
             def by(uid: str) -> str | None:  # who caused a change to this unit: the other side of the action
-                return None if step.phase_start else target if uid == a else a if uid == target else None  # noqa: B023
+                if step.phase_start:  # noqa: B023
+                    return None
+                if step.gambit is not None and uid != a:  # noqa: B023 (a gambit hits every unit in its area)
+                    return a  # noqa: B023
+                return target if uid == a else a if uid == target else None  # noqa: B023
 
             if not step.phase_start:
                 # What each unit in the action used, and the damage it dealt with it (an attacker's, or a
@@ -1010,6 +1018,9 @@ class BattleTracker:
                         me = state.get(a)
                         rallies = [x for x in me.abilities if x in RALLY_ABILITIES] if me is not None else []
                         use(a, "rally", rallies[0] if len(rallies) == 1 else 0, self.support.rally_name(me))
+                    elif step.gambit is not None:
+                        damage = sum(n for uid, n in hurt.items() if uid != a)
+                        use(a, "gambit", step.gambit, self.support.gambit_name(step.gambit), 1, damage)
             for uid, n in gain.items():
                 bump(healed, uid, n)
                 if a is not None and uid != a and not step.phase_start:
@@ -1026,6 +1037,29 @@ class BattleTracker:
                 else:
                     text = f"Began {PHASES.get(step.phase, 'other')} phase."
                 add(at, step.turn, "phase", text, phase=step.phase)
+            elif step.gambit is not None:
+                # "Byleth used Assembly on Bandit (11) and Bandit (11)." A gambit hits (or helps) everyone in its area.
+                gambit = self.support.gambit_name(step.gambit)
+                hit = [(uid, n) for uid, n in hurt.items() if uid != a]
+                if hit:
+                    on = " on " + " and ".join(f"{name(uid)} ({n})" for uid, n in hit)
+                else:
+                    on = f" on {name(target)}" if target is not None else ""
+                restored = sum(n for uid, n in gain.items() if uid != a) or None
+                add(
+                    at,
+                    step.turn,
+                    "gambit",
+                    f"{name(a)} used {gambit}{on}." + (f" Restored {restored} HP." if restored else ""),
+                    key(a),
+                    aim(target),
+                    actor_id=a,
+                    target_id=target,
+                    dealt=sum(n for _, n in hit) or None,
+                    restored=restored,
+                    phase=step.phase,
+                    detail=gambit,
+                )
             elif step.art is not None and not (
                 target is not None and (target in hurt or not (a and a.startswith("a:") and target.startswith("a:")))
             ):

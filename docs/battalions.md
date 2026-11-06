@@ -11,11 +11,11 @@ A roster slot embeds the equipped battalion at `+0x18`, 8 bytes, in the layout o
 
 | Offset | Type | Field |
 |---|---|---|
-| `+0x18` | u16 | owner marker; `0xFFFF` = no battalion |
+| `+0x18` | u16 | owner: the character ID of the player's unit that owns it (Byleth `0`, Marianne `23`); `0xFFFF` on other units, and on yours without one |
 | `+0x1A` | u16 | cumulative experience |
 | `+0x1C` | u16 | endurance left |
-| `+0x1E` | u8 | battalion ID (the import's `data/battalions.json` row) |
-| `+0x1F` | u8 | gambit ID (not used: a battalion's gambit comes with its import row) |
+| `+0x1E` | u8 | battalion ID (the import's `data/battalions.json` row); `200` = none |
+| `+0x1F` | u8 | gambit ID, as in the history and the import's `gambit` text (Seiros Pegasus Co. 1 Assembly, Seiros Holy Monks 25 Stride); `80` = none |
 
 Battle copies also hold the **gambit uses left** at `+0xF5` (u8). The roster keeps its values from before the battle
 until the battle ends, so experience, endurance and uses are read from the live battle copy whenever there is one, even
@@ -37,8 +37,19 @@ In E and F only the battle copy changed; the roster slot still read 0 / 60. The 
 unit's acted flags (`+0xD6`). Replaying the six captures through `decode_roster`, `merge_battle` and
 `battle_gambit_uses` gives exactly the values in the tab.
 
-Other units' battalions (enemies, allies) use the same layout in their battle records but weren't checked, so they
-aren't read.
+**Other units' battalions** use the same layout with owner `0xFFFF`: in a Verdant Wind battle all 21 bandits held
+Thieves, Rogues or Bandits (173–175), 300 exp (level 4), endurance 75 (the import's maximum for those three) and 2 gambit
+uses. So for your units the owner decides (`0xFFFF` = none); for others, an ID below 200 is a battalion.
+
+**Rattled**: bit `0x80` of battle-record byte `+0xE0`. In the same battle Byleth's Assembly hit two bandits; the bit
+was set on exactly those two at that moment and on no other unit. When the game clears it wasn't observed; the tracker
+reads it as it is.
+
+**Gambits in the battle history**: an entry with action and kind `0x13`, the gambit ID at `+0x26` (the byte a spell or
+combat art uses), the unit aimed at in TARGET (`0xFF` for one on the user's area), and ITEM as an attack's, for the
+target only. Every unit it hit (or helped) follows with its new state. Seen: Marianne's Stride (25), ITEM 0, with seven
+of your units; Byleth's Assembly (1) on two bandits, ITEM 1103, each losing 11 HP. Each use gave the battalion 46 exp and
+took one use. Recordings now keep the raw history entries (`gamemem.recorder`, "history" blob) for decoding more.
 
 ## Rules
 
@@ -54,8 +65,8 @@ aren't read.
 - **Endurance**: the battalion takes half the damage its unit takes (rounded down). It doesn't refill between
   battles; the player replenishes it. With none left the unit gets **none** of the modifiers (Fire Emblem Wiki,
   Battalion). The panel keeps showing them, struck through, with that reason.
-- **Rattled** units (hit by a gambit) also lose their battalion's modifiers and can't move (Fire Emblem Wiki, Gambit).
-  The tracker can't read rattled yet, so the combat model can overcount a rattled unit's numbers.
+- **Rattled** units (hit by an offensive gambit) also lose their battalion's modifiers and can't move (Fire Emblem
+  Wiki, Gambit). The combat model drops a rattled unit's modifiers; the This Battle panel strikes them with that reason.
 - **Gambit uses** are per battle and refilled after every map.
 
 Sources: <https://fireemblemwiki.org/wiki/Battalion>, <https://fireemblemwiki.org/wiki/Gambit>,
@@ -71,8 +82,11 @@ every value that could be compared, so no extra game tests were run.
   modifiers are combat numbers (Atk, Hit, Crit, Avo, Prt, Rsl), not stats.
 - **Battle records** keep the unit's own values in `start`/`now` (without the battalion's Charm), so endurance running
   out mid-battle isn't taken for a stat loss, which only a Divine Pulse causes.
-- **Combat model** (`gamemem/combat.py`, used to pair fights when the history can't be read): an army unit's
-  battalion adds Phys Atk (Mag Atk with magic), Hit, Crit, Avo (also against magic), Prt and Rsl at its level, and Cha.
+- **Combat model** (`gamemem/combat.py`, used to pair fights when the history can't be read): a unit's battalion,
+  yours or an enemy's, adds Phys Atk (Mag Atk with magic), Hit, Crit, Avo (also against magic), Prt and Rsl at its level,
+  and Cha; nothing while it is rattled or its endurance is spent.
+- **Battle log**: "Byleth used Assembly on Bandit 1 (11) and Bandit 2 (11).", kind `gambit`, with the total damage, and
+  the gambit counted in the unit's usage.
 
 ## Run and battle contract
 
@@ -91,9 +105,9 @@ never backfilled from today's roster. Reference details resolve by the recorded 
 
 ## Not handled yet
 
-- A gambit's use in the battle history: no history entry is decoded as one, and none is made up from the uses count.
 - Gambit icons and target areas: no verified source in the import yet, so the panel says so.
-- Rattled, and other units' battalions (see above).
+- How long rattled lasts (the tracker follows the game's bit), and enemies' battalions in their own popups.
+- Gambits on units the battle history doesn't list (the game folds some enemy actions into the next entry).
 
 ## Imported reference
 

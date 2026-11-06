@@ -24,10 +24,9 @@ Not modelled (the forecast can differ by these, see docs/battle-page-plan.md):
   link: Byleth +1 Atk, +13 Hit, +13 Avo; Hanneman +1 Atk, +6 Hit; Lysithea +3 Hit, +2 Avo; Cyril +5 Hit, +5 Avo
   (Byleth's 13 and Lysithea's 2 don't fit those values: not understood yet). Pass `link`; gamemem/pairing.py weighs
   the possible links by how many allies are in reach.
-- Gambits, combat arts, and skills that trigger by chance (Pavise, Miracle, Lethality...). An army unit's battalion
-  modifiers at its level do count (domain/battalions.py: Phys Atk or Mag Atk by the weapon, Hit, Crit, Avo, Prt,
-  Rsl, Cha), none once its endurance is spent; the "rattled" status that also cancels them isn't read, nor are
-  other units' battalions.
+- Gambits, combat arts, and skills that trigger by chance (Pavise, Miracle, Lethality...). A unit's battalion
+  modifiers at its level do count, yours and enemies' (domain/battalions.py: Phys Atk or Mag Atk by the weapon, Hit,
+  Crit, Avo, Prt, Rsl, Cha), none once its endurance is spent or while it is rattled.
 
 Terrain counts when the tiles are known (`a_ground`, `d_ground`: terrain.ground(), nothing for fliers): a tile's Def or
 Res comes off the damage the unit on it takes, its Avo off the Hit against it.
@@ -303,7 +302,7 @@ class Fighter:
             if (types.get(name, False) if types is not None else info.name in names)
         )
         battalion = {}
-        if unit.battalion is not None and 0 <= unit.battalion < len(data.battalion_stats):
+        if unit.battalion is not None and not unit.rattled and 0 <= unit.battalion < len(data.battalion_stats):
             battalion = modifiers(data.battalion_stats[unit.battalion], unit.battalion_exp, unit.battalion_endurance) or {}
         if battalion.get("cha"):
             stats["cha"] = stats.get("cha", 0) + battalion["cha"]

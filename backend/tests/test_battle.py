@@ -1152,6 +1152,35 @@ def test_combat_arts_rally_and_weapon_usage_from_the_history(roster_import):
     assert used == {("art", "Swap"): (1, 0, 0), ("weapon", "Iron Lance"): (1, 1, 8)}
 
 
+def test_gambits_from_the_history_hit_everyone_in_their_area(roster_import):
+    from app.battle import HistoryStep, StepUnit
+
+    def u(uid, hp, x, y):
+        return StepUnit(uid, hp, x, y, 30 if uid.startswith("a:") else None)
+
+    def me(key):
+        return ArmySample(key, key.capitalize(), "Mercenary", 16, dict(STATS, hp=40), (), (), 40, 1, 1)
+
+    steps = [
+        HistoryStep(1, 0, True, units=(u("a:byleth", 40, 3, 10), u("a:marianne", 30, 2, 15), u("e:9", 39, 9, 17), u("e:10", 41, 8, 17))),
+        # Stride (made-up ID 25, not in the import): helps, changes no HP.
+        HistoryStep(1, 0, False, 0x13, "a:marianne", "a:byleth", units=(u("a:marianne", 30, 2, 12), u("a:byleth", 40, 3, 10)), gambit=25),
+        # Test Rally (ID 1 in the synthetic import) on two foes: 11 damage each, no counterattack.
+        HistoryStep(1, 0, False, 0x13, "a:byleth", "e:10", units=(u("a:byleth", 40, 6, 17), u("e:9", 28, 9, 17), u("e:10", 30, 7, 17)), item=1103, gambit=1),
+    ]
+    tracker = BattleTracker()
+    for n in range(1, len(steps) + 1):
+        tracker.update(BattleSample((me("byleth"), me("marianne")), (EnemySample("Brigand", 15, 100.0, 39, 39, 9), EnemySample("Brigand", 15, 100.0, 41, 41, 10)), "k", 1, 3, tuple(steps[:n])), "run", at(n))
+    battle = tracker.battle
+    gambits = [e for e in battle.log if e.kind == "gambit"]
+    assert [e.text for e in gambits] == ["Marianne used Gambit 25 on Byleth.", "Byleth used Test Rally on Brigand 1 (11) and Brigand 2 (11)."]
+    assert [(e.detail, e.dealt) for e in gambits] == [("Gambit 25", None), ("Test Rally", 22)]
+    units = {x.key: x for x in battle.units}
+    used = {(x.kind, x.name): (x.times, x.damage) for x in units["byleth"].usage}
+    assert used == {("gambit", "Test Rally"): (1, 22)}
+    assert battle.units[0].key == "byleth"
+
+
 def test_enemy_inventory_usage_follows_standing_history(roster_import):
     foe = EnemySample("Brigand", 15, 100.0, 30, 30, 9)
     player = StepUnit("a:lysithea", 30, 1, 1, 30)

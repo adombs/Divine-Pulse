@@ -58,7 +58,7 @@ export type Category = "fight" | "defeat" | "move" | "support" | "growth" | "tur
 
 
 const LOG_CATEGORY: Record<LogEntry["kind"], Category> = {
-  phase: "turn", move: "move", wait: "move", attack: "fight", defeat: "defeat", fell: "defeat", heal: "support", spell: "support", item: "support", art: "move", rally: "support", act: "move", pulse: "turn",
+  phase: "turn", move: "move", wait: "move", attack: "fight", defeat: "defeat", fell: "defeat", heal: "support", spell: "support", item: "support", art: "move", rally: "support", gambit: "fight", act: "move", pulse: "turn",
 };
 const EVENT_CATEGORY: Record<BattleEvent["kind"], Category> = {
   start: "turn", turn: "turn", end: "turn", divine_pulse: "turn", level_up: "growth", stat_up: "growth",
