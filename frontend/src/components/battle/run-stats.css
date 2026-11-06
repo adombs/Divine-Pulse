@@ -29,3 +29,7 @@
 .run-stats-state { margin: 0; padding: 1.5rem 0; color: var(--ink-soft); }
 .run-stats-state h3 { margin: 0 0 0.4rem; color: var(--ink); }
 .run-stats-state p { margin: 0 0 1rem; }
+.run-stats-awards-note { margin: 0; color: var(--ink-soft); font: 0.9rem var(--ui); }
+.run-awards-scroll .run-stats-table th:first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); }
+.run-awards-scroll .run-stats-table thead th:first-child,
+.run-awards-scroll .run-stats-table tfoot th:first-child { z-index: 2; }

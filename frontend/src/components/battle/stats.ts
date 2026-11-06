@@ -4,6 +4,46 @@
  */
 import type { Battle, BattleUnit, Usage, ValueKey } from "../../api";
 import { battleUnitStats, Item, statGains, timeline, recordedSum } from "./model";
+import { AWARDS, type AwardKey, battleAwards } from "./moreStats";
+
+export type AwardCounts = Record<AwardKey, number>;
+const emptyAwards = (): AwardCounts => Object.fromEntries(AWARDS.map((a) => [a.key, 0])) as AwardCounts;
+
+/** Awards need a confirmed finish. Legacy records without an end timestamp cannot prove one.
+ * A supplied live snapshot invalidates a saved finish (e.g. a resumed bookmark).
+ * Prefer the latest finished snapshot, regardless of input order; ids are scoped to their run. */
+export function finishedAwardBattles(source: Battle[]): Battle[] {
+  const identity = (b: Battle) => JSON.stringify([b.run_id, b.id]);
+  const live = new Set(source.filter((b) => b.active).map(identity));
+  const done = new Map<string, Battle>();
+  for (const b of source) {
+    const key = identity(b);
+    if (live.has(key) || !b.ended_at) continue;
+    const old = done.get(key);
+    if (!old || b.ended_at > old.ended_at!) done.set(key, b);
+  }
+  return [...done.values()];
+}
+
+/** Count recorded awards, once per distinct finished battle. Characters match persistent keys, never names.
+ * Battle-wide awards have run totals but no character recipient; absent legacy evidence earns no award. */
+export function runAwards(source: Battle[]): { characters: Map<string, AwardCounts>; totals: AwardCounts; battles: number } {
+  const characters = new Map<string, AwardCounts>();
+  const totals = emptyAwards();
+  const battles = finishedAwardBattles(source);
+  for (const b of battles) {
+    const byId = new Map(b.units.map((u) => [`a:${u.key}`, u.key]));
+    for (const u of b.units) if (!characters.has(u.key)) characters.set(u.key, emptyAwards());
+    for (const a of battleAwards(b, timeline(b))) {
+      if (a.id === null) { totals[a.key] += 1; continue; }
+      const key = byId.get(a.id);
+      if (key === undefined) continue;
+      characters.get(key)![a.key] += 1;
+      totals[a.key] += 1;
+    }
+  }
+  return { characters, totals, battles: battles.length };
+}
 
 /** Missing contributors keep the total unknown. */
 function add(a: number | null, b: number | null | undefined): number | null {
@@ -108,7 +148,7 @@ export function characterStats(battles: Battle[], items: Map<string, Item[]> = t
   for (const b of runBattles(battles)) {
     const log = items.get(b.id) ?? [];
     const counts = b.units.map((u) => battleUnitStats(b, u, log));
-    const best = Math.max(0, ...counts.map((c) => c.defeats ?? 0));
+    const mvpId = !b.active && b.ended_at ? battleAwards(b, log).find((a) => a.key === "mvp")?.id : null;
     b.units.forEach((u, i) => {
       const c = out.get(u.key) ?? {
         key: u.key,
@@ -137,7 +177,7 @@ export function characterStats(battles: Battle[], items: Map<string, Item[]> = t
         appearances: [],
       };
       const { fights, defeats } = counts[i];
-      const mvp = !b.active && best > 0 && (defeats ?? 0) === best;
+      const mvp = mvpId === `a:${u.key}`;
       // Battles come newest first, so the first one seen sets the name and class, and the last the starting level.
       c.first_level = u.start_level;
       c.battles += 1;

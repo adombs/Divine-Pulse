@@ -9,7 +9,7 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { CSSProperties, KeyboardEvent, ReactNode, useMemo, useRef, useState } from "react";
-import type { Battle, BattleUnit } from "../../api";
+import type { Battle } from "../../api";
 import { useNav } from "../../nav";
 import { characterKeyOfName } from "../../portraits";
 import { PortraitFlip } from "../character/CharacterFace";
@@ -20,7 +20,7 @@ import { CharLink } from "../Links";
 import { Icon, IconName } from "../Icon";
 import { clock, plural } from "../../format";
 import { armyId, armyTotals, Item, recordedSum, statGains } from "./model";
-import { MoreStats, moreStats } from "./moreStats";
+import { AWARDS, battleAwards, MoreStats, moreStats } from "./moreStats";
 import { BattleNav, BattleNavContext, HouseMark, ItemList, TrendChart, UnitFace, useBattleNav, WhoLink } from "./parts";
 import { Empty, MirrorBars, Series, TurnColumns, TurnLines, UnitBars } from "./charts";
 import { Carousel } from "./Carousel";
@@ -106,7 +106,7 @@ function TabStrip<T extends string>({ label, value, options, onChange, className
 
 // Records
 
-const LEFT: [Left, string][] = [["standouts", "Standouts"], ["share", "Share of the Fighting"]];
+const LEFT: [Left, string][] = [["standouts", "Awards"], ["share", "Fight Breakdown"]];
 type Left = "standouts" | "share";
 
 function RecordsPart({ battle, seconds, stats, history }: View) {
@@ -131,12 +131,11 @@ function RecordsPart({ battle, seconds, stats, history }: View) {
 /** The battle's numbers: the exchange of damage and healing up front, everything else in a quieter grid. */
 function Ledger({ battle, seconds, fights }: { battle: Battle; seconds: number; fights: number | null }) {
   const t = armyTotals(battle);
-  const broken = battle.units.reduce((n, u) => n + u.broken_weapons, 0);
   const share = t.dealt !== null && t.taken !== null && t.dealt + t.taken > 0 ? t.dealt / (t.dealt + t.taken) : null;
-  const minor: [string, ReactNode, ReactNode?][] = [
+  const minor: [string, ReactNode][] = [
     ["Fights", fights ?? "—"],
     ["Level-ups", battle.level_ups],
-    ["Weapon attacks", battle.weapon_uses, broken ? <span className="bad">{plural(broken, "weapon")} broken</span> : undefined],
+    ["Weapon attacks", battle.weapon_uses],
     ["Spells cast", battle.spells_cast],
     ["Items used", battle.item_uses],
     ["Tiles moved", t.tiles ?? "—"],
@@ -169,10 +168,10 @@ function Ledger({ battle, seconds, fights }: { battle: Battle; seconds: number; 
         </div>
       </div>
       <dl className="ledger-minor">
-        {minor.map(([label, value, note]) => (
+        {minor.map(([label, value]) => (
           <div key={label}>
             <dt>{label}</dt>
-            <dd>{value}{note ? <small>{note}</small> : null}</dd>
+            <dd>{value}</dd>
           </div>
         ))}
       </dl>
@@ -228,7 +227,7 @@ function RunCards({ battle, history, children }: { battle: Battle; history: Batt
   );
 }
 
-function Record({ icon, title, value, unit, children }: { icon: IconName; title: string; value: ReactNode; unit?: string; children: ReactNode }) {
+function Record({ icon, title, value, children }: { icon: IconName; title: string; value: ReactNode; children: ReactNode }) {
   return (
     <div className="standout">
       <span className="standout-icon" aria-hidden="true"><Icon name={icon} /></span>
@@ -238,78 +237,28 @@ function Record({ icon, title, value, unit, children }: { icon: IconName; title:
       </span>
       <span className="standout-value">
         {value}
-        {unit && <small>{unit}</small>}
       </span>
     </div>
   );
 }
 
-const onTurn = (turn: number | null | undefined) => (turn ? <span className="muted"> · turn {turn}</span> : null);
-
 /** Who stood out and the battle's moments, in four themed columns that scroll as a carousel when they don't fit. */
 function Standouts({ battle, stats: s }: { battle: Battle; stats: MoreStats }) {
-  const top = (pick: (u: BattleUnit) => number) => {
-    const best = [...battle.units].sort((a, b) => pick(b) - pick(a))[0];
-    return best && pick(best) > 0 ? best : null;
-  };
-  const sponge = top((u) => u.damage_taken ?? 0);
-  const medic = top((u) => u.healing_given ?? 0);
-  const walker = top((u) => u.tiles_moved ?? 0);
-  const grew = top((u) => u.level_ups * 100 + statGains(u));
-  const who = (u: BattleUnit) => <WhoLink id={armyId(u.key)} />;
-  const caster = top((u) => u.spells_cast ?? 0);
-  const fighter = top((u) => u.weapon_uses ?? 0);
-  // The combat art or spell used most, by one unit.
-  let signature: { unit: BattleUnit; name: string; times: number } | null = null;
-  for (const u of battle.units)
-    for (const m of u.usage ?? [])
-      if ((m.kind === "art" || m.kind === "spell") && m.times > (signature?.times ?? 0)) signature = { unit: u, name: m.name, times: m.times };
-
-  const columns: [string, IconName, ReactNode[]][] = [
-    ["Offense", CONCEPT_ICON.attack, [
-      s.mvp && <Record key="mvp" icon={CONCEPT_ICON.defeat} title="MVP" value={s.mvp.value} unit="killed"><WhoLink id={s.mvp.id} /></Record>,
-      s.carry && s.carry.value >= 0.3 && <Record key="carry" icon={CONCEPT_ICON.carry} title="Carried the Team" value={Math.round(s.carry.value * 100)} unit="% of damage"><WhoLink id={s.carry.id} /></Record>,
-      s.biggestHit && <Record key="hit" icon={CONCEPT_ICON.attack} title="Heaviest Blow" value={s.biggestHit.amount} unit="damage"><WhoLink id={s.biggestHit.by} /> on <WhoLink id={s.biggestHit.on} />{onTurn(s.biggestHit.turn)}</Record>,
-      s.rampage && <Record key="rampage" icon={CONCEPT_ICON.enemies} title="Rampage" value={s.rampage.value} unit="in one turn"><WhoLink id={s.rampage.id} />{onTurn(s.rampage.turn)}</Record>,
-      s.oneRound && <Record key="one" icon={CONCEPT_ICON.end} title="One and Done" value={s.oneRound.value} unit="from full HP"><WhoLink id={s.oneRound.id} /></Record>,
-      fighter && <Record key="fighter" icon={CONCEPT_ICON.attack} title="Weapon Master" value={fighter.weapon_uses} unit="attacks">{who(fighter)}</Record>,
-      caster && <Record key="caster" icon={CONCEPT_ICON.spell} title="Spellslinger" value={caster.spells_cast} unit="spells">{who(caster)}</Record>,
-      signature && <Record key="signature" icon={CONCEPT_ICON.art} title="Signature Move" value={signature.times} unit={`× ${signature.name}`}>{who(signature.unit)}</Record>,
-    ]],
-    ["Defense", CONCEPT_ICON.absorb, [
-      s.closestCall && <Record key="close" icon={CONCEPT_ICON.lowHp} title="Closest Call" value={s.closestCall.value} unit={`of ${s.closestCall.max} HP`}><WhoLink id={s.closestCall.id} />{onTurn(s.closestCall.turn)}</Record>,
-      s.biggestTaken && <Record key="ouch" icon={CONCEPT_ICON.danger} title="Ouch" value={s.biggestTaken.amount} unit="damage"><WhoLink id={s.biggestTaken.on} /> from <WhoLink id={s.biggestTaken.by} />{onTurn(s.biggestTaken.turn)}</Record>,
-      s.mostWanted && <Record key="wanted" icon={CONCEPT_ICON.target} title="Most Wanted" value={s.mostWanted.value} unit="attacks on them"><WhoLink id={s.mostWanted.id} /></Record>,
-      s.untouchable && <Record key="untouchable" icon={CONCEPT_ICON.avoid} title="Untouchable" value={s.untouchable.value} unit={`of ${s.untouchable.of} missed`}><WhoLink id={s.untouchable.id} /></Record>,
-      s.counters && <Record key="payback" icon={CONCEPT_ICON.counter} title="Payback" value={s.counters.value} unit="countering"><WhoLink id={s.counters.id} /></Record>,
-      sponge && <Record key="sponge" icon={CONCEPT_ICON.absorb} title="Damage Sponge" value={sponge.damage_taken} unit="taken">{who(sponge)}</Record>,
-    ]],
-    ["Support & Movement", CONCEPT_ICON.heal, [
-      medic && <Record key="medic" icon={CONCEPT_ICON.heal} title="Field Medic" value={medic.healing_given} unit="HP restored">{who(medic)}</Record>,
-      grew && <Record key="grew" icon={CONCEPT_ICON.levelUp} title="Glow-up" value={`+${statGains(grew)}`} unit={grew.level_ups ? `stats · ${plural(grew.level_ups, "level")}` : "stats"}>{who(grew)}</Record>,
-      walker && <Record key="walker" icon={CONCEPT_ICON.move} title="Marathon" value={walker.tiles_moved} unit="tiles">{who(walker)}</Record>,
-      s.bench && <Record key="bench" icon={CONCEPT_ICON.wait} title="Bench Warmer" value={0} unit="fights"><WhoLink id={s.bench.id} />{s.bench.value >= 0 && <span className="muted"> · {plural(s.bench.value, "tile")}</span>}</Record>,
-    ]],
-    ["Turning Points", CONCEPT_ICON.turn, [
-      s.firstBlood && <Record key="first" icon={CONCEPT_ICON.start} title="First Blood" value={s.firstBlood.turn ? `T${s.firstBlood.turn}` : "—"}><WhoLink id={s.firstBlood.id} /> on <WhoLink id={s.firstBlood.target} /></Record>,
-      s.lastBlow && <Record key="last" icon={CONCEPT_ICON.finalBlow} title="Final Blow" value={s.lastBlow.turn ? `T${s.lastBlow.turn}` : "—"}><WhoLink id={s.lastBlow.id} /> on <WhoLink id={s.lastBlow.target} /></Record>,
-      s.pulses && (
-        <Record key="pulse" icon={CONCEPT_ICON.pulse} title={s.pulses.falls.length ? "Didn't Happen" : "Do-over"} value={s.pulses.uses} unit={s.pulses.uses === 1 ? "Divine Pulse" : "Divine Pulses"}>
-          {s.pulses.undone ? `${plural(s.pulses.undone, "action")} undone` : "Turned back time"}
-          {s.pulses.falls.length > 0 && <span className="muted"> · saved {[...new Set(s.pulses.falls)].join(", ")}</span>}
-        </Record>
-      ),
-    ]],
-  ];
+  const awards = battleAwards(battle, [], s);
+  const groups: [string, IconName][] = [["Offense", CONCEPT_ICON.attack], ["Defense", CONCEPT_ICON.absorb], ["Support & Movement", CONCEPT_ICON.heal], ["Turning Points", CONCEPT_ICON.turn]];
+  const columns = groups.map(([group, icon]) => [group, icon, AWARDS.filter((a) => a.group === group).flatMap((a) => {
+    const winner = awards.find((r) => r.key === a.key);
+    return winner ? [<Record key={a.key} icon={CONCEPT_ICON[a.icon]} title={a.title} value={winner.value}>{winner.id ? <WhoLink id={winner.id} /> : "Battle"}</Record>] : [];
+  })] as const);
   const shown = columns.map(([title, icon, cards]) => [title, icon, cards.filter(Boolean)] as const).filter(([, , cards]) => cards.length);
   return (
     <section className="ms-panel ms-standouts" id="ms-standouts" aria-labelledby="ms-standouts-title">
       <header className="ms-panel-head">
-        <h3 id="ms-standouts-title">Standouts</h3>
+        <h3 id="ms-standouts-title">Awards</h3>
       </header>
-      {!shown.length ? <Empty>Nothing stood out yet.</Empty> : (
+      {!shown.length ? <Empty>No awards recorded yet.</Empty> : (
         <div className="standout-carousel">
-          <Carousel label="standout groups" rows={shown.map(([title, icon, cards]) => (
+          <Carousel label="award groups" rows={shown.map(([title, icon, cards]) => (
             <li key={title} className="standout-column">
               <div className="standout-stack" role="group" aria-label={title}>
                 <h4 className="standout-group"><Icon name={icon} />{title}<span className="standout-count">{cards.length}</span></h4>
@@ -334,7 +283,7 @@ function Share({ stats }: { stats: MoreStats }) {
   return (
     <section className="ms-panel ms-share" id="ms-share" aria-labelledby="ms-share-title">
       <header className="ms-panel-head">
-        <h3 id="ms-share-title">Share of the Fighting</h3>
+        <h3 id="ms-share-title">Fight Breakdown</h3>
       </header>
       <div className="share-scroll">
         <table className="share-table" aria-label="Your units in this battle" title="This battle only. A dash means not recorded. Fights use battle counters when read, otherwise recorded actions.">

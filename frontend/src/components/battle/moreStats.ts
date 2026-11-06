@@ -3,7 +3,73 @@
  * what Divine Pulse undid. Pure functions over the battle and its timeline (model.ts), like the rest of the page.
  */
 import type { Battle } from "../../api";
-import { armyId, armyTotals, battleUnitStats, Item, mergeHits, tally } from "./model";
+import { armyId, armyTotals, battleUnitStats, Item, mergeHits, statGains, tally } from "./model";
+
+/** All existing Awards, shared by the battle cards and run table. Order is also the table's column order. */
+export const AWARDS = [
+  { key: "mvp", label: "MVPs", title: "MVP", group: "Offense", icon: "defeat" },
+  { key: "close", label: "Closest Calls", title: "Closest Call", group: "Defense", icon: "lowHp" },
+  { key: "medic", label: "Field Medics", title: "Field Medic", group: "Support & Movement", icon: "heal" },
+  { key: "carry", label: "Carried the Team", title: "Carried the Team", group: "Offense", icon: "carry" },
+  { key: "hit", label: "Heaviest Blows", title: "Heaviest Blow", group: "Offense", icon: "attack" },
+  { key: "rampage", label: "Rampages", title: "Rampage", group: "Offense", icon: "enemies" },
+  { key: "one", label: "One and Done", title: "One and Done", group: "Offense", icon: "end" },
+  { key: "fighter", label: "Weapon Masters", title: "Weapon Master", group: "Offense", icon: "attack" },
+  { key: "caster", label: "Spellslingers", title: "Spellslinger", group: "Offense", icon: "spell" },
+  { key: "signature", label: "Signature Moves", title: "Signature Move", group: "Offense", icon: "art" },
+  { key: "ouch", label: "Ouch", title: "Ouch", group: "Defense", icon: "danger" },
+  { key: "wanted", label: "Most Wanted", title: "Most Wanted", group: "Defense", icon: "target" },
+  { key: "untouchable", label: "Untouchables", title: "Untouchable", group: "Defense", icon: "avoid" },
+  { key: "payback", label: "Paybacks", title: "Payback", group: "Defense", icon: "counter" },
+  { key: "sponge", label: "Damage Sponges", title: "Damage Sponge", group: "Defense", icon: "absorb" },
+  { key: "grew", label: "Glow-ups", title: "Glow-up", group: "Support & Movement", icon: "levelUp" },
+  { key: "walker", label: "Marathons", title: "Marathon", group: "Support & Movement", icon: "move" },
+  { key: "bench", label: "Bench Warmers", title: "Bench Warmer", group: "Support & Movement", icon: "wait" },
+  { key: "first", label: "First Bloods", title: "First Blood", group: "Turning Points", icon: "start" },
+  { key: "last", label: "Final Blows", title: "Final Blow", group: "Turning Points", icon: "finalBlow" },
+  { key: "saved", label: "Didn't Happen", title: "Didn't Happen", group: "Turning Points", icon: "pulse", battleWide: true },
+  { key: "redo", label: "Do-overs", title: "Do-over", group: "Turning Points", icon: "pulse", battleWide: true },
+] as const;
+export type AwardKey = typeof AWARDS[number]["key"];
+export interface BattleAward { key: AwardKey; id: string | null; value: number | string }
+
+/** Canonical selection, including the original thresholds and first-observed tie rules. No undone log enters it. */
+export function battleAwards(battle: Battle, items: Item[], s = moreStats(battle, items)): BattleAward[] {
+  const out: BattleAward[] = [];
+  const put = (key: AwardKey, r: UnitRecord | null) => { if (r) out.push({ key, id: r.id, value: r.value }); };
+  const top = (pick: (u: Battle["units"][number]) => number) => {
+    let best: Battle["units"][number] | undefined;
+    for (const u of battle.units) if (pick(u) > 0 && (!best || pick(u) > pick(best))) best = u;
+    return best;
+  };
+  put("mvp", s.mvp);
+  put("carry", s.carry && s.carry.value >= 0.3 ? { ...s.carry, value: Math.round(s.carry.value * 100) } : null);
+  if (s.biggestHit) out.push({ key: "hit", id: s.biggestHit.by, value: s.biggestHit.amount });
+  put("rampage", s.rampage);
+  put("one", s.oneRound);
+  for (const [key, pick] of [
+    ["fighter", (u) => u.weapon_uses ?? 0], ["caster", (u) => u.spells_cast ?? 0],
+    ["sponge", (u) => u.damage_taken ?? 0], ["medic", (u) => u.healing_given ?? 0],
+    ["walker", (u) => u.tiles_moved ?? 0], ["grew", (u) => u.level_ups * 100 + statGains(u)],
+  ] as [AwardKey, (u: Battle["units"][number]) => number][]) {
+    const u = top(pick);
+    if (u) out.push({ key, id: armyId(u.key), value: key === "grew" ? `+${statGains(u)}` : pick(u) });
+  }
+  let signature: BattleAward | null = null;
+  for (const u of battle.units) for (const m of u.usage ?? [])
+    if ((m.kind === "art" || m.kind === "spell") && m.times > Number(signature?.value ?? 0)) signature = { key: "signature", id: armyId(u.key), value: m.times };
+  if (signature) out.push(signature);
+  put("close", s.closestCall);
+  if (s.biggestTaken) out.push({ key: "ouch", id: s.biggestTaken.on, value: s.biggestTaken.amount });
+  put("wanted", s.mostWanted);
+  put("untouchable", s.untouchable);
+  put("payback", s.counters);
+  if (s.bench) out.push({ key: "bench", id: s.bench.id, value: 0 });
+  for (const [key, r] of [["first", s.firstBlood], ["last", s.lastBlow]] as const)
+    if (r) out.push({ key, id: r.id, value: r.turn ? `T${r.turn}` : "—" });
+  if (s.pulses) out.push({ key: s.pulses.falls.length ? "saved" : "redo", id: null, value: s.pulses.uses });
+  return out;
+}
 
 /** One hit: who dealt it to whom, and when. */
 export interface Blow {

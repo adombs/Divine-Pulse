@@ -112,6 +112,7 @@
 .battle-page .share-table .left { text-align: left; }
 .battle-page .share-table tbody th { padding: 0.24rem 0.5rem; font: 1rem var(--display); white-space: nowrap; }
 .battle-page .share-table tbody th .who-link { font-weight: 700; }
+.battle-page .share-table .who-link::before { content: none; }
 .battle-page .share-table td { padding: 0.24rem 0.5rem; text-align: right; font: 1.02rem var(--nums); color: var(--ink); }
 .battle-page .share-table tbody tr { border-top: 1px solid var(--line); }
 .battle-page .share-table tbody tr:first-child { border-top: 0; }
