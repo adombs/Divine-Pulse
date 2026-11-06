@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Filter weapons with a discrete maximum-rank slider, show authentic dark-magic and Alive/Skill filter icons, and keep all Appearance portrait options visible.
+- Filter weapons with a discrete maximum-rank slider, using notches and a live rank subtitle without redundant printed rank labels; show authentic dark-magic and Alive/Skill filter icons, and keep all Appearance portrait options visible.
 
 - Use eye and eye-slash buttons for showing and hiding spoilers, add existing semantic icons to filter options and selected chips, and capitalize Ability sources as Personal, Class and Skill.
 

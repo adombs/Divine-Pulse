@@ -816,10 +816,6 @@ table.matrix { border-collapse: collapse; font-variant-numeric: lining-nums; }
 .weapon-rank-filter .step-slider { display: flex; }
 .weapon-rank-filter .step-slider .notched { width: 100%; flex: 1; }
 .weapon-rank-filter .checklist-clear:disabled { opacity: 0.55; cursor: default; }
-.rank-stop-labels { position: relative; display: block; height: 1.4rem; font-size: 0.78rem; }
-.rank-stop-labels > span { position: absolute; transform: translateX(-50%); }
-.rank-stop-labels > span:first-child { transform: none; }
-.rank-stop-labels > span:last-child { transform: translateX(-100%); }
 .rank-threshold { display: block; color: var(--accent); font-weight: 600; }
 .toolbar-end { margin-left: auto; }
 .seg-count { margin-left: 0.35rem; font: 700 0.72rem var(--ui); opacity: 0.75; }

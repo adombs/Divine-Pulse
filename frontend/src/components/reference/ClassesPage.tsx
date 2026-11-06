@@ -998,7 +998,6 @@ function InventoryTable({ data, initial, weapons = false }: { data: ReferenceDat
         {weapons ? <><CheckList label="Weapon type" columns={2} options={typeOptions} value={types} onChange={setTypes} /><fieldset className="checklist weapon-rank-filter">
           <legend>Weapon rank<button type="button" className="checklist-clear" onClick={() => setMaximumRank(null)} disabled={maximumRank === null}>Any</button></legend>
           <StepSlider bare label="Maximum weapon rank" stops={WEAPON_RANKS.length + 1} value={maximumRank === null ? WEAPON_RANKS.length : WEAPON_RANKS.indexOf(maximumRank)} onChange={(at) => setMaximumRank(WEAPON_RANKS[at] ?? null)} valueText={maximumRank === null ? "Any rank" : `Up to rank ${maximumRank}`} />
-          <span className="rank-stop-labels" aria-hidden="true">{[...WEAPON_RANKS, "Any"].map((rank, at) => <span key={rank} style={{ left: `${at / WEAPON_RANKS.length * 100}%` }}>{rank}</span>)}</span>
           <output className="rank-threshold" aria-live="polite">{maximumRank === null ? "Any rank" : `Up to rank ${maximumRank}`}</output>
         </fieldset></> : <CheckList label="Kind" options={kindOptions} value={kinds} onChange={setKinds} />}
       </FilterMenu><span className="muted small">{rows.length} {weapons ? "weapons" : "items"}</span>
