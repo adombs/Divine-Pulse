@@ -72,8 +72,9 @@ test("historical battalion detail uses the saved assignment independently of the
       const html = battlePanel(recorded);
       assert.match(html, /Translated Company A/);
       assert.match(html, /Tactic A/);
-      assert.match(html, /Assignment recorded for this battle/);
-      assert.match(html, /Modifiers are level 1 reference values; the battalion level is not recorded for this battle/);
+      // No explanatory notes under the panel; level 1 reference values say so in their own titles.
+      assert.doesNotMatch(html, /bp-note|Assignment recorded/);
+      assert.match(html, /title="From your imported game files, at level 1"/);
       assert.match(html, /Endurance left: Not recorded for this battle/);
       assert.doesNotMatch(html, /Company B|Tactic B|Lv 5|>59</);
     });

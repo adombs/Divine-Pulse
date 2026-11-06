@@ -85,8 +85,11 @@ every value that could be compared, so no extra game tests were run.
 - **Combat model** (`gamemem/combat.py`, used to pair fights when the history can't be read): a unit's battalion,
   yours or an enemy's, adds Phys Atk (Mag Atk with magic), Hit, Crit, Avo (also against magic), Prt and Rsl at its level,
   and Cha; nothing while it is rattled or its endurance is spent.
-- **Battle log**: "Byleth used Assembly on Bandit 1 (11) and Bandit 2 (11).", kind `gambit`, with the total damage, and
-  the gambit counted in the unit's usage.
+- **Battle log**: "Byleth used Assembly on Bandit 2.", kind `gambit`: only the unit it was aimed at is named. Every
+  unit it hit counts toward the user's damage dealt (the line's total, the user's usage and the battle's statistics).
+- **Gambit area** (Battalion panel): drawn with the battle map's own pieces, like the game's gambit panel: the minimap
+  grid, the tiles covered in gold, the user as your army's badge facing the area and, for a gambit aimed at a foe, an
+  enemy badge in the game's target cursor.
 
 ## Run and battle contract
 

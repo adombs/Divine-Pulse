@@ -1038,19 +1038,17 @@ class BattleTracker:
                     text = f"Began {PHASES.get(step.phase, 'other')} phase."
                 add(at, step.turn, "phase", text, phase=step.phase)
             elif step.gambit is not None:
-                # "Byleth used Assembly on Bandit (11) and Bandit (11)." A gambit hits (or helps) everyone in its area.
+                # "Byleth used Assembly on Bandit 1.": the unit it was aimed at. It hits (or helps) everyone in its area:
+                # all of that counts toward the user's damage and healing, but only the target is named.
                 gambit = self.support.gambit_name(step.gambit)
                 hit = [(uid, n) for uid, n in hurt.items() if uid != a]
-                if hit:
-                    on = " on " + " and ".join(f"{name(uid)} ({n})" for uid, n in hit)
-                else:
-                    on = f" on {name(target)}" if target is not None else ""
+                on = f" on {name(target)}" if target is not None else ""
                 restored = sum(n for uid, n in gain.items() if uid != a) or None
                 add(
                     at,
                     step.turn,
                     "gambit",
-                    f"{name(a)} used {gambit}{on}." + (f" Restored {restored} HP." if restored else ""),
+                    f"{name(a)} used {gambit}{on}.",
                     key(a),
                     aim(target),
                     actor_id=a,

@@ -176,6 +176,8 @@ export interface GambitArea {
   origin?: [number, number];
   /** Which way the area faces; "forward" is away from the user, drawn upward. */
   direction?: "forward";
+  /** For an area centred on a foe: the tile it's aimed at. */
+  target?: [number, number];
 }
 
 export interface Gambit {

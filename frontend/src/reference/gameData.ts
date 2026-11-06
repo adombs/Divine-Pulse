@@ -367,7 +367,8 @@ function bArea(v: unknown): GambitArea | undefined {
   const cells = v.cells.map(bPair).filter((c): c is [number, number] => !!c);
   if (!cells.length) return undefined;
   const origin = bPair(v.origin);
-  return { cells, ...(origin ? { origin } : {}), ...(v.direction === "forward" ? { direction: "forward" as const } : {}) };
+  const target = bPair(v.target);
+  return { cells, ...(origin ? { origin } : {}), ...(target ? { target } : {}), ...(v.direction === "forward" ? { direction: "forward" as const } : {}) };
 }
 
 function bGambit(v: unknown): Gambit | undefined {

@@ -1173,7 +1173,8 @@ def test_gambits_from_the_history_hit_everyone_in_their_area(roster_import):
         tracker.update(BattleSample((me("byleth"), me("marianne")), (EnemySample("Brigand", 15, 100.0, 39, 39, 9), EnemySample("Brigand", 15, 100.0, 41, 41, 10)), "k", 1, 3, tuple(steps[:n])), "run", at(n))
     battle = tracker.battle
     gambits = [e for e in battle.log if e.kind == "gambit"]
-    assert [e.text for e in gambits] == ["Marianne used Gambit 25 on Byleth.", "Byleth used Test Rally on Brigand 1 (11) and Brigand 2 (11)."]
+    # Only the unit aimed at is named; both hits count toward Byleth's damage.
+    assert [e.text for e in gambits] == ["Marianne used Gambit 25 on Byleth.", "Byleth used Test Rally on Brigand 2."]
     assert [(e.detail, e.dealt) for e in gambits] == [("Gambit 25", None), ("Test Rally", 22)]
     units = {x.key: x for x in battle.units}
     used = {(x.kind, x.name): (x.times, x.damage) for x in units["byleth"].usage}

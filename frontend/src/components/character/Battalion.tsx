@@ -14,7 +14,7 @@ import { battalionLevel, battalionReference } from "../../reference/battalions";
 import type { BattleUnit, Unit } from "../../api";
 import { BATTALION_STAT_KEYS, BATTALION_STAT_LABEL, useReference } from "../../reference/types";
 import type { Battalion, BattalionStatKey, GambitArea } from "../../reference/types";
-import { GameImage } from "../GameImage";
+import { GameImage, MapImage } from "../GameImage";
 import { Icon } from "../Icon";
 import { BattalionLink } from "../Links";
 import "./character.css";
@@ -134,21 +134,6 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
   // Between battles the game has refilled them: a run whose battalion state was read shows them full.
   const refilled = scope === "run" && (unit?.gambit_uses === undefined || unit?.gambit_uses === null) && progress !== null;
   const usesNow = refilled ? usesMax : unit?.gambit_uses;
-  const missingParts = [
-    !entry?.icon && "battalion icon",
-    !general && (enduranceNow === undefined || enduranceNow === null) && "endurance left",
-    !imported && "modifiers",
-    !g && "gambit",
-    g && !g.icon && "gambit icon",
-    !general && g && (usesNow === undefined || usesNow === null) && "gambit uses left",
-    g && !g.area && "gambit area",
-  ].filter(Boolean) as string[];
-  const notes = general ? [] : [
-    scope === "battle" && "Assignment recorded for this battle.",
-    off,
-    imported && level === null && `Modifiers are level 1 reference values; the battalion level is ${scope === "battle" ? "not recorded for this battle" : "not read"}.`,
-    missingParts.length > 0 && `Not available yet: ${missingParts.join(", ")}.`,
-  ].filter(Boolean) as string[];
 
   return (
     <div className="bp" aria-label={`${name} battalion`}>
@@ -210,18 +195,20 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
           <GambitAreaMap area={g?.area} name={g?.name} />
         </div>
       </section>
-      {general ? (
-        missingParts.length > 0 ? <p className="bp-note">Not in your imported game files yet: {missingParts.join(", ")}.</p> : null
-      ) : notes.length > 0 ? (
-        <p className="bp-note">{notes.join(" ")}</p>
-      ) : null}
     </div>
   );
 }
 
+/** The battle map's own pieces (the import's minimap set), so the area looks like the game's gambit panel. */
+const PIECE = (name: string) => `images/map/minimap-pieces/${name}.png`;
+// The area is drawn on at least this many tiles (wider than tall, like the game's panel), one tile of margin around it.
+const AREA_MIN_W = 7;
+const AREA_MIN_H = 5;
+
 /**
- * The tiles a gambit hits, as a little map: the user's tile in blue (with its facing), the tiles hit in gold. The
- * area faces up (away from the user). Without the area, an empty frame says it isn't in the import.
+ * The tiles a gambit covers, drawn like the game's gambit panel with the battle map's pieces: the minimap's grid,
+ * the tiles covered in gold, the user as your army's badge facing up (the area is ahead of them) and, for a gambit
+ * aimed at a foe, the game's target cursor on the tile it's aimed at. Without the area, an empty frame says so.
  */
 export function GambitAreaMap({ area, name }: { area?: GambitArea; name?: string }) {
   if (!area) {
@@ -232,31 +219,47 @@ export function GambitAreaMap({ area, name }: { area?: GambitArea; name?: string
     );
   }
   const origin = area.origin ?? [0, 0];
-  const xs = [...area.cells.map((c) => c[0]), origin[0]];
-  const ys = [...area.cells.map((c) => c[1]), origin[1]];
-  // One empty tile of margin around the tiles drawn, and at least 5 x 5 so a small area doesn't look huge.
-  let [minX, maxX, minY, maxY] = [Math.min(...xs) - 1, Math.max(...xs) + 1, Math.min(...ys) - 1, Math.max(...ys) + 1];
-  while (maxX - minX + 1 < 5) { minX -= 1; if (maxX - minX + 1 < 5) maxX += 1; }
-  while (maxY - minY + 1 < 5) { minY -= 1; if (maxY - minY + 1 < 5) maxY += 1; }
+  const points = [...area.cells, origin, ...(area.target ? [area.target] : [])];
+  let [minX, maxX] = [Math.min(...points.map((p) => p[0])) - 1, Math.max(...points.map((p) => p[0])) + 1];
+  let [minY, maxY] = [Math.min(...points.map((p) => p[1])) - 1, Math.max(...points.map((p) => p[1])) + 1];
+  while (maxX - minX + 1 < AREA_MIN_W) { minX -= 1; if (maxX - minX + 1 < AREA_MIN_W) maxX += 1; }
+  while (maxY - minY + 1 < AREA_MIN_H) { minY -= 1; if (maxY - minY + 1 < AREA_MIN_H) maxY += 1; }
   const w = maxX - minX + 1;
   const h = maxY - minY + 1;
-  const hit = new Set(area.cells.map(([x, y]) => `${x},${y}`));
-  const label = `${name ? `${name}: ` : ""}hits ${area.cells.length} ${area.cells.length === 1 ? "tile" : "tiles"}; the user's tile is blue and the area faces up, away from them`;
-  const tiles = [];
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const isOrigin = x === origin[0] && y === origin[1];
-      tiles.push(<rect key={`${x},${y}`} className={`bp-tile${hit.has(`${x},${y}`) ? " hit" : ""}${isOrigin ? " origin" : ""}`} x={x - minX + 0.06} y={y - minY + 0.06} width={0.88} height={0.88} rx={0.12} />);
+  const at = ([x, y]: [number, number]) => ({ x: x - minX, y: y - minY });
+  const label = `${name ? `${name}: ` : ""}covers ${area.cells.length} ${area.cells.length === 1 ? "tile" : "tiles"}`
+    + (area.target ? ", aimed at a foe" : "") + "; the user faces up";
+  const grid = [];
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      grid.push(
+        <g key={`${x},${y}`}>
+          <rect className="bp-cell" x={x} y={y} width={1} height={1} />
+          <MapImage imported={PIECE("grid")} x={x} y={y} width={1} height={1} preserveAspectRatio="none" />
+        </g>,
+      );
     }
   }
-  const ox = origin[0] - minX + 0.5;
-  const oy = origin[1] - minY + 0.5;
+  const user = at(origin);
+  const target = area.target ? at(area.target) : null;
   return (
-    <svg className="bp-area" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={label} style={{ aspectRatio: `${w} / ${h}` }}>
+    <svg className="bp-area" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={label} style={{ width: `${w * 1.5}rem` }}>
       <title>{label}</title>
-      {tiles}
-      {/* The user, facing the area. */}
-      <path className="bp-facing" d={`M ${ox} ${oy - 0.26} L ${ox + 0.24} ${oy + 0.18} L ${ox} ${oy + 0.06} L ${ox - 0.24} ${oy + 0.18} Z`} />
+      {grid}
+      {area.cells.map((c) => {
+        const p = at(c);
+        return <rect key={`${c[0]},${c[1]}`} className="bp-hit" x={p.x + 0.08} y={p.y + 0.08} width={0.84} height={0.84} rx={0.08} />;
+      })}
+      {/* The foe it's aimed at: an enemy badge inside the game's target cursor. */}
+      {target && <>
+        <circle className="bp-foe" cx={target.x + 0.5} cy={target.y + 0.5} r={0.26} />
+        <MapImage imported={PIECE("badge-enemy")} x={target.x + 0.22} y={target.y + 0.22} width={0.56} height={0.56} />
+        <MapImage imported={PIECE("cursor-target")} x={target.x - 0.1} y={target.y - 0.1} width={1.2} height={1.2} />
+      </>}
+      {/* The user: your army's badge (a plain disc without the import), facing the area. */}
+      <circle className="bp-user" cx={user.x + 0.5} cy={user.y + 0.5} r={0.4} />
+      <MapImage imported={PIECE("badge-player")} x={user.x + 0.08} y={user.y + 0.08} width={0.84} height={0.84} />
+      <path className="bp-facing" d={`M ${user.x + 0.5} ${user.y + 0.24} L ${user.x + 0.74} ${user.y + 0.62} L ${user.x + 0.5} ${user.y + 0.5} L ${user.x + 0.26} ${user.y + 0.62} Z`} />
     </svg>
   );
 }
