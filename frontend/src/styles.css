@@ -1896,10 +1896,11 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
   background-color: currentColor; mask: center / contain no-repeat; -webkit-mask: center / contain no-repeat;
 }
 
-/* Roster density: the table gets what its columns need, the card a fixed, readable width. */
-.roster-page .ref-layout { grid-template-columns: minmax(0, 1fr) minmax(20rem, 22rem); gap: 0.7rem; }
+/* Roster density: compact columns, so the unit card can widen to 30rem; it stays within a share of the row so a larger
+   text size still leaves the table its columns. */
+.roster-page .ref-layout { grid-template-columns: minmax(0, 1fr) minmax(22rem, min(30rem, 36%)); gap: 0.6rem; }
 .roster-page .units th:not(.left) { padding-right: 0.45rem; padding-left: 0; }
-.roster-page .units td.num { padding-right: 1.55rem; font-size: 1.12rem; }
+.roster-page .units td.num { padding-right: 1.2rem; font-size: 1.12rem; }
 .roster-page .units td.ebst-col, .roster-page .units th.ebst-col { padding-left: 0.3rem; }
 .roster-page .units td.ebst-col { font-size: 1.2rem; }
 .roster-page .units td.num > .mark { right: 0.12rem; font-size: 0.66rem; }
