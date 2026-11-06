@@ -7,6 +7,8 @@ import { useBootstrap } from "./useBootstrap";
 import { useBattleSync } from "./useBattleSync";
 import { Home } from "./components/Home";
 import { Icon } from "./components/Icon";
+import { Sidebar } from "./components/Sidebar";
+import "./components/sidebar-motion.css";
 import { Toasts, useToasts } from "./components/Toasts";
 import { RunIcon, runIconUrl } from "./components/ui";
 import { useAppearance } from "./appearance";
@@ -356,12 +358,12 @@ export default function App() {
     <NavProvider nav={nav}>
     <PeopleFiltersContext.Provider value={peopleFilters}>
     <div className="app nav-collapsed">
-      <aside className="sidebar">
+      <Sidebar>
         <div className="side-banner" title={activeRun?.name ?? "Divine Pulse"}>
           <RunIcon route={activeRun?.route} />
           <span className="banner-title">{activeRun?.name ?? "Divine Pulse"}</span>
         </div>
-        <nav className="side-tabs" aria-label="Pages">
+        <nav id="sidebar-pages" className="side-tabs" aria-label="Pages">
           {pages.map((p) => (
             <button
               key={p.id}
@@ -390,7 +392,7 @@ export default function App() {
             <span className="status-text">{status}</span>
           </div>
         </div>
-      </aside>
+      </Sidebar>
 
       <main className="sheet">
         <ErrorBoundary resetKey={`${page}/${routeId ?? ""}`}>
