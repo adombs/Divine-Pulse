@@ -1,6 +1,5 @@
 /* Run-wide sections; the shared hero and popup shell belong to the character components. */
 .rc-note { margin: 0.55rem 0 0; font: 0.88rem var(--ui); color: var(--ink-soft); }
-.rc-note b { font: 700 1rem var(--nums); color: var(--ink); }
 .rc-ledger .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
 
 /* Combat: totals beside the per-battle average. */
