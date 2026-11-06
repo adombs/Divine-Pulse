@@ -40,8 +40,8 @@
 
 /* Standouts: themed columns, each a stack of rows. */
 .battle-page .standout-carousel { flex: 1 1 auto; min-height: 0; }
-.battle-page .standout-carousel .award-carousel { height: 100%; }
-.battle-page .standout-carousel .award-controls { align-self: start; }
+.battle-page .standout-carousel .award-carousel { height: 100%; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 0.4rem; }
+.battle-page .standout-carousel .award-controls { align-self: center; justify-self: center; background: color-mix(in srgb, var(--paper) 85%, transparent); padding: 0.2rem; }
 .battle-page .standout-carousel .award-window, .battle-page .standout-carousel .award-grid { height: 100%; }
 .battle-page .standout-carousel .award-grid { gap: 0.7rem; padding: 0; }
 .battle-page .standout-carousel .award-track { gap: 0.7rem; }

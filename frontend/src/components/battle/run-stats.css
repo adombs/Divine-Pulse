@@ -1,0 +1,31 @@
+/* History's entire-run ledgers follow More Stats' paper, number and divider language. */
+.history-stats-heading { display: inline-flex; align-items: center; gap: 0.65rem; }
+.history-stats-heading .btn { font-family: var(--ui); text-transform: none; letter-spacing: normal; }
+.modal.wide.run-stats-popup { width: min(92rem, calc(100vw - 4rem)); max-width: none; max-height: calc(100dvh - 4rem); }
+.run-stats-popup .modal-body { min-height: 0; display: flex; overflow: hidden; }
+.run-stats-content { min-height: 0; min-width: 0; display: flex; flex: 1; }
+.run-stats-ledger { min-height: 0; min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1rem; }
+.run-stats-scope { display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.7rem; margin: 0; color: var(--ink-soft); }
+.run-stats-scope strong { color: var(--ink); font: 600 1.2rem var(--display); }
+.run-stats-totals { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 1rem; margin: 0; padding: 0.8rem 0; border-block: 1px solid var(--line); }
+.run-stats-totals dt { font: 600 0.9rem var(--ui); color: var(--ink-soft); }
+.run-stats-totals dd { margin: 0.15rem 0 0; font: 2rem/1.1 var(--nums); font-variant-numeric: tabular-nums; color: var(--ink); }
+.run-stats-toolbar { display: flex; align-items: end; justify-content: space-between; flex-wrap: wrap; gap: 0.8rem; }
+.run-stats-search { display: flex; align-items: center; flex-wrap: wrap; gap: 0.6rem; color: var(--ink-soft); font: 0.9rem var(--ui); }
+.run-stats-search input { width: 15rem; max-width: 100%; }
+.run-stats-table-scroll { flex: 1 1 auto; min-height: 8rem; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: var(--row-border) transparent; }
+.run-stats-table-scroll:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.run-stats-table { width: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+.run-stats-table caption { position: absolute; width: 1px; height: 1px; padding: 0; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.run-stats-table th, .run-stats-table td { padding: 0.65rem 0.6rem; border-bottom: 1px solid var(--line); text-align: right; white-space: nowrap; }
+.run-stats-table th:first-child { text-align: left; min-width: 13rem; white-space: normal; }
+.run-stats-table thead th { position: sticky; top: 0; z-index: 1; background: var(--paper); color: var(--ink-soft); font: 600 0.85rem var(--ui); }
+.run-stats-table tbody th { font: 600 1rem var(--display); }
+.run-stats-table tbody th span { display: block; }
+.run-stats-table small { display: block; margin-top: 0.15rem; color: var(--ink-soft); font: 0.8rem var(--ui); }
+.run-stats-table td { font: 1.05rem var(--nums); color: var(--ink); }
+.run-stats-table tbody tr:hover { background: var(--row-hover); }
+.run-stats-table tfoot th, .run-stats-table tfoot td { position: sticky; bottom: 0; border-top: 1px solid var(--row-border); background: var(--paper); font-weight: 700; }
+.run-stats-state { margin: 0; padding: 1.5rem 0; color: var(--ink-soft); }
+.run-stats-state h3 { margin: 0 0 0.4rem; color: var(--ink); }
+.run-stats-state p { margin: 0 0 1rem; }

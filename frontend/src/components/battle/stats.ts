@@ -1,21 +1,28 @@
 /**
  * A run's battles added up: totals and records for the run, and each of your characters over every battle they
- * were in. Pure functions over finished battles, like model.ts.
+ * were in. Pure functions over recorded battles (including an explicitly supplied live snapshot), like model.ts.
  */
 import type { Battle, BattleUnit, Usage, ValueKey } from "../../api";
-import { armyId, Item, statGains, tally, timeline } from "./model";
+import { battleUnitStats, Item, statGains, timeline, recordedSum } from "./model";
 
-/** A sum of numbers that may not be tracked: null while none of them is. */
+/** Missing contributors keep the total unknown. */
 function add(a: number | null, b: number | null | undefined): number | null {
-  if (b === null || b === undefined) return a;
-  return (a ?? 0) + b;
+  return a === null || b === null || b === undefined ? null : a + b;
+}
+
+/** One snapshot per battle; the live snapshot replaces a stale saved copy. */
+export function runBattles(history: Battle[], live: Battle | null = null): Battle[] {
+  const byId = new Map<string, Battle>();
+  for (const b of history) if (!byId.has(b.id)) byId.set(b.id, b);
+  if (live) byId.set(live.id, live);
+  return [...byId.values()].sort((a, b) => b.started_at.localeCompare(a.started_at));
 }
 
 /** One character in one battle: what the Stats view lists under the character. */
 export interface Appearance {
   battle: Battle;
   unit: BattleUnit;
-  fights: number;
+  fights: number | null;
   defeats: number | null;
   /** Most defeats of anyone in the battle (and at least one). */
   mvp: boolean;
@@ -34,7 +41,7 @@ export interface CharacterStats {
   left: number;
   /** Battles in which they defeated the most. */
   mvp: number;
-  fights: number;
+  fights: number | null;
   defeats: number | null;
   damage_dealt: number | null;
   damage_taken: number | null;
@@ -68,7 +75,7 @@ export interface RunStats {
   /** Battles finished without one. */
   no_pulse: number;
   most_pulses: Battle | null;
-  fights: number;
+  fights: number | null;
   defeats: number | null;
   /** Times one of your units left a battle (fell or retreated). */
   losses: number;
@@ -90,17 +97,17 @@ export interface RunStats {
   characters: number;
 }
 
-/** Every finished battle's timeline, worked out once. */
+/** Every distinct battle's standing timeline, worked out once. */
 export function timelines(battles: Battle[]): Map<string, Item[]> {
-  return new Map(battles.map((b) => [b.id, timeline(b)]));
+  return new Map(runBattles(battles).map((b) => [b.id, timeline(b)]));
 }
 
 /** Each character over the run's battles, most battles first. `battles` are newest first, like the history. */
 export function characterStats(battles: Battle[], items: Map<string, Item[]> = timelines(battles)): CharacterStats[] {
   const out = new Map<string, CharacterStats>();
-  for (const b of battles) {
+  for (const b of runBattles(battles)) {
     const log = items.get(b.id) ?? [];
-    const counts = b.units.map((u) => tally(log, armyId(u.key), { fights: u.combats, defeats: u.defeats }));
+    const counts = b.units.map((u) => battleUnitStats(b, u, log));
     const best = Math.max(0, ...counts.map((c) => c.defeats ?? 0));
     b.units.forEach((u, i) => {
       const c = out.get(u.key) ?? {
@@ -113,12 +120,12 @@ export function characterStats(battles: Battle[], items: Map<string, Item[]> = t
         left: 0,
         mvp: 0,
         fights: 0,
-        defeats: null,
-        damage_dealt: null,
-        damage_taken: null,
-        healing_given: null,
-        healed: null,
-        tiles_moved: null,
+        defeats: 0,
+        damage_dealt: 0,
+        damage_taken: 0,
+        healing_given: 0,
+        healed: 0,
+        tiles_moved: 0,
         level_ups: 0,
         stat_points: 0,
         gains: {},
@@ -130,13 +137,13 @@ export function characterStats(battles: Battle[], items: Map<string, Item[]> = t
         appearances: [],
       };
       const { fights, defeats } = counts[i];
-      const mvp = best > 0 && (defeats ?? 0) === best;
+      const mvp = !b.active && best > 0 && (defeats ?? 0) === best;
       // Battles come newest first, so the first one seen sets the name and class, and the last the starting level.
       c.first_level = u.start_level;
       c.battles += 1;
       if (!u.on_map) c.left += 1;
       if (mvp) c.mvp += 1;
-      c.fights += fights;
+      c.fights = add(c.fights, fights);
       c.defeats = add(c.defeats, defeats);
       c.damage_dealt = add(c.damage_dealt, u.damage_dealt);
       c.damage_taken = add(c.damage_taken, u.damage_taken);
@@ -178,6 +185,7 @@ export function mergeUsage(lists: (Usage[] | null | undefined)[]): Usage[] {
 
 /** The run's battles added up, with its records. */
 export function runStats(battles: Battle[], characters: CharacterStats[], items: Map<string, Item[]> = timelines(battles)): RunStats {
+  battles = runBattles(battles);
   const most = (pick: (b: Battle) => number | null, least = false): Battle | null => {
     let best: Battle | null = null;
     for (const b of battles) {
@@ -189,35 +197,34 @@ export function runStats(battles: Battle[], characters: CharacterStats[], items:
     return best;
   };
   const withTurns = battles.filter((b) => b.turn !== null);
-  let fights = 0;
-  for (const b of battles) fights += (items.get(b.id) ?? []).filter((i) => i.kind === "attack").length;
+  const fights = recordedSum(battles.flatMap((b) => b.units.map((u) => battleUnitStats(b, u, items.get(b.id)).fights)));
   const sum = (pick: (u: BattleUnit) => number | null) =>
-    battles.reduce<number | null>((n, b) => b.units.reduce<number | null>((m, u) => add(m, pick(u)), n), null);
+    recordedSum(battles.flatMap((b) => b.units.map(pick)));
   return {
     battles: battles.length,
     seconds: battles.reduce((n, b) => n + b.seconds, 0),
     longest: most((b) => b.seconds),
     shortest: most((b) => b.seconds, true),
-    turns: withTurns.length ? withTurns.reduce((n, b) => n + (b.turn ?? 0), 0) : null,
+    turns: recordedSum(battles.map((b) => b.turn)),
     turn_battles: withTurns.length,
     most_turns: most((b) => b.turn),
     divine_pulses: battles.reduce((n, b) => n + b.divine_pulses, 0),
-    no_pulse: battles.filter((b) => b.divine_pulses === 0).length,
+    no_pulse: battles.filter((b) => !b.active && b.divine_pulses === 0).length,
     most_pulses: most((b) => b.divine_pulses || null),
     fights,
-    defeats: characters.reduce<number | null>((n, c) => add(n, c.defeats), null),
+    defeats: recordedSum(characters.map((c) => c.defeats)),
     losses: battles.reduce((n, b) => n + b.units.filter((u) => !u.on_map).length, 0),
-    flawless: battles.filter((b) => b.units.length > 0 && b.units.every((u) => u.on_map)).length,
+    flawless: battles.filter((b) => !b.active && b.units.length > 0 && b.units.every((u) => u.on_map)).length,
     enemies: battles.reduce((n, b) => n + b.enemies_start, 0),
     damage_dealt: sum((u) => u.damage_dealt),
     damage_taken: sum((u) => u.damage_taken),
     healing: sum((u) => u.healing_given),
     tiles_moved: sum((u) => u.tiles_moved),
-    level_ups: battles.reduce((n, b) => n + b.level_ups, 0),
-    stat_points: battles.reduce((n, b) => n + b.stat_points, 0),
-    weapon_uses: battles.reduce((n, b) => n + b.weapon_uses, 0),
-    spells_cast: battles.reduce((n, b) => n + b.spells_cast, 0),
-    item_uses: battles.reduce((n, b) => n + b.item_uses, 0),
+    level_ups: characters.reduce((n, c) => n + c.level_ups, 0),
+    stat_points: characters.reduce((n, c) => n + c.stat_points, 0),
+    weapon_uses: characters.reduce((n, c) => n + c.weapon_uses, 0),
+    spells_cast: characters.reduce((n, c) => n + c.spells_cast, 0),
+    item_uses: characters.reduce((n, c) => n + c.item_uses, 0),
     deployed: battles.length ? battles.reduce((n, b) => n + b.units.length, 0) / battles.length : 0,
     characters: characters.length,
   };

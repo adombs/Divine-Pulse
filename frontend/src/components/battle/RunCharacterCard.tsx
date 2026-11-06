@@ -115,7 +115,7 @@ function CombatLedger({ c }: { c: CharacterStats }) {
       </table>
       {perFight !== null && (
         <p className="rc-note">
-          <b>{perFight}</b> damage per fight on average{c.defeats ? <> · a kill every <b>{Math.round((10 * c.fights) / c.defeats) / 10}</b> fights</> : null}
+          <b>{perFight}</b> damage per fight on average{c.defeats && c.fights !== null ? <> · a kill every <b>{Math.round((10 * c.fights) / c.defeats) / 10}</b> fights</> : null}
         </p>
       )}
     </div>
@@ -221,7 +221,7 @@ function BattleRows({ c, onOpen }: { c: CharacterStats; onOpen: (battleId: strin
               <span className="rc-battle-facts">
                 <span>{new Date(a.battle.started_at).toLocaleDateString()}</span>
                 <span>Lv {a.unit.level_ups ? `${a.unit.start_level}→${a.unit.level}` : a.unit.level}</span>
-                <span>{plural(a.fights, "fight")}</span>
+                <span>{a.fights === null ? "Fights —" : plural(a.fights, "fight")}</span>
                 {a.defeats !== null && <span>{plural(a.defeats, "kill")}</span>}
                 {a.unit.damage_dealt !== null && <span>{a.unit.damage_dealt} dealt</span>}
               </span>

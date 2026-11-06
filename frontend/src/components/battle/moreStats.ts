@@ -3,7 +3,7 @@
  * what Divine Pulse undid. Pure functions over the battle and its timeline (model.ts), like the rest of the page.
  */
 import type { Battle } from "../../api";
-import { armyId, Item, mergeHits, tally } from "./model";
+import { armyId, armyTotals, battleUnitStats, Item, mergeHits, tally } from "./model";
 
 /** One hit: who dealt it to whom, and when. */
 export interface Blow {
@@ -29,7 +29,8 @@ export interface PulseStats {
 }
 
 export interface MoreStats {
-  fights: number;
+  fights: number | null;
+  mvp: UnitRecord | null;
   biggestHit: Blow | null;
   biggestTaken: Blow | null;
   /** Lowest HP one of your units got down to without falling, at half HP or less (needs the history's map steps). */
@@ -63,6 +64,8 @@ export interface MoreStats {
 
 export interface UnitRow {
   id: string;
+  /** Nullable source metrics for labels/tables; numeric fields below are chart coordinates only. */
+  metrics: ReturnType<typeof battleUnitStats>;
   dealt: number;
   taken: number;
   healing: number;
@@ -198,6 +201,7 @@ export function benchWarmer(battle: Battle, items: Item[]): UnitRecord | null {
 }
 
 export function moreStats(battle: Battle, items: Item[]): MoreStats {
+  items = items.filter((i) => i.branch === 0);
   const isFoe = foes(battle);
   const attacks = items.filter((i) => i.kind === "attack");
   const hit = blows(items, isFoe);
@@ -208,7 +212,7 @@ export function moreStats(battle: Battle, items: Item[]): MoreStats {
   for (const i of attacks) {
     if (!isFoe(i.actor) || !isArmy(i.target)) continue;
     bump(targeted, i.target);
-    if (!i.dealt) bump(clean, i.target);
+    if (i.dealt === 0) bump(clean, i.target);
     if (i.taken) bump(counters, i.target, i.taken);
   }
   const untouched = best(clean, 3);
@@ -217,11 +221,14 @@ export function moreStats(battle: Battle, items: Item[]): MoreStats {
   const blood = (i: Item | undefined) => (i ? { id: i.actor!, value: 1, turn: i.turn, target: i.target! } : null);
 
   const dealtBy = battle.units.filter((u) => (u.damage_dealt ?? 0) > 0);
-  const total = dealtBy.reduce((n, u) => n + (u.damage_dealt ?? 0), 0);
+  const total = armyTotals(battle).dealt;
   const top = [...dealtBy].sort((a, b) => (b.damage_dealt ?? 0) - (a.damage_dealt ?? 0))[0];
+  const rows = unitRows(battle, items);
+  const kills = new Map(rows.filter((r) => r.metrics.defeats !== null).map((r) => [r.id, r.metrics.defeats!]));
 
   return {
-    fights: attacks.length,
+    fights: armyTotals(battle).fights,
+    mvp: kills.size === rows.length ? best(kills) : null,
     biggestHit: hit.dealt,
     biggestTaken: hit.taken,
     closestCall: closestCall(battle),
@@ -233,26 +240,27 @@ export function moreStats(battle: Battle, items: Item[]): MoreStats {
     firstBlood: blood(defeats[0]),
     lastBlow: battle.active || defeats.length < 2 ? null : blood(defeats[defeats.length - 1]),
     bench: benchWarmer(battle, items),
-    carry: dealtBy.length >= 2 && top ? { id: armyId(top.key), value: (top.damage_dealt ?? 0) / total } : null,
+    carry: dealtBy.length >= 2 && top && total ? { id: armyId(top.key), value: (top.damage_dealt ?? 0) / total } : null,
     pulses: pulseStats(battle),
     perTurn: perTurn(items, isFoe, battle.turn),
     activity: activity(items, battle.turn),
     board: board(battle, isFoe),
-    units: unitRows(battle, items),
+    units: rows,
   };
 }
 
-function unitRows(battle: Battle, items: Item[]): UnitRow[] {
+export function unitRows(battle: Battle, items: Item[]): UnitRow[] {
   const lows = new Map<string, number>();
   for (const s of battle.map_steps ?? []) {
     for (const [id, [, , hp]] of Object.entries(s.units)) if (isArmy(id) && hp > 0 && hp < (lows.get(id) ?? Infinity)) lows.set(id, hp);
   }
   return battle.units
-    .filter((u) => !u.adjutant_of)
     .map((u) => {
       const id = armyId(u.key);
+      const metrics = battleUnitStats(battle, u, items);
       return {
         id,
+        metrics,
         dealt: u.damage_dealt ?? 0,
         taken: u.damage_taken ?? 0,
         healing: u.healing_given ?? 0,
@@ -261,8 +269,8 @@ function unitRows(battle: Battle, items: Item[]): UnitRow[] {
         weapons: u.weapon_uses,
         spells: u.spells_cast,
         items: u.item_uses,
-        defeats: u.defeats ?? 0,
-        fights: tally(items, id, { fights: u.combats, defeats: u.defeats }).fights,
+        defeats: metrics.defeats ?? 0,
+        fights: metrics.fights ?? 0,
         low: lows.get(id) ?? null,
         max: u.now.hp || u.start.hp,
       };
