@@ -9,7 +9,7 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { CSSProperties, KeyboardEvent, ReactNode, useMemo, useRef, useState } from "react";
-import type { Battle, BattleUnit } from "../../api";
+import type { Battle } from "../../api";
 import { useNav } from "../../nav";
 import { characterKeyOfName } from "../../portraits";
 import { PortraitFlip } from "../character/CharacterFace";
@@ -19,8 +19,8 @@ import { CharacterPopup } from "../CharacterPopup";
 import { CharLink } from "../Links";
 import { Icon, IconName } from "../Icon";
 import { clock, plural } from "../../format";
-import { armyId, armyTotals, Item, statGains } from "./model";
-import { MoreStats, moreStats } from "./moreStats";
+import { armyId, armyTotals, Item, recordedSum, statGains } from "./model";
+import { AWARDS, battleAwards, MoreStats, moreStats } from "./moreStats";
 import { BattleNav, BattleNavContext, HouseMark, ItemList, TrendChart, UnitFace, useBattleNav, WhoLink } from "./parts";
 import { Empty, MirrorBars, Series, TurnColumns, TurnLines, UnitBars } from "./charts";
 import { Carousel } from "./Carousel";
@@ -106,7 +106,7 @@ function TabStrip<T extends string>({ label, value, options, onChange, className
 
 // Records
 
-const LEFT: [Left, string][] = [["standouts", "Standouts"], ["share", "Share of the Fighting"]];
+const LEFT: [Left, string][] = [["standouts", "Awards"], ["share", "Fight Breakdown"]];
 type Left = "standouts" | "share";
 
 function RecordsPart({ battle, seconds, stats, history }: View) {
@@ -117,13 +117,11 @@ function RecordsPart({ battle, seconds, stats, history }: View) {
     <div className="ms-records">
       <Ledger battle={battle} seconds={seconds} fights={stats.fights} />
       <div className="ms-records-body">
-        <RunCards battle={battle} history={history}>
           <div className="ms-records-main" data-show={share ? left : "standouts"}>
             {share && <TabStrip label="Records panels" value={left} options={LEFT} onChange={setLeft} className="segmented ms-left-tabs" panel={`ms-${left}`} />}
-            <Standouts battle={battle} stats={stats} />
+            <RunCards battle={battle} history={history}><Standouts battle={battle} stats={stats} /></RunCards>
             <Share stats={stats} />
           </div>
-        </RunCards>
         <Compared battle={battle} seconds={seconds} history={history} />
       </div>
     </div>
@@ -131,21 +129,18 @@ function RecordsPart({ battle, seconds, stats, history }: View) {
 }
 
 /** The battle's numbers: the exchange of damage and healing up front, everything else in a quieter grid. */
-function Ledger({ battle, seconds, fights }: { battle: Battle; seconds: number; fights: number }) {
+function Ledger({ battle, seconds, fights }: { battle: Battle; seconds: number; fights: number | null }) {
   const t = armyTotals(battle);
-  const broken = battle.units.reduce((n, u) => n + u.broken_weapons, 0);
   const share = t.dealt !== null && t.taken !== null && t.dealt + t.taken > 0 ? t.dealt / (t.dealt + t.taken) : null;
-  const ratio = t.dealt !== null && t.taken ? t.dealt / t.taken : null;
-  const magic = battle.spell_uses_full ? (battle.spell_uses_left ?? 0) / battle.spell_uses_full : null;
-  const minor: [string, ReactNode, ReactNode?][] = [
-    ["Fights", fights || "—"],
-    ["Level-ups", battle.level_ups, `+${battle.stat_points} stats`],
-    ["Weapon attacks", battle.weapon_uses, broken ? <span className="bad">{plural(broken, "weapon")} broken</span> : undefined],
+  const minor: [string, ReactNode][] = [
+    ["Fights", fights ?? "—"],
+    ["Level-ups", battle.level_ups],
+    ["Weapon attacks", battle.weapon_uses],
     ["Spells cast", battle.spells_cast],
     ["Items used", battle.item_uses],
     ["Tiles moved", t.tiles ?? "—"],
-    ...(battle.turn ? [["Per turn", clock(seconds / battle.turn), "real time"] as [string, ReactNode, ReactNode]] : []),
-    ...(magic !== null ? [["Magic left", `${Math.round(100 * magic)}%`, <span className="ledger-meter" title={`${battle.spell_uses_left} of ${battle.spell_uses_full} spell uses`}><span style={{ width: `${100 * magic}%` }} /></span>] as [string, ReactNode, ReactNode]] : []),
+    ...(battle.turn ? [["Per turn", clock(seconds / battle.turn)] as [string, ReactNode]] : []),
+    ["Stat increases", battle.units.reduce((n, u) => n + statGains(u), 0)],
   ];
   return (
     <section className="ms-ledger" aria-label="The battle in numbers">
@@ -153,7 +148,6 @@ function Ledger({ battle, seconds, fights }: { battle: Battle; seconds: number; 
         <div className="ledger-figure dealt">
           <span className="ledger-label">Damage dealt</span>
           <span className="ledger-value">{t.dealt ?? "—"}</span>
-          <span className="ledger-note">{t.defeats !== null ? plural(t.defeats, "kill") : " "}</span>
         </div>
         <div className="ledger-exchange" aria-hidden={share === null}>
           {share !== null && (
@@ -161,26 +155,23 @@ function Ledger({ battle, seconds, fights }: { battle: Battle; seconds: number; 
               <span className="exchange-bar" title={`${Math.round(share * 100)}% of the damage was yours`}>
                 <span className="exchange-dealt" style={{ ["--share" as string]: share } as CSSProperties} />
               </span>
-              <span className="ledger-note">{ratio !== null ? `${ratio >= 10 ? Math.round(ratio) : ratio.toFixed(1)} : 1 exchange` : "untouched"}</span>
             </>
           )}
         </div>
         <div className="ledger-figure taken">
           <span className="ledger-label">Damage taken</span>
           <span className="ledger-value">{t.taken ?? "—"}</span>
-          <span className="ledger-note"> </span>
         </div>
         <div className="ledger-figure heal">
           <span className="ledger-label">Healing</span>
           <span className="ledger-value">{t.healing ?? "—"}</span>
-          <span className="ledger-note">HP restored</span>
         </div>
       </div>
       <dl className="ledger-minor">
-        {minor.map(([label, value, note]) => (
+        {minor.map(([label, value]) => (
           <div key={label}>
             <dt>{label}</dt>
-            <dd>{value}{note ? <small>{note}</small> : null}</dd>
+            <dd>{value}</dd>
           </div>
         ))}
       </dl>
@@ -236,7 +227,7 @@ function RunCards({ battle, history, children }: { battle: Battle; history: Batt
   );
 }
 
-function Record({ icon, title, value, unit, children }: { icon: IconName; title: string; value: ReactNode; unit?: string; children: ReactNode }) {
+function Record({ icon, title, value, children }: { icon: IconName; title: string; value: ReactNode; children: ReactNode }) {
   return (
     <div className="standout">
       <span className="standout-icon" aria-hidden="true"><Icon name={icon} /></span>
@@ -246,80 +237,28 @@ function Record({ icon, title, value, unit, children }: { icon: IconName; title:
       </span>
       <span className="standout-value">
         {value}
-        {unit && <small>{unit}</small>}
       </span>
     </div>
   );
 }
 
-const onTurn = (turn: number | null | undefined) => (turn ? <span className="muted"> · turn {turn}</span> : null);
-
 /** Who stood out and the battle's moments, in four themed columns that scroll as a carousel when they don't fit. */
 function Standouts({ battle, stats: s }: { battle: Battle; stats: MoreStats }) {
-  const top = (pick: (u: BattleUnit) => number) => {
-    const best = [...battle.units].sort((a, b) => pick(b) - pick(a))[0];
-    return best && pick(best) > 0 ? best : null;
-  };
-  const mvp = top((u) => (u.defeats ?? 0) * 1000 + (u.damage_dealt ?? 0) / 1000);
-  const sponge = top((u) => u.damage_taken ?? 0);
-  const medic = top((u) => u.healing_given ?? 0);
-  const walker = top((u) => u.tiles_moved ?? 0);
-  const grew = top((u) => u.level_ups * 100 + statGains(u));
-  const who = (u: BattleUnit) => <WhoLink id={armyId(u.key)} />;
-  const caster = top((u) => u.spells_cast ?? 0);
-  const fighter = top((u) => u.weapon_uses ?? 0);
-  // The combat art or spell used most, by one unit.
-  let signature: { unit: BattleUnit; name: string; times: number } | null = null;
-  for (const u of battle.units)
-    for (const m of u.usage ?? [])
-      if ((m.kind === "art" || m.kind === "spell") && m.times > (signature?.times ?? 0)) signature = { unit: u, name: m.name, times: m.times };
-
-  const columns: [string, IconName, ReactNode[]][] = [
-    ["Offense", CONCEPT_ICON.attack, [
-      mvp && (mvp.defeats ?? 0) > 0 && <Record key="mvp" icon={CONCEPT_ICON.defeat} title="MVP" value={mvp.defeats} unit="killed">{who(mvp)}</Record>,
-      s.carry && s.carry.value >= 0.3 && <Record key="carry" icon={CONCEPT_ICON.carry} title="Carried the Team" value={Math.round(s.carry.value * 100)} unit="% of damage"><WhoLink id={s.carry.id} /></Record>,
-      s.biggestHit && <Record key="hit" icon={CONCEPT_ICON.attack} title="Heaviest Blow" value={s.biggestHit.amount} unit="damage"><WhoLink id={s.biggestHit.by} /> on <WhoLink id={s.biggestHit.on} />{onTurn(s.biggestHit.turn)}</Record>,
-      s.rampage && <Record key="rampage" icon={CONCEPT_ICON.enemies} title="Rampage" value={s.rampage.value} unit="in one turn"><WhoLink id={s.rampage.id} />{onTurn(s.rampage.turn)}</Record>,
-      s.oneRound && <Record key="one" icon={CONCEPT_ICON.end} title="One and Done" value={s.oneRound.value} unit="from full HP"><WhoLink id={s.oneRound.id} /></Record>,
-      fighter && <Record key="fighter" icon={CONCEPT_ICON.attack} title="Weapon Master" value={fighter.weapon_uses} unit="attacks">{who(fighter)}</Record>,
-      caster && <Record key="caster" icon={CONCEPT_ICON.spell} title="Spellslinger" value={caster.spells_cast} unit="spells">{who(caster)}</Record>,
-      signature && <Record key="signature" icon={CONCEPT_ICON.art} title="Signature Move" value={signature.times} unit={`× ${signature.name}`}>{who(signature.unit)}</Record>,
-    ]],
-    ["Defense", CONCEPT_ICON.absorb, [
-      s.closestCall && <Record key="close" icon={CONCEPT_ICON.lowHp} title="Closest Call" value={s.closestCall.value} unit={`of ${s.closestCall.max} HP`}><WhoLink id={s.closestCall.id} />{onTurn(s.closestCall.turn)}</Record>,
-      s.biggestTaken && <Record key="ouch" icon={CONCEPT_ICON.danger} title="Ouch" value={s.biggestTaken.amount} unit="damage"><WhoLink id={s.biggestTaken.on} /> from <WhoLink id={s.biggestTaken.by} />{onTurn(s.biggestTaken.turn)}</Record>,
-      s.mostWanted && <Record key="wanted" icon={CONCEPT_ICON.target} title="Most Wanted" value={s.mostWanted.value} unit="attacks on them"><WhoLink id={s.mostWanted.id} /></Record>,
-      s.untouchable && <Record key="untouchable" icon={CONCEPT_ICON.avoid} title="Untouchable" value={s.untouchable.value} unit={`of ${s.untouchable.of} missed`}><WhoLink id={s.untouchable.id} /></Record>,
-      s.counters && <Record key="payback" icon={CONCEPT_ICON.counter} title="Payback" value={s.counters.value} unit="countering"><WhoLink id={s.counters.id} /></Record>,
-      sponge && <Record key="sponge" icon={CONCEPT_ICON.absorb} title="Damage Sponge" value={sponge.damage_taken} unit="taken">{who(sponge)}</Record>,
-    ]],
-    ["Support & Movement", CONCEPT_ICON.heal, [
-      medic && <Record key="medic" icon={CONCEPT_ICON.heal} title="Field Medic" value={medic.healing_given} unit="HP restored">{who(medic)}</Record>,
-      grew && <Record key="grew" icon={CONCEPT_ICON.levelUp} title="Glow-up" value={`+${statGains(grew)}`} unit={grew.level_ups ? `stats · ${plural(grew.level_ups, "level")}` : "stats"}>{who(grew)}</Record>,
-      walker && <Record key="walker" icon={CONCEPT_ICON.move} title="Marathon" value={walker.tiles_moved} unit="tiles">{who(walker)}</Record>,
-      s.bench && <Record key="bench" icon={CONCEPT_ICON.wait} title="Bench Warmer" value={0} unit="fights"><WhoLink id={s.bench.id} />{s.bench.value >= 0 && <span className="muted"> · {plural(s.bench.value, "tile")}</span>}</Record>,
-    ]],
-    ["Turning Points", CONCEPT_ICON.turn, [
-      s.firstBlood && <Record key="first" icon={CONCEPT_ICON.start} title="First Blood" value={s.firstBlood.turn ? `T${s.firstBlood.turn}` : "—"}><WhoLink id={s.firstBlood.id} /> on <WhoLink id={s.firstBlood.target} /></Record>,
-      s.lastBlow && <Record key="last" icon={CONCEPT_ICON.finalBlow} title="Final Blow" value={s.lastBlow.turn ? `T${s.lastBlow.turn}` : "—"}><WhoLink id={s.lastBlow.id} /> on <WhoLink id={s.lastBlow.target} /></Record>,
-      s.pulses && (
-        <Record key="pulse" icon={CONCEPT_ICON.pulse} title={s.pulses.falls.length ? "Didn't Happen" : "Do-over"} value={s.pulses.uses} unit={s.pulses.uses === 1 ? "Divine Pulse" : "Divine Pulses"}>
-          {s.pulses.undone ? `${plural(s.pulses.undone, "action")} undone` : "Turned back time"}
-          {s.pulses.falls.length > 0 && <span className="muted"> · saved {[...new Set(s.pulses.falls)].join(", ")}</span>}
-        </Record>
-      ),
-    ]],
-  ];
+  const awards = battleAwards(battle, [], s);
+  const groups: [string, IconName][] = [["Offense", CONCEPT_ICON.attack], ["Defense", CONCEPT_ICON.absorb], ["Support & Movement", CONCEPT_ICON.heal], ["Turning Points", CONCEPT_ICON.turn]];
+  const columns = groups.map(([group, icon]) => [group, icon, AWARDS.filter((a) => a.group === group).flatMap((a) => {
+    const winner = awards.find((r) => r.key === a.key);
+    return winner ? [<Record key={a.key} icon={CONCEPT_ICON[a.icon]} title={a.title} value={winner.value}>{winner.id ? <WhoLink id={winner.id} /> : "Battle"}</Record>] : [];
+  })] as const);
   const shown = columns.map(([title, icon, cards]) => [title, icon, cards.filter(Boolean)] as const).filter(([, , cards]) => cards.length);
   return (
     <section className="ms-panel ms-standouts" id="ms-standouts" aria-labelledby="ms-standouts-title">
       <header className="ms-panel-head">
-        <h3 id="ms-standouts-title">Standouts</h3>
-        <span className="ms-panel-hint">Select a name to see them across the whole run</span>
+        <h3 id="ms-standouts-title">Awards</h3>
       </header>
-      {!shown.length ? <Empty>Nothing stood out yet.</Empty> : (
+      {!shown.length ? <Empty>No awards recorded yet.</Empty> : (
         <div className="standout-carousel">
-          <Carousel label="standout groups" rows={shown.map(([title, icon, cards]) => (
+          <Carousel label="award groups" rows={shown.map(([title, icon, cards]) => (
             <li key={title} className="standout-column">
               <div className="standout-stack" role="group" aria-label={title}>
                 <h4 className="standout-group"><Icon name={icon} />{title}<span className="standout-count">{cards.length}</span></h4>
@@ -334,25 +273,24 @@ function Standouts({ battle, stats: s }: { battle: Battle; stats: MoreStats }) {
 }
 
 /** Each of your units' part in the battle: their share of the army's damage, and their other numbers beside it. */
-const shareRows = (stats: MoreStats) => stats.units.filter((u) => u.fights || u.dealt || u.healing || u.tiles).sort((a, b) => b.dealt - a.dealt || b.fights - a.fights);
+const shareRows = (stats: MoreStats) => [...stats.units].sort((a, b) => b.dealt - a.dealt || b.fights - a.fights);
 
 function Share({ stats }: { stats: MoreStats }) {
   const rows = shareRows(stats);
-  const total = rows.reduce((n, u) => n + u.dealt, 0);
+  const total = recordedSum(rows.map((u) => u.metrics.dealt));
   const top = Math.max(1, ...rows.map((u) => u.dealt));
   if (!rows.length) return null;
   return (
     <section className="ms-panel ms-share" id="ms-share" aria-labelledby="ms-share-title">
       <header className="ms-panel-head">
-        <h3 id="ms-share-title">Share of the Fighting</h3>
-        <span className="ms-panel-hint">your units, by damage dealt</span>
+        <h3 id="ms-share-title">Fight Breakdown</h3>
       </header>
       <div className="share-scroll">
-        <table className="share-table">
+        <table className="share-table" aria-label="Your units in this battle" title="This battle only. A dash means not recorded. Fights use battle counters when read, otherwise recorded actions.">
           <thead>
             <tr>
               <th scope="col" className="left">Unit</th>
-              <th scope="col" className="left share-col">Damage share</th>
+              <th scope="col" className="left share-col">Damage / share</th>
               <th scope="col">Kills</th>
               <th scope="col">Fights</th>
               <th scope="col">Taken</th>
@@ -366,13 +304,14 @@ function Share({ stats }: { stats: MoreStats }) {
                 <th scope="row" className="left"><WhoLink id={u.id} /></th>
                 <td className="left share-col">
                   <span className="share-bar" aria-hidden="true"><span style={{ width: `${(100 * u.dealt) / top}%` }} /></span>
-                  <span className="share-pct">{total ? `${Math.round((100 * u.dealt) / total)}%` : "—"}</span>
+                  <span className="share-amount">{u.metrics.dealt ?? "—"}</span>
+                  <span className="share-pct">{total && u.metrics.dealt !== null ? `${Math.round((100 * u.dealt) / total)}%` : "—"}</span>
                 </td>
-                <td>{u.defeats}</td>
-                <td>{u.fights}</td>
-                <td>{u.taken}</td>
-                <td>{u.healing}</td>
-                <td>{u.tiles}</td>
+                <td>{u.metrics.defeats ?? "—"}</td>
+                <td>{u.metrics.fights ?? "—"}</td>
+                <td>{u.metrics.taken ?? "—"}</td>
+                <td>{u.metrics.healing ?? "—"}</td>
+                <td>{u.metrics.tiles ?? "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -399,7 +338,7 @@ function Compared({ battle, seconds, history }: { battle: Battle; seconds: numbe
     ["Kills", armyTotals(battle).defeats, avg((b) => armyTotals(b).defeats), one, "more"],
     ["Units lost", lost(battle), avg(lost), one, "less"],
     ["Level-ups", battle.level_ups, avg((b) => b.level_ups), one, "more"],
-    ["Stat points", battle.stat_points, avg((b) => b.stat_points), (n) => `+${one(n)}`, "more"],
+    ["Stat points", battle.units.reduce((n, u) => n + statGains(u), 0), avg((b) => b.units.reduce((n, u) => n + statGains(u), 0)), one, "more"],
     ["Divine Pulse", battle.divine_pulses, avg((b) => b.divine_pulses), one, null],
   ];
   const shown = rows.filter(([, now, average]) => now !== null && average !== null) as [string, number, number, (n: number) => string, Better][];
@@ -407,15 +346,14 @@ function Compared({ battle, seconds, history }: { battle: Battle; seconds: numbe
     <section className="ms-panel ms-compare" aria-labelledby="ms-compare-title">
       <header className="ms-panel-head">
         <h3 id="ms-compare-title">Against Your Other Battles</h3>
-        {history.length > 0 && <span className="ms-panel-hint">average of {history.length}</span>}
       </header>
       {!history.length ? <Empty>No other finished battles in this run yet.</Empty> : (
         <ul className="compare-rows">
           {shown.map(([label, now, average, f, better], i) => {
             const scale = Math.max(now, average) * 1.12 || 1;
-            const diff = average ? (now - average) / average : now ? 1 : 0;
+            const diff = average ? (now - average) / average : 0;
             const tone = better === null || Math.abs(diff) < 0.05 ? "even" : (diff > 0) === (better === "more") ? "good" : "bad";
-            const delta = Math.abs(diff) < 0.05 ? "about even" : `${diff > 0 ? "+" : "−"}${Math.round(Math.abs(diff) * 100)}%`;
+            const delta = average === 0 && now !== 0 ? "—" : `${diff > 0 ? "+" : diff < 0 ? "−" : ""}${Math.round(Math.abs(diff) * 100)}%`;
             return (
               <li key={label} className={`compare-row ${tone}`} style={{ ["--i" as string]: i } as CSSProperties}
                 title={`${label}: ${f(now)} this battle, ${f(average)} on average`}>
@@ -426,7 +364,7 @@ function Compared({ battle, seconds, history }: { battle: Battle; seconds: numbe
                   <span className="cmp-fill" style={{ width: `${(100 * now) / scale}%` }} />
                   <span className="cmp-avg" style={{ left: `${(100 * average) / scale}%` }} />
                 </span>
-                <span className="compare-of">avg {f(average)}</span>
+                <span className="compare-of"><span className="compare-avg-label">Avg</span> {f(average)}</span>
               </li>
             );
           })}
@@ -469,10 +407,10 @@ function chartsFor({ battle, seconds, stats, pick }: View, group: Group): Chart[
   const activity = stats.activity;
   const board = stats.board;
   if (group === "combat") {
-    const dealt = stats.units.filter((u) => u.dealt || u.taken).sort((a, b) => b.dealt - a.dealt || b.taken - a.taken);
-    const defeats = stats.units.filter((u) => u.defeats > 0).sort((a, b) => b.defeats - a.defeats);
-    const fights = stats.units.filter((u) => u.fights > 0).sort((a, b) => b.fights - a.fights);
-    const efficiency = stats.units.filter((u) => u.fights > 0).sort((a, b) => b.dealt / b.fights - a.dealt / a.fights);
+    const dealt = stats.units.filter((u) => u.metrics.dealt !== null && u.metrics.taken !== null && (u.dealt || u.taken)).sort((a, b) => b.dealt - a.dealt || b.taken - a.taken);
+    const defeats = stats.units.filter((u) => u.metrics.defeats !== null && u.defeats > 0).sort((a, b) => b.defeats - a.defeats);
+    const fights = stats.units.filter((u) => u.metrics.fights !== null && u.fights > 0).sort((a, b) => b.fights - a.fights);
+    const efficiency = stats.units.filter((u) => u.metrics.dealt !== null && u.fights > 0).sort((a, b) => b.dealt / b.fights - a.dealt / a.fights);
     return [
       { key: "dpt", title: "Damage per Turn", kind: "time", ok: turns.length > 1 && turns.some((t) => t.dealt || t.taken), node: (
         <TurnColumns series={[DEALT, TAKEN]} onPick={pick} rows={turns.map((t) => ({ turn: t.turn, values: [t.dealt, t.taken], title: turnTitle(t.turn, `${t.dealt} dealt, ${t.taken} taken${t.defeats ? `, ${plural(t.defeats, "kill")}` : ""}`) }))} />
@@ -487,7 +425,7 @@ function chartsFor({ battle, seconds, stats, pick }: View, group: Group): Chart[
     ];
   }
   if (group === "support") {
-    const heal = stats.units.filter((u) => u.healing || u.healed).sort((a, b) => b.healing - a.healing || b.healed - a.healed);
+    const heal = stats.units.filter((u) => u.metrics.healing !== null && u.metrics.healed !== null && (u.healing || u.healed)).sort((a, b) => b.healing - a.healing || b.healed - a.healed);
     const received = stats.units.filter((u) => u.healed > 0).sort((a, b) => b.healed - a.healed);
     const low = stats.units.filter((u) => u.low !== null).sort((a, b) => a.low! / a.max - b.low! / b.max);
     return [

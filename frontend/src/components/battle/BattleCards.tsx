@@ -74,21 +74,23 @@ interface Props {
   part2: boolean;
   /** Lets the app retain a selected recording while the user visits other pages. */
   onOpenRecording?: (battle: Battle) => void;
+  onStats?: () => void;
 }
 
-export function BattleCards({ history, live, roster, part2, onOpenRecording }: Props) {
+export function BattleCards({ history, live, roster, part2, onOpenRecording, onStats }: Props) {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<BattleFilters>(NO_BATTLE_FILTERS);
   const [sort, setSort] = useState<Sort>("newest");
   const [open, setOpen] = useState(false);
   // Stable, so the window doesn't take focus back from its search box on every keystroke.
   const close = useCallback(() => setOpen(false), []);
-  if (history === null) return <p className="muted">Loading…</p>;
+  const heading = <span className="history-stats-heading">Battles{onStats && <button type="button" className="btn small" onClick={onStats} aria-label="Run battle statistics"><Icon name={CONCEPT_ICON.history} /> Stats</button>}</span>;
+  if (history === null) return <Section title={heading}><p className="muted" role="status">Loading battles…</p></Section>;
   if (!live && history.length === 0)
     return (
-      <EmptyState title="No battles yet in this run">
+      <Section title={heading}><EmptyState title="No battles yet in this run">
         Battles are recorded while the tracker reads the game. Each one is filed here when it ends.
-      </EmptyState>
+      </EmptyState></Section>
     );
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const count = filters.kinds.length + (filters.flawless ? 1 : 0) + (filters.pulse !== "any" ? 1 : 0) + (filters.part !== "any" ? 1 : 0);
@@ -107,7 +109,7 @@ export function BattleCards({ history, live, roster, part2, onOpenRecording }: P
   );
   return (
     <Section
-      title="Battles"
+      title={heading}
       right={
         history.length > 0 && (
           <button type="button" className="btn small" onClick={() => setOpen(true)}>

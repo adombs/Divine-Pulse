@@ -47,7 +47,7 @@ interface Row {
   onMap: boolean;
   team: Team;
   flags: Flag[];
-  fights: number;
+  fights: number | null;
   defeats: number | null;
   dealt: number | null;
   taken: number | null;
@@ -133,7 +133,7 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
       case "level": return r.level;
       case "hp": return r.hp === null ? -1 : hpShare(r.hp, r.max) ?? -1;
       case "status": return (r.onMap ? 0 : 2) + (r.army ? 0 : 1);
-      case "fights": return r.fights;
+      case "fights": return r.fights ?? -1;
       case "dealt": return r.dealt ?? -1;
       case "taken": return r.taken ?? -1;
       case "healing": return r.healing ?? -1;
@@ -222,7 +222,7 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
                       <Flags flags={r.flags} />
                     </span>
                   </td>
-                  <td className="num">{r.fights}</td>
+                  <td className="num"><Num value={r.fights} /></td>
                   <td className="num">
                     <Num value={r.dealt} />
                   </td>
