@@ -269,20 +269,19 @@
 .bp-val.spent { opacity: 0.6; text-decoration: line-through; cursor: help; }
 .bp-gauge.spent .bp-gauge-num { color: var(--red); }
 .bp-missing { color: inherit; opacity: 0.75; cursor: help; }
-.bp-gambit-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.6rem; align-items: start; }
-/* The gambit's area, as the game's gambit panel shows it: the battle map's dark grid, gold tiles, your badge. */
+.bp-gambit-body { display: grid; grid-template-columns: auto minmax(0, 13.625rem); justify-content: space-between; gap: 0.6rem; align-items: start; }
+/* Native gambit preview: a fixed grid with square gold cells and one blue or red anchor badge. */
 .bp-area {
-  display: block; max-width: 100%; height: auto; padding: 0.2rem; border-radius: 4px;
-  background: #121216; box-shadow: inset 0 0 0 1px color-mix(in srgb, #fff 10%, transparent);
+  display: block; width: 13.625rem; max-width: 100%; height: auto; background: #000;
 }
 .bp-area.missing {
-  display: grid; place-items: center; width: 8.5rem; aspect-ratio: 7 / 5; padding: 0.5rem; border: 1px dashed var(--line);
+  display: grid; place-items: center; aspect-ratio: 218 / 146; padding: 0.5rem; border: 1px dashed var(--line);
   text-align: center; font: 600 0.74rem var(--ui); color: var(--ink-soft); background: var(--paper); box-shadow: none;
 }
-.bp-cell { fill: #1c1c22; stroke: #2c2c34; stroke-width: 0.04; }
-.bp-hit { fill: #dca730; stroke: #ffe39a; stroke-width: 0.06; filter: drop-shadow(0 0 0.06px #ffd166); }
-.bp-user { fill: #2a50d8; stroke: #9db4ff; stroke-width: 0.05; }
-.bp-foe { fill: #b3261e; stroke: #ffb3ab; stroke-width: 0.05; }
+.bp-cell { fill: #000; stroke: #262626; stroke-width: 1; }
+.bp-hit { fill: #705300; stroke: #e2c777; stroke-width: 1; }
+.bp-marker.user .bp-badge { fill: #173ab8; }
+.bp-marker.foe .bp-badge { fill: #ad1717; }
 .bp-facing { fill: #fff; }
 @media (max-width: 700px) {
   .bp { grid-template-columns: minmax(0, 1fr); }

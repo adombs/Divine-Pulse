@@ -14,7 +14,7 @@ import { battalionLevel, battalionReference } from "../../reference/battalions";
 import type { BattleUnit, Unit } from "../../api";
 import { BATTALION_STAT_KEYS, BATTALION_STAT_LABEL, useReference } from "../../reference/types";
 import type { Battalion, BattalionStatKey, GambitArea } from "../../reference/types";
-import { GameImage, MapImage } from "../GameImage";
+import { GameImage, useGameImageUrl } from "../GameImage";
 import { Icon } from "../Icon";
 import { BattalionLink } from "../Links";
 import "./character.css";
@@ -199,18 +199,22 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
   );
 }
 
-/** The battle map's own pieces (the import's minimap set), so the area looks like the game's gambit panel. */
+/** The native gambit preview pieces, imported from the battle UI atlas. */
 const PIECE = (name: string) => `images/map/minimap-pieces/${name}.png`;
-// The area is drawn on at least this many tiles (wider than tall, like the game's panel), one tile of margin around it.
-const AREA_MIN_W = 7;
-const AREA_MIN_H = 5;
+const AREA_CELL = 24;
+const AREA_WIDTH = 218;
+const AREA_HEIGHT = 146;
 
 /**
- * The tiles a gambit covers, drawn like the game's gambit panel with the battle map's pieces: the minimap's grid,
- * the tiles covered in gold, the user as your army's badge facing up (the area is ahead of them) and, for a gambit
- * aimed at a foe, the game's target cursor on the tile it's aimed at. Without the area, an empty frame says so.
+ * The game's fixed 9 x 6 preview. Forward areas sit above a blue upward badge; centred areas surround one downward
+ * badge (red for an enemy target, blue for support). A centred attack never adds a separate user or target cursor.
+ * Sprite transparency supplies the tile edges and the chevron's padding; all pieces occupy the same 24 px cell.
  */
 export function GambitAreaMap({ area, name }: { area?: GambitArea; name?: string }) {
+  const gridUrl = useGameImageUrl(PIECE("range-grid"));
+  const cellUrl = useGameImageUrl(PIECE("range-cell"));
+  const badgeUrl = useGameImageUrl(PIECE(area?.target ? "range-enemy" : "range-player"));
+  const chevronUrl = useGameImageUrl(PIECE("range-chevron"));
   if (!area) {
     return (
       <div className="bp-area missing" title={`Area: ${NOT_IMPORTED}`}>
@@ -219,47 +223,36 @@ export function GambitAreaMap({ area, name }: { area?: GambitArea; name?: string
     );
   }
   const origin = area.origin ?? [0, 0];
-  const points = [...area.cells, origin, ...(area.target ? [area.target] : [])];
-  let [minX, maxX] = [Math.min(...points.map((p) => p[0])) - 1, Math.max(...points.map((p) => p[0])) + 1];
-  let [minY, maxY] = [Math.min(...points.map((p) => p[1])) - 1, Math.max(...points.map((p) => p[1])) + 1];
-  while (maxX - minX + 1 < AREA_MIN_W) { minX -= 1; if (maxX - minX + 1 < AREA_MIN_W) maxX += 1; }
-  while (maxY - minY + 1 < AREA_MIN_H) { minY -= 1; if (maxY - minY + 1 < AREA_MIN_H) maxY += 1; }
-  const w = maxX - minX + 1;
-  const h = maxY - minY + 1;
-  const at = ([x, y]: [number, number]) => ({ x: x - minX, y: y - minY });
+  const forward = area.direction === "forward";
+  const centre = area.target ?? origin;
+  // Four tiles straight ahead need the badge one row lower. All other native previews anchor on row 3.
+  const row = forward ? Math.max(3, ...area.cells.map(([, y]) => origin[1] - y)) : 3;
+  const at = ([x, y]: [number, number]) => ({ x: 1 + (4 + x - centre[0]) * AREA_CELL, y: 1 + (row + y - centre[1]) * AREA_CELL });
   const label = `${name ? `${name}: ` : ""}covers ${area.cells.length} ${area.cells.length === 1 ? "tile" : "tiles"}`
-    + (area.target ? ", aimed at a foe" : "") + "; the user faces up";
+    + (area.target ? "; red target marker at the centre" : forward ? "; blue user marker facing up" : "; blue user marker at the centre");
   const grid = [];
-  for (let y = 0; y < h; y++) {
-    for (let x = 0; x < w; x++) {
-      grid.push(
-        <g key={`${x},${y}`}>
-          <rect className="bp-cell" x={x} y={y} width={1} height={1} />
-          <MapImage imported={PIECE("grid")} x={x} y={y} width={1} height={1} preserveAspectRatio="none" />
-        </g>,
-      );
+  for (let y = 0; y < 6; y++) {
+    for (let x = 0; x < 9; x++) {
+      grid.push(<rect key={`${x},${y}`} className="bp-cell" x={1 + x * AREA_CELL} y={1 + y * AREA_CELL} width={AREA_CELL} height={AREA_CELL} />);
     }
   }
-  const user = at(origin);
-  const target = area.target ? at(area.target) : null;
+  const marker = at(centre);
   return (
-    <svg className="bp-area" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={label} style={{ width: `${w * 1.5}rem` }}>
+    <svg className="bp-area" viewBox={`0 0 ${AREA_WIDTH} ${AREA_HEIGHT}`} role="img" aria-label={label}>
       <title>{label}</title>
-      {grid}
+      {gridUrl ? <image href={gridUrl} x={0} y={0} width={AREA_WIDTH} height={AREA_HEIGHT} /> : grid}
       {area.cells.map((c) => {
         const p = at(c);
-        return <rect key={`${c[0]},${c[1]}`} className="bp-hit" x={p.x + 0.08} y={p.y + 0.08} width={0.84} height={0.84} rx={0.08} />;
+        return <g key={`${c[0]},${c[1]}`} transform={`translate(${p.x} ${p.y})`}>
+          {cellUrl ? <image href={cellUrl} width={AREA_CELL} height={AREA_CELL} /> : <rect className="bp-hit" x={1} y={1} width={22} height={22} />}
+        </g>;
       })}
-      {/* The foe it's aimed at: an enemy badge inside the game's target cursor. */}
-      {target && <>
-        <circle className="bp-foe" cx={target.x + 0.5} cy={target.y + 0.5} r={0.26} />
-        <MapImage imported={PIECE("badge-enemy")} x={target.x + 0.22} y={target.y + 0.22} width={0.56} height={0.56} />
-        <MapImage imported={PIECE("cursor-target")} x={target.x - 0.1} y={target.y - 0.1} width={1.2} height={1.2} />
-      </>}
-      {/* The user: your army's badge (a plain disc without the import), facing the area. */}
-      <circle className="bp-user" cx={user.x + 0.5} cy={user.y + 0.5} r={0.4} />
-      <MapImage imported={PIECE("badge-player")} x={user.x + 0.08} y={user.y + 0.08} width={0.84} height={0.84} />
-      <path className="bp-facing" d={`M ${user.x + 0.5} ${user.y + 0.24} L ${user.x + 0.74} ${user.y + 0.62} L ${user.x + 0.5} ${user.y + 0.5} L ${user.x + 0.26} ${user.y + 0.62} Z`} />
+      <g className={`bp-marker ${area.target ? "foe" : "user"}`} transform={`translate(${marker.x} ${marker.y})`}>
+        {badgeUrl ? <image href={badgeUrl} width={AREA_CELL} height={AREA_CELL} /> : <rect className="bp-badge" x={1} y={1} width={22} height={22} rx={3} />}
+        <g transform={forward ? `translate(0 ${AREA_CELL}) scale(1 -1)` : undefined}>
+          {chevronUrl ? <image href={chevronUrl} width={AREA_CELL} height={AREA_CELL} /> : <path className="bp-facing" d="M 4 8 L 12 13 L 20 8 L 12 18 Z" />}
+        </g>
+      </g>
     </svg>
   );
 }

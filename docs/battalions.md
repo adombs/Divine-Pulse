@@ -87,9 +87,9 @@ every value that could be compared, so no extra game tests were run.
   and Cha; nothing while it is rattled or its endurance is spent.
 - **Battle log**: "Byleth used Assembly on Bandit 2.", kind `gambit`: only the unit it was aimed at is named. Every
   unit it hit counts toward the user's damage dealt (the line's total, the user's usage and the battle's statistics).
-- **Gambit area** (Battalion panel): drawn with the battle map's own pieces, like the game's gambit panel: the minimap
-  grid, the tiles covered in gold, the user as your army's badge facing the area and, for a gambit aimed at a foe, an
-  enemy badge in the game's target cursor.
+- **Gambit area** (Battalion panel): the game's fixed 9 by 6 grid, gold tiles and one badge. A forward area has a blue
+  upward badge below it; a centred area has a downward badge at its centre (red for an enemy target, blue for support).
+  The target-centred preview does not show a separate user or target cursor.
 
 ## Run and battle contract
 
@@ -126,9 +126,19 @@ Each gambit also gets its **icon** and **area**, both read the way the game's ow
 - Area (`gambit.area`): section 8 `+0x0A` is the shape, which the area builder at `main+0x41E4E0` turns into tiles.
   `cells` are `[dx, dy]` from the user's tile, `dy < 0` ahead; shapes that follow the user's facing carry
   `direction: "forward"`. The gambit panel's preview (`main+0x5D3EE0`) puts the target one tile ahead for those, and
-  centres shapes 1 and 5 on the user when the effect is a support one (the same effects as the icon's mask), otherwise
+  centres shapes 1 and 5 on the user for support effects (mask `0x2DB96`, plus effect 18), otherwise
   on the enemy target. A target-centred area puts the target at the minimum range straight ahead and names its tile
   in `target`; a user-centred one leaves the user's tile out, as the game's tile list does.
+
+The preview renderer centres the area on the badge, independently of the attack's minimum range. In the native
+218 by 146 pixel grid, the badge is at column 4, row 3 (zero-based), or row 4 for four tiles straight ahead. Cells
+have a 24 pixel pitch and a 1 pixel outer grid border. The importer exports DATA 6050 texture 10 sprites 216 (gold
+cell), 221 (complete grid), 223 (downward chevron), 228 (blue badge) and 229 (red badge) as `range-*` minimap pieces.
+Badge and chevron sprites are scaled into the same 24 pixel cell; the chevron flips vertically for forward areas.
+These selections and placement follow `main+0x5D3CD0..0x5D424C` and were compared with all eight used area shapes
+in 34 original game previews at <https://www.fe3h.com/gambits>, including
+<https://www.fe3h.com/gambits/group_flames>. Three DLC names lack individual screenshots but share checked shapes.
+Import format 4 prompts older imports to refresh for these pieces and the gambit areas/icons.
 
 | Shape | Tiles (target one ahead, or the centre) | Gambits (examples) |
 | --- | --- | --- |
