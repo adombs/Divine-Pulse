@@ -496,19 +496,17 @@ function ClassHero({
               <dd>{c.requirements.length ? <Requirements c={c} /> : <span className="class-exam-text">{restriction || "Nothing"}</span>}</dd>
             </div>
             {!!c.level && (
-              <div>
+              <div className="class-exam-level">
                 <dt>Exam</dt>
-                <dd>
+                <dd title={c.seal ?? undefined}>
                   <span className="class-exam-big">Lv {c.level}</span>
-                  {c.seal && <span className="class-exam-note">{c.seal}</span>}
                 </dd>
               </div>
             )}
-            <div>
+            <div className="class-exam-moves">
               <dt>Moves</dt>
-              <dd title={mountMv ? `${mountMv > 0 ? "+" : ""}${mountMv} while mounted` : "Movement in this class"}>
+              <dd title={`${c.types.join(", ") || "Movement"}${mountMv ? `, ${mountMv > 0 ? "+" : ""}${mountMv} while mounted` : ""}`}>
                 <span className="class-exam-big">{c.bases.mv}</span>
-                <span className="class-exam-note">{c.types.join(", ")}</span>
               </dd>
             </div>
           </dl>

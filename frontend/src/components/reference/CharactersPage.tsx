@@ -26,6 +26,7 @@ import { ClassGrowthFilter } from "./ClassGrowthFilter";
 import { TierIcon } from "./TierIcon";
 import { DetailCard, MasterDetail, Section } from "../layout";
 import { CharacterHero } from "../character/CharacterHero";
+import { characterSprite, SpriteFace } from "../character/CharacterFace";
 import { useNav } from "../../nav";
 import { AFFILIATIONS, passes, usePeopleFilters } from "../../filters";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../PeopleFilters";
@@ -241,6 +242,13 @@ function CharacterCard({
         scope="reference"
         face={
           <span className="cv-face"><KeyPortrait portraitKey={portraitKeyName} name={c.name} part2={part2} size={96} /></span>
+        }
+        backFace={
+          <SpriteFace
+            sprite={characterSprite(portraitKeyName, c.start_class, isByleth ? bylethGender === "f" : c.gender === "Female")}
+            portrait={<KeyPortrait portraitKey={portraitKeyName} name={c.name} part2={part2} size={96} />}
+            name={c.name}
+          />
         }
         facts={[
           ["Name", <span key="name" title={c.full_name}>{c.full_name}</span>],

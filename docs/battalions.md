@@ -108,15 +108,39 @@ never backfilled from today's roster. Reference details resolve by the recorded 
 
 ## Not handled yet
 
-- Gambit icons and target areas: no verified source in the import yet, so the panel says so.
 - How long rattled lasts (the tracker follows the game's bit), and enemies' battalions in their own popups.
 - Gambits on units the battle history doesn't list (the game folds some enemy actions into the next entry).
+- Gambit areas for shapes no gambit uses (4, 9-11, 14: the monsters' large areas) are not mapped.
 
 ## Imported reference
 
 The extractor reads battalion modifiers and five-level progression from `fixed_data.bin` section 11, gambit attack
 parameters from section 3 and use counts from section 8, and exports battalion icons from the native atlas. Old
 imports may contain only names, descriptions and endurance; reimporting adds the rest.
+
+Each gambit also gets its **icon** and **area**, both read the way the game's own code reads them:
+
+- Icon (`gambit.icon`, `images/icons/gambits/<gambit id>.png`): the selector at `main+0x5D9B10` picks sprite 0x23D
+  (support) when section 3 `+0x04` (the effect) is 1-18 and bit `effect - 1` of `0x36DCB` is set, otherwise 0x23B
+  (physical) or 0x23C (magic) by section 3 `+0x16` bit 0.
+- Area (`gambit.area`): section 8 `+0x0A` is the shape, which the area builder at `main+0x41E4E0` turns into tiles.
+  `cells` are `[dx, dy]` from the user's tile, `dy < 0` ahead; shapes that follow the user's facing carry
+  `direction: "forward"`. The gambit panel's preview (`main+0x5D3EE0`) puts the target one tile ahead for those, and
+  centres shapes 1 and 5 on the user when the effect is a support one (the same effects as the icon's mask), otherwise
+  on the enemy target. A target-centred area puts the target at the minimum range straight ahead and names its tile
+  in `target`; a user-centred one leaves the user's tile out, as the game's tile list does.
+
+| Shape | Tiles (target one ahead, or the centre) | Gambits (examples) |
+| --- | --- | --- |
+| 1 | centre and its 4 neighbours | Fusillade, Group Flames; Dance of the Goddess (on the user) |
+| 2 | 5-3-1 triangle starting at the target | Blaze, Poison Tactic |
+| 3 | the target and the tile behind it | Assembly, Onslaught |
+| 5 | tiles within 2 steps of the centre | Wave Attack, Resonant Flames; Stride, Recovery Roar (on the user) |
+| 6 | 4 tiles straight ahead | Assault Troop |
+| 7 | 3 tiles across at the target | Group Lance Attack, Mad Melee |
+| 8 | 5 across, 2 deep from the target | Raging Flames |
+| 12 | 3 across, 2 deep from the target | Line of Lances, Resonant White Magic |
+| 13 | 3 tiles straight ahead | (no gambit) |
 
 The frontend resolves an assignment by ID first. If that ID is absent from the current import, it does not attach
 another row's details just because the name matches. Older name-only assignments keep loose name matching when the

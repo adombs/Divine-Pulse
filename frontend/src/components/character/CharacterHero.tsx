@@ -9,7 +9,8 @@
  * - reference: the character in general, the same in every run (the Archive).
  *
  * Layouts: "flip" puts the face beside the facts; "split" puts a larger portrait on the left and the
- * map sprite on the right, the facts between them (the battle window).
+ * map sprite on the right, the facts between them (the battle window). With `backFace` (the Roster and the
+ * Archive), the face is part of the information card: the front shows the portrait, the back the map sprite.
  */
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { CONCEPT_ICON } from "../../icons/concepts";
@@ -45,6 +46,7 @@ export function CharacterHero({
   sprite,
   facts,
   backFacts,
+  backFace,
   name = "Character",
 }: {
   layout: "flip" | "split";
@@ -55,6 +57,8 @@ export function CharacterHero({
   facts: Fact[];
   /** Biography on the reverse. Links and controls keep their own actions. */
   backFacts?: Fact[];
+  /** With `backFacts`: the face turns with the card, and this (the map sprite) is on the back. */
+  backFace?: ReactNode;
   name?: string;
 }) {
   const [flipped, setFlipped] = useState(false);
@@ -62,6 +66,7 @@ export function CharacterHero({
   const backButton = useRef<HTMLButtonElement>(null);
   const restoreFocus = useRef(false);
   const canFlip = !!backFacts;
+  const carded = canFlip && backFace !== undefined;
   const flip = () => {
     restoreFocus.current = document.activeElement === frontButton.current || document.activeElement === backButton.current;
     setFlipped((value) => !value);
@@ -73,7 +78,8 @@ export function CharacterHero({
     }
   }, [flipped]);
   const side = (rows: Fact[], reverse = false) => (
-    <div className={`cv-info-side${reverse ? " cv-info-back" : ""}`} inert={canFlip && flipped !== reverse} aria-hidden={canFlip && flipped !== reverse ? true : undefined}>
+    <div className={`cv-info-side${reverse ? " cv-info-back" : ""}${carded ? " with-face" : ""}`} inert={canFlip && flipped !== reverse} aria-hidden={canFlip && flipped !== reverse ? true : undefined}>
+      {carded && <div className="cv-info-face">{reverse ? backFace : face}</div>}
       <dl className="cv-facts">
         {rows.map(([label, value, key], i) => (
           <div className="cv-fact" key={key ?? (typeof label === "string" ? label : i)}>
@@ -93,8 +99,8 @@ export function CharacterHero({
   );
   return (
     <div className="cv-hero-box">
-      <div className={`cv-hero ${layout} scope-${scope}`}>
-        <div className="cv-hero-face">{face}</div>
+      <div className={`cv-hero ${layout} scope-${scope}${carded ? " carded" : ""}`}>
+        {!carded && <div className="cv-hero-face">{face}</div>}
         <div className={`cv-information${flipped ? " is-flipped" : ""}`}
           role="group" aria-label={`${name} information`}
           onClick={canFlip ? (event) => {
