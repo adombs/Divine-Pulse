@@ -3,6 +3,7 @@
 What the Status page shows, built from the game's own numbers:
 
     on screen = raw stat + class boost + mounted boost (mounted classes) + ability and accessory bonuses
+                (+ the battalion's Charm in Cha, while it has endurance left)
 
 Raw stats, the class, the equipped abilities and the accessory come from the roster (fe3h.py). Class boosts,
 names and personal abilities come from the import, and ability/accessory bonuses from the
@@ -18,6 +19,7 @@ from ..bonuses import BonusTable
 from ..classes import tidy_class
 from ..inventory import EQUIPMENT, inventory
 from ..infrastructure import game_tables
+from ..domain import battalions as battalion_rules
 from ..domain.units import VALUE_KEYS, byleth_look
 from ..domain.readings import AbilityInfo, UnitStatsReading
 from .fe3h import EQUIPPED_WEAPON, RosterUnit
@@ -59,6 +61,8 @@ class GameData:
     female: frozenset[int] = frozenset()
     combat_arts: dict[int, str] = field(default_factory=dict)  # names by art ID
     battalions: list[str | None] = field(default_factory=list)  # names by battalion ID
+    # Modifiers at levels 1-5 by battalion ID (None where the import has no progression).
+    battalion_stats: list[list[dict[str, int]] | None] = field(default_factory=list)
 
     @classmethod
     def load(cls) -> GameData:
@@ -73,6 +77,7 @@ class GameData:
             female=frozenset(data.get("female", ())),
             combat_arts={int(k): v["name"] for k, v in data.get("combat_arts", {}).items()},
             battalions=data.get("battalions", []),
+            battalion_stats=data.get("battalion_stats", []),
         )
 
     def ability(self, ability_id: int) -> str | None:
@@ -101,11 +106,13 @@ def to_reading(
     current_personal: str | None = None,
     scenario: int | None = None,
     in_battle: bool = False,
+    gambit_uses: int | None = None,
 ) -> UnitStatsReading:
     """The unit's Status-page values decoded from memory.
 
     `current_personal` is the personal ability already stored for the unit: the game keeps an upgraded
     ("+") version of a few personal abilities, and the stored one is kept if it's either version.
+    `gambit_uses`: the uses left read from the unit's battle copy (only during a battle).
     """
     character = data.characters.get(unit.character, Character(name=f"Character {unit.character}"))
     game_class = data.classes.get(unit.class_id, GameClass(name=f"Unknown class {unit.class_id}"))
@@ -119,17 +126,23 @@ def to_reading(
     accessory = data.equipment[unit.accessory] if unit.accessory is not None and 0 <= unit.accessory < len(data.equipment) else None
 
     bonus = bonuses.compute(equipped, personal, accessory)
+    # A missing import/name is unknown, not evidence that a stored assignment was removed.
+    battalion = ("" if unit.battalion is None else
+                 (data.battalions[unit.battalion] or None)
+                 if 0 <= unit.battalion < len(data.battalions) else None)
+    progression = (data.battalion_stats[unit.battalion]
+                   if battalion and unit.battalion is not None and unit.battalion < len(data.battalion_stats) else None)
+    modifiers = battalion_rules.modifiers(progression, unit.battalion_exp, unit.battalion_endurance) if battalion else None
+    # The Status page counts the battalion's Charm in Cha; its other modifiers are combat values, not stats.
+    battalion_bonus = {"cha": modifiers["cha"]} if modifiers and modifiers.get("cha") else {}
+    for k, v in battalion_bonus.items():
+        bonus = {**bonus, k: bonus.get(k, 0) + v}
     values = {
         k: unit.raw[k] + game_class.boosts.get(k, 0) + game_class.mounted.get(k, 0) + bonus.get(k, 0)
         for k in VALUE_KEYS
     }
     class_name = game_class.female_name if character.gender == "Female" and game_class.female_name else game_class.name
     full_name = name if unit.character in BYLETH_IDS else character.full_name or name
-    # Preserve the existing candidate interpretation, without promoting its unverified offset into mechanics.
-    # A missing import/name is unknown, not evidence that a stored assignment was removed.
-    battalion = ("" if unit.battalion is None else
-                 (data.battalions[unit.battalion] or None)
-                 if 0 <= unit.battalion < len(data.battalions) else None)
     return UnitStatsReading(
         screen=SCREEN_ID,
         name_candidates=[name],
@@ -151,6 +164,11 @@ def to_reading(
             learned_arts=[data.combat_arts[a] for a in unit.learned_arts if a in data.combat_arts],
             battalion=battalion,
             battalion_id=unit.battalion if battalion else None,
+            battalion_exp=unit.battalion_exp if battalion else None,
+            battalion_endurance=unit.battalion_endurance if battalion else None,
+            # Uses are only in the battle copy; between battles the game refills them, so none are reported.
+            gambit_uses=gambit_uses if battalion and in_battle else None,
+            battalion_bonus=battalion_bonus if modifiers is not None else None,
             skills=unit.skills,
         ),
         class_name=tidy_class(class_name) if class_name else None,

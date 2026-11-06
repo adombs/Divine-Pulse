@@ -505,6 +505,7 @@ class Scanner:
         benched = {u.character: u for u in pool if u.army and u.off_map and u.character not in records}
         adjutants = {c: by_index.get(u.attached_to) for c, u in benched.items()}
         start_counts = {c: (fights, wins) for c, fights, wins in snapshot.start_counts}
+        gambit_uses = dict(snapshot.gambit_uses)
         army = []
         # Character ID -> unit key, for the game's history: the whole army, since units that fell are no longer in
         # the battle but are still in its history.
@@ -531,7 +532,12 @@ class Scanner:
                 current_personal=stored.personal_ability if stored else None,
                 scenario=snapshot.scenario,
                 in_battle=True,
+                gambit_uses=gambit_uses.get(unit.character),
             )
+            ability = reading.abilities
+            # The battle's values are the unit's own: the battalion's Charm leaves them when its endurance runs out,
+            # which isn't a stat going down (that only happens with a Divine Pulse).
+            own_values = {k: v - (ability.battalion_bonus or {}).get(k, 0) for k, v in reading.values.items()}
             name = stored.name if stored else reading.name_candidates[0]
             record = records.get(unit.character) or benched.get(unit.character)
             items, spells = (record.items, record.spell_uses) if record else ((), ())
@@ -551,7 +557,7 @@ class Scanner:
                     name,
                     reading.class_name or "",
                     unit.level,
-                    dict(reading.values),
+                    own_values,
                     items,
                     spells,
                     hp,
@@ -574,10 +580,14 @@ class Scanner:
                     accessory,
                     accessory_id,
                     look=reading.look if reading.look is not None else stored.look if stored else None,
-                    battalion=(reading.abilities.battalion if reading.abilities.battalion is not None
+                    # An unresolved name keeps the stored assignment; its runtime state isn't attached to it.
+                    battalion=(ability.battalion if ability.battalion is not None
                                else stored.battalion if stored else None),
-                    battalion_id=(reading.abilities.battalion_id if reading.abilities.battalion is not None
+                    battalion_id=(ability.battalion_id if ability.battalion is not None
                                   else stored.battalion_id if stored else None),
+                    battalion_exp=ability.battalion_exp,
+                    battalion_endurance=ability.battalion_endurance,
+                    gambit_uses=ability.gambit_uses,
                 )
             )
         enemies = []
@@ -725,8 +735,10 @@ class Scanner:
                     current_personal=stored.personal_ability if stored else None,
                     scenario=snapshot.scenario,
                     in_battle=bool(snapshot.in_battle),
+                    gambit_uses=uses.get(unit.character),
                 )
 
+        uses = dict(snapshot.gambit_uses)
         result = self.roster_updates.apply(run, readings())
         changes, added, updated = result.changes, result.added, result.updated
         warnings, key_of = result.warnings, result.keys

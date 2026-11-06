@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Read each battalion's level, experience, endurance and gambit uses left from the game, live during battles. Show its modifiers at its current level, mark them as not applying when its endurance is spent, count its Charm in Cha as the game's Status page does, and include its modifiers in the fight calculations. Battle records keep their own battalion state.
 - Keep battalion identity through incomplete imports, language changes, run exports and unit updates; show each battle's recorded assignment separately from the current roster, with unknown assignments for older recordings. Translate imported gambit details and match battalion panels by ID when available.
 - Put character scope beside the name, move compact crest names into the front facts, and rotate bordered information cards with an inside Flip button while portraits stay still. Preserve keyboard and reduced-motion support, and use eye buttons to reveal spoilers throughout the app. Remove battalion header badges and coloured sprite backgrounds.
 

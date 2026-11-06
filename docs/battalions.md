@@ -1,48 +1,107 @@
 # Battalion integration
 
-The importer supplies reference data; the memory reader supplies an unconfirmed assignment observation. These are
-separate inputs. Importing a battalion's level progression does not establish the assigned battalion's current level
-or whether its modifiers apply in combat.
+The importer supplies reference data (names, modifiers at each level, endurance, the gambit); the memory reader
+supplies the assignment and its runtime state. The level, the modifiers that apply and the combat effects follow
+from the two together.
 
-## Assignment contract
+## Memory fields (FE3H 1.2.0)
 
-The run's unit keeps `battalion` (the last named observation) and optional `battalion_id`. The ID distinguishes
-duplicate names and survives language changes. Older saved runs without an ID remain readable. A named observation
-updates the pair; an unresolved imported name leaves the stored pair alone. An empty string represents the legacy
-reader's observation of no assignment and clears the ID. A missing observation (`None` in readings) does not clear it.
-The scanner waits for two matching snapshots before applying changes and refreshes imported names when the import
-or selected game language changes, even if the roster bytes have not changed.
+A roster slot embeds the equipped battalion at `+0x18`, 8 bytes, in the layout of hashcade/feth-save-editor's
+`Battalion` struct (commit `083d123d`, `core/Structs/Battalion.cs`, embedded at `0x18` by `Character.cs`):
 
-New battle unit payloads retain `battalion` and `battalion_id` independently of later roster updates, including saved
-battles and run/battle export and import. Null means the assignment was not recorded or was unknown; empty string
-means observed without an assignment. The This Battle character panel uses that battle's recorded assignment;
-This Run keeps the current roster assignment. Older battles show an unknown assignment and are never backfilled
-from today's roster. Reference details still resolve by the recorded ID first, including translated names; runtime
-level, endurance and remaining gambit uses are not copied from the roster into historical panels. These recorded
-assignments do not manufacture a gambit action or replay step.
+| Offset | Type | Field |
+|---|---|---|
+| `+0x18` | u16 | owner marker; `0xFFFF` = no battalion |
+| `+0x1A` | u16 | cumulative experience |
+| `+0x1C` | u16 | endurance left |
+| `+0x1E` | u8 | battalion ID (the import's `data/battalions.json` row) |
+| `+0x1F` | u8 | gambit ID (not used: a battalion's gambit comes with its import row) |
 
-## Evidence boundary
+Battle copies also hold the **gambit uses left** at `+0xF5` (u8). The roster keeps its values from before the battle
+until the battle ends, so experience, endurance and uses are read from the live battle copy whenever there is one, even
+when no stat changed (`fe3h.merge_battle`). Between battles the game refills gambit uses, so none are reported then.
 
-The legacy reader treats roster `+0x18` (u16, `0xFFFF` for no assignment) as a marker and `+0x1E` (u8) as a battalion
-ID. These locations are **unconfirmed**: the original observation has not been independently reproduced with
-recorded before/after assignment and removal states. Retaining the candidate ID does not raise its confidence. The
-character panels continue to label assignments unconfirmed. Synthetic tests establish decoding and preservation
-behavior only; they cannot validate the game's memory layout.
+Evidence, kept outside the repository (no game bytes are committed): six read-only captures of one save in Eden,
+each checked against the game's Battalion tab as the player changed it.
 
-Before using the assignment for combat math, capture two independent ground-truth states with different known
-assignments, plus removal, and compare the candidate fields against the visible in-game selections. Current
-battalion level, endurance, remaining gambit uses and runtime modifier adjustments also need independently verified
-fields. No such fields or combat effects are enabled here. The battle history does not yet have a verified gambit
-action decoder. Native gambit icons and directional targeting footprints remain unavailable.
+| State | Tab | `+18` | `+1A` | `+1C` | `+1E` | copy `+F5` |
+|---|---|---|---|---|---|---|
+| A | Seiros Pegasus Co., Lv 1, Exp 0, 60/60, Assembly 2/2 | 0 | 0 | 60 | 5 | 2 |
+| B | Almyra Mercenaries, Lv 1, Exp 0, 30/30, Fusillade 2/2 | 0 | 0 | 30 | 106 | 2 |
+| C | None | `FFFF` | 0 | 0 | 200 | 0 |
+| D | Seiros Pegasus Co. again (all bytes back to A's) | 0 | 0 | 60 | 5 | 2 |
+| E | Assembly used: Lv 1, Exp 46, 60/60, 1/2 | 0 | 46 | 60 | 5 | 1 |
+| F | Lv 2, Exp 15, 51/60, 0/2 | 0 | 115 | 51 | 5 | 0 |
+
+In E and F only the battle copy changed; the roster slot still read 0 / 60. The uses byte dropped apart from the
+unit's acted flags (`+0xD6`). Replaying the six captures through `decode_roster`, `merge_battle` and
+`battle_gambit_uses` gives exactly the values in the tab.
+
+Other units' battalions (enemies, allies) use the same layout in their battle records but weren't checked, so they
+aren't read.
+
+## Rules
+
+`app/domain/battalions.py` holds them, and `frontend/src/reference/battalions.ts` mirrors the level rule.
+
+- **Level** = experience / 100 + 1, levels 1-5, experience capped at 400 (feth-save-editor
+  `core/SaveBuffer.Battalions.cs`, for build `89048449BA238C8CF565518B83BF02D3`). F: 115 = level 2, Exp 15. At level 5
+  the panel shows no experience.
+- **Modifiers at a level** come from the import's `stats_by_level`: a fixed growth in tenths per level added to the
+  level 1 values, the accumulated growth rounded down. This matches Serenes Forest's tables and the game: Seiros
+  Pegasus Co. is Phys Atk +2, Avo +1, Rsl +3, Cha +5 at level 1 and Avo +2 at level 2 (Avo grows 1 a level; Phys Atk,
+  Prt and Rsl 0.5); Almyra Mercenaries is Phys Atk +3, Avo +5, Rsl −2, Cha +1 at level 1. Charm doesn't grow.
+- **Endurance**: the battalion takes half the damage its unit takes (rounded down). It doesn't refill between
+  battles; the player replenishes it. With none left the unit gets **none** of the modifiers (Fire Emblem Wiki,
+  Battalion). The panel keeps showing them, struck through, with that reason.
+- **Rattled** units (hit by a gambit) also lose their battalion's modifiers and can't move (Fire Emblem Wiki, Gambit).
+  The tracker can't read rattled yet, so the combat model can overcount a rattled unit's numbers.
+- **Gambit uses** are per battle and refilled after every map.
+
+Sources: <https://fireemblemwiki.org/wiki/Battalion>, <https://fireemblemwiki.org/wiki/Gambit>,
+<https://serenesforest.net/three-houses/battalions/>, and the game's own panels in the captures above. They agree on
+every value that could be compared, so no extra game tests were run.
+
+## Where the values show
+
+- **Status values**: the game's Status page counts the battalion's Charm in Cha (blue, and in the stats total: 17
+  with no battalion, 18 with Almyra Mercenaries, 22 with Seiros Pegasus Co.). The reading adds it to the value and to
+  the unit's `bonuses`, so `Unit.base()` stays the unit's own Cha; nothing is added while the endurance is spent or
+  when the import has no progression (an older import: the modifiers aren't known, so none is guessed). The other
+  modifiers are combat numbers (Atk, Hit, Crit, Avo, Prt, Rsl), not stats.
+- **Battle records** keep the unit's own values in `start`/`now` (without the battalion's Charm), so endurance running
+  out mid-battle isn't taken for a stat loss, which only a Divine Pulse causes.
+- **Combat model** (`gamemem/combat.py`, used to pair fights when the history can't be read): an army unit's
+  battalion adds Phys Atk (Mag Atk with magic), Hit, Crit, Avo (also against magic), Prt and Rsl at its level, and Cha.
+
+## Run and battle contract
+
+The run's unit keeps `battalion` (the last named observation), `battalion_id`, and its runtime state
+`battalion_exp`, `battalion_endurance` and `gambit_uses` (during a battle; null between battles). The ID distinguishes
+duplicate names and survives language changes. A named observation updates them all; an unresolved imported name
+leaves the stored assignment alone; an empty string is an observed removal and clears the ID and the runtime state. A
+missing observation (`None` in readings) clears nothing. The scanner waits for two matching snapshots before applying
+changes, and refreshes imported names when the import or the game language changes even if the roster bytes haven't.
+
+Each battle unit records the same five fields as observed during that battle, independently of later roster
+updates, through saved battles and run/battle export and import. Null means not recorded (older files) or unknown;
+an empty assignment means observed without one. The This Battle panel shows the battle's own level, endurance and
+uses; This Run shows the roster's, with gambit uses full between battles. Older battles show unknown values and are
+never backfilled from today's roster. Reference details resolve by the recorded ID first, including translated names.
+
+## Not handled yet
+
+- A gambit's use in the battle history: no history entry is decoded as one, and none is made up from the uses count.
+- Gambit icons and target areas: no verified source in the import yet, so the panel says so.
+- Rattled, and other units' battalions (see above).
 
 ## Imported reference
 
-The existing extractor reads battalion modifiers and five-level progression from `fixed_data.bin` section 11,
-gambit attack parameters from section 3 and use counts from section 8. It exports battalion icons selected from the
-native atlas; gambit icons and areas are omitted when unverified. Old imports may contain only names, descriptions
-and endurance. Reimporting adds the available reference fields.
+The extractor reads battalion modifiers and five-level progression from `fixed_data.bin` section 11, gambit attack
+parameters from section 3 and use counts from section 8, and exports battalion icons from the native atlas. Old
+imports may contain only names, descriptions and endurance; reimporting adds the rest.
 
 The frontend resolves an assignment by ID first. If that ID is absent from the current import, it does not attach
-another row's details just because the name matches. Older name-only assignments retain loose name matching when
-the result is unambiguous. Battalion and gambit text follow the selected game language with imported text as the
-fallback. Without a current battalion level, displayed modifiers are explicitly level 1 reference values.
+another row's details just because the name matches. Older name-only assignments keep loose name matching when the
+result is unambiguous. Battalion and gambit text follow the selected game language with the imported text as the
+fallback. Without a known level, the panel shows level 1 reference values and says so.

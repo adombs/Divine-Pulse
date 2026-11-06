@@ -25,11 +25,13 @@ class FakeMemory:
         self.enemies = 0
         self.battle_key = ""
         self.scenario: int | None = None
+        self.gambit_uses: dict[int, int] = {}  # by character, read from battle copies
 
     def read(self):
         if self.error:
             raise GameMemoryError(self.error)
-        return Snapshot(bytes(self.roster), self.name, in_battle=self.in_battle, battle_key=self.battle_key if self.in_battle else "", scenario=self.scenario)
+        uses = tuple(sorted((c, n) for c, n in self.gambit_uses.items() if c in self.in_battle))
+        return Snapshot(bytes(self.roster), self.name, in_battle=self.in_battle, battle_key=self.battle_key if self.in_battle else "", scenario=self.scenario, gambit_uses=uses)
 
 
 @pytest.fixture
@@ -240,6 +242,87 @@ def test_battle_keeps_assignment_after_later_roster_changes(scanner, tmp_path):
     [recorded] = scanner.battle_store.list(scanner.run_id)
     assert recorded.units[0].battalion == "Test Magic Corps"
     assert recorded.units[0].battalion_id == 4
+
+
+HANNEMAN_BATTALION = SLOT_OF[28] * SLOT_SIZE + 0x18
+
+
+def set_battalion(scanner, ident=5, exp=0, endurance=60, *, none=False):
+    struct.pack_into("<HHHB", scanner.memory.roster, HANNEMAN_BATTALION, 0xFFFF if none else 0, exp, endurance, ident)
+    scanner._tick()
+    scanner._tick()
+    return units(scanner)["hanneman"]
+
+
+def test_battalion_runtime_level_and_charm_follow_assignment_changes(scanner):
+    scanner._tick()
+    scanner._tick()
+    own_cha = units(scanner)["hanneman"].displayed["cha"]  # Test Magic Corps: an import without a progression
+    assert units(scanner)["hanneman"].base()["cha"] == own_cha
+
+    # A: a battalion with a progression. The Status page counts its Charm (blue) and base() stays the unit's own.
+    a = set_battalion(scanner, 5, exp=0, endurance=60)
+    assert (a.battalion, a.battalion_id, a.battalion_exp, a.battalion_endurance, a.gambit_uses) == ("Test Wing Co.", 5, 0, 60, None)
+    assert a.displayed["cha"] == own_cha + 5 and a.bonuses["cha"] == 5 and "cha" in a.blue
+    assert a.base()["cha"] == own_cha
+    assert not any("Cha" in w for e in scanner.log_entries() for w in e.warnings)
+
+    # B: no progression in the import. The runtime is still read; its Charm isn't known, so none is added.
+    b = set_battalion(scanner, 4, exp=230, endurance=12)
+    assert (b.battalion_id, b.battalion_exp, b.battalion_endurance) == (4, 230, 12)
+    assert b.displayed["cha"] == own_cha and "cha" not in b.bonuses
+
+    # None: removed, and the runtime with it.
+    c = set_battalion(scanner, 200, exp=0, endurance=0, none=True)
+    assert (c.battalion, c.battalion_id, c.battalion_exp, c.battalion_endurance) == ("", None, None, None)
+    assert c.displayed["cha"] == own_cha
+
+    # A again, at level 2 with endurance spent: assigned, but none of its modifiers apply.
+    d = set_battalion(scanner, 5, exp=115, endurance=0)
+    assert (d.battalion_id, d.battalion_exp, d.battalion_endurance) == (5, 115, 0)
+    assert d.displayed["cha"] == own_cha and "cha" not in d.bonuses and d.base()["cha"] == own_cha
+
+
+def test_battle_records_battalion_runtime_without_counting_spent_endurance_as_a_rewind(scanner, tmp_path):
+    from app.domain.battle import BattleUnitStats
+    from app.storage import BattleStore
+
+    scanner.battle_store = BattleStore(tmp_path / "battles")
+    set_battalion(scanner, 5, exp=0, endurance=60)
+    own_cha = units(scanner)["hanneman"].base()["cha"]
+    scanner.memory.in_battle, scanner.memory.battle_key = (28,), "k1"
+    scanner.memory.gambit_uses = {28: 2}
+    scanner._tick()
+    scanner._tick()
+    [unit] = scanner.current_battle().units
+    assert (unit.battalion_id, unit.battalion_exp, unit.battalion_endurance, unit.gambit_uses) == (5, 0, 60, 2)
+    assert unit.now["cha"] == own_cha  # the battle's values are the unit's own
+    assert units(scanner)["hanneman"].gambit_uses == 2
+
+    # Assembly used (exp and uses change, no stat does), then endurance spent: the Charm leaves the Status page.
+    scanner.memory.gambit_uses = {28: 1}
+    set_battalion(scanner, 5, exp=46, endurance=60)
+    scanner.memory.gambit_uses = {28: 0}
+    hanneman = set_battalion(scanner, 5, exp=115, endurance=0)
+    assert (hanneman.battalion_exp, hanneman.battalion_endurance, hanneman.gambit_uses) == (115, 0, 0)
+    assert hanneman.displayed["cha"] == own_cha
+    [unit] = scanner.current_battle().units
+    assert (unit.battalion_exp, unit.battalion_endurance, unit.gambit_uses) == (115, 0, 0)
+    assert unit.now["cha"] == own_cha and unit.start["cha"] == own_cha
+    assert [e.kind for e in scanner.current_battle().events] == ["start"]  # no gains, no Divine Pulse
+
+    # The battle ends: the game refills the uses, the run no longer reports them, the record keeps its values.
+    scanner.memory.in_battle = ()
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].gambit_uses is None
+    [recorded] = scanner.battle_store.list(scanner.run_id)
+    assert (recorded.units[0].battalion_exp, recorded.units[0].battalion_endurance, recorded.units[0].gambit_uses) == (115, 0, 0)
+
+    # Battles saved before runtime was recorded load as unknown, never as zero.
+    old = BattleUnitStats.model_validate({"key": "x", "name": "X", "start_level": 1, "level": 1, "start": {}, "now": {},
+                                          "battalion": "Test Wing Co.", "battalion_id": 5})
+    assert (old.battalion_exp, old.battalion_endurance, old.gambit_uses) == (None, None, None)
 
 
 def test_a_change_is_applied_once_two_reads_agree(scanner):

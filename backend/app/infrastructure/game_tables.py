@@ -35,6 +35,18 @@ def _name_list(rows: list[dict], text: dict) -> list:
     return result
 
 
+def _battalion_stats(rows: list[dict]) -> list:
+    """Each battalion's modifiers at levels 1-5 by battalion ID (None where an older import has no progression)."""
+    result: list = [None] * (max((row["id"] for row in rows if isinstance(row.get("id"), int)), default=-1) + 1)
+    for row in rows:
+        levels = row.get("stats_by_level")
+        if isinstance(row.get("id"), int) and isinstance(levels, list) and len(levels) == 5 and all(
+            isinstance(level, dict) for level in levels
+        ):
+            result[row["id"]] = [{k: v for k, v in level.items() if isinstance(v, int)} for level in levels]
+    return result
+
+
 def _ability_name(student: dict, key: str, values: list) -> str | None:
     index = student.get(key)
     return values[index] if isinstance(index, int) and 0 <= index < len(values) else None
@@ -73,6 +85,7 @@ def _memory(_generation: tuple) -> dict:
 
     for key, category in (("equipment", "equipment"), ("battalions", "battalion")):
         data[key] = _name_list(_rows(assets, key, key), assets.text(category))
+    data["battalion_stats"] = _battalion_stats(_rows(assets, "battalions", "battalions"))
     equipment_text = assets.text("equipment")
     if data["equipment"] and equipment_text:
         for index in range(len(data["equipment"]), max(map(int, equipment_text)) + 1):

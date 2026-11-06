@@ -468,8 +468,8 @@ positions are given relative to the Str boost:
 - The map's terrain grid isn't in memory in the layout of the game's terrain files; the tracker uses the map id above to look up the terrain it reads from the player's import.
 - The byte at `+0x4D` is unexplained.
 - When the upgraded "+" personal ability applies isn't known; memory mode keeps whichever version is already stored.
-- Battalion assignment offsets remain unconfirmed; current level/endurance and combat effects are not enabled.
-  See [Battalion integration](battalions.md) for the evidence boundary and saved assignment contract.
+- Battalions: the assignment, experience and endurance at `+0x18`-`+0x1F` and gambit uses left at battle-copy
+  `+0xF5` are checked live; see [Battalion integration](battalions.md). The rattled status isn't located.
 - Some global pointers (the item tables', the roster object's) read as 0 in Eden's view of memory. Everything that
   mattered could be reached another way, but the reason is still open.
 - The offsets are for version 1.2.0 only, and Eden's fastmem setting must be on (it is by default).

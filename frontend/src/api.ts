@@ -69,16 +69,14 @@ export interface Unit {
   learned_abilities?: string[];
   learned_arts?: string[];
   battalion?: string;
-  /** Identity from the existing, unconfirmed assignment observation; absent in older saved runs. */
+  /** The battalion's ID in the import; absent in older saved runs. */
   battalion_id?: number | null;
-  /** Runtime battalion state: reserved until the relevant memory fields are independently verified. */
-  battalion_level?: number | null;
+  /** Its state as last read from game memory (null/absent: not read): cumulative experience (level = exp / 100 + 1,
+   * capped at 400), endurance left, and gambit uses left during a battle (null between battles: the game refills
+   * them). */
+  battalion_exp?: number | null;
   battalion_endurance?: number | null;
-  battalion_endurance_max?: number | null;
-  /** The panel's modifiers: `value` as shown, `adjust` the separate +/- figure beside it. */
-  battalion_stats?: Partial<Record<"phys_atk" | "mag_atk" | "hit" | "crit" | "avo" | "prt" | "rsl" | "cha", { value: number; adjust?: number }>> | null;
   gambit_uses?: number | null;
-  gambit_uses_max?: number | null;
   /** Current skill progress from game memory, when its roster fields are known. */
   skills?: Partial<Record<SkillKey, { rank: string; exp: number }>>;
   updated_at: string;
@@ -179,9 +177,13 @@ export interface BattleUnit {
   accessory?: string | null;
   /** Equipped combat arts, as last read (absent in battles saved before arts were read). */
   arts?: string[];
-  /** Unconfirmed roster assignment recorded with this battle; null/absent in older recordings, "" for none. */
+  /** Battalion assignment recorded with this battle; null/absent in older recordings, "" for none. */
   battalion?: string | null;
   battalion_id?: number | null;
+  /** Its state in this battle, as last read; null/absent when not recorded (older recordings). */
+  battalion_exp?: number | null;
+  battalion_endurance?: number | null;
+  gambit_uses?: number | null;
   /** What it used, most used first, from the game's history (null or absent = not tracked). */
   usage?: Usage[] | null;
   /** Current HP; the rest from the game's record of the battle (null = not tracked). */

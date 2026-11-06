@@ -84,12 +84,14 @@ def test_battalion_identity_and_battle_assignment_survive_public_updates_and_exp
     from app.domain.units import Unit
 
     run_id = make_run(client, "Assignment test")
-    client.app_state.store.put_unit(run_id, "aster", Unit(name="Aster", battalion="Current company", battalion_id=0))
+    client.app_state.store.put_unit(run_id, "aster", Unit(name="Aster", battalion="Current company", battalion_id=0,
+                                                          battalion_exp=230, battalion_endurance=12))
     response = client.put(f"/api/runs/{run_id}/units/aster/portrait", json={"gender": "female"})
     assert response.status_code == 200
     assert response.json()["battalion_id"] == 0
     recorded = BattleUnitStats(key="aster", name="Aster", start_level=10, level=10, start=STATS, now=STATS,
-                               battalion="Earlier company", battalion_id=3)
+                               battalion="Earlier company", battalion_id=3, battalion_exp=115,
+                               battalion_endurance=51, gambit_uses=0)
     # A pre-feature recording has no assignment; absence must remain unknown after migration.
     older = BattleUnitStats(key="bram", name="Bram", start_level=10, level=10, start=STATS, now=STATS)
     client.app_state.battles.add(Battle(id="assignment-battle", run_id=run_id,
@@ -100,10 +102,14 @@ def test_battalion_identity_and_battle_assignment_survive_public_updates_and_exp
     new_id = imported.json()["id"]
     [unit] = client.get(f"/api/runs/{new_id}/units").json()
     assert (unit["battalion"], unit["battalion_id"]) == ("Current company", 0)
+    assert (unit["battalion_exp"], unit["battalion_endurance"], unit["gambit_uses"]) == (230, 12, None)
     [battle] = client.get(f"/api/runs/{new_id}/battles").json()
     historical, unknown = battle["units"]
     assert (historical["battalion"], historical["battalion_id"]) == ("Earlier company", 3)
+    # The battle keeps its own runtime state, not the roster's.
+    assert (historical["battalion_exp"], historical["battalion_endurance"], historical["gambit_uses"]) == (115, 51, 0)
     assert unknown["battalion"] is None and unknown["battalion_id"] is None
+    assert (unknown["battalion_exp"], unknown["battalion_endurance"], unknown["gambit_uses"]) == (None, None, None)
 
 
 def test_undo_with_nothing_to_undo(client):

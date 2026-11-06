@@ -48,6 +48,18 @@ from ..domain.combat import EQUIPMENT
 from .battle_support import BattleSupport
 
 
+def _battalion_fields(a: ArmySample) -> dict:
+    """The battalion as a sample observed it, for BattleUnitStats: runtime state only with a named assignment."""
+    named = bool(a.battalion)
+    return {
+        "battalion": a.battalion,
+        "battalion_id": a.battalion_id if named else None,
+        "battalion_exp": a.battalion_exp if named else None,
+        "battalion_endurance": a.battalion_endurance if named else None,
+        "gambit_uses": a.gambit_uses if named else None,
+    }
+
+
 class BattleTracker:
     """Turns game-memory samples into battles. Not thread-safe: the scanner's worker owns it."""
 
@@ -190,8 +202,7 @@ class BattleTracker:
                 start=dict(a.values),
                 now=dict(a.values),
                 adjutant_of=a.adjutant_of,
-                battalion=a.battalion,
-                battalion_id=a.battalion_id if a.battalion else None,
+                **_battalion_fields(a),
             )
             for a in sample.army
         ]
@@ -256,8 +267,7 @@ class BattleTracker:
                     start=dict(a.values),
                     now=dict(a.values),
                     adjutant_of=a.adjutant_of,
-                    battalion=a.battalion,
-                    battalion_id=a.battalion_id if a.battalion else None,
+                    **_battalion_fields(a),
                 )
                 battle.units.append(unit)
                 battle.events.append(BattleEvent(t=t, kind="joined", unit=a.key, text=f"{a.name} joined the battle"))
@@ -271,9 +281,10 @@ class BattleTracker:
                 unit.adjutant_of = a.adjutant_of
                 changed = True
             if a.battalion is not None:
-                ident = a.battalion_id if a.battalion else None
-                if (unit.battalion, unit.battalion_id) != (a.battalion, ident):
-                    unit.battalion, unit.battalion_id = a.battalion, ident
+                fields = _battalion_fields(a)
+                if any(getattr(unit, k) != v for k, v in fields.items()):
+                    for k, v in fields.items():
+                        setattr(unit, k, v)
                     changed = True
             if self._set_resources(unit, a):
                 changed = True

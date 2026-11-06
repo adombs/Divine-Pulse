@@ -46,7 +46,11 @@ SPELLS = {
 SPELL_SKILLS = {0: 5, 2: 5, 4: 5, 9: 6, 11: 5, 14: 7, 24: 6, 36: 6}
 EQUIPMENT = {2: "Steel Shield", 12: "Speed Ring", 16: "March Ring"}
 ITEMS = {1000: "Vulnerary", 1002: "Elixir"}
-BATTALIONS = {0: "Test Soldiers", 3: "Test Monks", 4: "Test Magic Corps"}
+BATTALIONS = {0: "Test Soldiers", 3: "Test Monks", 4: "Test Magic Corps", 5: "Test Wing Co."}
+# Made-up level 1-5 modifiers for battalions whose import has a progression (the others are like an older import).
+BATTALION_LEVELS = {
+    5: [{"phys_atk": 2 + n // 2, "avo": 1 + n, "prt": n // 2, "rsl": 3 + n // 2, "cha": 5} for n in range(5)],
+}
 # Names of the other characters of the roster: given, full, gender (0 male, 1 female)
 CHARACTERS = {
     0: ("Byleth", "Byleth", 0), 4: ("Claude", "Claude von Test", 0), 19: ("Lorenz", "Lorenz Test", 0),
@@ -197,7 +201,11 @@ def write_roster_tables(root: Path) -> None:
         {"id": i, "name": n, "weapon_type": 255, "amounts": [0], "stats": [], "raw": "000000ff" + "00" * 11} for i, n in ABILITIES.items()
     ]})
     write("data/equipment.json", {"equipment": [{"id": i, "name": n} for i, n in EQUIPMENT.items()]})
-    write("data/battalions.json", {"battalions": [{"id": i, "name": n} for i, n in BATTALIONS.items()]})
+    write("data/battalions.json", {"battalions": [
+        {"id": i, "name": n, **({"endurance": 60, "stats": BATTALION_LEVELS[i][0], "stats_by_level": BATTALION_LEVELS[i],
+                                 "gambit": {"id": 1, "name": "Test Rally", "uses": 2}} if i in BATTALION_LEVELS else {})}
+        for i, n in BATTALIONS.items()
+    ]})
     write("data/items.json", {"items": [{"id": i, "name": n} for i, n in ITEMS.items()]})
     write("data/classes.json", {"classes": [
         {"id": i, "name": n, "boosts": b, "mounted": m, "female_name": f, "mastery_ability": None,
