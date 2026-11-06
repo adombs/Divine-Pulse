@@ -295,7 +295,7 @@ function CrestFact({ character, fallback }: { character?: number | null; fallbac
       {none ? "None" : shown && crests?.length ? <>
         <Crests crests={crests} />
         <button type="button" className="link-btn" onClick={() => setShown(false)}>Hide crest spoilers</button>
-      </> : <span className="muted">Unknown. {crests?.length ? <SpoilerButton onClick={() => setShown(true)} label="Show crest spoilers" /> : null}</span>}
+      </> : <span className="muted">Unknown {crests?.length ? <SpoilerButton onClick={() => setShown(true)} label="Show crest spoilers" /> : null}</span>}
     </span>
   );
 }
