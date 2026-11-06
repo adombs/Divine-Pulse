@@ -279,14 +279,15 @@ export function ArtList({ arts }: { arts: string[] }) {
   );
 }
 
-/** The unit's map sprite on a tile in its army's colour, on the right of the battle window's hero. */
+/** The unit's map sprite in a round medallion like the portrait's, on the right of the battle window's hero. */
 function SpriteTile({ sprite, name, className }: { sprite: Sprite | null; name: string; className: string }) {
   const has = useHasSprite(sprite);
-  const team = sprite ? `team-${sprite.side}` : "";
-  if (!has) return <span className={`cv-tile empty ${team}`}>No map sprite</span>;
+  if (!has) return <span className="cv-face cv-sprite-face empty">No map sprite</span>;
   return (
-    <span className={`cv-tile ${team}`}>
-      <SpriteFigure sprite={sprite} label={`${name}'s map sprite${className ? ` as a ${className}` : ""}`} />
+    <span className="cv-face cv-sprite-face">
+      <span className="cv-sprite-disc">
+        <SpriteFigure sprite={sprite} label={`${name}'s map sprite${className ? ` as a ${className}` : ""}`} />
+      </span>
     </span>
   );
 }

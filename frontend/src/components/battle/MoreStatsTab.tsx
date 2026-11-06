@@ -138,9 +138,9 @@ function Ledger({ battle, seconds, fights }: { battle: Battle; seconds: number; 
     ["Weapon attacks", battle.weapon_uses],
     ["Spells cast", battle.spells_cast],
     ["Items used", battle.item_uses],
-    ["Tiles moved", t.tiles ?? "—"],
-    ...(battle.turn ? [["Per turn", clock(seconds / battle.turn)] as [string, ReactNode]] : []),
     ["Stat increases", battle.units.reduce((n, u) => n + statGains(u), 0)],
+    ...(battle.turn ? [["Per turn", clock(seconds / battle.turn)] as [string, ReactNode]] : []),
+    ["Tiles moved", t.tiles ?? "—"],
   ];
   return (
     <section className="ms-ledger" aria-label="The battle in numbers">
