@@ -6,7 +6,7 @@ import { AFFILIATIONS, NO_FILTERS, PeopleFilters, usePeopleFilters } from "../fi
 import { ROUTES, type RouteId } from "../reference/supports";
 import { Switch } from "./ui";
 import { AffiliationIcon } from "./AffiliationIcon";
-import { CheckChips, CheckList, FilterChip } from "./common";
+import { CheckChips, CheckList, FilterChip, SpoilerButton } from "./common";
 import { useSpoiler } from "../spoilers";
 
 const AFFILIATION_OPTIONS = AFFILIATIONS.map(
@@ -49,7 +49,7 @@ export function PeopleFilterFields({ fields = ["affiliation", "run", "route"] }:
           value={f.routes}
           onChange={(routes) => set({ routes })}
         />
-      ) : <button type="button" className="link-btn" onClick={() => setShowRoutes(true)}>Show route spoilers</button>)}
+      ) : <SpoilerButton onClick={() => setShowRoutes(true)} label="Show route spoilers" />)}
     </div>
   );
 }

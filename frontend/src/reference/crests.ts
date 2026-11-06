@@ -4,9 +4,9 @@ export function isMysteryCrest(name: string): boolean {
 }
 
 export function crestName(name: string): string {
-  return isMysteryCrest(name) ? "Mystery Crest" : name;
+  return isMysteryCrest(name) ? "Mystery Crest" : name.replace(/^(?:(?:Major|Minor) )?Crest of /i, "");
 }
 
 export function crestLabel(name: string, major: boolean): string {
-  return isMysteryCrest(name) ? "Mystery Crest" : `${major ? "Major" : "Minor"} Crest of ${name}`;
+  return isMysteryCrest(name) ? "Mystery Crest" : `${crestName(name)} (${major ? "Major" : "Minor"})`;
 }

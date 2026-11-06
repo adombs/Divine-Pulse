@@ -11,7 +11,7 @@
  * Layouts: "flip" puts the face beside the facts; "split" puts a larger portrait on the left and the
  * map sprite on the right, the facts between them (the battle window).
  */
-import { useState, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { Icon } from "../Icon";
 import type { IconName } from "../Icon";
@@ -45,7 +45,6 @@ export function CharacterHero({
   sprite,
   facts,
   backFacts,
-  backFace,
   name = "Character",
 }: {
   layout: "flip" | "split";
@@ -56,14 +55,25 @@ export function CharacterHero({
   facts: Fact[];
   /** Biography on the reverse. Links and controls keep their own actions. */
   backFacts?: Fact[];
-  backFace?: ReactNode;
   name?: string;
 }) {
   const [flipped, setFlipped] = useState(false);
+  const frontButton = useRef<HTMLButtonElement>(null);
+  const backButton = useRef<HTMLButtonElement>(null);
+  const restoreFocus = useRef(false);
   const canFlip = !!backFacts;
+  const flip = () => {
+    restoreFocus.current = document.activeElement === frontButton.current || document.activeElement === backButton.current;
+    setFlipped((value) => !value);
+  };
+  useLayoutEffect(() => {
+    if (restoreFocus.current) {
+      (flipped ? backButton : frontButton).current?.focus({ preventScroll: true });
+      restoreFocus.current = false;
+    }
+  }, [flipped]);
   const side = (rows: Fact[], reverse = false) => (
-    <div className={`cv-hero ${layout} scope-${scope} cv-info-side${reverse ? " cv-info-back" : ""}`} inert={canFlip && flipped !== reverse} aria-hidden={canFlip && flipped !== reverse ? true : undefined}>
-      <div className="cv-hero-face">{reverse ? backFace ?? face : face}</div>
+    <div className={`cv-info-side${reverse ? " cv-info-back" : ""}`} inert={canFlip && flipped !== reverse} aria-hidden={canFlip && flipped !== reverse ? true : undefined}>
       <dl className="cv-facts">
         {rows.map(([label, value, key], i) => (
           <div className="cv-fact" key={key ?? (typeof label === "string" ? label : i)}>
@@ -72,26 +82,32 @@ export function CharacterHero({
           </div>
         ))}
       </dl>
-      {layout === "split" && <div className="cv-hero-sprite">{sprite}</div>}
+      {canFlip && <button ref={reverse ? backButton : frontButton} type="button" className="cv-information-toggle"
+        tabIndex={flipped === reverse ? 0 : -1}
+        aria-label={`Flip ${name}'s information card to ${reverse ? "front facts" : "biography"}`}
+        title={`Show ${reverse ? "front facts" : "biography"}`}
+        onClick={flip}>
+        <Icon name={CONCEPT_ICON.flip} /> Flip
+      </button>}
     </div>
   );
   return (
-    <div className={`cv-hero-box${canFlip ? " cv-information" : ""}${flipped ? " is-flipped" : ""}`}
-      role={canFlip ? "group" : undefined} aria-label={canFlip ? `${name} information` : undefined}
-      onClick={canFlip ? (event) => {
-        if ((event.target as HTMLElement).closest("button, a, input, select, textarea, [role=button], [role=link]")) return;
-        setFlipped((value) => !value);
-      } : undefined}
-    >
-      <div className="cv-information-turn">
-        {side(facts)}
-        {backFacts && side(backFacts, true)}
+    <div className="cv-hero-box">
+      <div className={`cv-hero ${layout} scope-${scope}`}>
+        <div className="cv-hero-face">{face}</div>
+        <div className={`cv-information${flipped ? " is-flipped" : ""}`}
+          role="group" aria-label={`${name} information`}
+          onClick={canFlip ? (event) => {
+            if ((event.target as HTMLElement).closest("button, a, input, select, textarea, [role=button], [role=link]")) return;
+            flip();
+          } : undefined}>
+          <div className="cv-information-turn">
+            {side(facts)}
+            {backFacts && side(backFacts, true)}
+          </div>
+        </div>
+        {layout === "split" && <div className="cv-hero-sprite">{sprite}</div>}
       </div>
-      {canFlip && <button type="button" className="cv-information-toggle" aria-pressed={flipped}
-        aria-label={`Show ${flipped ? "front" : "back"} of ${name}'s information card`}
-        onClick={() => setFlipped((value) => !value)}>
-        <Icon name={CONCEPT_ICON.flip} /> {flipped ? "Name, class & crest" : "More information"}
-      </button>}
     </div>
   );
 }

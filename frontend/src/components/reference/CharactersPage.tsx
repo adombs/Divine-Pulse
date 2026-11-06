@@ -5,7 +5,7 @@ import { Icon, IconButton } from "../Icon";
 import { useSpoiler } from "../../spoilers";
 import type { Unit } from "../../api";
 import { characterPortraitKey, runCharacterKeys, unitForCharacter } from "../../portraits";
-import { crestLabel, crestName, isMysteryCrest } from "../../reference/crests";
+import { crestLabel, crestName } from "../../reference/crests";
 import { canonical, searchMatches } from "../../fuzzy";
 import {
   Character,
@@ -24,7 +24,6 @@ import { SkillIcon } from "../SkillIcon";
 import { SkillChips } from "./SkillChips";
 import { DetailCard, MasterDetail, Section } from "../layout";
 import { CharacterHero } from "../character/CharacterHero";
-import { characterSprite, SpriteFace } from "../character/CharacterFace";
 import { useNav } from "../../nav";
 import { AFFILIATIONS, passes, usePeopleFilters } from "../../filters";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../PeopleFilters";
@@ -228,7 +227,7 @@ function CharacterCard({
   const crestText = (list: { name: string; major: boolean }[]) =>
     list.length ? list.map((x) => crestLabel(x.name, x.major)).join(", ") : "None";
   const crestList = (list: { name: string; major: boolean }[]) =>
-    list.length ? list.map((x) => <span key={`${x.name}-${x.major}`}><CrestMark name={x.name} major={x.major} /> <CrestLink name={x.name} /> {!isMysteryCrest(x.name) && <span className="muted">({x.major ? "Major" : "Minor"})</span>}</span>) : <span className="muted">None</span>;
+    list.length ? list.map((x) => <span key={`${x.name}-${x.major}`}><CrestLink name={x.name}>{crestLabel(x.name, x.major)}</CrestLink> <CrestMark name={x.name} major={x.major} /></span>) : <span className="muted">None</span>;
   // A learned ability or art's skill (its icon) and rank.
   const rankMark = (a: { skill?: SkillKey | ""; rank: string }) => (
     <>
@@ -254,7 +253,6 @@ function CharacterCard({
         face={
           <span className="cv-face"><KeyPortrait portraitKey={portraitKeyName} name={c.name} part2={part2} size={96} /></span>
         }
-        backFace={<SpriteFace sprite={c.start_class === "Death Knight" ? null : characterSprite(portraitKeyName, c.start_class, isByleth ? bylethGender === "f" : c.gender === "Female")} portrait={<KeyPortrait portraitKey={portraitKeyName} name={c.name} part2={part2} size={96} />} name={c.name} />}
         facts={[
           ["Name", <span key="name" title={c.full_name}>{c.full_name}</span>],
           ["Class", c.start_class === "Death Knight" ? <Spoiler key="class" category="identities">{classLink(c.start_class)}</Spoiler> : classLink(c.start_class)],

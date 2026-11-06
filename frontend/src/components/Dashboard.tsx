@@ -11,7 +11,7 @@ import { crestLabel } from "../reference/crests";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "./PeopleFilters";
 import { FilterMenu, NoMatches, SearchBox, Segmented, compareValues, useSort } from "./common";
 import { AbilityLink, ArtLink, CharLink, ClassLink, CrestLink, ItemLink, SpellLink } from "./Links";
-import { AbilityIcon, ArtIcon, CrestIcon, ItemIcon } from "../reference/icons";
+import { AbilityIcon, ArtIcon, ItemIcon } from "../reference/icons";
 import { SkillIcon } from "./SkillIcon";
 import { SKILL_LABEL, type SkillKey } from "../reference/types";
 import { GearIcon } from "./battle/gameIcons";
@@ -31,7 +31,6 @@ import { Portrait, StatTip, Switch, TypeButtons } from "./ui";
 import { useAffiliationIcon } from "./AffiliationIcon";
 import { DetailCard, EmptyState, MasterDetail, PageHeader, Section, StatusChip } from "./layout";
 import { CharacterHero } from "./character/CharacterHero";
-import { SpriteFace, unitSprite } from "./character/CharacterFace";
 import { BattalionPanel } from "./character/Battalion";
 import { tidyAbility } from "../appearance";
 import { plural } from "../format";
@@ -542,11 +541,10 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
         layout="flip"
         scope="run"
         face={<span className="cv-face"><Portrait unit={unit} part2={part2} size={104} /></span>}
-        backFace={<SpriteFace sprite={unitSprite(unit)} portrait={<Portrait unit={unit} part2={part2} size={104} />} name={unit.name} />}
         facts={[
           ["Name", <CharLink key="name" charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills in the Archive">{unit.full_name || unit.name}</CharLink>],
           ["Class", unit.class_name ? <ClassLink key="class" name={unit.class_name} /> : "—"],
-          ["Crest", crests.length ? <span className="crest-marks">{crests.map((c) => <span key={`${c.name}-${c.major}`}><CrestIcon name={c.name} major={c.major} /> <CrestLink name={c.name}>{crestLabel(c.name, c.major)}</CrestLink></span>)}</span> : "None"],
+          ["Crest", crests.length ? <span className="crest-marks">{crests.map((c) => <span key={`${c.name}-${c.major}`}><CrestLink name={c.name}>{crestLabel(c.name, c.major)}</CrestLink></span>)}</span> : "None"],
         ]}
         backFacts={[
           ["Gender", isByleth(unit) ? (

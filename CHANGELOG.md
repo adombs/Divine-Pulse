@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Put character scope beside the name, move crests into the front facts, and flip information cards for biography details with keyboard and reduced-motion support. Remove battalion header badges and coloured sprite backgrounds.
+- Put character scope beside the name, move compact crest names into the front facts, and rotate bordered information cards with an inside Flip button while portraits stay still. Preserve keyboard and reduced-motion support, and use eye buttons to reveal spoilers throughout the app. Remove battalion header badges and coloured sprite backgrounds.
 
 - Reorganize Battle Records into a battle ledger, themed standouts, each unit's share of the fighting and comparisons with other battles. Keep the share table accessible in shorter windows.
 - Show run-wide character statistics when selecting a name in a battle's standouts, with Combat, Form, Growth, Arsenal and Battles sections.

@@ -8,6 +8,7 @@ import { plural } from "../../format";
 import { useNav } from "../../nav";
 import { AffiliationIcon } from "../AffiliationIcon";
 import { CharacterPopup } from "../CharacterPopup";
+import { SpoilerButton } from "../common";
 import { characterKeyOfUnit } from "../../portraits";
 import { IconButton } from "../Icon";
 import { DetailCard, Section } from "../layout";
@@ -251,7 +252,7 @@ function Crests({ crests }: { crests: { name: string; major: boolean }[] }) {
         const entry = ref?.crests.find((c) => c.name === crest.name);
         const effect = (crest.major ? entry?.major_description : entry?.minor_description) || entry?.effect;
         const label = crestLabel(crest.name, crest.major);
-        return <span key={crest.name} title={effect ? `${label}: ${effect}` : label}><CrestMark name={crest.name} major={crest.major} /> <CrestLink name={crest.name}>{label}</CrestLink></span>;
+        return <span key={crest.name} title={effect ? `${label}: ${effect}` : label}><CrestLink name={crest.name}>{label}</CrestLink> <CrestMark name={crest.name} major={crest.major} /></span>;
       })}
     </span>
   );
@@ -290,11 +291,11 @@ function CrestFact({ character, fallback }: { character?: number | null; fallbac
   const crests = native?.filter((c, i, all) => all.findIndex((x) => x.name === c.name) === i) ?? fallback;
   const none = native?.length === 0 || (native === undefined && fallback?.length === 0);
   return (
-    <span>
+    <span className="cv-crest-fact">
       {none ? "None" : shown && crests?.length ? <>
         <Crests crests={crests} />
         <button type="button" className="link-btn" onClick={() => setShown(false)}>Hide crest spoilers</button>
-      </> : <span className="muted">Unknown. {crests?.length ? <button type="button" className="link-btn" onClick={() => setShown(true)}>Show crest spoilers</button> : null}</span>}
+      </> : <span className="muted">Unknown. {crests?.length ? <SpoilerButton onClick={() => setShown(true)} label="Show crest spoilers" /> : null}</span>}
     </span>
   );
 }

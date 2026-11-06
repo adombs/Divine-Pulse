@@ -1,6 +1,7 @@
 /** Native character allegiance, with conservative scenario fallback for anonymous reused templates. */
 import { loadGameJson, loadGameText } from "../../gameAssets";
 import { gameLanguage } from "../../gameLanguage";
+import { crestName } from "../../reference/crests";
 import { factionBanners } from "../gameImageSources";
 import { indexCrystalWeapons } from "./unitAppearance";
 
@@ -27,7 +28,7 @@ export async function loadBattleIndexes(): Promise<void> {
   factionBanners.clear();
   for (const [id, banner] of Object.entries(BANNERS)) if (FACTIONS[id]) factionBanners.set(FACTIONS[id], banner);
   const names = new Map((crestData?.crests ?? []).map((r) => [r.id, { name: (r.major ? major : minor)[String(r.id)] ?? r.name, major: r.major }]));
-  CRESTS = Object.fromEntries((crestData?.characters ?? []).map((r) => [r.id, r.crests.map((id) => names.get(id)).filter((c): c is { name: string; major: boolean } => !!c).map((c) => ({ ...c, name: c.name.replace(/^crest of /i, "") }))]));
+  CRESTS = Object.fromEntries((crestData?.characters ?? []).map((r) => [r.id, r.crests.map((id) => names.get(id)).filter((c): c is { name: string; major: boolean } => !!c).map((c) => ({ ...c, name: crestName(c.name) }))]));
 }
 export function crestsOf(character: number | null | undefined) { return character == null ? undefined : CRESTS[String(character)]; }
 // These scenarios have an unambiguous main enemy. Named/explicit native allegiances always win.
