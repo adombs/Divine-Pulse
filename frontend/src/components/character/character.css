@@ -86,6 +86,16 @@
   backface-visibility: hidden; -webkit-backface-visibility: hidden;
 }
 .cv-information .cv-info-back { transform: rotateY(180deg); }
+/* The face inside the card (Roster, Archive): portrait on the front, map sprite on the back. */
+.cv-hero.carded { grid-template-columns: minmax(0, 1fr); grid-template-areas: "facts"; }
+.cv-information .cv-info-side.with-face {
+  grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 1fr auto; grid-template-areas: "face facts" "face toggle";
+  column-gap: 0.9rem;
+}
+.cv-info-side.with-face > .cv-info-face { grid-area: face; display: grid; place-items: center; padding: 6px; }
+.cv-info-side.with-face > .cv-facts { grid-area: facts; }
+.cv-info-side.with-face > .cv-information-toggle { grid-area: toggle; }
+.cv-info-face .cv-face .cv-sprite { width: 82%; height: 82%; margin-top: -4%; }
 .cv-information .cv-facts { grid-area: auto; grid-template-columns: minmax(0, 1fr); }
 .character-card .card-main { overflow-x: hidden; }
 .cv-information-toggle {
