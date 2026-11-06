@@ -123,11 +123,6 @@ export function Home({ runs, activeRunId, loaded, toasts, onSwitchRun, onRunsCha
                 <button type="submit" className="btn primary" disabled={!!busy || !name.trim() || !!error}>
                   {busy === "new" ? "Starting…" : "Start run"}
                 </button>
-                {runs.length > 0 && (
-                  <button type="button" className="btn" onClick={() => setAdding(false)}>
-                    Cancel
-                  </button>
-                )}
               </div>
               {error && <p className="field-hint error">{error}</p>}
             </form>

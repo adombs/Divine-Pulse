@@ -84,8 +84,9 @@
 /* The new-run form opens as one more step above the bottom stair. */
 .home-new { width: var(--col); padding: calc(12 * var(--k)) var(--row-pad); background: #37305a; border: 1px solid #4a4170; border-top: 2px solid #c8a65c; border-radius: 2px; box-shadow: 0 calc(14 * var(--k)) 0 calc(-2 * var(--k)) #141024; }
 .home-new label { display: block; margin-bottom: 0.4rem; font: 700 var(--title-long)/1.3 var(--display); letter-spacing: 1px; }
-.home-new-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.home-new-row { display: flex; flex-wrap: wrap; gap: 0.75rem 1rem; }
 .home-new-row input { flex: 1 1 14rem; min-width: 0; }
+.home-new-row .btn { flex: none; white-space: nowrap; }
 .home-new .field-hint { margin: 0.35rem 0 0; }
 
 .home-stairs { display: flex; gap: var(--stair-gap); width: var(--col); }
