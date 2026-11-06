@@ -86,6 +86,10 @@ def _memory(_generation: tuple) -> dict:
     for key, category in (("equipment", "equipment"), ("battalions", "battalion")):
         data[key] = _name_list(_rows(assets, key, key), assets.text(category))
     data["battalion_stats"] = _battalion_stats(_rows(assets, "battalions", "battalions"))
+    # Gambit names by gambit ID: the game language's text, else the import's battalion rows.
+    gambits = {str(row["gambit"]["id"]): row["gambit"].get("name") for row in _rows(assets, "battalions", "battalions")
+               if isinstance(row.get("gambit"), dict) and isinstance(row["gambit"].get("id"), int)}
+    data["gambits"] = {**{k: v for k, v in gambits.items() if v}, **{k: v for k, v in assets.text("gambit").items() if v}}
     equipment_text = assets.text("equipment")
     if data["equipment"] and equipment_text:
         for index in range(len(data["equipment"]), max(map(int, equipment_text)) + 1):

@@ -11,11 +11,11 @@ A roster slot embeds the equipped battalion at `+0x18`, 8 bytes, in the layout o
 
 | Offset | Type | Field |
 |---|---|---|
-| `+0x18` | u16 | owner marker; `0xFFFF` = no battalion |
+| `+0x18` | u16 | owner: the character ID of the player's unit that owns it (Byleth `0`, Marianne `23`); `0xFFFF` on other units, and on yours without one |
 | `+0x1A` | u16 | cumulative experience |
 | `+0x1C` | u16 | endurance left |
-| `+0x1E` | u8 | battalion ID (the import's `data/battalions.json` row) |
-| `+0x1F` | u8 | gambit ID (not used: a battalion's gambit comes with its import row) |
+| `+0x1E` | u8 | battalion ID (the import's `data/battalions.json` row); `200` = none |
+| `+0x1F` | u8 | gambit ID, as in the history and the import's `gambit` text (Seiros Pegasus Co. 1 Assembly, Seiros Holy Monks 25 Stride); `80` = none |
 
 Battle copies also hold the **gambit uses left** at `+0xF5` (u8). The roster keeps its values from before the battle
 until the battle ends, so experience, endurance and uses are read from the live battle copy whenever there is one, even
@@ -37,8 +37,19 @@ In E and F only the battle copy changed; the roster slot still read 0 / 60. The 
 unit's acted flags (`+0xD6`). Replaying the six captures through `decode_roster`, `merge_battle` and
 `battle_gambit_uses` gives exactly the values in the tab.
 
-Other units' battalions (enemies, allies) use the same layout in their battle records but weren't checked, so they
-aren't read.
+**Other units' battalions** use the same layout with owner `0xFFFF`: in a Verdant Wind battle all 21 bandits held
+Thieves, Rogues or Bandits (173–175), 300 exp (level 4), endurance 75 (the import's maximum for those three) and 2 gambit
+uses. So for your units the owner decides (`0xFFFF` = none); for others, an ID below 200 is a battalion.
+
+**Rattled**: bit `0x80` of battle-record byte `+0xE0`. In the same battle Byleth's Assembly hit two bandits; the bit
+was set on exactly those two at that moment and on no other unit. When the game clears it wasn't observed; the tracker
+reads it as it is.
+
+**Gambits in the battle history**: an entry with action and kind `0x13`, the gambit ID at `+0x26` (the byte a spell or
+combat art uses), the unit aimed at in TARGET (`0xFF` for one on the user's area), and ITEM as an attack's, for the
+target only. Every unit it hit (or helped) follows with its new state. Seen: Marianne's Stride (25), ITEM 0, with seven
+of your units; Byleth's Assembly (1) on two bandits, ITEM 1103, each losing 11 HP. Each use gave the battalion 46 exp and
+took one use. Recordings now keep the raw history entries (`gamemem.recorder`, "history" blob) for decoding more.
 
 ## Rules
 
@@ -54,8 +65,8 @@ aren't read.
 - **Endurance**: the battalion takes half the damage its unit takes (rounded down). It doesn't refill between
   battles; the player replenishes it. With none left the unit gets **none** of the modifiers (Fire Emblem Wiki,
   Battalion). The panel keeps showing them, struck through, with that reason.
-- **Rattled** units (hit by a gambit) also lose their battalion's modifiers and can't move (Fire Emblem Wiki, Gambit).
-  The tracker can't read rattled yet, so the combat model can overcount a rattled unit's numbers.
+- **Rattled** units (hit by an offensive gambit) also lose their battalion's modifiers and can't move (Fire Emblem
+  Wiki, Gambit). The combat model drops a rattled unit's modifiers; the This Battle panel strikes them with that reason.
 - **Gambit uses** are per battle and refilled after every map.
 
 Sources: <https://fireemblemwiki.org/wiki/Battalion>, <https://fireemblemwiki.org/wiki/Gambit>,
@@ -71,8 +82,14 @@ every value that could be compared, so no extra game tests were run.
   modifiers are combat numbers (Atk, Hit, Crit, Avo, Prt, Rsl), not stats.
 - **Battle records** keep the unit's own values in `start`/`now` (without the battalion's Charm), so endurance running
   out mid-battle isn't taken for a stat loss, which only a Divine Pulse causes.
-- **Combat model** (`gamemem/combat.py`, used to pair fights when the history can't be read): an army unit's
-  battalion adds Phys Atk (Mag Atk with magic), Hit, Crit, Avo (also against magic), Prt and Rsl at its level, and Cha.
+- **Combat model** (`gamemem/combat.py`, used to pair fights when the history can't be read): a unit's battalion,
+  yours or an enemy's, adds Phys Atk (Mag Atk with magic), Hit, Crit, Avo (also against magic), Prt and Rsl at its level,
+  and Cha; nothing while it is rattled or its endurance is spent.
+- **Battle log**: "Byleth used Assembly on Bandit 2.", kind `gambit`: only the unit it was aimed at is named. Every
+  unit it hit counts toward the user's damage dealt (the line's total, the user's usage and the battle's statistics).
+- **Gambit area** (Battalion panel): the game's fixed 9 by 6 grid, gold tiles and one badge. A forward area has a blue
+  upward badge below it; a centred area has a downward badge at its centre (red for an enemy target, blue for support).
+  The target-centred preview does not show a separate user or target cursor.
 
 ## Run and battle contract
 
@@ -91,9 +108,9 @@ never backfilled from today's roster. Reference details resolve by the recorded 
 
 ## Not handled yet
 
-- A gambit's use in the battle history: no history entry is decoded as one, and none is made up from the uses count.
+- How long rattled lasts (the tracker follows the game's bit), and enemies' battalions in their own popups.
+- Gambits on units the battle history doesn't list (the game folds some enemy actions into the next entry).
 - Gambit areas for shapes no gambit uses (4, 9-11, 14: the monsters' large areas) are not mapped.
-- Rattled, and other units' battalions (see above).
 
 ## Imported reference
 
@@ -109,9 +126,19 @@ Each gambit also gets its **icon** and **area**, both read the way the game's ow
 - Area (`gambit.area`): section 8 `+0x0A` is the shape, which the area builder at `main+0x41E4E0` turns into tiles.
   `cells` are `[dx, dy]` from the user's tile, `dy < 0` ahead; shapes that follow the user's facing carry
   `direction: "forward"`. The gambit panel's preview (`main+0x5D3EE0`) puts the target one tile ahead for those, and
-  centres shapes 1 and 5 on the user when the effect is a support one (the same effects as the icon's mask), otherwise
+  centres shapes 1 and 5 on the user for support effects (mask `0x2DB96`, plus effect 18), otherwise
   on the enemy target. A target-centred area puts the target at the minimum range straight ahead and names its tile
   in `target`; a user-centred one leaves the user's tile out, as the game's tile list does.
+
+The preview renderer centres the area on the badge, independently of the attack's minimum range. In the native
+218 by 146 pixel grid, the badge is at column 4, row 3 (zero-based), or row 4 for four tiles straight ahead. Cells
+have a 24 pixel pitch and a 1 pixel outer grid border. The importer exports DATA 6050 texture 10 sprites 216 (gold
+cell), 221 (complete grid), 223 (downward chevron), 228 (blue badge) and 229 (red badge) as `range-*` minimap pieces.
+Badge and chevron sprites are scaled into the same 24 pixel cell; the chevron flips vertically for forward areas.
+These selections and placement follow `main+0x5D3CD0..0x5D424C` and were compared with all eight used area shapes
+in 34 original game previews at <https://www.fe3h.com/gambits>, including
+<https://www.fe3h.com/gambits/group_flames>. Three DLC names lack individual screenshots but share checked shapes.
+Import format 4 prompts older imports to refresh for these pieces and the gambit areas/icons.
 
 | Shape | Tiles (target one ahead, or the centre) | Gambits (examples) |
 | --- | --- | --- |

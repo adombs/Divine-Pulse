@@ -57,12 +57,45 @@ test("historical battalion detail uses the saved assignment independently of the
   });
   try {
     const { UnitDetail } = await server.ssrLoadModule("/src/components/battle/UnitPopup.tsx");
-    const { BattalionPanel } = await server.ssrLoadModule("/src/components/character/Battalion.tsx");
+    const { BattalionPanel, GambitAreaMap } = await server.ssrLoadModule("/src/components/character/Battalion.tsx");
     const { NavProvider } = await server.ssrLoadModule("/src/nav.tsx");
     const { BattleNavContext } = await server.ssrLoadModule("/src/components/battle/parts.tsx");
     const nav = { route: { page: "battle" }, go() {}, back() {}, canBack: false };
     const render = (element) => renderToStaticMarkup(h(NavProvider, { nav },
       h(BattleNavContext.Provider, { value: { people: new Map(), open() {} } }, element)));
+
+    await t.test("a centred attack shows one red centre badge, independently of target range", () => {
+      const previews = [1, 3].map((range) => render(h(GambitAreaMap, { area: {
+        cells: [[0, -range - 1], [-1, -range], [0, -range], [1, -range], [0, -range + 1]], target: [0, -range],
+      } })));
+      assert.equal(previews[0], previews[1]);
+      const html = previews[0];
+      assert.match(html, /viewBox="0 0 218 146"/);
+      assert.match(html, /class="bp-marker foe" transform="translate\(97 73\)"/);
+      assert.equal((html.match(/class="bp-hit"/g) ?? []).length, 5);
+      assert.equal((html.match(/class="bp-cell"/g) ?? []).length, 54);
+      for (const [x, y] of [[97, 49], [73, 73], [97, 73], [121, 73], [97, 97]]) {
+        assert.ok(html.includes(`transform="translate(${x} ${y})"><rect class="bp-hit"`));
+      }
+      assert.doesNotMatch(html, /bp-marker user|cursor-target|<circle|scale\(1 -1\)/);
+    });
+    await t.test("a support area has one blue downward centre badge without adding the centre to its hit count", () => {
+      const html = render(h(GambitAreaMap, { area: { cells: [[-1, 0], [1, 0], [0, -1], [0, 1]] } }));
+      assert.match(html, /class="bp-marker user" transform="translate\(97 73\)"/);
+      assert.equal((html.match(/class="bp-hit"/g) ?? []).length, 4);
+      assert.doesNotMatch(html, /bp-marker foe|scale\(1 -1\)/);
+    });
+    await t.test("forward previews face up and fit four tiles above their badge without clipping", () => {
+      for (const length of [2, 4]) {
+        const html = render(h(GambitAreaMap, { area: {
+          origin: [3, 5], direction: "forward", cells: Array.from({ length }, (_, i) => [3, 4 - i]),
+        } }));
+        assert.match(html, new RegExp(`class="bp-marker user" transform="translate\\(97 ${length === 4 ? 97 : 73}\\)"`));
+        assert.match(html, /translate\(0 24\) scale\(1 -1\)/);
+        assert.equal((html.match(/class="bp-hit"/g) ?? []).length, length);
+        assert.doesNotMatch(html, /bp-marker foe|translate\(97 -\d/);
+      }
+    });
     const battlePanel = (unit, roster = [current]) => render(h(UnitDetail, {
       battle: { units: [unit], events: [], log: [], enemy_stats: {} }, items: [],
       id: `a:${unit.key}`, roster, part2: false,
@@ -72,8 +105,9 @@ test("historical battalion detail uses the saved assignment independently of the
       const html = battlePanel(recorded);
       assert.match(html, /Translated Company A/);
       assert.match(html, /Tactic A/);
-      assert.match(html, /Assignment recorded for this battle/);
-      assert.match(html, /Modifiers are level 1 reference values; the battalion level is not recorded for this battle/);
+      // No explanatory notes under the panel; level 1 reference values say so in their own titles.
+      assert.doesNotMatch(html, /bp-note|Assignment recorded/);
+      assert.match(html, /title="From your imported game files, at level 1"/);
       assert.match(html, /Endurance left: Not recorded for this battle/);
       assert.doesNotMatch(html, /Company B|Tactic B|Lv 5|>59</);
     });
@@ -103,6 +137,12 @@ test("historical battalion detail uses the saved assignment independently of the
       assert.match(html, /No endurance left: the unit gets none of these until the battalion is replenished/);
       assert.equal((html.match(/bp-val even spent/g) ?? []).length, 3);
       assert.doesNotMatch(html, /bp-val (up|down)/);
+    });
+    await t.test("a rattled unit's modifiers are marked as not applying, with endurance left", () => {
+      const html = battlePanel({ ...recorded, battalion_exp: 115, battalion_endurance: 31, gambit_uses: 1, rattled: true });
+      assert.match(html, /Rattled by a gambit when last read/);
+      assert.equal((html.match(/bp-val even spent/g) ?? []).length, 3);
+      assert.doesNotMatch(html, /No endurance left|bp-gauge spent/);
     });
     await t.test("battle uses that weren't recorded stay unknown rather than refilled", () => {
       const html = battlePanel({ ...recorded, battalion_exp: 0, battalion_endurance: 40, gambit_uses: null });

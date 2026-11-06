@@ -115,4 +115,8 @@ def test_map_family_on_a_real_dump(tmp_path):
     assert len(json.loads((tmp_path / "data" / "terrain.json").read_text("utf-8"))["tiles"]) == maps.TERRAIN_IDS
     assert count("images/map/minimaps/") == expected
     assert count("images/map/minimap-pieces/") == len(maps.MINIMAP_PIECES)
+    for name, size in {"range-cell": (24, 24), "range-grid": (218, 146), "range-chevron": (96, 96),
+                       "range-player": (64, 64), "range-enemy": (64, 64)}.items():
+        with Image.open(tmp_path / "images/map/minimap-pieces" / f"{name}.png") as image:
+            assert image.size == size
     assert {"images/map/class-sprites.png", "images/map/map-heads.png", "data/class-sprites.json"} <= set(files)

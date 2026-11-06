@@ -57,16 +57,23 @@ PLAYER_NAME_SIZE = 0x40
 # Slot fields
 _ITEMS = 0x00  # 6 x (u16 item ID, u16 uses)
 # The equipped battalion, 8 bytes (hashcade/feth-save-editor's Battalion struct, embedded at +0x18): u16 owner
-# marker (0xFFFF = none), u16 cumulative experience, u16 endurance left, u8 battalion ID, u8 gambit ID. Checked live
+# (the character ID of the player's unit that owns it; 0xFFFF on other units, and on yours without one), u16
+# cumulative experience, u16 endurance left, u8 battalion ID (NO_BATTALION_ID = none), u8 gambit ID. Checked live
 # (1.2.0, docs/battalions.md): Seiros Pegasus Co. -> Almyra Mercenaries -> none -> Seiros Pegasus Co. matched the IDs
 # and the marker; using Assembly and taking damage moved experience 0 -> 46 -> 115 (level 2, Exp 15) and endurance
-# 60 -> 51 in the battle copy, while the roster slot kept the values from before the battle.
+# 60 -> 51 in the battle copy, while the roster slot kept the values from before the battle. Enemies carry real
+# battalions with owner 0xFFFF: 21 bandits held Thieves/Rogues/Bandits (173-175), 300 exp, endurance 75 (the import's).
 _BATTALION_SLOT = 0x18
 _BATTALION_EXP = 0x1A
 _BATTALION_ENDURANCE = 0x1C
 _BATTALION = 0x1E
 _BATTALION_END = 0x20
 NO_BATTALION = 0xFFFF
+NO_BATTALION_ID = 200  # one past the last battalion; seen on every unit without one (gambit ID 80 beside it)
+# Battle records: bit RATTLED_BIT of +RATTLED is set while the unit is rattled (hit by an offensive gambit: no
+# battalion benefits, no movement). Seen live: set on exactly the two bandits Byleth's Assembly hit, at that moment,
+# and on no other unit. When the game clears it wasn't observed; it's read as it is.
+RATTLED, RATTLED_BIT = 0xE0, 0x80
 # Battle copies only: the gambit uses left (u8). Seen live dropping 2 -> 1 -> 0 as Assembly was used, apart from the
 # acted flags; 0 with no battalion. The game refills them after every battle.
 GAMBIT_USES = 0xF5
@@ -181,20 +188,32 @@ def decode_roster(data: bytes) -> list[RosterUnit]:
     return units
 
 
-def decode_battalion(record: bytes) -> tuple[int | None, int | None, int | None]:
+def decode_battalion(record: bytes, owned: bool = True) -> tuple[int | None, int | None, int | None]:
     """The equipped battalion of a roster slot or battle record: (ID, cumulative experience, endurance left), all None
-    with no battalion. Experience or endurance the game can't hold reads as None (unknown), not as a value."""
-    if struct.unpack_from("<H", record, _BATTALION_SLOT)[0] == NO_BATTALION:
+    with no battalion. `owned`: one of the player's units, whose battalion names its owner (a cleared owner is none);
+    other units' battalions have no owner. Experience or endurance the game can't hold reads as None (unknown)."""
+    if not _has_battalion(record, owned):
         return None, None, None
     exp, endurance = struct.unpack_from("<HH", record, _BATTALION_EXP)
     return record[_BATTALION], valid_exp(exp), valid_endurance(endurance)
 
 
-def gambit_uses(copy: bytes) -> int | None:
+def _has_battalion(record: bytes, owned: bool) -> bool:
+    if owned:  # yours: the owner says (an ID outside the import is then unknown, not none)
+        return struct.unpack_from("<H", record, _BATTALION_SLOT)[0] != NO_BATTALION
+    return record[_BATTALION] < NO_BATTALION_ID
+
+
+def gambit_uses(copy: bytes, owned: bool = True) -> int | None:
     """Gambit uses left in a battle copy or record; None with no battalion or a value the game can't hold."""
-    if len(copy) <= GAMBIT_USES or struct.unpack_from("<H", copy, _BATTALION_SLOT)[0] == NO_BATTALION:
+    if len(copy) <= GAMBIT_USES or not _has_battalion(copy, owned):
         return None
     return valid_uses(copy[GAMBIT_USES])
+
+
+def rattled(record: bytes) -> bool | None:
+    """Whether a battle record's unit is rattled; None if the record is too short to tell."""
+    return bool(record[RATTLED] & RATTLED_BIT) if len(record) > RATTLED else None
 
 
 def _bits(record: bytes, offset: int, count: int) -> tuple[int, ...]:

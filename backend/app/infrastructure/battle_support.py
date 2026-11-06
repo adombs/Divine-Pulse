@@ -8,7 +8,7 @@ from pathlib import Path
 
 from ..gamemem.pairing import enemy_phase_began, pair_fights
 from .inventory import art_name, inventory, item_name, spell_name, weapon_kind
-from .battle_data import item_used, rally_name, scenario_name, support_spell, terrain_tiles
+from .battle_data import gambit_name, item_used, rally_name, scenario_name, support_spell, terrain_tiles
 
 log = logging.getLogger(__name__)
 
@@ -20,6 +20,7 @@ class DefaultBattleSupport:
     art_name = staticmethod(art_name)
     weapon_kind = staticmethod(weapon_kind)
     rally_name = staticmethod(rally_name)
+    gambit_name = staticmethod(gambit_name)
     support_spell = staticmethod(support_spell)
     item_used = staticmethod(item_used)
     terrain_tiles = staticmethod(terrain_tiles)

@@ -127,6 +127,7 @@ def history_steps(entries: list, start: int | None, keys: dict[int, str], on_map
                 entry.spell,
                 entry.art,
                 entry.rally,
+                entry.gambit,
             )
         )
     return tuple(steps)
@@ -588,6 +589,7 @@ class Scanner:
                     battalion_exp=ability.battalion_exp,
                     battalion_endurance=ability.battalion_endurance,
                     gambit_uses=ability.gambit_uses,
+                    rattled=record.rattled if record else None,
                 )
             )
         enemies = []

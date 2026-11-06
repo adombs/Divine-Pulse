@@ -269,19 +269,20 @@
 .bp-val.spent { opacity: 0.6; text-decoration: line-through; cursor: help; }
 .bp-gauge.spent .bp-gauge-num { color: var(--red); }
 .bp-missing { color: inherit; opacity: 0.75; cursor: help; }
-.bp-gambit-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.6rem; align-items: start; }
-.bp-area { display: block; width: 8.5rem; max-width: 100%; height: auto; }
+.bp-gambit-body { display: grid; grid-template-columns: auto minmax(0, 13.625rem); justify-content: space-between; gap: 0.6rem; align-items: start; }
+/* Native gambit preview: a fixed grid with square gold cells and one blue or red anchor badge. */
+.bp-area {
+  display: block; width: 13.625rem; max-width: 100%; height: auto; background: #000;
+}
 .bp-area.missing {
-  display: grid; place-items: center; aspect-ratio: 1; padding: 0.5rem; border: 1px dashed var(--line); border-radius: 6px;
-  text-align: center; font: 600 0.74rem var(--ui); color: var(--ink-soft); background: var(--paper);
+  display: grid; place-items: center; aspect-ratio: 218 / 146; padding: 0.5rem; border: 1px dashed var(--line);
+  text-align: center; font: 600 0.74rem var(--ui); color: var(--ink-soft); background: var(--paper); box-shadow: none;
 }
-.bp-tile { fill: color-mix(in srgb, var(--ink) 9%, var(--paper)); }
-.bp-tile.hit { fill: #d9a520; }
-.bp-tile.origin { fill: var(--team-player); }
+.bp-cell { fill: #000; stroke: #262626; stroke-width: 1; }
+.bp-hit { fill: #705300; stroke: #e2c777; stroke-width: 1; }
+.bp-marker.user .bp-badge { fill: #173ab8; }
+.bp-marker.foe .bp-badge { fill: #ad1717; }
 .bp-facing { fill: #fff; }
-.bp-note {
-  grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 0.4rem; margin: 0; font: 0.8rem/1.35 var(--ui); color: var(--ink-soft);
-}
 @media (max-width: 700px) {
   .bp { grid-template-columns: minmax(0, 1fr); }
 }

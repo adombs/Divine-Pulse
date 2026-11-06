@@ -61,6 +61,11 @@ def test_a_battalion_adds_its_modifiers_at_its_level_while_it_has_endurance():
     # Spent endurance: none of it, though the battalion is still assigned.
     spent = Fighter.from_unit(replace(unit(), battalion=5, battalion_exp=115, battalion_endurance=0))
     assert combat_stats(spent, spent.arms[0]) == plain and spent.stats == fighter().stats
+    # Rattled: none of it either. An enemy's battalion counts like yours.
+    shaken = Fighter.from_unit(replace(unit(), battalion=5, battalion_exp=115, battalion_endurance=51, rattled=True))
+    assert combat_stats(shaken, shaken.arms[0]) == plain
+    foe = Fighter.from_unit(replace(unit(army=False), battalion=5, battalion_exp=115, battalion_endurance=51))
+    assert foe.battalion == {"phys_atk": 2, "avo": 2, "rsl": 3, "cha": 5}
     # Unknown runtime or an import without the progression: nothing is guessed.
     assert Fighter.from_unit(replace(unit(), battalion=5, battalion_exp=None, battalion_endurance=60)).battalion == {}
     assert Fighter.from_unit(replace(unit(), battalion=4, battalion_exp=0, battalion_endurance=30)).battalion == {}

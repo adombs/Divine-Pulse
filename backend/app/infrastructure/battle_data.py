@@ -63,6 +63,11 @@ def item_used(step: HistoryStep) -> str | None:
     return _item_names()[1].get(str(step.item)) if step.action == STEP_ITEM else None
 
 
+def gambit_name(gambit: int) -> str:
+    """A gambit's name from the import ("Assembly"), else "Gambit <ID>"."""
+    return game_tables.memory().get("gambits", {}).get(str(gambit)) or f"Gambit {gambit}"
+
+
 def rally_name(unit: StepUnit | None) -> str:
     """The Rally a unit used: its one equipped Rally ability ("Rally Speed"), else just "Rally"."""
     rallies = [a for a in unit.abilities if a in RALLY_ABILITIES] if unit is not None else []

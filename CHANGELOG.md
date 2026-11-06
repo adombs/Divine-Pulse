@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Match the game's gambit previews with the native grid, gold tiles and one correctly facing badge, including target-centred areas such as Group Flames; prompt older game-file imports to refresh.
+- Show gambits in the battle log and usage, read enemies' battalions and the rattled status, and leave out battalion bonuses while a unit is rattled.
 - Import each gambit's target area and its physical, magic or support icon from the game files, so battalion panels show them.
 - Condense the roster table so the unit card beside it gets more room, and keep the Archive class card's Requires, Exam and Moves facts on one line (the exam shows just its level, the movement just its number).
 - Put the portrait inside the Roster and Archive information cards, so flipping the card turns the portrait into the map sprite with the biography, and show the map sprite in a round medallion like the portrait there and in battle windows.

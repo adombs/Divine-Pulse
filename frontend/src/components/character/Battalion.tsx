@@ -14,7 +14,7 @@ import { battalionLevel, battalionReference } from "../../reference/battalions";
 import type { BattleUnit, Unit } from "../../api";
 import { BATTALION_STAT_KEYS, BATTALION_STAT_LABEL, useReference } from "../../reference/types";
 import type { Battalion, BattalionStatKey, GambitArea } from "../../reference/types";
-import { GameImage } from "../GameImage";
+import { GameImage, useGameImageUrl } from "../GameImage";
 import { Icon } from "../Icon";
 import { BattalionLink } from "../Links";
 import "./character.css";
@@ -23,6 +23,7 @@ const NOT_IMPORTED = "Not in your imported game files yet.";
 const NOT_READ = "Not read from the game yet.";
 const NOT_RECORDED = "Not recorded for this battle.";
 const SPENT = "No endurance left: the unit gets none of these until the battalion is replenished.";
+const RATTLED = "Rattled by a gambit when last read: the unit gets none of these until it recovers.";
 
 /** The import's entry for a battalion name (matched loosely, as names saved by older versions may differ). */
 export function useBattalion(name: string | null | undefined, id?: number | null): Battalion | undefined {
@@ -96,7 +97,7 @@ const Missing = ({ why }: { why: string }) => (
   </span>
 );
 
-type BattalionState = Pick<BattleUnit, "battalion" | "battalion_id" | "battalion_exp" | "battalion_endurance" | "gambit_uses">;
+type BattalionState = Pick<BattleUnit, "battalion" | "battalion_id" | "battalion_exp" | "battalion_endurance" | "gambit_uses"> & { rattled?: boolean | null };
 
 /**
  * The battalion panel. `unit` is the selected battle's recorded assignment or the run's last-read unit, according
@@ -119,11 +120,13 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
   const enduranceMax = entry?.endurance;
   const enduranceNow = general ? undefined : unit?.battalion_endurance;
   const spent = enduranceNow === 0;
+  const shaken = scope === "battle" && unit?.rattled === true;
+  const off = spent ? SPENT : shaken ? RATTLED : null;
   const stat = (k: BattalionStatKey): ReactNode => {
     const v = imported?.[k];
     if (v === undefined) return <Missing why={`${BATTALION_STAT_LABEL[k]}: ${NOT_IMPORTED}`} />;
-    return spent
-      ? <span className="bp-val even spent" title={SPENT}>{signed(v)}</span>
+    return off
+      ? <span className="bp-val even spent" title={off}>{signed(v)}</span>
       : <span className={`bp-val ${tone(v)}`} title={`From your imported game files, ${importedAt}`}>{signed(v)}</span>;
   };
   const g = entry?.gambit;
@@ -131,21 +134,6 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
   // Between battles the game has refilled them: a run whose battalion state was read shows them full.
   const refilled = scope === "run" && (unit?.gambit_uses === undefined || unit?.gambit_uses === null) && progress !== null;
   const usesNow = refilled ? usesMax : unit?.gambit_uses;
-  const missingParts = [
-    !entry?.icon && "battalion icon",
-    !general && (enduranceNow === undefined || enduranceNow === null) && "endurance left",
-    !imported && "modifiers",
-    !g && "gambit",
-    g && !g.icon && "gambit icon",
-    !general && g && (usesNow === undefined || usesNow === null) && "gambit uses left",
-    g && !g.area && "gambit area",
-  ].filter(Boolean) as string[];
-  const notes = general ? [] : [
-    scope === "battle" && "Assignment recorded for this battle.",
-    spent && SPENT,
-    imported && level === null && `Modifiers are level 1 reference values; the battalion level is ${scope === "battle" ? "not recorded for this battle" : "not read"}.`,
-    missingParts.length > 0 && `Not available yet: ${missingParts.join(", ")}.`,
-  ].filter(Boolean) as string[];
 
   return (
     <div className="bp" aria-label={`${name} battalion`}>
@@ -207,20 +195,26 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
           <GambitAreaMap area={g?.area} name={g?.name} />
         </div>
       </section>
-      {general ? (
-        missingParts.length > 0 ? <p className="bp-note">Not in your imported game files yet: {missingParts.join(", ")}.</p> : null
-      ) : notes.length > 0 ? (
-        <p className="bp-note">{notes.join(" ")}</p>
-      ) : null}
     </div>
   );
 }
 
+/** The native gambit preview pieces, imported from the battle UI atlas. */
+const PIECE = (name: string) => `images/map/minimap-pieces/${name}.png`;
+const AREA_CELL = 24;
+const AREA_WIDTH = 218;
+const AREA_HEIGHT = 146;
+
 /**
- * The tiles a gambit hits, as a little map: the user's tile in blue (with its facing), the tiles hit in gold. The
- * area faces up (away from the user). Without the area, an empty frame says it isn't in the import.
+ * The game's fixed 9 x 6 preview. Forward areas sit above a blue upward badge; centred areas surround one downward
+ * badge (red for an enemy target, blue for support). A centred attack never adds a separate user or target cursor.
+ * Sprite transparency supplies the tile edges and the chevron's padding; all pieces occupy the same 24 px cell.
  */
 export function GambitAreaMap({ area, name }: { area?: GambitArea; name?: string }) {
+  const gridUrl = useGameImageUrl(PIECE("range-grid"));
+  const cellUrl = useGameImageUrl(PIECE("range-cell"));
+  const badgeUrl = useGameImageUrl(PIECE(area?.target ? "range-enemy" : "range-player"));
+  const chevronUrl = useGameImageUrl(PIECE("range-chevron"));
   if (!area) {
     return (
       <div className="bp-area missing" title={`Area: ${NOT_IMPORTED}`}>
@@ -229,31 +223,36 @@ export function GambitAreaMap({ area, name }: { area?: GambitArea; name?: string
     );
   }
   const origin = area.origin ?? [0, 0];
-  const xs = [...area.cells.map((c) => c[0]), origin[0]];
-  const ys = [...area.cells.map((c) => c[1]), origin[1]];
-  // One empty tile of margin around the tiles drawn, and at least 5 x 5 so a small area doesn't look huge.
-  let [minX, maxX, minY, maxY] = [Math.min(...xs) - 1, Math.max(...xs) + 1, Math.min(...ys) - 1, Math.max(...ys) + 1];
-  while (maxX - minX + 1 < 5) { minX -= 1; if (maxX - minX + 1 < 5) maxX += 1; }
-  while (maxY - minY + 1 < 5) { minY -= 1; if (maxY - minY + 1 < 5) maxY += 1; }
-  const w = maxX - minX + 1;
-  const h = maxY - minY + 1;
-  const hit = new Set(area.cells.map(([x, y]) => `${x},${y}`));
-  const label = `${name ? `${name}: ` : ""}hits ${area.cells.length} ${area.cells.length === 1 ? "tile" : "tiles"}; the user's tile is blue and the area faces up, away from them`;
-  const tiles = [];
-  for (let y = minY; y <= maxY; y++) {
-    for (let x = minX; x <= maxX; x++) {
-      const isOrigin = x === origin[0] && y === origin[1];
-      tiles.push(<rect key={`${x},${y}`} className={`bp-tile${hit.has(`${x},${y}`) ? " hit" : ""}${isOrigin ? " origin" : ""}`} x={x - minX + 0.06} y={y - minY + 0.06} width={0.88} height={0.88} rx={0.12} />);
+  const forward = area.direction === "forward";
+  const centre = area.target ?? origin;
+  // Four tiles straight ahead need the badge one row lower. All other native previews anchor on row 3.
+  const row = forward ? Math.max(3, ...area.cells.map(([, y]) => origin[1] - y)) : 3;
+  const at = ([x, y]: [number, number]) => ({ x: 1 + (4 + x - centre[0]) * AREA_CELL, y: 1 + (row + y - centre[1]) * AREA_CELL });
+  const label = `${name ? `${name}: ` : ""}covers ${area.cells.length} ${area.cells.length === 1 ? "tile" : "tiles"}`
+    + (area.target ? "; red target marker at the centre" : forward ? "; blue user marker facing up" : "; blue user marker at the centre");
+  const grid = [];
+  for (let y = 0; y < 6; y++) {
+    for (let x = 0; x < 9; x++) {
+      grid.push(<rect key={`${x},${y}`} className="bp-cell" x={1 + x * AREA_CELL} y={1 + y * AREA_CELL} width={AREA_CELL} height={AREA_CELL} />);
     }
   }
-  const ox = origin[0] - minX + 0.5;
-  const oy = origin[1] - minY + 0.5;
+  const marker = at(centre);
   return (
-    <svg className="bp-area" viewBox={`0 0 ${w} ${h}`} role="img" aria-label={label} style={{ aspectRatio: `${w} / ${h}` }}>
+    <svg className="bp-area" viewBox={`0 0 ${AREA_WIDTH} ${AREA_HEIGHT}`} role="img" aria-label={label}>
       <title>{label}</title>
-      {tiles}
-      {/* The user, facing the area. */}
-      <path className="bp-facing" d={`M ${ox} ${oy - 0.26} L ${ox + 0.24} ${oy + 0.18} L ${ox} ${oy + 0.06} L ${ox - 0.24} ${oy + 0.18} Z`} />
+      {gridUrl ? <image href={gridUrl} x={0} y={0} width={AREA_WIDTH} height={AREA_HEIGHT} /> : grid}
+      {area.cells.map((c) => {
+        const p = at(c);
+        return <g key={`${c[0]},${c[1]}`} transform={`translate(${p.x} ${p.y})`}>
+          {cellUrl ? <image href={cellUrl} width={AREA_CELL} height={AREA_CELL} /> : <rect className="bp-hit" x={1} y={1} width={22} height={22} />}
+        </g>;
+      })}
+      <g className={`bp-marker ${area.target ? "foe" : "user"}`} transform={`translate(${marker.x} ${marker.y})`}>
+        {badgeUrl ? <image href={badgeUrl} width={AREA_CELL} height={AREA_CELL} /> : <rect className="bp-badge" x={1} y={1} width={22} height={22} rx={3} />}
+        <g transform={forward ? `translate(0 ${AREA_CELL}) scale(1 -1)` : undefined}>
+          {chevronUrl ? <image href={chevronUrl} width={AREA_CELL} height={AREA_CELL} /> : <path className="bp-facing" d="M 4 8 L 12 13 L 20 8 L 12 18 Z" />}
+        </g>
+      </g>
     </svg>
   );
 }
