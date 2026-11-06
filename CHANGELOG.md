@@ -3,6 +3,7 @@
 ## Unreleased
 
 - Put the portrait inside the Roster and Archive information cards, so flipping the card turns the portrait into the map sprite with the biography, and show the map sprite in a round medallion like the portrait there and in battle windows.
+- Remove the sidebar's Collapse/Expand button (the rail still opens on hover or keyboard focus and closes on leave or Escape), the eye button beside the Portraits choice in Settings, team dots in battle Awards and the per-fight damage line in run character statistics; swap Tiles moved and Stat increases in battle Records.
 - Include the game's battle history entries in battle recordings, so actions the tracker can't name yet (such as gambits) can be studied from them.
 - Remove the full stop from unknown crest labels in battle character cards.
 - Give Runs a labeled creation form, readable run details and aligned battle summaries; improve Updates scanning, Undo placement and empty states, and allow retrying failed battle loads.
