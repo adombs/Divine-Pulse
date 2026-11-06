@@ -15,13 +15,62 @@ folder, how to check it, and what is in it. How to dump the game: [dumping.md](d
 
 Point the tool at the folder that holds them. It finds the parts by their files and by the title ids in folder
 names, so nstool layouts (`romfs/`, `exefs/`, `DLC/[Name][TitleID]…/romfs`) and emulator layouts
-(`<title id>/romfs`) both work. Nothing is decrypted here; the tool reads only files you already extracted.
+(`<title id>/romfs`) both work. Extracted-folder imports read those files in place. NSP imports use NSTool and
+your own keys to extract them first, as described below.
 
 ## Commands (from `backend/`)
 
 For the same verified import used by Settings, run `python -m app --import-game-files "<dump folder>"`;
 the installed executable also accepts `--import-game-files "<dump folder>"`. Progress and errors are saved
 in `game-assets-import.log` in the app's data folder.
+
+### Keeping raw NSP extractions
+
+When installing from NSPs, setup offers **Save raw files extracted from NSPs**, unchecked by default.
+Check it to reveal an editable destination and **Browse...** picker. Browse chooses an existing parent and appends
+`Divine Pulse Dump`; edit that child name if needed. The destination must be a new folder inside an existing,
+writable parent, outside the app's installation and data folders and outside links/junctions. Even an empty
+existing destination is refused. Setup checks it before installing, and the importer claims it again without
+overwriting anything. Back keeps the choice; cancelling setup before installation creates no dump folder.
+
+Unchecked, all raw extraction files are temporary. Checked, RomFS, ExeFS, DLC files and `extraction.json` remain
+in the new folder only after extraction and verified import succeed. Intermediate NCAs/tickets are still removed.
+A failed import or handled cancellation removes only the new partial directory owned by that import. A forced
+process termination or power loss can leave a partial directory; inspect/remove it yourself or choose a different
+new destination on retry. Existing extracted source folders and NSPs are never moved or deleted. `prod.keys`
+is read in place and is never copied into the retained dump. The saved raw folder is yours; uninstalling the app
+does not remove it. Allow enough disk space for both the raw dump and the app's imported assets.
+
+Silent setup uses the same opt-in destination flag (omit it for temporary cleanup):
+
+```powershell
+.\Divine-Pulse-<version>-setup.exe /VERYSILENT /SUPPRESSMSGBOXES /NSP1="C:\Games\base.nsp" /NSP2="C:\Games\update.nsp" /KEYS="C:\Keys\prod.keys" /KEEPDUMPS="D:\Dumps\Three Houses"
+```
+
+`D:\Dumps` must already exist, and `Three Houses` must not exist. `/KEEPDUMPS` requires `/NSP1`; it cannot be
+combined with extracted-folder-only `/DUMP`. Invalid destinations fail setup before installation. Import failures
+return a nonzero setup exit code. The executable and source CLI accept the corresponding `--keep-dumps` option:
+
+```powershell
+& ".\Divine Pulse.exe" --import-game-files "C:\Games" --nsp "C:\Games\base.nsp" --nsp "C:\Games\update.nsp" --nstool ".\tools\nstool.exe" --keys "C:\Keys\prod.keys" --keep-dumps "D:\Dumps\Three Houses"
+```
+
+The source equivalent is `python -m app` followed by the same arguments. Direct CLI imports can also use a single
+NSP path or discover NSPs under the source folder; explicit repeated `--nsp` flags restrict import to those files.
+`--keep-dumps` is rejected when importing an existing extracted folder. The Settings importer keeps its existing
+temporary behavior.
+
+After building Windows, maintainers can repeat the synthetic packaged/installer checks from the repository root:
+
+```powershell
+$env:DIVINE_PULSE_TEST_PACKAGED_DIR = (Resolve-Path "build\dist\Divine Pulse").Path
+backend\.venv\Scripts\python -m pytest -q backend/tests/test_installer_retention.py
+Remove-Item Env:DIVINE_PULSE_TEST_PACKAGED_DIR
+```
+
+These opt-in tests need Inno Setup 6. They compile a setup copy with a random AppId/name and disposable installation
+and data folders, validate silent destinations, then run deliberately invalid synthetic NSPs through the actual
+packaged importer/NSTool to check failure cleanup. They do not start the tracker or read game files.
 
 ```
 .venv\Scripts\python -m app.gamefiles info "<dump folder>"       what was found, game version, which DLC
