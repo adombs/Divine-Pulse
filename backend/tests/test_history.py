@@ -6,6 +6,7 @@ import struct
 from app.gamemem import history as h
 from app.gamemem.battle import BattleFields, BattleUnit
 from app.gamemem.fe3h import GameMemory
+from app.gamemem.recorder import unpack_history
 from app.system.memory import Region
 from app.infrastructure.polling import history_steps
 
@@ -115,6 +116,14 @@ def test_reads_the_history_in_memory(emulator):  # noqa: F811
     assert start == 500  # unit 20 stands where slot 520 is
     assert memory._arena == ARENA
     assert memory.battle_history(units) == (entries, start)  # (decoded entries are kept)
+    # The battle recorder gets the same entries' bytes, in history order, for actions not decoded yet (gambits).
+    from app.gamemem.battle import pool_window
+
+    low, high = pool_window(list(memory._copies.values()))
+    emulator[7].memory[low] = bytes(high - low)  # a blank pool around the copy, for capture_battle to read
+    raw = unpack_history(memory.capture_battle()["history"])
+    assert [address for address, _ in raw][0] == FIRST and len(raw) == 3
+    assert [h.decode_entry(data, F.hp, F.x, F.y) for _, data in raw] == entries
 
 
 def test_no_history_outside_a_battle(emulator):  # noqa: F811

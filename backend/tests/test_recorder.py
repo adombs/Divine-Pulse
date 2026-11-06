@@ -6,7 +6,7 @@ import struct
 from app.gamemem import analysis
 from app.gamemem.battle import RECORD_SIZE
 from app.gamemem.fe3h import BATTLE_MARKER, BATTLE_MARKER_TO_COPY
-from app.gamemem.recorder import BattleRecorder, find_recordings, read_recording
+from app.gamemem.recorder import BattleRecorder, find_recordings, pack_history, read_recording, unpack_history
 
 HP_AT, X_AT, TURN_AT, PULSE_AT = 0x260, 0x270, 0x40, 0x81
 UNITS = 5
@@ -56,6 +56,21 @@ def test_frames_round_trip(tmp_path):
     assert frames[1].globals == capture(1)["globals"]  # rebuilt from the first frame and a diff
     assert frames[1].pool == capture(1)["pool"] and frames[1].roster == b"r" * 16
     assert frames[1].army == {20: RECORD_SIZE, 21: 2 * RECORD_SIZE}
+
+
+def test_history_entries_are_recorded_when_they_change(tmp_path):
+    first = [(0x21_0000_0990, b"\x0b" * 0x50)]
+    then = [*first, (0x21_0000_0A00, b"\x0e" * 0x60)]
+    rec = BattleRecorder(tmp_path)
+    rec.start("h")
+    assert rec.record({**capture(0), "history": pack_history(first)}, 0)
+    assert rec.record({**capture(0), "history": pack_history(then)}, 1)  # only the history changed: a frame
+    assert not rec.record({**capture(0), "history": pack_history(then)}, 2)
+    assert rec.record({**capture(1), "history": pack_history(then)}, 3)  # history unchanged: carried forward
+    frames = list(read_recording(rec.path))
+    assert [unpack_history(f.history) for f in frames] == [first, then, then]
+    assert unpack_history(b"") == []  # recordings made before the history was kept
+    assert [f.history for f in record(tmp_path / "old")] == [b""] * 6  # captures without history still record
 
 
 def test_old_recordings_are_pruned_and_size_is_capped(tmp_path):
