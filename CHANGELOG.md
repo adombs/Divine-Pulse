@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Filter weapons with a discrete maximum-rank slider, show authentic dark-magic and Alive/Skill filter icons, and keep all Appearance portrait options visible.
+
 - Use eye and eye-slash buttons for showing and hiding spoilers, add existing semantic icons to filter options and selected chips, and capitalize Ability sources as Personal, Class and Skill.
 
 - Put character scope beside the name, move compact crest names into the front facts, and rotate bordered information cards with an inside Flip button while portraits stay still. Preserve keyboard and reduced-motion support, and use eye buttons to reveal spoilers throughout the app. Remove battalion header badges and coloured sprite backgrounds.

@@ -812,6 +812,15 @@ table.matrix { border-collapse: collapse; font-variant-numeric: lining-nums; }
 .class-growth-filter summary { cursor: pointer; padding: 0.3rem 0.5rem; border: 1px solid var(--line); background: var(--row); }
 .class-growth-choices { max-height: 18rem; overflow-y: auto; margin-top: 0.4rem; }
 .class-growth-choices .checklist-items label { white-space: normal; }
+.checklist.weapon-rank-filter { min-width: 24rem; }
+.weapon-rank-filter .step-slider { display: flex; }
+.weapon-rank-filter .step-slider .notched { width: 100%; flex: 1; }
+.weapon-rank-filter .checklist-clear:disabled { opacity: 0.55; cursor: default; }
+.rank-stop-labels { position: relative; display: block; height: 1.4rem; font-size: 0.78rem; }
+.rank-stop-labels > span { position: absolute; transform: translateX(-50%); }
+.rank-stop-labels > span:first-child { transform: none; }
+.rank-stop-labels > span:last-child { transform: translateX(-100%); }
+.rank-threshold { display: block; color: var(--accent); font-weight: 600; }
 .toolbar-end { margin-left: auto; }
 .seg-count { margin-left: 0.35rem; font: 700 0.72rem var(--ui); opacity: 0.75; }
 

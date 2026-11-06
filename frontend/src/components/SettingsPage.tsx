@@ -173,8 +173,8 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
           <div className="settings-actions"><Segmented
             label="Portraits"
             value={appearance.portraits}
-            onChange={(portraits) => update({ portraits })}
-            options={preferences.portraits ? [["auto", "Auto"], ["part1", "Part I"], ["part2", "Part II"]] : [["auto", "Auto"], ["part1", "Part I"]]}
+            onChange={(portraits) => { if (portraits === "part2") setSpoiler("portraits", true); update({ portraits }); }}
+            options={[["auto", "Auto"], ["part1", "Part I"], ["part2", "Part II"]]}
           /><SpoilerButton conceal={preferences.portraits} onClick={() => { setSpoiler("portraits", !preferences.portraits); if (!preferences.portraits) update({ portraits: "part2" }); }} label={preferences.portraits ? "Hide later portrait spoilers" : "Show later portrait spoilers and select Part II portraits"} /></div>
         </Row>
         <Row label="My unit faces" hint="In battle: unit lists, the log and cards.">

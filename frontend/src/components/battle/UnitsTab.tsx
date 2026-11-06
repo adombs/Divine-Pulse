@@ -29,7 +29,7 @@ const SIDE_OPTIONS: [Team, ReactNode][] = [
   ["third", <span className="filter-label"><span aria-hidden="true"><TeamTag team="third" /></span>Third Army</span>],
 ];
 const STATE_OPTIONS: [State, ReactNode][] = [
-  ["alive", "Alive"],
+  ["alive", <FilterLabel icon={CONCEPT_ICON.heal}>Alive</FilterLabel>],
   ["defeated", <FilterLabel icon={CONCEPT_ICON.defeat}>Killed</FilterLabel>],
   ["left", <FilterLabel icon={CONCEPT_ICON.left}>Left the Map</FilterLabel>],
 ];
