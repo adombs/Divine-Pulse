@@ -1,5 +1,6 @@
 /** Sections the unit and enemy cards share: combat totals, who it fought, and its fights and actions. */
 import { CONCEPT_ICON } from "../../icons/concepts";
+import "../character/panels.css";
 import type { ReactNode } from "react";
 import { Section } from "../layout";
 import { plural } from "../../format";
@@ -24,7 +25,7 @@ export function CombatTiles({
     ["Fights", fights], ["Killed", defeats], ["Dealt", dealt, "damage"], ["Taken", taken, "damage"], ...extra,
   ];
   return (
-    <dl className="combat-totals">
+    <dl className="combat-totals panel-ledger">
       {rows.map(([label, value, note]) => <div key={label} title={note}><dt>{label}</dt><dd><Num value={value} /></dd></div>)}
     </dl>
   );
@@ -34,12 +35,13 @@ export function CombatTiles({
 function Opponents({ items, id }: { items: Item[]; id: string }) {
   const rows = opponents(items, id);
   return (
-    <>
+    <div className="fights-opponents">
       <h3 className="card-subtitle">Opponents</h3>
       {rows.length === 0 ? (
         <p className="muted">No fights yet.</p>
       ) : (
-        <table className="mini-table">
+        <div className="panel-table-scroll" tabIndex={0} role="region" aria-label="Opponents and damage">
+        <table className="mini-table opponents-table">
           <thead>
             <tr>
               <th className="left">Against</th>
@@ -75,8 +77,9 @@ function Opponents({ items, id }: { items: Item[]; id: string }) {
             ))}
           </tbody>
         </table>
+        </div>
       )}
-    </>
+    </div>
   );
 }
 
@@ -85,10 +88,14 @@ export function FightsAndActions({ items, id, totals }: { items: Item[]; id: str
   const mine = items.filter((i) => involves(i, id) && !i.heading);
   return (
     <Section title="Fights and actions" icon={CONCEPT_ICON.actions} summary={mine.length ? plural(mine.length, "entry", "entries") : "Nothing yet"}>
-      {totals}
-      <Opponents items={items} id={id} />
-      <h3 className="card-subtitle">Recent actions</h3>
-      <div className="recent-actions-list"><ItemList items={mine} /></div>
+      <div className="fights-panel">
+        {totals}
+        <Opponents items={items} id={id} />
+        <div className="fights-actions">
+          <h3 className="card-subtitle">Recent actions</h3>
+          <div className="recent-actions-list"><ItemList items={mine} /></div>
+        </div>
+      </div>
     </Section>
   );
 }

@@ -19,6 +19,7 @@ import { battleName } from "./scenarios";
 import { Num, UsageList } from "./parts";
 import type { CharacterStats } from "./stats";
 import "./run-card.css";
+import "../character/panels.css";
 
 interface Props {
   stats: CharacterStats;
@@ -115,7 +116,7 @@ function CombatLedger({ c }: { c: CharacterStats }) {
       </table>
       {perFight !== null && (
         <p className="rc-note">
-          <b>{perFight}</b> damage per fight on average{c.defeats ? <> · a kill every <b>{Math.round((10 * c.fights) / c.defeats) / 10}</b> fights</> : null}
+          <b>{perFight}</b> damage per fight on average{c.defeats && c.fights !== null ? <> · a kill every <b>{Math.round((10 * c.fights) / c.defeats) / 10}</b> fights</> : null}
         </p>
       )}
     </div>
@@ -168,7 +169,7 @@ function GrowthBars({ c }: { c: CharacterStats }) {
   const max = Math.max(1, ...keys.map((k) => Math.abs(c.gains[k as ValueKey] ?? 0)));
   return (
     <div className="rc-growth">
-      <dl className="rc-growth-sum">
+      <dl className="panel-ledger">
         <div><dt>Level</dt><dd>{c.first_level !== c.level ? `${c.first_level} → ${c.level}` : c.level}</dd></div>
         <div><dt>Level-ups in battle</dt><dd>{c.level_ups}</dd></div>
         <div><dt>Stat points</dt><dd>+{c.stat_points}</dd></div>
@@ -201,10 +202,13 @@ function Arsenal({ c }: { c: CharacterStats }) {
   ];
   return (
     <div className="rc-arsenal">
-      <dl className="rc-growth-sum">
+      <dl className="panel-ledger">
         {spent.map(([label, n]) => <div key={label}><dt>{label}</dt><dd>{n}</dd></div>)}
       </dl>
-      {c.usage.length > 0 ? <UsageList usage={c.usage} /> : <p className="muted">No weapons or arts recorded from the game's history yet.</p>}
+      {c.usage.length > 0 ? <div className="rc-usage-ledger">
+        <div className="rc-usage-head" aria-hidden="true"><span>Recorded use</span><span>Damage</span><span>Uses</span></div>
+        <UsageList usage={c.usage} />
+      </div> : <p className="muted">No weapons or arts recorded from the game's history yet.</p>}
     </div>
   );
 }
@@ -221,7 +225,7 @@ function BattleRows({ c, onOpen }: { c: CharacterStats; onOpen: (battleId: strin
               <span className="rc-battle-facts">
                 <span>{new Date(a.battle.started_at).toLocaleDateString()}</span>
                 <span>Lv {a.unit.level_ups ? `${a.unit.start_level}→${a.unit.level}` : a.unit.level}</span>
-                <span>{plural(a.fights, "fight")}</span>
+                <span>{a.fights === null ? "Fights —" : plural(a.fights, "fight")}</span>
                 {a.defeats !== null && <span>{plural(a.defeats, "kill")}</span>}
                 {a.unit.damage_dealt !== null && <span>{a.unit.damage_dealt} dealt</span>}
               </span>
