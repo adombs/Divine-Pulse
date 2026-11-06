@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Condense the roster table so the unit card beside it gets more room, and keep a class's movement value and type on one line in the Archive class card.
+- Condense the roster table so the unit card beside it gets more room, and keep the Archive class card's Requires, Exam and Moves facts on one line (the exam shows just its level, the movement just its number).
 - Include the game's battle history entries in battle recordings, so actions the tracker can't name yet (such as gambits) can be studied from them.
 - Remove the full stop from unknown crest labels in battle character cards.
 - Give Runs a labeled creation form, readable run details and aligned battle summaries; improve Updates scanning, Undo placement and empty states, and allow retrying failed battle loads.

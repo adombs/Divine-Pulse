@@ -354,8 +354,8 @@
 
 /* What it takes and how it moves: three short facts side by side on one row, the figures large. */
 /* Each fact has a rule on its left; the strip is pulled left by one rule and its padding and clipped there, so only
-   the rules between facts show. When the row is tight the exam's seal goes under its level first, then the
-   requirements wrap; the movement never wraps or leaves the row. */
+   the rules between facts show. Every fact stays on one line: the exam is just its level and the movement just its
+   number (the seal and movement type are in their tooltips), and up to three requirement chips fit side by side. */
 .class-exam {
   --exam-gap: 1.1rem;
   display: flex;
@@ -369,9 +369,6 @@
   padding: 0 var(--exam-gap);
   border-left: 1px solid color-mix(in srgb, var(--tier-mid) 40%, var(--line));
 }
-.class-exam-level { flex-shrink: 8; }
-.class-exam-moves { flex-shrink: 0; }
-.class-exam-moves dd { flex-wrap: nowrap; white-space: nowrap; }
 .class-exam dt {
   font: 600 0.92rem var(--display);
   color: var(--ink-soft);
@@ -380,24 +377,19 @@
   margin: 0;
   display: flex;
   align-items: baseline;
-  flex-wrap: wrap;
-  gap: 0.1rem 0.45rem;
+  gap: 0.45rem;
   font: 500 1rem var(--display);
+  white-space: nowrap;
 }
 .class-exam-big {
   font: 600 1.5rem/1 var(--nums);
   font-variant-numeric: lining-nums tabular-nums;
-}
-.class-exam-note {
-  font: 500 0.98rem var(--display);
-  color: var(--ink-soft);
 }
 .class-exam-text { font: 500 1.02rem var(--display); }
 
 .class-reqs {
   display: inline-flex;
   align-items: center;
-  flex-wrap: wrap;
   gap: 0.3rem;
 }
 .class-req {
@@ -589,9 +581,10 @@
     clip-path: none;
   }
   .class-exam > div { display: contents; }
+  .class-exam dd { white-space: normal; }
+  .class-reqs { flex-wrap: wrap; }
   .class-exam dt { font-size: 0.88rem; }
   .class-exam-big { font-size: 1.15rem; }
-  .class-exam-note { font-size: 0.92rem; }
   .class-req .skill-icon { font-size: 1rem; }
   .class-req-rank { font-size: 1.05rem; }
   .class-rail { display: none; }
