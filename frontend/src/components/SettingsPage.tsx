@@ -166,19 +166,16 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
           hint={
             <>
               Auto follows the active playthrough once post-timeskip portraits are enabled in Spoilers.
-              {!preferences.portraits && <> Later portraits are hidden. <SpoilerButton onClick={() => setSpoiler("portraits", true)} label="Show later portrait spoilers" /></>}
+              {!preferences.portraits && <> Later portraits are hidden.</>}
             </>
           }
         >
-          <Segmented
+          <div className="settings-actions"><Segmented
             label="Portraits"
             value={appearance.portraits}
-            onChange={(portraits) => {
-              if (portraits === "part2") setSpoiler("portraits", true);
-              update({ portraits });
-            }}
-            options={[["auto", "Auto"], ["part1", "Part I"], ["part2", "Part II"]]}
-          />
+            onChange={(portraits) => update({ portraits })}
+            options={preferences.portraits ? [["auto", "Auto"], ["part1", "Part I"], ["part2", "Part II"]] : [["auto", "Auto"], ["part1", "Part I"]]}
+          /><SpoilerButton conceal={preferences.portraits} onClick={() => { setSpoiler("portraits", !preferences.portraits); if (!preferences.portraits) update({ portraits: "part2" }); }} label={preferences.portraits ? "Hide later portrait spoilers" : "Show later portrait spoilers and select Part II portraits"} /></div>
         </Row>
         <Row label="My unit faces" hint="In battle: unit lists, the log and cards.">
           <Segmented label="My unit faces in battle" value={appearance.myUnitFaces} onChange={(myUnitFaces) => update({ myUnitFaces })} options={FACE_LOOKS} />
@@ -213,7 +210,7 @@ function SpoilerSection() {
       right={
         <div className="settings-actions">
           <SpoilerButton onClick={() => setAllSpoilers(true)} label="Show all spoilers" />
-          <button type="button" className="btn small" onClick={() => setAllSpoilers(false)}>Hide all</button>
+          <SpoilerButton conceal onClick={() => setAllSpoilers(false)} label="Hide all spoilers" />
         </div>
       }
     >
@@ -223,7 +220,7 @@ function SpoilerSection() {
           label={SPOILER_CATEGORIES[category].label}
           hint={<span aria-live="polite"><strong className={`spoiler-state${preferences[category] ? " shown" : ""}`}>{preferences[category] ? "Shown" : "Hidden"}:</strong> {SPOILER_CATEGORIES[category].hint}</span>}
         >
-          <Switch checked={preferences[category]} onChange={(on) => setSpoiler(category, on)} label={SPOILER_CATEGORIES[category].label} />
+          <SpoilerButton conceal={preferences[category]} onClick={() => setSpoiler(category, !preferences[category])} label={`${preferences[category] ? "Hide" : "Show"} ${SPOILER_CATEGORIES[category].label.toLowerCase()}`} />
         </Row>
       ))}
     </Group>

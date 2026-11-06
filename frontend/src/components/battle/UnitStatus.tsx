@@ -5,7 +5,7 @@
  * While a battle is followed live, your units yet to act this phase come first, lowest eBST first; those that have
  * acted are dimmed and marked. Breakable walls and other objects aren't listed.
  */
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import type { Battle, BattleUnit } from "../../api";
 import { computeEbst, DEFAULT_CONFIG } from "../../ebst";
 import { CheckList, FilterMenu } from "../common";
@@ -22,11 +22,11 @@ import { HpBar } from "./HpBar";
 
 type ListTeam = Exclude<Team, "object">;
 
-const TEAMS: readonly (readonly [ListTeam, string])[] = [
-  ["player", "Your Units"],
-  ["ally", "Allies"],
-  ["third", "Third Army"],
-  ["enemy", "Enemies"],
+const TEAMS: readonly (readonly [ListTeam, ReactNode])[] = [
+  ["player", <span className="filter-label"><span aria-hidden="true"><TeamTag team="player" /></span>Your Units</span>],
+  ["ally", <span className="filter-label"><span aria-hidden="true"><TeamTag team="ally" /></span>Allies</span>],
+  ["third", <span className="filter-label"><span aria-hidden="true"><TeamTag team="third" /></span>Third Army</span>],
+  ["enemy", <span className="filter-label"><span aria-hidden="true"><TeamTag team="enemy" /></span>Enemies</span>],
 ];
 const TEAM_ORDER: Record<ListTeam, number> = { player: 0, ally: 1, third: 2, enemy: 3 };
 

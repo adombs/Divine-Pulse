@@ -15,6 +15,7 @@ import { passes, usePeopleFilters } from "../../filters";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../PeopleFilters";
 import { AbilityLink, ArtLink, CharLink, ClassLink, ItemLink, LinkedDescription } from "../Links";
 import { SkillIcon } from "../SkillIcon";
+import { FilterLabel, GENDER_OPTIONS, SkillFilterLabel } from "../FilterLabel";
 import { SkillChips } from "./SkillChips";
 import {
   Character,
@@ -31,7 +32,7 @@ import {
   Tier,
 } from "../../reference/types";
 import { KeyPortrait, revealCard } from "../ui";
-import { AbilityIcon, ArtIcon, ItemIcon, SpellIcon, WeaponIcon } from "../../reference/icons";
+import { AbilityIcon, ArtIcon, ItemIcon, RefIcon, SpellIcon, WeaponIcon } from "../../reference/icons";
 import { DetailCard, MasterDetail, Section } from "../layout";
 import { artSummary } from "./CharactersPage";
 import { TierIcon, TierLabel, tierMetalStyle } from "./TierIcon";
@@ -116,10 +117,7 @@ function ClassSprite({ c, index, units, data, size }: { c: GameClass; index: Spr
 }
 
 const TIER_OPTIONS = TIERS.map((t) => [t, <TierLabel key={t} tier={t} />] as const);
-const GENDERS = [
-  ["Male", "Men"],
-  ["Female", "Women"],
-] as const;
+const GENDERS = GENDER_OPTIONS;
 
 export type ClassesTab = "classes" | "arts" | "abilities" | "magic" | "weapons" | "items";
 
@@ -748,7 +746,7 @@ function ArtsTable({ data, initial }: { data: ReferenceData; initial: string }) 
     return hit ? hit.name + hit.weapon : null;
   });
   const { sort, header } = useSort<"name" | "weapon" | "might" | "hit" | "crit" | "cost">({ key: "weapon", dir: 1 }, ["name", "weapon"]);
-  const weaponOptions = [...new Set(data.combat_arts.map((a) => a.weapon))].map((w) => [w, w] as const);
+  const weaponOptions = [...new Set(data.combat_arts.map((a) => a.weapon))].map((w) => [w, <SkillFilterLabel key={w} label={w} />] as const);
 
   // Who learns each art: characters (by skill rank), a class mastery, or a budding talent.
   type Learner = { who: string; how: string; skill?: SkillKey; rank?: string; charKey?: string; className?: string };
@@ -869,10 +867,11 @@ function ArtsTable({ data, initial }: { data: ReferenceData; initial: string }) 
 }
 
 const KINDS = [
-  ["class", "Class"],
-  ["skill", "Skill rank"],
-  ["personal", "Personal"],
+  ["class", <FilterLabel key="class" icon={CONCEPT_ICON.classes}>Class</FilterLabel>],
+  ["skill", "Skill"],
+  ["personal", <FilterLabel key="personal" icon={CONCEPT_ICON.characters}>Personal</FilterLabel>],
 ] as const;
+const KIND_LABEL = { class: "Class", skill: "Skill", personal: "Personal" } as const;
 
 function AbilitiesTable({ data, initial }: { data: ReferenceData; initial: string }) {
   const [filter, setFilter] = useState(initial);
@@ -920,7 +919,7 @@ function AbilitiesTable({ data, initial }: { data: ReferenceData; initial: strin
                   {a.name}
                 </td>
                 <td className="left wrap"><LinkedDescription text={a.description} /></td>
-                <td className="left wrap small">{kindOf(a) || "—"}</td>
+                <td className="left wrap small">{KIND_LABEL[kindOf(a) as keyof typeof KIND_LABEL] || "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -937,7 +936,7 @@ function MagicTable({ data, initial }: { data: ReferenceData; initial: string })
   const { sort, header } = useSort<"name" | "type" | "might" | "hit" | "uses">({ key: "name", dir: 1 }, ["name", "type"]);
   const rows = data.magic.filter((spell) => (!schools.length || schools.includes(spell.type)) && searchMatches(filter, spell.name, spell.type, spell.effect))
     .sort((a, b) => Number(normalize(b.name) === normalize(filter)) - Number(normalize(a.name) === normalize(filter)) || compareValues(a[sort.key], b[sort.key]) * sort.dir);
-  const options = (["Black", "Dark", "White"] as const).map((type) => [type, `${type} magic`] as const);
+  const options = (["Black", "Dark", "White"] as const).map((type) => [type, <span key={type} className="filter-label">{type !== "Dark" && <RefIcon src={`images/icons/magic/${type.toLowerCase()}.png`} />}{type} magic</span>] as const);
   return <>
     <div className="toolbar">
       <SearchBox placeholder="Search spell, school or effect" value={filter} onChange={setFilter} />
@@ -978,8 +977,8 @@ function InventoryTable({ data, initial, weapons = false }: { data: ReferenceDat
   const [kinds, setKinds] = useState<string[]>([]);
   const [open, setOpen] = useState<string | null>(initial || null);
   const rankOptions = ["E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+", "S", "S+"].map((r) => [r, r] as const);
-  const typeOptions = [...new Set(data.items.filter((i) => i.kind === "Weapon").map((i) => i.weapon_type ?? "Other"))].sort().map((t) => [t, t] as const);
-  const kindOptions = [...new Set(data.items.filter((i) => i.kind !== "Weapon").map((i) => i.kind))].sort().map((t) => [t, t] as const);
+  const typeOptions = [...new Set(data.items.filter((i) => i.kind === "Weapon").map((i) => i.weapon_type ?? "Other"))].sort().map((t) => [t, <SkillFilterLabel key={t} label={t} />] as const);
+  const kindOptions = [...new Set(data.items.filter((i) => i.kind !== "Weapon").map((i) => i.kind))].sort().map((t) => [t, <FilterLabel key={t} icon={t === "Equipment" ? CONCEPT_ICON.equipment : t === "Item" ? CONCEPT_ICON.item : undefined}>{t}</FilterLabel>] as const);
   const sortKeys = weapons ? ["name", "weapon_type", "rank", "might", "hit", "crit", "weight", "range", "uses"] as const : ["name", "kind"] as const;
   const { sort, header } = useSort<(typeof sortKeys)[number]>({ key: "name", dir: 1 }, ["name", "weapon_type", "rank", "range", "kind"] as (typeof sortKeys)[number][]);
   const rows = data.items.filter((i) => (i.kind === "Weapon") === weapons &&

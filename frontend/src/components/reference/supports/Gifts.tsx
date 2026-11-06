@@ -96,7 +96,7 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
           setKind(k);
           setPicked(null);
         }}
-        options={LABELS.map(([id, label]) => [id, <>{label}<span className="seg-count">{counts[id]}</span></>] as const)}
+        options={LABELS.map(([id, label]) => [id, <span className="filter-label"><Icon name={KIND_ICON[id]} />{label}<span className="seg-count">{counts[id]}</span></span>] as const)}
       />
       <SearchBox placeholder={kind === "meals" ? "Search meals, ingredients or names" : "Search items or names"} value={q} onChange={setQ} />
     </div>

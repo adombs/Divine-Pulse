@@ -4,7 +4,8 @@
  * and don't show.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { FilterLabel } from "../FilterLabel";
 import type { Battle, BattleUnit, EnemyStats, Unit } from "../../api";
 import { CheckChips, CheckList, compareValues, FilterMenu, NoMatches, SearchBox, useSort } from "../common";
 import { EmptyState, MasterDetail } from "../layout";
@@ -21,16 +22,16 @@ import { HpBar } from "./HpBar";
 type Col = "name" | "level" | "hp" | "status" | "fights" | "dealt" | "taken" | "healing" | "defeats";
 type State = "alive" | "defeated" | "left";
 
-const SIDE_OPTIONS: [Team, string][] = [
-  ["player", "Your Units"],
-  ["enemy", "Enemy Units"],
-  ["ally", "Allied Units"],
-  ["third", "Third Army"],
+const SIDE_OPTIONS: [Team, ReactNode][] = [
+  ["player", <span className="filter-label"><span aria-hidden="true"><TeamTag team="player" /></span>Your Units</span>],
+  ["enemy", <span className="filter-label"><span aria-hidden="true"><TeamTag team="enemy" /></span>Enemy Units</span>],
+  ["ally", <span className="filter-label"><span aria-hidden="true"><TeamTag team="ally" /></span>Allied Units</span>],
+  ["third", <span className="filter-label"><span aria-hidden="true"><TeamTag team="third" /></span>Third Army</span>],
 ];
-const STATE_OPTIONS: [State, string][] = [
+const STATE_OPTIONS: [State, ReactNode][] = [
   ["alive", "Alive"],
-  ["defeated", "Killed"],
-  ["left", "Left the Map"],
+  ["defeated", <FilterLabel icon={CONCEPT_ICON.defeat}>Killed</FilterLabel>],
+  ["left", <FilterLabel icon={CONCEPT_ICON.left}>Left the Map</FilterLabel>],
 ];
 
 /** One row of the table: one of your units or another unit on the map. */
