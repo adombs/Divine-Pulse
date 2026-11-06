@@ -6,7 +6,7 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { createServer } from "vite";
 
 // Render the public battle detail and the real battalion panel. SSR cannot run the effects that register/select
-// sections or load reference data, so supply only those two UI inputs; assignment selection stays production code.
+// sections, reference data or imported images. Supply those I/O inputs; assignment and layout stay production code.
 const reference = {
   characters: [], classes: [], abilities: [], combat_arts: [], crests: [], magic: [], items: [],
   battalions: [
@@ -42,6 +42,12 @@ test("historical battalion detail uses the saved assignment independently of the
     plugins: [{
       name: "battalion-ssr-inputs",
       transform(source, id) {
+        if (id.endsWith("/components/GameImage.tsx")) {
+          const start = source.indexOf("export function useGameImageUrl(");
+          const end = source.indexOf("\n}\n", start) + 3;
+          assert.ok(start >= 0 && end > start);
+          return source.slice(0, start) + 'export function useGameImageUrl(imported) { return globalThis.__battalionPreviewAssetsAvailable === false ? "" : "/test-assets/" + imported; }\n' + source.slice(end);
+        }
         if (id.endsWith("/reference/types.ts")) {
           const hook = source.indexOf("export function useReference()");
           assert.ok(hook >= 0);
@@ -64,6 +70,19 @@ test("historical battalion detail uses the saved assignment independently of the
     const render = (element) => renderToStaticMarkup(h(NavProvider, { nav },
       h(BattleNavContext.Provider, { value: { people: new Map(), open() {} } }, element)));
 
+    await t.test("missing native preview assets produce an explicit state without substitute artwork", () => {
+      globalThis.__battalionPreviewAssetsAvailable = false;
+      try {
+        const html = render(h(GambitAreaMap, { area: { cells: [[0, -1]], direction: "forward" } }));
+        assert.match(html, /role="status"/);
+        assert.match(html, /Target area assets required/);
+        assert.doesNotMatch(html, /<svg|<rect|<path|<image/);
+      } finally { delete globalThis.__battalionPreviewAssetsAvailable; }
+      const absent = render(h(GambitAreaMap));
+      assert.match(absent, /role="alert"/);
+      assert.match(absent, /Target area unavailable/);
+      assert.doesNotMatch(absent, /<svg|<rect|<path|<image/);
+    });
     await t.test("a centred attack shows one red centre badge, independently of target range", () => {
       const previews = [1, 3].map((range) => render(h(GambitAreaMap, { area: {
         cells: [[0, -range - 1], [-1, -range], [0, -range], [1, -range], [0, -range + 1]], target: [0, -range],
@@ -72,17 +91,18 @@ test("historical battalion detail uses the saved assignment independently of the
       const html = previews[0];
       assert.match(html, /viewBox="0 0 218 146"/);
       assert.match(html, /class="bp-marker foe" transform="translate\(97 73\)"/);
-      assert.equal((html.match(/class="bp-hit"/g) ?? []).length, 5);
-      assert.equal((html.match(/class="bp-cell"/g) ?? []).length, 54);
+      assert.equal((html.match(/range-cell\.png/g) ?? []).length, 5);
+      assert.equal((html.match(/range-grid\.png/g) ?? []).length, 1);
+      assert.equal((html.match(/range-enemy\.png/g) ?? []).length, 1);
       for (const [x, y] of [[97, 49], [73, 73], [97, 73], [121, 73], [97, 97]]) {
-        assert.ok(html.includes(`transform="translate(${x} ${y})"><rect class="bp-hit"`));
+        assert.ok(html.includes(`transform="translate(${x} ${y})"><image href="/test-assets/images/map/minimap-pieces/range-cell.png"`));
       }
-      assert.doesNotMatch(html, /bp-marker user|cursor-target|<circle|scale\(1 -1\)/);
+      assert.doesNotMatch(html, /bp-marker user|cursor-target|<circle|<rect|<path|scale\(1 -1\)/);
     });
     await t.test("a support area has one blue downward centre badge without adding the centre to its hit count", () => {
       const html = render(h(GambitAreaMap, { area: { cells: [[-1, 0], [1, 0], [0, -1], [0, 1]] } }));
       assert.match(html, /class="bp-marker user" transform="translate\(97 73\)"/);
-      assert.equal((html.match(/class="bp-hit"/g) ?? []).length, 4);
+      assert.equal((html.match(/range-cell\.png/g) ?? []).length, 4);
       assert.doesNotMatch(html, /bp-marker foe|scale\(1 -1\)/);
     });
     await t.test("forward previews face up and fit four tiles above their badge without clipping", () => {
@@ -92,9 +112,18 @@ test("historical battalion detail uses the saved assignment independently of the
         } }));
         assert.match(html, new RegExp(`class="bp-marker user" transform="translate\\(97 ${length === 4 ? 97 : 73}\\)"`));
         assert.match(html, /translate\(0 24\) scale\(1 -1\)/);
-        assert.equal((html.match(/class="bp-hit"/g) ?? []).length, length);
+        assert.equal((html.match(/range-cell\.png/g) ?? []).length, length);
         assert.doesNotMatch(html, /bp-marker foe|translate\(97 -\d/);
       }
+    });
+    await t.test("reference detail offers only imported level progression and no runtime endurance track", () => {
+      const html = render(h(BattalionPanel, { name: "Translated Company A", scope: "reference" }));
+      assert.match(html, /aria-label="Reference battalion level"/);
+      assert.equal((html.match(/aria-label="Level [1-5]"/g) ?? []).length, 5);
+      assert.match(html, /aria-label="Level 1" aria-pressed="true"/);
+      assert.match(html, /aria-label="Battalion modifiers"/);
+      assert.match(html, /aria-label="Gambit performance"/);
+      assert.doesNotMatch(html, /bp-endurance-track/);
     });
     const battlePanel = (unit, roster = [current]) => render(h(UnitDetail, {
       battle: { units: [unit], events: [], log: [], enemy_stats: {} }, items: [],
@@ -128,6 +157,7 @@ test("historical battalion detail uses the saved assignment independently of the
       assert.match(html, /at level 2">\+2<[^]*at level 2">\+2</); // Phys Atk +2, Avo +2 at level 2
       assert.match(html, />−2</); // Rsl penalty, shown as a loss
       assert.match(html, />31<span class="bp-of">\/<\/span>40</);
+      assert.match(html, /class="bp-endurance-track" aria-hidden="true"><span style="width:77.5%"/);
       assert.match(html, />1<span class="bp-of">\/<\/span>2</);
       assert.doesNotMatch(html, /Lv 5|>59<|level 1 reference|endurance left,|gambit uses left/);
     });

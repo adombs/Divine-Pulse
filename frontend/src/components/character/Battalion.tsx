@@ -8,7 +8,7 @@
  * modifiers follow from the experience and the import. Anything missing shows "—" with the reason, never a made-up
  * value.
  */
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { battalionLevel, battalionReference } from "../../reference/battalions";
 import type { BattleUnit, Unit } from "../../api";
@@ -18,6 +18,7 @@ import { GameImage, useGameImageUrl } from "../GameImage";
 import { Icon } from "../Icon";
 import { BattalionLink } from "../Links";
 import "./character.css";
+import "./battalion.css";
 
 const NOT_IMPORTED = "Not in your imported game files yet.";
 const NOT_READ = "Not read from the game yet.";
@@ -77,14 +78,10 @@ export function BattalionBadge({ unit }: { unit: Pick<Unit, "battalion" | "batta
   );
 }
 
-/** The battalion's own icon from the import, or an empty frame saying it isn't there (no stand-in picture). */
+/** A missing native icon is an explicit asset error, never an alternative picture. */
 function BattalionIcon({ entry, size = "md", gambit = false }: { entry?: { icon?: string; name: string }; size?: "sm" | "md"; gambit?: boolean }) {
-  const missing = (
-    <span className={`bp-icon ${size} missing`} title={`${gambit ? "Gambit" : "Battalion"} icon: ${NOT_IMPORTED}`} aria-hidden />
-  );
-  // In the small badge, no icon at all rather than an empty frame.
-  if (!entry?.icon) return size === "sm" ? null : missing;
-  return <GameImage imported={entry.icon} className={`bp-icon ${size}`} alt="" draggable={false} fallback={size === "sm" ? null : missing} />;
+  if (!entry?.icon) return <span className={`bp-icon-error ${size}`} role="status" title={`${gambit ? "Gambit" : "Battalion"} icon: ${NOT_IMPORTED}`}>Icon missing</span>;
+  return <GameImage imported={entry.icon} className={`bp-icon ${size}`} alt="" draggable={false} />;
 }
 
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "+0");
@@ -104,6 +101,7 @@ type BattalionState = Pick<BattleUnit, "battalion" | "battalion_id" | "battalion
  * to `scope`. The Archive ("reference") supplies the battalion itself, `name`, with no unit.
  */
 export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionState; name?: string; scope: "battle" | "run" | "reference" }) {
+  const [pickedLevel, setPickedLevel] = useState(1);
   const assigned = given ?? unit?.battalion;
   const entry = useBattalion(assigned, given === undefined ? unit?.battalion_id : undefined);
   const name = entry?.name ?? assigned;
@@ -113,7 +111,9 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
 
   const unread = scope === "battle" ? NOT_RECORDED : NOT_READ;
   const progress = general ? null : battalionLevel(unit?.battalion_exp);
-  const level = progress?.level ?? null;
+  const hasProgression = entry?.stats_by_level?.length === 5;
+  const referenceLevel = hasProgression ? pickedLevel : 1;
+  const level = general ? referenceLevel : progress?.level ?? null;
   const atLevel = level !== null ? entry?.stats_by_level?.[level - 1] : undefined;
   const imported = atLevel ?? entry?.stats;
   const importedAt = atLevel ? `at level ${level}` : "at level 1";
@@ -134,8 +134,11 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
   // Between battles the game has refilled them: a run whose battalion state was read shows them full.
   const refilled = scope === "run" && (unit?.gambit_uses === undefined || unit?.gambit_uses === null) && progress !== null;
   const usesNow = refilled ? usesMax : unit?.gambit_uses;
+  const enduranceRatio = enduranceNow !== undefined && enduranceNow !== null && enduranceMax !== undefined && enduranceMax > 0
+    ? Math.max(0, Math.min(1, enduranceNow / enduranceMax)) : null;
 
   return (
+    <div className="bp-dossier">
     <div className="bp" aria-label={`${name} battalion`}>
       <section className="bp-half bp-battalion" aria-label="Battalion">
         <header className="bp-head">
@@ -161,7 +164,14 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
           </span>
         </header>
         <p className="bp-desc">{entry?.description || <span className="muted">{NOT_IMPORTED}</span>}</p>
-        <dl className="bp-stats">
+        {enduranceRatio !== null && <div className={`bp-endurance-track${spent ? " spent" : ""}`} aria-hidden="true"><span style={{ width: `${enduranceRatio * 100}%` }} /></div>}
+        <div className="bp-modifier-head">
+          <h5 className="bp-section-title">Modifiers</h5>
+          {general && hasProgression ? <div className="bp-level-picker" role="group" aria-label="Reference battalion level">
+            {[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" aria-label={`Level ${n}`} aria-pressed={referenceLevel === n} title={`Show modifiers at level ${n}`} onClick={() => setPickedLevel(n)}>{n}</button>)}
+          </div> : <span className="bp-stat-level">{level !== null ? `Level ${level}` : "Level 1 reference"}</span>}
+        </div>
+        <dl className="bp-stats" aria-label="Battalion modifiers">
           {BATTALION_STAT_KEYS.map((k) => (
             <div className="bp-stat" key={k}>
               <dt>{BATTALION_STAT_LABEL[k]}</dt>
@@ -187,14 +197,18 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
         </header>
         <p className="bp-desc">{g?.description || <span className="muted">{g ? NOT_IMPORTED : `Its gambit: ${NOT_IMPORTED}`}</span>}</p>
         <div className="bp-gambit-body">
-          <dl className="bp-stats single">
+          <dl className="bp-gambit-stats" aria-label="Gambit performance">
             <div className="bp-stat"><dt>Mt</dt><dd>{g?.might ?? <Missing why={`Mt: ${NOT_IMPORTED}`} />}</dd></div>
             <div className="bp-stat"><dt>Hit</dt><dd>{g?.hit ?? <Missing why={`Hit: ${NOT_IMPORTED}`} />}</dd></div>
             {g?.range && <div className="bp-stat"><dt>Range</dt><dd>{g.range[0] === g.range[1] ? g.range[0] : `${g.range[0]}–${g.range[1]}`}</dd></div>}
           </dl>
-          <GambitAreaMap area={g?.area} name={g?.name} />
+          <figure className="bp-target-area">
+            <GambitAreaMap area={g?.area} name={g?.name} />
+            <figcaption>Target area</figcaption>
+          </figure>
         </div>
       </section>
+    </div>
     </div>
   );
 }
@@ -217,11 +231,16 @@ export function GambitAreaMap({ area, name }: { area?: GambitArea; name?: string
   const chevronUrl = useGameImageUrl(PIECE("range-chevron"));
   if (!area) {
     return (
-      <div className="bp-area missing" title={`Area: ${NOT_IMPORTED}`}>
-        <span>Area not in your import</span>
+      <div className="bp-area missing" role="alert">
+        <strong>Target area unavailable</strong>
+        <span>Import the required game files to display this area.</span>
       </div>
     );
   }
+  if (!gridUrl || !cellUrl || !badgeUrl || !chevronUrl) return <div className="bp-area missing" role="status">
+    <strong>Target area assets required</strong>
+    <span>The native grid, tiles and marker must be supplied by your game-file import.</span>
+  </div>;
   const origin = area.origin ?? [0, 0];
   const forward = area.direction === "forward";
   const centre = area.target ?? origin;
@@ -230,27 +249,21 @@ export function GambitAreaMap({ area, name }: { area?: GambitArea; name?: string
   const at = ([x, y]: [number, number]) => ({ x: 1 + (4 + x - centre[0]) * AREA_CELL, y: 1 + (row + y - centre[1]) * AREA_CELL });
   const label = `${name ? `${name}: ` : ""}covers ${area.cells.length} ${area.cells.length === 1 ? "tile" : "tiles"}`
     + (area.target ? "; red target marker at the centre" : forward ? "; blue user marker facing up" : "; blue user marker at the centre");
-  const grid = [];
-  for (let y = 0; y < 6; y++) {
-    for (let x = 0; x < 9; x++) {
-      grid.push(<rect key={`${x},${y}`} className="bp-cell" x={1 + x * AREA_CELL} y={1 + y * AREA_CELL} width={AREA_CELL} height={AREA_CELL} />);
-    }
-  }
   const marker = at(centre);
   return (
     <svg className="bp-area" viewBox={`0 0 ${AREA_WIDTH} ${AREA_HEIGHT}`} role="img" aria-label={label}>
       <title>{label}</title>
-      {gridUrl ? <image href={gridUrl} x={0} y={0} width={AREA_WIDTH} height={AREA_HEIGHT} /> : grid}
+      <image href={gridUrl} x={0} y={0} width={AREA_WIDTH} height={AREA_HEIGHT} />
       {area.cells.map((c) => {
         const p = at(c);
         return <g key={`${c[0]},${c[1]}`} transform={`translate(${p.x} ${p.y})`}>
-          {cellUrl ? <image href={cellUrl} width={AREA_CELL} height={AREA_CELL} /> : <rect className="bp-hit" x={1} y={1} width={22} height={22} />}
+          <image href={cellUrl} width={AREA_CELL} height={AREA_CELL} />
         </g>;
       })}
       <g className={`bp-marker ${area.target ? "foe" : "user"}`} transform={`translate(${marker.x} ${marker.y})`}>
-        {badgeUrl ? <image href={badgeUrl} width={AREA_CELL} height={AREA_CELL} /> : <rect className="bp-badge" x={1} y={1} width={22} height={22} rx={3} />}
+        <image href={badgeUrl} width={AREA_CELL} height={AREA_CELL} />
         <g transform={forward ? `translate(0 ${AREA_CELL}) scale(1 -1)` : undefined}>
-          {chevronUrl ? <image href={chevronUrl} width={AREA_CELL} height={AREA_CELL} /> : <path className="bp-facing" d="M 4 8 L 12 13 L 20 8 L 12 18 Z" />}
+          <image href={chevronUrl} width={AREA_CELL} height={AREA_CELL} />
         </g>
       </g>
     </svg>
