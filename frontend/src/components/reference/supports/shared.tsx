@@ -19,6 +19,7 @@ import { FilterChip, FilterMenu, Segmented, Spoiler, SpoilerButton } from "../..
 import { useSpoiler, spoilerShown } from "../../../spoilers";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../../PeopleFilters";
 import { Icon } from "../../Icon";
+import { FilterLabel } from "../../FilterLabel";
 
 export const HOUSES: readonly string[] = AFFILIATIONS;
 
@@ -169,7 +170,7 @@ export function Legend({ ranks }: { ranks?: boolean }) {
         </>
       )}
       {shown ? (
-        <span className="sup-key"><span className="ending"><Icon name={CONCEPT_ICON.ending} weight="fill" /></span> paired ending</span>
+        <><span className="sup-key"><span className="ending"><Icon name={CONCEPT_ICON.ending} weight="fill" /></span> paired ending</span><SpoilerButton conceal onClick={() => setShown(false)} label="Hide support spoilers" /></>
       ) : <SpoilerButton onClick={() => setShown(true)} label="Show support spoilers" />}
       <span className="sup-key">
         <span className="atk">
@@ -210,7 +211,7 @@ export function FilterControls({
       chips={
         <>
           {shown && filters.endingsOnly && (
-            <FilterChip onClear={() => set({ endingsOnly: false })}>Paired Endings</FilterChip>
+            <FilterChip onClear={() => set({ endingsOnly: false })}><FilterLabel icon={CONCEPT_ICON.ending}>Paired Endings</FilterLabel></FilterChip>
           )}
           <PeopleFilterChips />
         </>
@@ -224,12 +225,12 @@ export function FilterControls({
           value={filters.byleth}
           onChange={(byleth) => set({ byleth })}
           options={[
-            ["M", "Male"],
-            ["F", "Female"],
+            ["M", <FilterLabel key="male" icon={CONCEPT_ICON.male}>Male</FilterLabel>],
+            ["F", <FilterLabel key="female" icon={CONCEPT_ICON.female}>Female</FilterLabel>],
           ]}
         />
       </div>
-      <Switch checked={shown && filters.endingsOnly} onChange={(v) => { if (v) setShown(true); set({ endingsOnly: v }); }} label="Paired endings only (shows support spoilers)" />
+      {shown ? <span className="filter-label"><Icon name={CONCEPT_ICON.ending} /><Switch checked={filters.endingsOnly} onChange={(endingsOnly) => set({ endingsOnly })} label="Paired endings only" /></span> : <span className="filter-label"><SpoilerButton onClick={() => { setShown(true); set({ endingsOnly: true }); }} label="Show support spoilers and filter to paired endings" />Paired endings only</span>}
       <PeopleFilterFields />
     </FilterMenu>
   );

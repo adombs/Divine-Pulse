@@ -672,7 +672,7 @@ code { font: 0.85em var(--text); background: var(--row); border: 1px solid var(-
 }
 .spoiler-btn {
   display: inline-flex; align-items: center; justify-content: center; vertical-align: middle;
-  width: 1.9rem; height: 1.9rem; padding: 0; border-radius: 4px;
+  width: 1.9rem; height: 1.9rem; flex-shrink: 0; padding: 0; border-radius: 4px;
   font: 600 1.1rem var(--ui); border: 1px solid var(--row-border); background: var(--row); color: var(--ink-soft); cursor: pointer;
 }
 .spoiler-btn:hover { color: var(--ink); border-color: var(--ink-soft); }
@@ -807,6 +807,16 @@ table.matrix { border-collapse: collapse; font-variant-numeric: lining-nums; }
 }
 .filter-chip button { border: 0; background: none; color: inherit; cursor: pointer; font-size: 1rem; line-height: 1; padding: 0 0.25rem; }
 .filter-chip button:hover { color: var(--ink); }
+.filter-label { display: inline-flex; align-items: center; gap: 0.35rem; }
+.filter-label > .icon, .filter-label .skill-icon { flex-shrink: 0; }
+.class-growth-filter summary { cursor: pointer; padding: 0.3rem 0.5rem; border: 1px solid var(--line); background: var(--row); }
+.class-growth-choices { max-height: 18rem; overflow-y: auto; margin-top: 0.4rem; }
+.class-growth-choices .checklist-items label { white-space: normal; }
+.checklist.weapon-rank-filter { min-width: 24rem; }
+.weapon-rank-filter .step-slider { display: flex; }
+.weapon-rank-filter .step-slider .notched { width: 100%; flex: 1; }
+.weapon-rank-filter .checklist-clear:disabled { opacity: 0.55; cursor: default; }
+.rank-threshold { display: block; color: var(--accent); font-weight: 600; }
 .toolbar-end { margin-left: auto; }
 .seg-count { margin-left: 0.35rem; font: 700 0.72rem var(--ui); opacity: 0.75; }
 

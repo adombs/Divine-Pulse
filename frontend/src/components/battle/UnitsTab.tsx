@@ -4,7 +4,8 @@
  * and don't show.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { FilterLabel } from "../FilterLabel";
 import type { Battle, BattleUnit, EnemyStats, Unit } from "../../api";
 import { CheckChips, CheckList, compareValues, FilterMenu, NoMatches, SearchBox, useSort } from "../common";
 import { EmptyState, MasterDetail } from "../layout";
@@ -21,16 +22,16 @@ import { HpBar } from "./HpBar";
 type Col = "name" | "level" | "hp" | "status" | "fights" | "dealt" | "taken" | "healing" | "defeats";
 type State = "alive" | "defeated" | "left";
 
-const SIDE_OPTIONS: [Team, string][] = [
-  ["player", "Your Units"],
-  ["enemy", "Enemy Units"],
-  ["ally", "Allied Units"],
-  ["third", "Third Army"],
+const SIDE_OPTIONS: [Team, ReactNode][] = [
+  ["player", <span className="filter-label"><span aria-hidden="true"><TeamTag team="player" /></span>Your Units</span>],
+  ["enemy", <span className="filter-label"><span aria-hidden="true"><TeamTag team="enemy" /></span>Enemy Units</span>],
+  ["ally", <span className="filter-label"><span aria-hidden="true"><TeamTag team="ally" /></span>Allied Units</span>],
+  ["third", <span className="filter-label"><span aria-hidden="true"><TeamTag team="third" /></span>Third Army</span>],
 ];
-const STATE_OPTIONS: [State, string][] = [
-  ["alive", "Alive"],
-  ["defeated", "Killed"],
-  ["left", "Left the Map"],
+const STATE_OPTIONS: [State, ReactNode][] = [
+  ["alive", <FilterLabel icon={CONCEPT_ICON.heal}>Alive</FilterLabel>],
+  ["defeated", <FilterLabel icon={CONCEPT_ICON.defeat}>Killed</FilterLabel>],
+  ["left", <FilterLabel icon={CONCEPT_ICON.left}>Left the Map</FilterLabel>],
 ];
 
 /** One row of the table: one of your units or another unit on the map. */
@@ -46,7 +47,7 @@ interface Row {
   onMap: boolean;
   team: Team;
   flags: Flag[];
-  fights: number;
+  fights: number | null;
   defeats: number | null;
   dealt: number | null;
   taken: number | null;
@@ -132,7 +133,7 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
       case "level": return r.level;
       case "hp": return r.hp === null ? -1 : hpShare(r.hp, r.max) ?? -1;
       case "status": return (r.onMap ? 0 : 2) + (r.army ? 0 : 1);
-      case "fights": return r.fights;
+      case "fights": return r.fights ?? -1;
       case "dealt": return r.dealt ?? -1;
       case "taken": return r.taken ?? -1;
       case "healing": return r.healing ?? -1;
@@ -221,7 +222,7 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
                       <Flags flags={r.flags} />
                     </span>
                   </td>
-                  <td className="num">{r.fights}</td>
+                  <td className="num"><Num value={r.fights} /></td>
                   <td className="num">
                     <Num value={r.dealt} />
                   </td>

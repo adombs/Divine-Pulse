@@ -21,6 +21,8 @@ import { Num } from "./parts";
 import { RunCharacterCard } from "./RunCharacterCard";
 import { PortraitFlip, unitSprite } from "../character/CharacterFace";
 import { CharacterStats, characterStats, leader, RunStats, runStats, timelines } from "./stats";
+import { Icon } from "../Icon";
+import { CONCEPT_ICON } from "../../icons/concepts";
 
 type Col = "name" | "battles" | "fights" | "defeats" | "dealt" | "taken" | "healing" | "level_ups" | "left";
 
@@ -35,9 +37,10 @@ interface Props {
   onOpen: (id: string, key?: string) => void;
   /** The battle cards (their own Section), shown under the run's numbers. */
   battlesSection: ReactNode;
+  onStats: () => void;
 }
 
-export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, battlesSection }: Props) {
+export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, battlesSection, onStats }: Props) {
   const battles = useMemo(() => history ?? [], [history]);
   const items = useMemo(() => timelines(battles), [battles]);
   const characters = useMemo(() => characterStats(battles, items), [battles, items]);
@@ -48,14 +51,14 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
   const shownUnit = roster.find((u) => u.key === selected && characters.some((c) => c.key === u.key));
   const popupIcon = useAffiliationIcon(shownUnit ? characterKeyOfUnit(shownUnit) : null);
 
-  if (history === null) return <p className="muted">Loading…</p>;
-  if (!battles.length) return <div className="stats-tab">{battlesSection}</div>;
+  const heading = <span className="history-stats-heading">Characters<button type="button" className="btn small" onClick={onStats} aria-label="Run character statistics"><Icon name={CONCEPT_ICON.history} /> Stats</button></span>;
+  if (history === null || !battles.length) return <div className="stats-tab">{battlesSection}<Section title={heading}><p className="muted" role="status">{history === null ? "Loading characters…" : "No character statistics yet. Record a battle to see their contributions."}</p></Section></div>;
 
   const value = (c: CharacterStats, key: Col): number | string => {
     switch (key) {
       case "name": return c.name;
       case "battles": return c.battles;
-      case "fights": return c.fights;
+      case "fights": return c.fights ?? -1;
       case "defeats": return c.defeats ?? -1;
       case "dealt": return c.damage_dealt ?? -1;
       case "taken": return c.damage_taken ?? -1;
@@ -111,7 +114,7 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
                     </span>
                   </td>
                   <td className="num">{c.battles}</td>
-                  <td className="num">{c.fights}</td>
+                  <td className="num"><Num value={c.fights} /></td>
                   <td className="num">
                     <Num value={c.defeats} />
                   </td>
@@ -137,7 +140,7 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
 
   return (
     <div className="stats-tab">
-      {missing && <p className="notice">{missing} hasn't been in a finished battle this run yet.</p>}
+      {missing && <p className="notice">{missing} hasn't been in a recorded battle this run yet.</p>}
       <RunSummary run={run} battles={battles} onOpen={onOpen} />
       {battlesSection}
       <Records run={run} characters={characters} onOpen={onOpen} roster={portraitOf}
@@ -146,7 +149,7 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
       />
       {/* Fills the rest of the screen; the table and the card scroll in their own columns. */}
       <div className="stats-chars">
-        <Section title="Characters">
+        <Section title={heading}>
           <MasterDetail detail={null} wide>
             {list}
           </MasterDetail>

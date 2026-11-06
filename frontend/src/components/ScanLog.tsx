@@ -3,6 +3,7 @@ import { useState } from "react";
 import { RunSummary, ScanEntry } from "../api";
 import { useNav } from "../nav";
 import { Icon } from "./Icon";
+import { FilterLabel } from "./FilterLabel";
 import { NoMatches, RefLink, Segmented } from "./common";
 import { EmptyState } from "./layout";
 
@@ -52,8 +53,8 @@ export function ScanLog({ entries, runs, onUndo }: Props) {
               onChange={setShow}
               options={[
                 ["all", `All ${count("all")}`],
-                ["ok", `Saved ${count("ok")}`],
-                ["warning", `To check ${count("warning")}`, "Saved, but some values need a look"],
+                ["ok", <FilterLabel key="saved" icon={CONCEPT_ICON.done}>Saved {count("ok")}</FilterLabel>],
+                ["warning", <FilterLabel key="warning" icon={CONCEPT_ICON.warning}>To check {count("warning")}</FilterLabel>, "Saved, but some values need a look"],
                 ["failed", `Not saved ${count("failed")}`, "Rejected or failed"],
               ]}
             />

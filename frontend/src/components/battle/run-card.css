@@ -1,10 +1,4 @@
 /* Run-wide sections; the shared hero and popup shell belong to the character components. */
-.rc-growth-sum dt {
-  font: 600 0.72rem var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft);
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-}
-.rc-growth-sum dd { margin: 0; font: 1.25rem/1.15 var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink); }
-
 .rc-note { margin: 0.55rem 0 0; font: 0.88rem var(--ui); color: var(--ink-soft); }
 .rc-note b { font: 700 1rem var(--nums); color: var(--ink); }
 .rc-ledger .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
@@ -59,8 +53,6 @@
 
 /* Growth: gains per stat on one scale. */
 .rc-growth, .rc-arsenal { display: grid; gap: 0.75rem; }
-.rc-growth-sum { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0.4rem; margin: 0; }
-.rc-growth-sum > div { display: grid; gap: 0.05rem; padding: 0.35rem 0.6rem; background: var(--row); border: 1px solid var(--row-border); border-radius: 6px; min-width: 0; }
 .rc-gains { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: auto minmax(0, 1fr) 2.6rem; gap: 0.3rem 0.7rem; align-items: center; }
 .rc-gains li { display: contents; }
 .rc-gain-label { font: 600 0.95rem var(--display); color: var(--ink-soft); }
@@ -71,6 +63,20 @@
 }
 .rc-gains li.down .rc-gain-track > span { background: var(--red); }
 .rc-gain-value { font: 1.05rem var(--nums); font-variant-numeric: tabular-nums lining-nums; text-align: right; color: var(--ink); }
+
+/* Growth and Arsenal use the same ledger rhythm as the character's battle totals. */
+.rc-growth .panel-ledger, .rc-arsenal .panel-ledger { grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; }
+.rc-growth .rc-gains { gap: 0.75rem 0.9rem; padding-block: 0.5rem; }
+.rc-growth .rc-gain-label { color: var(--ink); }
+.rc-growth .rc-gain-track { height: 0.4rem; }
+.rc-growth .rc-gain-value { font-size: 1.2rem; }
+.rc-usage-head { display: grid; grid-template-columns: minmax(0, 1fr) 6rem 3.5rem; gap: 0.7rem; padding: 0.4rem 0.5rem; border-bottom: 1px solid var(--line); font: 600 0.72rem var(--ui); text-transform: uppercase; color: var(--ink-soft); }
+.rc-usage-head span:not(:first-child) { text-align: right; }
+.rc-arsenal .inventory.usage { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; }
+.rc-arsenal .usage .inventory-item { display: grid; grid-template-columns: 1.6rem minmax(0, 1fr) 6rem 3.5rem; gap: 0.7rem; padding: 0.65rem 0.5rem; border: 0; border-bottom: 1px solid var(--line); background: none; }
+.rc-arsenal .usage .inventory-name { min-width: 0; white-space: normal; overflow: visible; overflow-wrap: anywhere; }
+.rc-arsenal .usage .muted { grid-column: 3; text-align: right; font: 1rem var(--nums); white-space: nowrap; }
+.rc-arsenal .usage .inventory-uses { grid-column: 4; text-align: right; }
 
 /* Battles: each one a row to open. */
 .rc-battles { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.3rem; }

@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+- Remove the full stop from unknown crest labels in battle character cards.
+- Give Runs a labeled creation form, readable run details and aligned battle summaries; improve Updates scanning, Undo placement and empty states, and allow retrying failed battle loads.
+
+- Let setup optionally save raw NSP extractions in a new folder after a successful import; temporary cleanup remains the default, and existing source folders, NSPs and keys stay untouched.
+- Filter weapons with a discrete maximum-rank slider, using notches and a live rank subtitle without redundant printed rank labels; show authentic dark-magic and Alive/Skill filter icons, and keep all Appearance portrait options visible.
+- Use eye and eye-slash buttons for showing and hiding spoilers, add existing semantic icons to filter options and selected chips, and capitalize Ability sources as Personal, Class and Skill.
+- Center Archive Stats skill chips and match Position zoom to the battle map's notched slider, with terrain and coordinates over the map.
+- Refine character Stats, Growth, Position, Fights and Arsenal panels with aligned ledgers, clearer skill ranks and more readable detail rows.
+- Keep battle and run statistics consistent, preserve unrecorded values, and open Battle Stats and Character Stats directly from History. Add a run-wide Awards table using the battle Awards' winners and tie rules, counting each finished battle once. Simplify More Stats to labels and values, rename Fight Breakdown and Awards, remove team dots from Fight Breakdown, and center the Awards controls.
 - Read each battalion's level, experience, endurance and gambit uses left from the game, live during battles. Show its modifiers at its current level, mark them as not applying when its endurance is spent, count its Charm in Cha as the game's Status page does, and include its modifiers in the fight calculations. Battle records keep their own battalion state.
 - Keep battalion identity through incomplete imports, language changes, run exports and unit updates; show each battle's recorded assignment separately from the current roster, with unknown assignments for older recordings. Translate imported gambit details and match battalion panels by ID when available.
 - Put character scope beside the name, move compact crest names into the front facts, and rotate bordered information cards with an inside Flip button while portraits stay still. Preserve keyboard and reduced-motion support, and use eye buttons to reveal spoilers throughout the app. Remove battalion header badges and coloured sprite backgrounds.

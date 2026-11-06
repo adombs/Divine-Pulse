@@ -7,6 +7,7 @@ import { useCallback, useMemo, useState, type ReactNode } from "react";
 import type { Battle, Unit } from "../../api";
 import { EmptyState, Section } from "../layout";
 import { Icon } from "../Icon";
+import { FilterLabel } from "../FilterLabel";
 import { Modal } from "../Modal";
 import { Portrait } from "../ui";
 import { CheckChips, CheckList, FilterChip, FilterMenu, NoMatches, SearchBox, Segmented } from "../common";
@@ -35,8 +36,8 @@ const KIND_OPTIONS = (Object.keys(KIND_LABEL) as Kind[]).map((k) => [k, KIND_LAB
 const SORTS = [
   ["newest", "Newest"],
   ["oldest", "Oldest"],
-  ["longest", "Longest"],
-  ["turns", "Most turns"],
+  ["longest", <FilterLabel key="longest" icon={CONCEPT_ICON.speed}>Longest</FilterLabel>],
+  ["turns", <FilterLabel key="turns" icon={CONCEPT_ICON.turn}>Most turns</FilterLabel>],
 ] as const;
 
 const lost = (b: Battle) => b.units.filter((u) => !u.on_map && !u.adjutant_of).length;
@@ -73,21 +74,23 @@ interface Props {
   part2: boolean;
   /** Lets the app retain a selected recording while the user visits other pages. */
   onOpenRecording?: (battle: Battle) => void;
+  onStats?: () => void;
 }
 
-export function BattleCards({ history, live, roster, part2, onOpenRecording }: Props) {
+export function BattleCards({ history, live, roster, part2, onOpenRecording, onStats }: Props) {
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<BattleFilters>(NO_BATTLE_FILTERS);
   const [sort, setSort] = useState<Sort>("newest");
   const [open, setOpen] = useState(false);
   // Stable, so the window doesn't take focus back from its search box on every keystroke.
   const close = useCallback(() => setOpen(false), []);
-  if (history === null) return <p className="muted">Loading…</p>;
+  const heading = <span className="history-stats-heading">Battles{onStats && <button type="button" className="btn small" onClick={onStats} aria-label="Run battle statistics"><Icon name={CONCEPT_ICON.history} /> Stats</button>}</span>;
+  if (history === null) return <Section title={heading}><p className="muted" role="status">Loading battles…</p></Section>;
   if (!live && history.length === 0)
     return (
-      <EmptyState title="No battles yet in this run">
+      <Section title={heading}><EmptyState title="No battles yet in this run">
         Battles are recorded while the tracker reads the game. Each one is filed here when it ends.
-      </EmptyState>
+      </EmptyState></Section>
     );
   const words = query.toLowerCase().split(/\s+/).filter(Boolean);
   const count = filters.kinds.length + (filters.flawless ? 1 : 0) + (filters.pulse !== "any" ? 1 : 0) + (filters.part !== "any" ? 1 : 0);
@@ -106,7 +109,7 @@ export function BattleCards({ history, live, roster, part2, onOpenRecording }: P
   );
   return (
     <Section
-      title="Battles"
+      title={heading}
       right={
         history.length > 0 && (
           <button type="button" className="btn small" onClick={() => setOpen(true)}>
@@ -131,7 +134,7 @@ export function BattleCards({ history, live, roster, part2, onOpenRecording }: P
                 <CheckChips options={KIND_OPTIONS} value={filters.kinds} onChange={(kinds) => set({ kinds })} />
                 {filters.flawless && <FilterChip onClear={() => set({ flawless: false })}>Flawless</FilterChip>}
                 {filters.pulse !== "any" && (
-                  <FilterChip onClear={() => set({ pulse: "any" })}>{filters.pulse === "yes" ? "Divine Pulse used" : "No Divine Pulse"}</FilterChip>
+                  <FilterChip onClear={() => set({ pulse: "any" })}><FilterLabel icon={CONCEPT_ICON.pulse}>{filters.pulse === "yes" ? "Divine Pulse used" : "No Divine Pulse"}</FilterLabel></FilterChip>
                 )}
                 {filters.part !== "any" && <FilterChip onClear={() => set({ part: "any" })}>Part {filters.part === "1" ? "I" : "II"}</FilterChip>}
               </>
@@ -153,7 +156,7 @@ export function BattleCards({ history, live, roster, part2, onOpenRecording }: P
                   label="Divine Pulse"
                   size="mini"
                   value={filters.pulse}
-                  options={[["any", "Any"], ["yes", "Used"], ["no", "Not used"]] as const}
+                  options={[["any", "Any"], ["yes", <FilterLabel key="used" icon={CONCEPT_ICON.pulse}>Used</FilterLabel>], ["no", <FilterLabel key="unused" icon={CONCEPT_ICON.pulse}>Not used</FilterLabel>]] as const}
                   onChange={(pulse) => set({ pulse })}
                 />
               </Field>
