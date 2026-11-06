@@ -44,10 +44,10 @@ export function compareValues(a: number | string, b: number | string): number {
 }
 
 
-/** An explicit, labelled reveal action, shared by every spoiler entry point. */
-export function SpoilerButton({ onClick, label }: { onClick: () => void; label: string }) {
+/** An explicit, labelled reveal or conceal action, shared by every spoiler entry point. */
+export function SpoilerButton({ onClick, label, conceal = false }: { onClick: () => void; label: string; conceal?: boolean }) {
   return <button type="button" className="spoiler-btn" onClick={onClick} title={label} aria-label={label}>
-    <Icon name={CONCEPT_ICON.show} />
+    <Icon name={conceal ? CONCEPT_ICON.hide : CONCEPT_ICON.show} />
   </button>;
 }
 
@@ -55,9 +55,9 @@ export function SpoilerButton({ onClick, label }: { onClick: () => void; label: 
 export function Spoiler({ children, category = "crests" }: { children: ReactNode; category?: SpoilerCategory }) {
   const [open, setOpen] = useSpoiler(category);
   return open ? (
-    <span className="spoiler-open">{children}</span>
+    <span className="spoiler-open">{children}{" "}<SpoilerButton conceal onClick={() => setOpen(false)} label={`Hide ${SPOILER_CATEGORIES[category].label.toLowerCase()}`} /></span>
   ) : (
-    <SpoilerButton onClick={() => setOpen(true)} label={`Show ${SPOILER_CATEGORIES[category].label.toLowerCase()} spoilers`} />
+    <SpoilerButton onClick={() => setOpen(true)} label={`Show ${SPOILER_CATEGORIES[category].label.toLowerCase()}`} />
   );
 }
 
