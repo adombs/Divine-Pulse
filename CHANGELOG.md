@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Coordinate the sidebar, run banner and active-page highlight during expansion and collapse, with an explicit navigation toggle, Escape support and reduced-motion behavior.
 - Apply the Settings font throughout the app, including Home and UI labels; simplify Home run text, remove Cancel from the New run form and space its Start run button, and give all text links white resting text with purple, underlined hover and keyboard focus states.
 - Reorganize Battle Records into a battle ledger, themed standouts, each unit's share of the fighting and comparisons with other battles. Keep the share table accessible in shorter windows.
 - Show run-wide character statistics when selecting a name in a battle's standouts, with Combat, Form, Growth, Arsenal and Battles sections.
