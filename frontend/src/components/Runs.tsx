@@ -11,6 +11,7 @@ import { MAX_LEN, cleanText, runNameError } from "../validation";
 import { DetailCard, EmptyState, Facts, ListRow, MasterDetail, PageHeader, RowList, StatusChip } from "./layout";
 import { BattleFacts, BattleKindChip, RunTotals } from "./battle/BattleList";
 import { RunTransfer } from "./RunTransfer";
+import "./runs.css";
 
 interface Props {
   runs: RunSummary[];
@@ -64,29 +65,37 @@ export function Runs({ runs, activeRunId, onActivate, toasts, entries, onUndo }:
         onTab={(t) => nav.go({ page: "runs", tab: t === "log" ? "log" : undefined })}
       />
       {tab === "log" ? (
-        <ScanLog entries={entries} runs={runs} onUndo={onUndo} />
+        <div className="runs-updates">
+          <ScanLog entries={entries} runs={runs} onUndo={onUndo} />
+        </div>
       ) : (
       <MasterDetail
         detail={current && <RunCard key={current.id} run={current} runs={runs} active={current.id === activeRunId} onActivate={onActivate} toasts={toasts} />}
       >
         <form className="new-run" onSubmit={create}>
-          <input
-            placeholder="New run name, e.g. Azure Moon – Maddening"
-            value={name}
-            maxLength={MAX_LEN.runName + 10}
-            onChange={(e) => setName(e.target.value)}
-            className={newError ? "invalid" : ""}
-            aria-invalid={!!newError}
-            aria-label="New run name"
-          />
-          <button className="btn primary" type="submit" disabled={!name.trim() || !!newError}>
-            Create Run
-          </button>
-          <button className="btn" type="button" onClick={() => setTransfer("import")}>Import</button>
-          <button className="btn" type="button" onClick={() => setTransfer("export")}>Export</button>
+          <label htmlFor="new-run-name">New run name</label>
+          <div className="runs-create-row">
+            <input
+              id="new-run-name"
+              placeholder="New run name, e.g. Azure Moon – Maddening"
+              value={name}
+              maxLength={MAX_LEN.runName + 10}
+              onChange={(e) => setName(e.target.value)}
+              className={newError ? "invalid" : ""}
+              aria-invalid={!!newError}
+              aria-describedby={newError ? "new-run-error" : undefined}
+            />
+            <button className="btn primary" type="submit" disabled={!name.trim() || !!newError}>
+              Create Run
+            </button>
+          </div>
+          {newError && <p id="new-run-error" className="field-hint error" role="status">{newError}</p>}
+          <div className="runs-transfer-actions">
+            <button className="btn" type="button" onClick={() => setTransfer("import")}>Import</button>
+            <button className="btn" type="button" onClick={() => setTransfer("export")}>Export</button>
+          </div>
         </form>
         {transfer && <RunTransfer mode={transfer} runs={runs} toasts={toasts} onClose={() => setTransfer(null)} />}
-        {newError && <p className="field-hint error">{newError}</p>}
         {runs.length === 0 ? (
           <EmptyState title="No runs yet">Name your playthrough above and create it. Scans go into the active run.</EmptyState>
         ) : (
@@ -96,7 +105,7 @@ export function Runs({ runs, activeRunId, onActivate, toasts, entries, onUndo }:
                 key={r.id}
                 selected={r.id === current?.id}
                 onClick={() => nav.go({ page: "runs", id: r.id })}
-                lead={<><RunIcon route={r.route} />{r.id === activeRunId && <StatusChip tone="good">Active</StatusChip>}</>}
+                lead={<span className="runs-list-lead"><RunIcon route={r.route} />{r.id === activeRunId && <StatusChip tone="good">Active</StatusChip>}</span>}
                 title={r.name}
                 facts={
                   <>
@@ -119,11 +128,19 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
   const nav = useNav();
   const [renaming, setRenaming] = useState<string | null>(null);
   const [battles, setBattles] = useState<Battle[] | null>(null);
+  const [battleError, setBattleError] = useState(false);
+  const [battleRetry, setBattleRetry] = useState(0);
   const renameError = renaming !== null ? runNameError(renaming, runs, run) : null;
 
   useEffect(() => {
-    api.battles(run.id).then(setBattles, () => setBattles([]));
-  }, [run.id, run.updated_at]);
+    let cancelled = false;
+    setBattleError(false);
+    api.battles(run.id).then(
+      (loaded) => { if (!cancelled) setBattles(loaded); },
+      () => { if (!cancelled) setBattleError(true); },
+    );
+    return () => { cancelled = true; };
+  }, [run.id, run.updated_at, battleRetry]);
 
   const fail = (title: string) => (e: unknown) => toasts.push({ kind: "error", title, body: (e as Error).message });
 
@@ -164,6 +181,7 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
     >
       <Facts
         rows={[
+          ["Status", active ? <StatusChip tone="good">Active</StatusChip> : "Not active"],
           ["Units", run.unit_count],
           ["Updated", <span key="u" title={`Created ${new Date(run.created_at).toLocaleString()}`}>{new Date(run.updated_at).toLocaleString()}</span>],
           ["File", <code key="file">{run.id}.json</code>],
@@ -190,9 +208,14 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
           {renameError && <span className="field-hint error">{renameError}</span>}
         </form>
       ) : null}
-      <section className="block">
+      <section className="block runs-battle-overview">
         <div className="sec-head"><h2>Battles</h2></div>
-        {battles === null ? (
+        {battleError ? (
+          <div className="runs-battle-error" role="status">
+            <p>Couldn't load this run's battles.</p>
+            <button type="button" className="btn small" onClick={() => setBattleRetry((n) => n + 1)}>Try again</button>
+          </div>
+        ) : battles === null ? (
           <p className="muted">Loading…</p>
         ) : battles.length === 0 ? (
           <p className="muted">No battles recorded in this run. They're recorded while reading game memory with auto mode on.</p>
@@ -202,7 +225,10 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
             <ul className="run-battles">
               {latest.map((b) => (
                 <li key={b.id}>
-                  <BattleKindChip battle={b} /> <b>{new Date(b.started_at).toLocaleDateString()}</b>{" "}
+                  <div className="runs-battle-heading">
+                    <BattleKindChip battle={b} />
+                    <time dateTime={b.started_at}>{new Date(b.started_at).toLocaleDateString()}</time>
+                  </div>
                   <span className="list-row-facts">
                     <BattleFacts battle={b} />
                   </span>
