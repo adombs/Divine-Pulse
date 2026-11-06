@@ -5,7 +5,7 @@ import { Icon, IconButton } from "../Icon";
 import { useSpoiler } from "../../spoilers";
 import type { Unit } from "../../api";
 import { characterPortraitKey, runCharacterKeys, unitForCharacter } from "../../portraits";
-import { crestLabel, crestName, isMysteryCrest } from "../../reference/crests";
+import { crestLabel, crestName } from "../../reference/crests";
 import { canonical, searchMatches } from "../../fuzzy";
 import {
   Character,
@@ -24,8 +24,6 @@ import { SkillIcon } from "../SkillIcon";
 import { SkillChips } from "./SkillChips";
 import { DetailCard, MasterDetail, Section } from "../layout";
 import { CharacterHero } from "../character/CharacterHero";
-import type { Fact } from "../character/CharacterHero";
-import { characterSprite, PortraitFlip } from "../character/CharacterFace";
 import { useNav } from "../../nav";
 import { AFFILIATIONS, passes, usePeopleFilters } from "../../filters";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../PeopleFilters";
@@ -217,7 +215,8 @@ function CharacterCard({
 }) {
   const nav = useNav();
   // Byleth starts as the tracked Byleth's portrait (see the Portrait setting on their roster card).
-  const [bylethGender, setBylethGender] = useState<"m" | "f">(unit && characterPortraitKey("byleth", [unit]) === "byleth_f" ? "f" : "m");
+  const [bylethGenderChoice, setBylethGender] = useState<"m" | "f" | null>(null);
+  const bylethGender = bylethGenderChoice ?? (unit && characterPortraitKey("byleth", [unit]) === "byleth_f" ? "f" : "m");
   const isByleth = c.key === "byleth";
   const portraitKeyName = isByleth ? `byleth_${bylethGender}` : c.key;
   const classNames = new Set(data.classes.map((x) => x.name));
@@ -228,7 +227,7 @@ function CharacterCard({
   const crestText = (list: { name: string; major: boolean }[]) =>
     list.length ? list.map((x) => crestLabel(x.name, x.major)).join(", ") : "None";
   const crestList = (list: { name: string; major: boolean }[]) =>
-    list.length ? list.map((x) => <span key={`${x.name}-${x.major}`}><CrestMark name={x.name} major={x.major} /> <CrestLink name={x.name} /> {!isMysteryCrest(x.name) && <span className="muted">({x.major ? "Major" : "Minor"})</span>}</span>) : <span className="muted">None</span>;
+    list.length ? list.map((x) => <span key={`${x.name}-${x.major}`}><CrestLink name={x.name}>{crestLabel(x.name, x.major)}</CrestLink> <CrestMark name={x.name} major={x.major} /></span>) : <span className="muted">None</span>;
   // A learned ability or art's skill (its icon) and rank.
   const rankMark = (a: { skill?: SkillKey | ""; rank: string }) => (
     <>
@@ -239,27 +238,27 @@ function CharacterCard({
 
   return (
     <DetailCard
-      title={c.name}
+      title={c.full_name || c.name}
+      scope="reference"
       icon={<AffiliationIcon house={c.house} />}
       label={`${c.name} reference`}
       // General only: what the run's unit has is on the Roster, one click away.
       actions={unit && <IconButton icon={CONCEPT_ICON.roster} label={`Open ${unit.name} on the Roster`} onClick={() => nav.go({ page: "roster", id: unit.key })} />}
     >
       <CharacterHero
+        key={c.key}
+        name={c.name}
         layout="flip"
         scope="reference"
         face={
-          <PortraitFlip
-            portrait={<KeyPortrait portraitKey={portraitKeyName} name={c.name} part2={part2} size={96} />}
-            sprite={c.start_class === "Death Knight" ? null : characterSprite(portraitKeyName, c.start_class, isByleth ? bylethGender === "f" : c.gender === "Female")}
-            name={c.name}
-            className={c.start_class}
-            size={96}
-          />
+          <span className="cv-face"><KeyPortrait portraitKey={portraitKeyName} name={c.name} part2={part2} size={96} /></span>
         }
         facts={[
           ["Name", <span key="name" title={c.full_name}>{c.full_name}</span>],
-          ["House", <span key="house" className="house-mark"><AffiliationIcon house={c.house} /></span>],
+          ["Class", c.start_class === "Death Knight" ? <Spoiler key="class" category="identities">{classLink(c.start_class)}</Spoiler> : classLink(c.start_class)],
+          ["Crest", <span key="crest" className="crest-marks">{crestList(c.crests)}{!isByleth && hiddenCrests && <Spoiler>{crestList(c.crests_spoiler!)}</Spoiler>}</span>],
+        ]}
+        backFacts={[
           ["Gender", isByleth ? (
             <span key="gender" className="gender-toggle" role="group" aria-label="Byleth's gender">
               {(["m", "f"] as const).map((g) => (
@@ -268,6 +267,7 @@ function CharacterCard({
                   type="button"
                   className={bylethGender === g ? "on" : ""}
                   aria-pressed={bylethGender === g}
+                  aria-label={g === "m" ? "Male" : "Female"}
                   title={g === "m" ? "Male" : "Female"}
                   onClick={() => setBylethGender(g)}
                 >
@@ -276,11 +276,8 @@ function CharacterCard({
               ))}
             </span>
           ) : c.gender],
-          ["Class", c.start_class === "Death Knight" ? <Spoiler key="class" category="identities">{classLink(c.start_class)}</Spoiler> : classLink(c.start_class)],
-          ["Crest", <span key="crest" className="crest-marks" title={crestText(c.crests)}>{crestList(c.crests)}</span>],
-          ...(hiddenCrests ? [[<span key="later" title="Crest revealed later in the story">Later</span>, <span key="later-v" className="crest-marks"><Spoiler>{crestList(c.crests_spoiler!)}</Spoiler></span>, "later"] as Fact] : []),
+          ["Affiliation", c.house || "—"],
           ["Birthday", c.birthday || "—"],
-          ["Age", c.age || "—"],
           ["Height", c.height || "—"],
         ]}
       />

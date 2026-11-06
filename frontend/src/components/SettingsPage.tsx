@@ -23,7 +23,7 @@ import { FACE_LOOKS, UNIT_LOOKS } from "./battle/mapIcons";
 import { StepSlider } from "./Slider";
 import { GameFilesSection } from "./game-files/GameFilesSection";
 import { useReference } from "../reference/types";
-import { Sources } from "./common";
+import { Sources, SpoilerButton } from "./common";
 import "./settings-game-files.css";
 import "./settings.css";
 
@@ -166,7 +166,7 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
           hint={
             <>
               Auto follows the active playthrough once post-timeskip portraits are enabled in Spoilers.
-              {!preferences.portraits && <> Later portraits are hidden. <button type="button" className="spoiler-btn" onClick={() => setSpoiler("portraits", true)}>Show spoiler</button></>}
+              {!preferences.portraits && <> Later portraits are hidden. <SpoilerButton onClick={() => setSpoiler("portraits", true)} label="Show later portrait spoilers" /></>}
             </>
           }
         >
@@ -212,7 +212,7 @@ function SpoilerSection() {
       note="Spoilers apply at once and are remembered in this browser."
       right={
         <div className="settings-actions">
-          <button type="button" className="btn small" onClick={() => setAllSpoilers(true)}>Show all</button>
+          <SpoilerButton onClick={() => setAllSpoilers(true)} label="Show all spoilers" />
           <button type="button" className="btn small" onClick={() => setAllSpoilers(false)}>Hide all</button>
         </div>
       }

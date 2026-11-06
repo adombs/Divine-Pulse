@@ -7,5 +7,10 @@ for (const name of ["Mystery", "Major Mystery", "Minor Crest of Mystery", "Myste
   assert.equal(crestLabel(name, false), "Mystery Crest");
 }
 assert.equal(crestName("Blaiddyd"), "Blaiddyd");
-assert.equal(crestLabel("Blaiddyd", true), "Major Crest of Blaiddyd");
-assert.equal(crestLabel("Seiros", false), "Minor Crest of Seiros");
+assert.equal(crestLabel("Blaiddyd", true), "Blaiddyd (Major)");
+assert.equal(crestLabel("Seiros", false), "Seiros (Minor)");
+assert.equal(crestLabel("Riegan", false), "Riegan (Minor)");
+for (const name of ["Riegan", "Crest of Riegan", "Minor Crest of Riegan", "Major Crest of Riegan"]) {
+  assert.equal(crestName(name), "Riegan");
+  assert.equal(crestLabel(name, false), "Riegan (Minor)");
+}

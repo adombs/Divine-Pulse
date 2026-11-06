@@ -45,6 +45,7 @@ const ICONS = {
   camera: ["camera"],
   speed: ["hourglass"],
   hide: ["eye-slash"],
+  show: ["eye"],
   edit: ["pencil-simple"],
   delete: ["trash"],
   done: ["check-circle"],

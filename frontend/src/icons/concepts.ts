@@ -41,6 +41,7 @@ export const CONCEPT_ICON = {
   camera: "camera",
   speed: "speed",
   hide: "hide",
+  show: "show",
   edit: "edit",
   delete: "delete",
   done: "done",

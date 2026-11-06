@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Put character scope beside the name, move compact crest names into the front facts, and rotate bordered information cards with an inside Flip button while portraits stay still. Preserve keyboard and reduced-motion support, and use eye buttons to reveal spoilers throughout the app. Remove battalion header badges and coloured sprite backgrounds.
+
 - Make Supports lost-item cards more compact, with smaller portraits and owners beside them so more items fit on desktop screens.
 - Coordinate the sidebar, run banner and active-page highlight during expansion and collapse, with an explicit navigation toggle, Escape support and reduced-motion behavior.
 - Apply the Settings font throughout the app, including Home and UI labels; simplify Home run text, remove Cancel from the New run form and space its Start run button, and give all text links white resting text with purple, underlined hover and keyboard focus states.

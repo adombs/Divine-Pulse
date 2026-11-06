@@ -8,18 +8,19 @@ import { plural } from "../../format";
 import { useNav } from "../../nav";
 import { AffiliationIcon } from "../AffiliationIcon";
 import { CharacterPopup } from "../CharacterPopup";
+import { SpoilerButton } from "../common";
 import { characterKeyOfUnit } from "../../portraits";
 import { IconButton } from "../Icon";
 import { DetailCard, Section } from "../layout";
 import { CharacterHero } from "../character/CharacterHero";
 import { SpriteFigure, useHasSprite } from "../character/CharacterFace";
-import { BattalionBadge, BattalionPanel } from "../character/Battalion";
+import { BattalionPanel } from "../character/Battalion";
 import { armySprite, isObject, spriteOf } from "./map";
 import type { Sprite } from "./mapIcons";
 import { Portrait } from "../ui";
 import { CombatTiles, FightsAndActions } from "./detail";
 import { useSpoiler } from "../../spoilers";
-import { crestsOf } from "./factions";
+import { crestsOf, factionOf } from "./factions";
 import { crestLabel } from "../../reference/crests";
 import { MapSection } from "./Minimap";
 import { alertsFor, armyId, enemies, enemyId, Item, LOW_WEAPON, statGains, tally } from "./model";
@@ -109,6 +110,7 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
   return (
     <DetailCard
       title={u.name}
+      scope="battle"
       icon={<BattleAffiliation id={id} />}
       label={`${u.name} in this battle`}
       actions={
@@ -119,17 +121,26 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
       }
     >
       <CharacterHero
+        key={u.key}
+        name={u.name}
         layout="split"
         scope="battle"
         face={<span className="cv-face">{roster ? <Portrait unit={roster} part2={part2} size={120} /> : <UnitFace id={id} name={u.name} size="lg" look="portraits" />}</span>}
         sprite={<SpriteTile sprite={armySprite(u)} name={u.name} className={u.class_name} />}
         facts={[
+          ["Name", roster?.full_name || u.name],
+          ["Class", <ClassLink key="class" name={u.class_name} />],
+          ["Crest", <CrestFact key="crest" character={u.character} fallback={character?.crests_spoiler ?? character?.crests} />],
           ["HP", <HpBar key="hp" hp={u.hp} max={u.now.hp} />],
           ["Level", level],
-          ["Class", <ClassLink key="class" name={u.class_name} />],
           ["Status", status],
         ]}
-        meta={<BattalionBadge unit={roster} />}
+        backFacts={[
+          ["Gender", roster?.gender || character?.gender || "—"],
+          ["Affiliation", character?.house || factionOf(u.character, battle.scenario, "player")],
+          ["Birthday", character?.birthday || "—"],
+          ["Height", character?.height || "—"],
+        ]}
       />
       <Section title="Equipment" icon={CONCEPT_ICON.equipment} summary={inventorySummary(equipment)} open>
         {u.inventory ? <Inventory items={equipment} usage={u.usage} kinds={["weapon", "item"]} /> : <Supplies unit={u} />}
@@ -162,7 +173,6 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
         fights={t.fights} defeats={t.defeats} dealt={u.damage_dealt} taken={u.damage_taken}
         extra={[["Healing", u.healing_given, u.healed ? `got ${u.healed} back` : "given"], ["Moved", u.tiles_moved, "tiles"]]}
       />} />
-      <CrestSection character={u.character} fallback={character?.crests_spoiler ?? character?.crests} />
     </DetailCard>
   );
 }
@@ -171,18 +181,31 @@ function EnemyCard({ enemy: e, battle, items }: { enemy: EnemyStats; battle: Bat
   const id = enemyId(e.slot);
   const t = tally(items, id, { fights: e.combats, defeats: e.defeats });
   const hp = e.hp === null ? null : Math.max(0, e.hp);
+  const ref = useReference();
+  const nav = useBattleNav();
+  const character = ref?.characters.find((c) => c.name === e.name);
   return (
-    <DetailCard title={e.label} icon={<BattleAffiliation id={id} />} label={`${e.label} in this battle`}>
+    <DetailCard title={e.label} scope="battle" icon={<BattleAffiliation id={id} />} label={`${e.label} in this battle`}>
       <CharacterHero
+        key={id}
+        name={e.label}
         layout="split"
         scope="battle"
         face={<span className="cv-face"><UnitFace id={id} name={e.label} size="lg" look="portraits" /></span>}
         sprite={<SpriteTile sprite={isObject(e) ? null : spriteOf(e)} name={e.label} className={classOf(e)} />}
         facts={[
+          ["Name", e.name || e.label],
+          ["Class", <ClassLink key="class" name={classOf(e)} />],
+          ["Crest", isObject(e) ? "None" : <CrestFact key="crest" character={e.character} />],
           ["HP", <HpBar key="hp" hp={hp} max={e.max_hp} />],
           ["Level", e.level],
-          ["Class", <ClassLink key="class" name={classOf(e)} />],
           ["Status", <span key="status" className={!e.on_map ? "form-error" : undefined} title={!e.on_map && e.defeated_by ? `Killed by ${e.defeated_by}` : !e.on_map && e.left ? "Left the map" : undefined}>{enemyStatus(e)}</span>],
+        ]}
+        backFacts={isObject(e) ? undefined : [
+          ["Gender", character?.gender || (e.female === undefined ? "—" : e.female ? "Female" : "Male")],
+          ["Affiliation", nav.house?.(id) || "—"],
+          ["Birthday", character?.birthday || "—"],
+          ["Height", character?.height || "—"],
         ]}
       />
       {!isObject(e) && <>
@@ -199,7 +222,6 @@ function EnemyCard({ enemy: e, battle, items }: { enemy: EnemyStats; battle: Bat
       </>}
       <MapSection battle={battle} id={id} />
       <FightsAndActions items={items} id={id} totals={<CombatTiles fights={t.fights} defeats={t.defeats ?? 0} dealt={e.damage_dealt} taken={e.damage_taken} extra={[["Moved", e.tiles_moved, "tiles"]]} />} />
-      {!isObject(e) && <CrestSection character={e.character} />}
 
     </DetailCard>
   );
@@ -225,14 +247,14 @@ function IconRow({ names }: { names: string[] }) {
 function Crests({ crests }: { crests: { name: string; major: boolean }[] }) {
   const ref = useReference();
   return (
-    <ul className="battle-icon-row">
+    <span className="crest-marks">
       {crests.map((crest) => {
         const entry = ref?.crests.find((c) => c.name === crest.name);
         const effect = (crest.major ? entry?.major_description : entry?.minor_description) || entry?.effect;
         const label = crestLabel(crest.name, crest.major);
-        return <li key={crest.name} title={effect ? `${label}: ${effect}` : label}><CrestMark name={crest.name} major={crest.major} /><span><CrestLink name={crest.name}>{label}</CrestLink>{effect ? ` — ${effect}` : ""}</span></li>;
+        return <span key={crest.name} title={effect ? `${label}: ${effect}` : label}><CrestLink name={crest.name}>{label}</CrestLink> <CrestMark name={crest.name} major={crest.major} /></span>;
       })}
-    </ul>
+    </span>
   );
 }
 
@@ -263,19 +285,18 @@ function SpriteTile({ sprite, name, className }: { sprite: Sprite | null; name: 
   );
 }
 
-function CrestSection({ character, fallback }: { character?: number | null; fallback?: { name: string; major: boolean }[] }) {
+function CrestFact({ character, fallback }: { character?: number | null; fallback?: { name: string; major: boolean }[] }) {
   const [shown, setShown] = useSpoiler("crests");
   const native = crestsOf(character);
   const crests = native?.filter((c, i, all) => all.findIndex((x) => x.name === c.name) === i) ?? fallback;
   const none = native?.length === 0 || (native === undefined && fallback?.length === 0);
-  const summary = none ? "No crest" : shown && crests?.length ? crests.map((c) => crestLabel(c.name, c.major)).join(", ") : "Unknown";
   return (
-    <Section title="Crest" icon={CONCEPT_ICON.crest} summary={summary}>
-      {none ? <p>No crest.</p> : shown && crests?.length ? <>
+    <span className="cv-crest-fact">
+      {none ? "None" : shown && crests?.length ? <>
         <Crests crests={crests} />
         <button type="button" className="link-btn" onClick={() => setShown(false)}>Hide crest spoilers</button>
-      </> : <p className="muted">Unknown. {crests?.length ? <button type="button" className="link-btn" onClick={() => setShown(true)}>Show crest spoilers</button> : null}</p>}
-    </Section>
+      </> : <span className="muted">Unknown. {crests?.length ? <SpoilerButton onClick={() => setShown(true)} label="Show crest spoilers" /> : null}</span>}
+    </span>
   );
 }
 
