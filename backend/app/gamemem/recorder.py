@@ -2,12 +2,14 @@
 needs (current HP, map position, turn number, Divine Pulse charges).
 
 One file per battle in data/battle-recordings/, made of frames. Each frame is the battle pool (every unit record
-around the army's), the game's global data and the roster at one moment. To keep files small, the global data is
-stored in full in the first frame and as changed 8-byte words afterwards, the roster only when it changes, and
-frames only when something changed. tools/analyze_battle_recording.py reads them.
+around the army's), the game's global data, the roster and the battle history's entries at one moment. To keep
+files small, the global data is stored in full in the first frame and as changed 8-byte words afterwards, the roster
+and the history only when they change, and frames only when something changed. tools/analyze_battle_recording.py
+reads them.
 
 Frame format: b"FRM1", u32 metadata length, metadata (JSON), u32 blob count, then per blob: u32 name length,
-name, u32 data length, zlib-compressed data.
+name, u32 data length, zlib-compressed data. The "history" blob is pack_history()'s: u32 entry count, then per entry
+u64 Switch address, u32 length and the entry's bytes (gamemem.history's layout), oldest first.
 """
 
 from __future__ import annotations
@@ -52,6 +54,27 @@ def _apply_word_diff(base: bytearray, diff: bytes) -> None:
         struct.pack_into("<Q", base, offset, value)
 
 
+def pack_history(entries: list[tuple[int, bytes]]) -> bytes:
+    """The battle history's raw entries, (Switch address, bytes) oldest first, as one blob."""
+    out = bytearray(struct.pack("<I", len(entries)))
+    for address, data in entries:
+        out += struct.pack("<QI", address, len(data)) + data
+    return bytes(out)
+
+
+def unpack_history(blob: bytes) -> list[tuple[int, bytes]]:
+    """pack_history() undone; empty for an empty blob (recordings made before the history was kept)."""
+    if len(blob) < 4:
+        return []
+    (count,) = struct.unpack_from("<I", blob, 0)
+    entries, pos = [], 4
+    for _ in range(count):
+        address, size = struct.unpack_from("<QI", blob, pos)
+        entries.append((address, blob[pos + 12 : pos + 12 + size]))
+        pos += 12 + size
+    return entries
+
+
 def _frame(meta: dict, blobs: dict[str, bytes]) -> bytes:
     head = json.dumps(meta, separators=(",", ":")).encode()
     out = bytearray(MAGIC + struct.pack("<I", len(head)) + head + struct.pack("<I", len(blobs)))
@@ -73,6 +96,7 @@ class BattleRecorder:
         self._last: dict | None = None
         self._globals = b""
         self._roster = b""
+        self._history = b""
 
     @property
     def recording(self) -> bool:
@@ -87,7 +111,7 @@ class BattleRecorder:
         self._size = self.path.stat().st_size if self.path.exists() else 0
         if not self._size:
             self.path.write_bytes(b"")
-        self._last, self._globals, self._roster = None, b"", b""
+        self._last, self._globals, self._roster, self._history = None, b"", b"", b""
         self._prune()
         log.info("Recording battle memory to %s", self.path.name)
 
@@ -96,7 +120,10 @@ class BattleRecorder:
         path = self.path  # stop() may clear it meanwhile
         if path is None or self._size >= self.max_bytes:
             return False
-        if self._last is not None and all(capture[k] == self._last[k] for k in ("pool", "globals", "roster", "pool_base")):
+        history = capture.get("history", b"")
+        if self._last is not None and history == self._history and all(
+            capture[k] == self._last[k] for k in ("pool", "globals", "roster", "pool_base")
+        ):
             return False
         meta = {"t": round(t, 2), "pool_base": capture["pool_base"], "army": {str(k): v for k, v in capture["army"].items()}, **(note or {})}
         blobs = {"pool": capture["pool"]}
@@ -106,6 +133,8 @@ class BattleRecorder:
             blobs["globals_diff"] = _word_diff(self._globals, capture["globals"])
         if capture["roster"] != self._roster:
             blobs["roster"] = capture["roster"]
+        if history != self._history:
+            blobs["history"] = history
         frame = _frame(meta, blobs)
         try:
             with path.open("ab") as f:
@@ -115,7 +144,7 @@ class BattleRecorder:
             self.stop()
             return False
         self._size += len(frame)
-        self._last, self._globals, self._roster = capture, capture["globals"], capture["roster"]
+        self._last, self._globals, self._roster, self._history = capture, capture["globals"], capture["roster"], history
         if self._size >= self.max_bytes:
             log.warning("Battle recording %s reached %d MB; not recording the rest of this battle", path.name, self.max_bytes // 2**20)
         return True
@@ -146,6 +175,7 @@ class Frame:
     pool: bytes
     globals: bytes
     roster: bytes
+    history: bytes = b""  # pack_history()'s blob as of this frame (empty in recordings made before it was kept)
 
     @property
     def army(self) -> dict[int, int]:
@@ -158,7 +188,7 @@ def read_recording(path: Path) -> Iterator[Frame]:
     data = path.read_bytes()
     pos = 0
     globals_ = bytearray()
-    roster = b""
+    roster = history = b""
     while pos < len(data):
         if data[pos : pos + 4] != MAGIC:
             raise ValueError(f"{path.name}: bad frame at byte {pos}")
@@ -181,4 +211,6 @@ def read_recording(path: Path) -> Iterator[Frame]:
             _apply_word_diff(globals_, blobs["globals_diff"])
         if "roster" in blobs:
             roster = blobs["roster"]
-        yield Frame(meta["t"], meta, meta["pool_base"], blobs["pool"], bytes(globals_), roster)
+        if "history" in blobs:
+            history = blobs["history"]
+        yield Frame(meta["t"], meta, meta["pool_base"], blobs["pool"], bytes(globals_), roster, history)

@@ -329,19 +329,21 @@ class GameMemory:
         self._scans_left = 0
         self._scan_at = 0.0
         # The battle history (battle_history): where Switch memory starts in Eden's, the pool slot of index 0, and
-        # entries already decoded, by address and header.
+        # entries already decoded (with their raw bytes), by address and header, and the raw entries of the last
+        # complete read in history order, for the battle recorder.
         self._arena: int | None = None
         self._arena_retry = 0.0  # when to look for it again after not finding it
         self._pool_start: int | None = None
-        self._history: dict[tuple[int, bytes], object] = {}
+        self._history: dict[tuple[int, bytes], tuple[object, bytes]] = {}
         self._history_count = 0
+        self._history_raw: list[tuple[int, bytes]] = []
 
     def close(self) -> None:
         if self._process is not None:
             self._process.close()
         self._process, self._main, self.version, self.emulator = None, 0, None, None
         self._copies, self._counters = {}, None
-        self._arena, self._pool_start, self._history = None, None, {}
+        self._arena, self._pool_start, self._history, self._history_raw = None, None, {}, []
 
     def read(self, battle: bool = True) -> Snapshot:
         """The roster, with the battle in progress merged in (unless `battle` is False)."""
@@ -370,7 +372,7 @@ class GameMemory:
         if counters != self._counters:  # first read, a battle started, or a save was loaded
             self._counters, self._copies = counters, {}
             self._scans_left, self._scan_at = BATTLE_SCANS, 0.0
-            self._pool_start, self._history = None, {}
+            self._pool_start, self._history, self._history_raw = None, {}, []
         if not self._copies and self._scans_left and time.monotonic() >= self._scan_at:
             self._scans_left -= 1
             self._scan_at = time.monotonic() + BATTLE_RESCAN_S
@@ -487,17 +489,20 @@ class GameMemory:
                 return None
         # One list per turn. (Pointers past the current turn may be left over from before time was turned back:
         # the entry count says where the history ends.)
-        entries = []
+        entries, raw = [], []
         seen: set[int] = set()
         for address in heads:
             if len(entries) >= count:
                 break
             while address and address not in seen and len(seen) < h.MAX_ENTRIES:
                 seen.add(address)
-                entry, address = self._history_entry(address, f)
+                at = address
+                entry, address, data = self._history_entry(address, f)
                 if entry is None:
                     return None  # changing under us (or not an entry): try again next poll
                 entries.append(entry)
+                raw.append((at, data))
+        self._history_raw = raw
         if len(self._history) > 4 * h.MAX_ENTRIES:
             self._history = {}
         if self._pool_start is None:
@@ -505,23 +510,23 @@ class GameMemory:
             self._pool_start = h.pool_start(entries, live)
         return entries, self._pool_start
 
-    def _history_entry(self, address: int, f) -> tuple[object | None, int]:
-        """The decoded entry at a Switch address, and the address of the next one (0 = none)."""
+    def _history_entry(self, address: int, f) -> tuple[object | None, int, bytes]:
+        """The decoded entry at a Switch address, the address of the next one (0 = none), and the entry's bytes."""
         from . import history as h
 
         host = self._arena + address
         header = self._process.read(host, h.HEADER)
         if header is None:
-            return None, 0
+            return None, 0, b""
         key = (address, header)
-        entry = self._history.get(key)
-        if entry is None:
+        cached = self._history.get(key)
+        if cached is None:
             data = self._process.read(host, max(h.HEADER, h.entry_size(header)))
             entry = h.decode_entry(data, f.hp, f.x, f.y) if data is not None else None
             if entry is None:
-                return None, 0
-            self._history[key] = entry
-        return entry, h.next_entry(header)
+                return None, 0, b""
+            cached = self._history[key] = (entry, data)
+        return cached[0], h.next_entry(header), cached[1]
 
     def _find_arena(self, globals_at: int, first: int) -> int | None:
         """Where Switch address 0 is in Eden's memory, checked against the history's first entry."""
@@ -547,8 +552,11 @@ class GameMemory:
 
     def capture_battle(self) -> dict | None:
         """Raw battle memory for the battle recorder (gamemem.recorder): the pool around the army's battle
-        copies, the game's global data and the roster. None outside a battle."""
+        copies, the game's global data, the roster, and the battle history's entries as last read by
+        battle_history() (their bytes, to decode actions the history module doesn't know yet, such as gambits).
+        None outside a battle."""
         from .battle import pool_window
+        from .recorder import pack_history
 
         if self._process is None or not self._copies or self.version is None:
             return None
@@ -567,6 +575,7 @@ class GameMemory:
             "army": {c: a - low for c, a in self._copies.items()},
             "globals": globals_ or b"",
             "roster": roster or b"",
+            "history": pack_history(self._history_raw),
         }
 
     def _find_battle_copies(self, roster: bytes) -> dict[int, int]:
