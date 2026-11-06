@@ -132,10 +132,6 @@
 .cv-battalion.none .icon { color: var(--ink-soft); }
 .cv-battalion-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cv-battalion-end { flex: none; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.cv-unconfirmed {
-  flex: none; display: inline-grid; place-items: center; width: 1rem; height: 1rem; border-radius: 50%;
-  font: 700 0.68rem var(--ui); color: var(--amber); background: var(--amber-bg); cursor: help;
-}
 .cv-battalion-detail { display: grid; gap: 0.4rem; }
 .cv-battalion-title { display: flex; align-items: center; flex-wrap: wrap; gap: 0.45rem; margin: 0; font: 600 1.1rem var(--display); }
 .cv-battalion-title .icon { color: var(--accent); }
@@ -238,10 +234,11 @@
 }
 .bp-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.5rem; }
 .bp-name {
-  display: flex; align-items: baseline; gap: 0.45rem; min-width: 0; margin: 0; font: 600 1.12rem var(--display); color: var(--ink);
-  overflow-wrap: anywhere;
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.45rem; min-width: 0; margin: 0;
+  font: 600 1.12rem var(--display); color: var(--ink); overflow-wrap: anywhere;
 }
-.bp-level { flex: none; font: 600 0.78rem var(--ui); color: var(--ink-soft); }
+.bp-level { flex: none; font: 600 0.78rem var(--ui); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.bp-exp { margin-left: 0.4rem; font-weight: 500; }
 .bp-icon { display: block; flex: none; width: 2rem; height: 2rem; object-fit: contain; }
 .bp-icon.sm { width: 1.15rem; height: 1.15rem; }
 .bp-icon.missing { border: 1px dashed var(--line); border-radius: 4px; background: var(--paper); }
@@ -262,10 +259,11 @@
   font: 600 1rem var(--nums); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap;
 }
 /* Gains in the game's blue, losses in red; light versions on the dark bars. */
-.bp-val.up, .bp-adj.up { color: #a8d0ff; }
-.bp-val.down, .bp-adj.down { color: #ffb3ab; }
-.bp-adj { display: inline-flex; align-items: center; gap: 0.05rem; font-size: 0.86rem; }
-.bp-adj .icon { font-size: 0.7rem; opacity: 0.8; }
+.bp-val.up { color: #a8d0ff; }
+.bp-val.down { color: #ffb3ab; }
+/* No endurance left: the modifiers stay readable but plainly don't apply. */
+.bp-val.spent { opacity: 0.6; text-decoration: line-through; cursor: help; }
+.bp-gauge.spent .bp-gauge-num { color: var(--red); }
 .bp-missing { color: inherit; opacity: 0.75; cursor: help; }
 .bp-gambit-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.6rem; align-items: start; }
 .bp-area { display: block; width: 8.5rem; max-width: 100%; height: auto; }
@@ -280,7 +278,6 @@
 .bp-note {
   grid-column: 1 / -1; display: flex; align-items: flex-start; gap: 0.4rem; margin: 0; font: 0.8rem/1.35 var(--ui); color: var(--ink-soft);
 }
-.bp-note .cv-unconfirmed { margin-top: 0.05rem; }
 @media (max-width: 700px) {
   .bp { grid-template-columns: minmax(0, 1fr); }
 }

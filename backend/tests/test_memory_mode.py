@@ -25,11 +25,13 @@ class FakeMemory:
         self.enemies = 0
         self.battle_key = ""
         self.scenario: int | None = None
+        self.gambit_uses: dict[int, int] = {}  # by character, read from battle copies
 
     def read(self):
         if self.error:
             raise GameMemoryError(self.error)
-        return Snapshot(bytes(self.roster), self.name, in_battle=self.in_battle, battle_key=self.battle_key if self.in_battle else "", scenario=self.scenario)
+        uses = tuple(sorted((c, n) for c, n in self.gambit_uses.items() if c in self.in_battle))
+        return Snapshot(bytes(self.roster), self.name, in_battle=self.in_battle, battle_key=self.battle_key if self.in_battle else "", scenario=self.scenario, gambit_uses=uses)
 
 
 @pytest.fixture
@@ -109,6 +111,218 @@ def test_unchanged_game_logs_nothing(scanner):
     for _ in range(5):
         scanner._tick()
     assert len(scanner.log_entries()) == 1
+
+
+def test_battalion_observation_survives_missing_import_and_clears_on_removal(scanner):
+    from dataclasses import replace
+    from types import SimpleNamespace
+
+    class Process:
+        roster = bytearray(DATA[:ROSTER_SIZE])
+
+        def read(self, address, size):
+            version = VERSIONS[0]
+            if address == version.build_id_offset:
+                return version.build_id
+            if address == version.roster_offset:
+                return bytes(self.roster) + DATA[ROSTER_SIZE:]
+            return None
+
+    process = Process()
+    memory = GameMemory()
+    memory._process = process
+    memory.version = VERSIONS[0]
+    memory.emulator = SimpleNamespace(layout=SimpleNamespace(heap_regions=lambda _: ()))
+    scanner.memory = memory
+
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == "Test Magic Corps"
+    assert units(scanner)["hanneman"].battalion_id == 4
+
+    # A transient empty-marker read is not a confirmed removal.
+    slot = SLOT_OF[28] * SLOT_SIZE
+    original_marker = process.roster[slot + 0x18:slot + 0x1A]
+    struct.pack_into("<H", process.roster, slot + 0x18, 0xFFFF)
+    scanner._tick()
+    process.roster[slot + 0x18:slot + 0x1A] = original_marker
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion_id == 4
+
+    # An assigned ID with no imported name is unknown, not an empty assignment.
+    data = scanner._data()
+    scanner._game_data = replace(data, battalions=[])
+    process.roster[slot + MAG] += 1
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == "Test Magic Corps"
+    assert units(scanner)["hanneman"].battalion_id == 4
+
+    # An unrecognized ID is also unknown, not proof that the slot is empty.
+    scanner._game_data = data
+    process.roster[slot + 0x1E] = 255
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == "Test Magic Corps"
+    assert units(scanner)["hanneman"].battalion_id == 4
+
+    # A clear slot is an observed removal, even when the old ID byte is stale.
+    struct.pack_into("<H", process.roster, slot + 0x18, 0xFFFF)
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == ""
+    assert scanner.store.get(scanner.run_id).units["hanneman"].battalion == ""
+    assert scanner.store.get(scanner.run_id).units["hanneman"].battalion_id is None
+
+
+def test_battalion_only_identity_change_is_saved_even_with_duplicate_names(scanner):
+    from dataclasses import replace
+
+    scanner._tick()
+    scanner._tick()
+    names = list(scanner._data().battalions)
+    names[3] = names[4]
+    scanner._game_data = replace(scanner._data(), battalions=names)
+    slot = SLOT_OF[28] * SLOT_SIZE
+    scanner.memory.roster[slot + 0x1E] = 3
+    scanner._tick()
+    scanner._tick()
+    saved = units(scanner)["hanneman"]
+    assert saved.battalion == names[4] and saved.battalion_id == 3
+    assert scanner.log_entries()[0].can_undo
+
+
+def test_import_language_refreshes_unchanged_memory_and_keeps_missing_assignment(scanner, roster_import, monkeypatch):
+    language = ["ENG_U"]
+    original_text = roster_import.text
+
+    def text(category, *args, **kwargs):
+        if category == "battalion" and language[0] == "GER":
+            return {"4": "Test translated corps"}
+        return original_text(category, *args, **kwargs)
+
+    monkeypatch.setattr(roster_import, "text", text)
+    monkeypatch.setattr(roster_import, "language", lambda: language[0])
+    scanner._tick()
+    scanner._tick()
+    language[0] = "GER"
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == "Test translated corps"
+    assert units(scanner)["hanneman"].battalion_id == 4
+
+    # A fresh/incomplete import generation may temporarily have no battalion rows at all.
+    original_json = roster_import.json
+    monkeypatch.setattr(roster_import, "json", lambda rel, *args, **kwargs:
+                        {"battalions": []} if rel == "data/battalions.json" else original_json(rel, *args, **kwargs))
+    # Rewrite the synthetic manifest as a real reimport does, creating a fresh table-cache generation.
+    manifest = roster_import.root / "manifest.json"
+    manifest.write_text(manifest.read_text("utf-8") + "\n", encoding="utf-8")
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == "Test translated corps"
+    assert units(scanner)["hanneman"].battalion_id == 4
+
+
+def test_battle_keeps_assignment_after_later_roster_changes(scanner, tmp_path):
+    from app.storage import BattleStore
+
+    scanner.battle_store = BattleStore(tmp_path / "battles")
+    scanner.memory.in_battle = (28,)
+    scanner._tick()
+    scanner._tick()
+    assert scanner.current_battle().units[0].battalion_id == 4
+    scanner.memory.in_battle = ()
+    scanner._tick()
+    scanner._tick()
+    struct.pack_into("<H", scanner.memory.roster, SLOT_OF[28] * SLOT_SIZE + 0x18, 0xFFFF)
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == ""
+    [recorded] = scanner.battle_store.list(scanner.run_id)
+    assert recorded.units[0].battalion == "Test Magic Corps"
+    assert recorded.units[0].battalion_id == 4
+
+
+HANNEMAN_BATTALION = SLOT_OF[28] * SLOT_SIZE + 0x18
+
+
+def set_battalion(scanner, ident=5, exp=0, endurance=60, *, none=False):
+    struct.pack_into("<HHHB", scanner.memory.roster, HANNEMAN_BATTALION, 0xFFFF if none else 0, exp, endurance, ident)
+    scanner._tick()
+    scanner._tick()
+    return units(scanner)["hanneman"]
+
+
+def test_battalion_runtime_level_and_charm_follow_assignment_changes(scanner):
+    scanner._tick()
+    scanner._tick()
+    own_cha = units(scanner)["hanneman"].displayed["cha"]  # Test Magic Corps: an import without a progression
+    assert units(scanner)["hanneman"].base()["cha"] == own_cha
+
+    # A: a battalion with a progression. The Status page counts its Charm (blue) and base() stays the unit's own.
+    a = set_battalion(scanner, 5, exp=0, endurance=60)
+    assert (a.battalion, a.battalion_id, a.battalion_exp, a.battalion_endurance, a.gambit_uses) == ("Test Wing Co.", 5, 0, 60, None)
+    assert a.displayed["cha"] == own_cha + 5 and a.bonuses["cha"] == 5 and "cha" in a.blue
+    assert a.base()["cha"] == own_cha
+    assert not any("Cha" in w for e in scanner.log_entries() for w in e.warnings)
+
+    # B: no progression in the import. The runtime is still read; its Charm isn't known, so none is added.
+    b = set_battalion(scanner, 4, exp=230, endurance=12)
+    assert (b.battalion_id, b.battalion_exp, b.battalion_endurance) == (4, 230, 12)
+    assert b.displayed["cha"] == own_cha and "cha" not in b.bonuses
+
+    # None: removed, and the runtime with it.
+    c = set_battalion(scanner, 200, exp=0, endurance=0, none=True)
+    assert (c.battalion, c.battalion_id, c.battalion_exp, c.battalion_endurance) == ("", None, None, None)
+    assert c.displayed["cha"] == own_cha
+
+    # A again, at level 2 with endurance spent: assigned, but none of its modifiers apply.
+    d = set_battalion(scanner, 5, exp=115, endurance=0)
+    assert (d.battalion_id, d.battalion_exp, d.battalion_endurance) == (5, 115, 0)
+    assert d.displayed["cha"] == own_cha and "cha" not in d.bonuses and d.base()["cha"] == own_cha
+
+
+def test_battle_records_battalion_runtime_without_counting_spent_endurance_as_a_rewind(scanner, tmp_path):
+    from app.domain.battle import BattleUnitStats
+    from app.storage import BattleStore
+
+    scanner.battle_store = BattleStore(tmp_path / "battles")
+    set_battalion(scanner, 5, exp=0, endurance=60)
+    own_cha = units(scanner)["hanneman"].base()["cha"]
+    scanner.memory.in_battle, scanner.memory.battle_key = (28,), "k1"
+    scanner.memory.gambit_uses = {28: 2}
+    scanner._tick()
+    scanner._tick()
+    [unit] = scanner.current_battle().units
+    assert (unit.battalion_id, unit.battalion_exp, unit.battalion_endurance, unit.gambit_uses) == (5, 0, 60, 2)
+    assert unit.now["cha"] == own_cha  # the battle's values are the unit's own
+    assert units(scanner)["hanneman"].gambit_uses == 2
+
+    # Assembly used (exp and uses change, no stat does), then endurance spent: the Charm leaves the Status page.
+    scanner.memory.gambit_uses = {28: 1}
+    set_battalion(scanner, 5, exp=46, endurance=60)
+    scanner.memory.gambit_uses = {28: 0}
+    hanneman = set_battalion(scanner, 5, exp=115, endurance=0)
+    assert (hanneman.battalion_exp, hanneman.battalion_endurance, hanneman.gambit_uses) == (115, 0, 0)
+    assert hanneman.displayed["cha"] == own_cha
+    [unit] = scanner.current_battle().units
+    assert (unit.battalion_exp, unit.battalion_endurance, unit.gambit_uses) == (115, 0, 0)
+    assert unit.now["cha"] == own_cha and unit.start["cha"] == own_cha
+    assert [e.kind for e in scanner.current_battle().events] == ["start"]  # no gains, no Divine Pulse
+
+    # The battle ends: the game refills the uses, the run no longer reports them, the record keeps its values.
+    scanner.memory.in_battle = ()
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].gambit_uses is None
+    [recorded] = scanner.battle_store.list(scanner.run_id)
+    assert (recorded.units[0].battalion_exp, recorded.units[0].battalion_endurance, recorded.units[0].gambit_uses) == (115, 0, 0)
+
+    # Battles saved before runtime was recorded load as unknown, never as zero.
+    old = BattleUnitStats.model_validate({"key": "x", "name": "X", "start_level": 1, "level": 1, "start": {}, "now": {},
+                                          "battalion": "Test Wing Co.", "battalion_id": 5})
+    assert (old.battalion_exp, old.battalion_endurance, old.gambit_uses) == (None, None, None)
 
 
 def test_a_change_is_applied_once_two_reads_agree(scanner):

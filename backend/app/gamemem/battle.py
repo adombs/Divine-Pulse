@@ -35,6 +35,8 @@ from .fe3h import (
     EMPTY_ABILITY,
     IN_ARMY,
     STAT_ORDER,
+    decode_battalion,
+    gambit_uses,
 )
 
 RECORD_SIZE = 0x330
@@ -157,6 +159,9 @@ def decode_record(data: bytes, offset: int, army_ids: set[int], located: BattleF
     flags = data[offset + ACTED] if offset + ACTED < len(data) else None
     # Off the map: flagged so, or taken off it with HP left (a defeated unit stays where it fell).
     off_map = flags is not None and (bool(flags & OFF_MAP_BIT) or (not flags & ON_MAP_BIT and hp is not None and hp > 0))
+    # Battalion fields were checked on the player's records only; other units' are left unread.
+    record = data[offset : offset + RECORD_SIZE]
+    battalion, battalion_exp, battalion_endurance = decode_battalion(record) if army else (None, None, None)
     return BattleUnit(
         character, army, data[offset + _LEVEL], data[offset + _CLASS], raw,
         hp=hp, x=at(f.x), y=at(f.y),
@@ -167,6 +172,8 @@ def decode_record(data: bytes, offset: int, army_ids: set[int], located: BattleF
         pool_index=at(POOL_INDEX), attached_to=at(ATTACHED_TO), team=at(TEAM), flags=flags,
         equipped=struct.unpack_from("<H", data, offset + _EQUIPPED)[0],
         item_slot_0=pairs[0] if pairs[0] != 0xFFFF else None,
+        battalion=battalion, battalion_exp=battalion_exp, battalion_endurance=battalion_endurance,
+        gambit_uses=gambit_uses(record) if army else None,
     )
 
 

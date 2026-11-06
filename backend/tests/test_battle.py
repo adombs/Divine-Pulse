@@ -40,6 +40,22 @@ def enemies(n, level=15) -> tuple[EnemySample, ...]:
     return tuple(EnemySample("Brigand", level, 100.0) for _ in range(n))
 
 
+def test_battalion_updates_without_resource_reads_and_unknown_does_not_clear_it():
+    tracker = BattleTracker()
+    assigned = replace(army(), battalion="Test company", battalion_id=0)
+    tracker.update(BattleSample((assigned,)), "run", T0)
+    unit = tracker.battle.units[0]
+    assert (unit.battalion, unit.battalion_id) == ("Test company", 0)
+    # Missing observations never erase the recorded assignment, even after resume.
+    resumed = BattleTracker()
+    resumed.resume(tracker.battle)
+    resumed.update(BattleSample((army(),)), "run", T0 + timedelta(seconds=1))
+    assert (unit.battalion, unit.battalion_id) == ("Test company", 0)
+    changed, _ = resumed.update(BattleSample((replace(assigned, battalion=""),)), "run", T0 + timedelta(seconds=2))
+    assert changed and unit.battalion == "" and unit.battalion_id is None
+    assert not tracker.battle.log  # no invented gambit action or combat effect
+
+
 def at(seconds) -> datetime:
     return T0 + timedelta(seconds=seconds)
 

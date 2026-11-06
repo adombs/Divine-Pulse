@@ -49,7 +49,7 @@ Paths are `<romfs>\patch4\nx\data\`. Newest patch wins (`patch_overrides.csv`). 
 | | 5 | 50 x 24 | Equipment (shields, rings, pendants) | verified |
 | | 7 | 80 x 18 | Combat arts (art ID = row) | verified |
 | | 8-10, 12-15 | 80x13, 60x3, 96x4, 30x4, 60x6, 56x10, 10x1 | unknown | unknown |
-| | 11 | 200 x 44 | probably battalions (200 names) | not verified |
+| | 11 | 200 x 44 | battalion reference data | exported; see [integration](../battalions.md) |
 | fixed_skill (15) | 0 | 255 x 15 | Ability effects by ability ID | verified |
 | | 1 | 22 x 12 | unknown | unknown |
 | fixed_growthdata (9) | 0 | 41 x 3 | descending triples | unknown |
@@ -149,15 +149,16 @@ Several class names occur at two IDs (Lord 6/53, Thief 8/49, Fortress Knight 21/
 - Recruitment stat/skill requirements not located; probably in scripts (`scrdata.bin`).
 - Skill EXP gain amounts (Attack, Instruct, Group Task...) and per-level EXP not located. Candidates: growthdata
   sections 0, 1, 5, 7 and the small `fixed_data` sections 9-15. Unverified.
-- Battalions: `fixed_data` s11 (200 x 44) is probably the battalion table.
+- Battalions: `fixed_data` s11 (200 x 44) supplies the imported reference fields; current runtime state is separate.
 - Base Mov constant 4 is not in a table.
 - Consumable/misc item numbers (IDs 1000+): data is likely in unexamined `fixed_data` sections 2-4 and 6.
 - Tables come from the patch4 loose files; read patch files before DATA entries.
 
 ## Extended table fields
 
-Battalion rows hold endurance, authority, charm, gambit id/uses, stats and growths (the importer exports only endurance).
-Gambit uses and growth semantics are unverified. Gift item rows hold price, lost-item flag and owner person id (not exported). Class certification rows hold the seal item, gender,
+The importer exports battalion endurance, eight modifiers and five-level progression from section 11, plus gambit
+parameters from section 3 and maximum uses from section 8. Current level, endurance and remaining uses are not read
+from memory; see [Battalion integration](../battalions.md). Gift item rows hold price, lost-item flag and owner person id (not exported). Class certification rows hold the seal item, gender,
 selectability and skill rank numbers; the level comes from the tier table. The any-of rule for beginner
 classes with multiple requirements is inferred. Class descriptions are at text index 3554 plus the class id.
 Equipment descriptions are at text index 4606 plus equipment id. Some later item descriptions are empty in the

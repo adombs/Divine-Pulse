@@ -24,7 +24,10 @@ Not modelled (the forecast can differ by these, see docs/battle-page-plan.md):
   link: Byleth +1 Atk, +13 Hit, +13 Avo; Hanneman +1 Atk, +6 Hit; Lysithea +3 Hit, +2 Avo; Cyril +5 Hit, +5 Avo
   (Byleth's 13 and Lysithea's 2 don't fit those values: not understood yet). Pass `link`; gamemem/pairing.py weighs
   the possible links by how many allies are in reach.
-- Battalions and gambits, combat arts, and skills that trigger by chance (Pavise, Miracle, Lethality...).
+- Gambits, combat arts, and skills that trigger by chance (Pavise, Miracle, Lethality...). An army unit's battalion
+  modifiers at its level do count (domain/battalions.py: Phys Atk or Mag Atk by the weapon, Hit, Crit, Avo, Prt,
+  Rsl, Cha), none once its endurance is spent; the "rattled" status that also cancels them isn't read, nor are
+  other units' battalions.
 
 Terrain counts when the tiles are known (`a_ground`, `d_ground`: terrain.ground(), nothing for fliers): a tile's Def or
 Res comes off the damage the unit on it takes, its Avo off the Hit against it.
@@ -36,6 +39,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from functools import lru_cache
 
+from ..domain.battalions import modifiers
 from ..infrastructure import game_tables
 from ..infrastructure.inventory import crest_stone_flag
 from .battle import BattleUnit
@@ -157,6 +161,8 @@ class CombatData:
     classes: dict[int, GameClassInfo]
     personal: dict[int, int]  # character ID -> personal ability ID
     names: dict[int, str] = field(default_factory=dict)  # character ID -> name as the support list writes it
+    # Battalion modifiers at levels 1-5 by battalion ID (None where the import has no progression).
+    battalion_stats: tuple = ()
 
     @classmethod
     def load(cls) -> CombatData:
@@ -174,6 +180,7 @@ class CombatData:
             personal={int(k): ability_ids[v["personal"]] for k, v in data["characters"].items() if v.get("personal") in ability_ids},
             names={int(k): f'{v["name"]} ({"M" if k == "0" else "F"})' if k in ("0", "1") else v["name"]
                    for k, v in data["characters"].items()},
+            battalion_stats=tuple(data.get("battalion_stats", ())),
         )
 
 
@@ -248,6 +255,8 @@ class Fighter:
     effects: tuple[Effect, ...]
     arms: tuple[Arm, ...]  # weapons and spells with uses left
     moves: frozenset[int] = field(default_factory=frozenset)  # ARMORED / CAVALRY / FLYING
+    # Its battalion's modifiers now (domain/battalions.modifiers); Cha is already in `stats`.
+    battalion: dict[str, int] = field(default_factory=dict)
 
     @property
     def mv(self) -> int:
@@ -293,7 +302,12 @@ class Fighter:
             flag for flag, name, names in ((ARMORED, "armored", ARMORED_CLASSES), (CAVALRY, "cavalry", CAVALRY_CLASSES), (FLYING, "flying", FLYING_CLASSES))
             if (types.get(name, False) if types is not None else info.name in names)
         )
-        return cls(unit, stats, unit.hp if hp is None else hp, effects, tuple(arms), moves)
+        battalion = {}
+        if unit.battalion is not None and 0 <= unit.battalion < len(data.battalion_stats):
+            battalion = modifiers(data.battalion_stats[unit.battalion], unit.battalion_exp, unit.battalion_endurance) or {}
+        if battalion.get("cha"):
+            stats["cha"] = stats.get("cha", 0) + battalion["cha"]
+        return cls(unit, stats, unit.hp if hp is None else hp, effects, tuple(arms), moves, battalion)
 
 
 @dataclass(frozen=True)
@@ -432,7 +446,9 @@ def combat_stats(f: Fighter, arm: Arm | None, foe: Fighter | None = None, foe_ar
     """`f`'s Atk, Hit... with `arm` (None: the status screen's numbers without a weapon's), against `foe`."""
     w = arm.weapon if arm else None
     stats = dict(f.stats)
-    bonus = {"atk": 0, "hit": 0, "crit": 0, "avo": 0, "crit_avo": 0}
+    b = f.battalion
+    bonus = {"atk": b.get("mag_atk" if w is not None and w.magic else "phys_atk", 0), "hit": b.get("hit", 0),
+             "crit": b.get("crit", 0), "avo": b.get("avo", 0), "crit_avo": 0}
     for e in f.effects:
         if e.when == ALWAYS:
             applies, codes = True, COMBAT_CODES
@@ -473,7 +489,8 @@ def combat_stats(f: Fighter, arm: Arm | None, foe: Fighter | None = None, foe_ar
     return CombatStats(
         atk=atk + bonus["atk"], hit=hit + bonus["hit"], crit=crit + bonus["crit"],
         avo=attack_speed + bonus["avo"], magic_avo=(spd + lck) // 2 + bonus["avo"], crit_avo=lck + bonus["crit_avo"],
-        prt=stats.get("def", 0), rsl=stats.get("res", 0), attack_speed=attack_speed,
+        prt=stats.get("def", 0) + b.get("prt", 0), rsl=stats.get("res", 0) + b.get("rsl", 0),
+        attack_speed=attack_speed,
     )
 
 

@@ -34,6 +34,17 @@ def test_item_sprite_selector():
     assert exe_tables.item_sprite_id(row(99)) is None
 
 
+def test_battalion_sprite_selector_uses_rank_and_movement_flags():
+    data = bytearray(44)
+    assert exe_tables.battalion_sprite_id(data) == 0x22B
+    data[0x26], data[0x28] = 2, 4
+    assert exe_tables.battalion_sprite_id(data) == 0x235
+    data[0x26], data[0x28] = 4, 8
+    assert exe_tables.battalion_sprite_id(data) == 0x23A
+    data[0x28] = 2 | 4 | 8
+    assert exe_tables.battalion_sprite_id(data) == 0x23A
+
+
 def test_extract_without_exefs_skips(tmp_path):
     ctx = Context(dump=dump.GameDump(romfs=tmp_path), out=Output(tmp_path / "out"), log=lambda _: None)
     ctx.__dict__["main"] = None

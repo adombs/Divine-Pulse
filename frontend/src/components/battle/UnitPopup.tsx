@@ -155,8 +155,8 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
       <Section title="Abilities" icon={CONCEPT_ICON.ability} summary={abilities.length ? plural(abilities.length, "ability") : roster ? "No abilities" : "Not read yet"}>
         {abilities.length ? <IconRow names={abilities} /> : <p className="muted">{roster ? "No abilities." : "Not read yet."}</p>}
       </Section>
-      <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={roster?.battalion || (roster?.battalion === "" ? "No battalion" : "Not read yet")}>
-        <BattalionPanel unit={roster} scope="battle" />
+      <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={u.battalion || (u.battalion === "" ? "No battalion" : "Unknown for this battle")}>
+        <BattalionPanel unit={u} scope="battle" />
       </Section>
       <Section title="Growth" icon={CONCEPT_ICON.growth} summary={growthSummary(u.level_ups, gained)}>
         <div className="battle-growth-panel">

@@ -11,6 +11,8 @@
 - Center Archive Stats skill chips and match Position zoom to the battle map's notched slider, with terrain and coordinates over the map.
 - Refine character Stats, Growth, Position, Fights and Arsenal panels with aligned ledgers, clearer skill ranks and more readable detail rows.
 - Keep battle and run statistics consistent, preserve unrecorded values, and open Battle Stats and Character Stats directly from History. Add a run-wide Awards table using the battle Awards' winners and tie rules, counting each finished battle once. Simplify More Stats to labels and values, rename Fight Breakdown and Awards, remove team dots from Fight Breakdown, and center the Awards controls.
+- Read each battalion's level, experience, endurance and gambit uses left from the game, live during battles. Show its modifiers at its current level, mark them as not applying when its endurance is spent, count its Charm in Cha as the game's Status page does, and include its modifiers in the fight calculations. Battle records keep their own battalion state.
+- Keep battalion identity through incomplete imports, language changes, run exports and unit updates; show each battle's recorded assignment separately from the current roster, with unknown assignments for older recordings. Translate imported gambit details and match battalion panels by ID when available.
 - Put character scope beside the name, move compact crest names into the front facts, and rotate bordered information cards with an inside Flip button while portraits stay still. Preserve keyboard and reduced-motion support, and use eye buttons to reveal spoilers throughout the app. Remove battalion header badges and coloured sprite backgrounds.
 
 - Make Supports lost-item cards more compact, with smaller portraits and owners beside them so more items fit on desktop screens.
@@ -23,8 +25,9 @@
 - Move Characters and Crests into the Archive and add a Battalions reference tab. Keep general character reference separate from run-specific information and preserve old character links.
 - Give character views a shared design, with portrait-to-sprite interaction on the Roster and in the Archive, larger side-by-side portrait and sprite in battle windows, and fixed window dimensions across sections.
 - Fit the updated views within the window with internal scrolling, including phone layouts, and prevent battle-header controls from overlapping.
-- Add battalion panels that display verified available data and identify fields not yet supported by imports or the game reader.
+- Preserve assigned battalion names when imported reference data is incomplete. Add battalion panels that display verified available data and identify fields not yet supported by imports or the game reader.
 - Restore the corrected Home chair image from Brand Pack v8 without changing code or layout.
+- Import native battalion icons, stat progression and gambit details from player-owned game files.
 - Show each class's tier plate beside its name in the Archive's Classes list and tier filters, and redesign the class card: the class's unit on a dais in its tier's colour, its requirements, exam and movement at a glance, its place on the class-change ladder, a stats ledger with growth bars, and mastery rewards set apart.
 
 ## 1.2.9 (2026-11-01)

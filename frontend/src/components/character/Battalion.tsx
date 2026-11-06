@@ -3,14 +3,15 @@
  * name, endurance, description, the eight modifiers) beside its gambit (icon, name, uses, description, Mt, Hit and the
  * tiles it hits).
  *
- * The app shows only what it has: the player's import (data/battalions.json) and what's read from game memory.
- * Anything missing shows "—" with the reason, never a made-up value. The assignment itself is read from a memory
- * location that isn't confirmed yet, so it's marked as unconfirmed.
+ * The app shows only what it has: the player's import (data/battalions.json) and what's read from game memory (the
+ * assignment, its experience and endurance, and gambit uses left in a battle; docs/battalions.md). The level and its
+ * modifiers follow from the experience and the import. Anything missing shows "—" with the reason, never a made-up
+ * value.
  */
 import type { ReactNode } from "react";
 import { CONCEPT_ICON } from "../../icons/concepts";
-import { canonical } from "../../fuzzy";
-import type { Unit } from "../../api";
+import { battalionLevel, battalionReference } from "../../reference/battalions";
+import type { BattleUnit, Unit } from "../../api";
 import { BATTALION_STAT_KEYS, BATTALION_STAT_LABEL, useReference } from "../../reference/types";
 import type { Battalion, BattalionStatKey, GambitArea } from "../../reference/types";
 import { GameImage } from "../GameImage";
@@ -18,25 +19,30 @@ import { Icon } from "../Icon";
 import { BattalionLink } from "../Links";
 import "./character.css";
 
-export const UNCONFIRMED_BATTALION =
-  "Read from game memory at a place that isn't confirmed yet, so it may be wrong. Check it in game.";
 const NOT_IMPORTED = "Not in your imported game files yet.";
 const NOT_READ = "Not read from the game yet.";
+const NOT_RECORDED = "Not recorded for this battle.";
+const SPENT = "No endurance left: the unit gets none of these until the battalion is replenished.";
 
 /** The import's entry for a battalion name (matched loosely, as names saved by older versions may differ). */
-export function useBattalion(name: string | null | undefined): Battalion | undefined {
+export function useBattalion(name: string | null | undefined, id?: number | null): Battalion | undefined {
   const ref = useReference();
-  const list = ref?.battalions ?? [];
-  if (!name || !list.length) return undefined;
-  const known = canonical(name, list.map((b) => b.name));
-  return known ? list.find((b) => b.name === known) : undefined;
+  return battalionReference(ref?.battalions ?? [], name, id);
+}
+
+/** Archive routes use names, so don't link an unresolved identity or a name shared by different rows. */
+function BattalionName({ entry, name }: { entry?: Battalion; name: string }) {
+  const ref = useReference();
+  const ambiguous = ref?.battalions?.some((other) => other !== entry && other.name === entry?.name);
+  return entry && !ambiguous ? <BattalionLink name={entry.name} /> : <>{name}</>;
 }
 
 /** A compact badge for the hero: the flag, the name (linked to the Archive) and its endurance. `name` is the unit's
  * assignment: undefined when it hasn't been read, "" for none. */
-export function BattalionBadge({ unit }: { unit: Pick<Unit, "battalion" | "battalion_endurance" | "battalion_endurance_max"> | undefined }) {
-  const name = unit?.battalion;
-  const entry = useBattalion(name);
+export function BattalionBadge({ unit }: { unit: Pick<Unit, "battalion" | "battalion_id" | "battalion_endurance"> | undefined }) {
+  const assigned = unit?.battalion;
+  const entry = useBattalion(assigned, unit?.battalion_id);
+  const name = entry?.name ?? assigned;
   if (name === undefined || name === null) {
     return (
       <span className="cv-battalion none" title="Battalions are read from game memory; this unit hasn't been read with one yet.">
@@ -53,20 +59,19 @@ export function BattalionBadge({ unit }: { unit: Pick<Unit, "battalion" | "batta
       </span>
     );
   }
-  const max = unit?.battalion_endurance_max ?? entry?.endurance;
+  const max = entry?.endurance;
   const now = unit?.battalion_endurance;
   return (
     <span className="cv-battalion" title={entry?.description || name}>
       <BattalionIcon entry={entry} size="sm" />
       <span className="cv-battalion-name">
-        <BattalionLink name={name} />
+        <BattalionName entry={entry} name={name} />
       </span>
       {max !== undefined && max !== null && (
         <span className="cv-battalion-end" title={now === undefined || now === null ? "Endurance; what's left isn't read yet" : "Endurance left of most"}>
           {now === undefined || now === null ? `End ${max}` : `${now}/${max}`}
         </span>
       )}
-      <span className="cv-unconfirmed" title={UNCONFIRMED_BATTALION} aria-label="Unconfirmed">?</span>
     </span>
   );
 }
@@ -91,54 +96,55 @@ const Missing = ({ why }: { why: string }) => (
   </span>
 );
 
+type BattalionState = Pick<BattleUnit, "battalion" | "battalion_id" | "battalion_exp" | "battalion_endurance" | "gambit_uses">;
+
 /**
- * The battalion panel. `unit` is the run's unit (its assignment and what's been read of it); `scope` says whether it
- * sits in a battle window (the figures are still the run's, as last read), the Roster, or the Archive ("reference":
- * the battalion itself, `name`, with no unit).
+ * The battalion panel. `unit` is the selected battle's recorded assignment or the run's last-read unit, according
+ * to `scope`. The Archive ("reference") supplies the battalion itself, `name`, with no unit.
  */
-export function BattalionPanel({ unit, name: given, scope }: { unit?: Unit; name?: string; scope: "battle" | "run" | "reference" }) {
-  const name = given ?? unit?.battalion;
-  const entry = useBattalion(name);
+export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionState; name?: string; scope: "battle" | "run" | "reference" }) {
+  const assigned = given ?? unit?.battalion;
+  const entry = useBattalion(assigned, given === undefined ? unit?.battalion_id : undefined);
+  const name = entry?.name ?? assigned;
   const general = scope === "reference";
-  if (name === undefined || name === null) return <p className="muted">{unit ? NOT_READ : "Battalions are tracked for your units."}</p>;
+  if (name === undefined || name === null) return <p className="muted">{scope === "battle" ? "Battalion assignment unknown: not recorded for this battle." : unit ? NOT_READ : "Battalions are tracked for your units."}</p>;
   if (!name) return <p className="muted">No battalion assigned.</p>;
 
-  const level = unit?.battalion_level ?? null;
-  const read = unit?.battalion_stats ?? null;
-  const imported = level !== null && entry?.stats_by_level?.[level - 1] ? entry.stats_by_level[level - 1] : entry?.stats;
-  const importedAt = level !== null && entry?.stats_by_level?.[level - 1] ? `at level ${level}` : "at level 1";
+  const unread = scope === "battle" ? NOT_RECORDED : NOT_READ;
+  const progress = general ? null : battalionLevel(unit?.battalion_exp);
+  const level = progress?.level ?? null;
+  const atLevel = level !== null ? entry?.stats_by_level?.[level - 1] : undefined;
+  const imported = atLevel ?? entry?.stats;
+  const importedAt = atLevel ? `at level ${level}` : "at level 1";
+  const enduranceMax = entry?.endurance;
+  const enduranceNow = general ? undefined : unit?.battalion_endurance;
+  const spent = enduranceNow === 0;
   const stat = (k: BattalionStatKey): ReactNode => {
-    const r = read?.[k];
-    if (r) {
-      return (
-        <>
-          <span className={`bp-val ${tone(r.value)}`}>{signed(r.value)}</span>
-          {r.adjust !== undefined && r.adjust !== 0 && (
-            <span className={`bp-adj ${tone(r.adjust)}`} title="The panel's separate adjustment">
-              <Icon name={CONCEPT_ICON.next} />
-              {signed(r.adjust)}
-            </span>
-          )}
-        </>
-      );
-    }
     const v = imported?.[k];
-    if (v !== undefined) return <span className={`bp-val ${tone(v)}`} title={`From your imported game files, ${importedAt}`}>{signed(v)}</span>;
-    return <Missing why={`${BATTALION_STAT_LABEL[k]}: ${NOT_IMPORTED}`} />;
+    if (v === undefined) return <Missing why={`${BATTALION_STAT_LABEL[k]}: ${NOT_IMPORTED}`} />;
+    return spent
+      ? <span className="bp-val even spent" title={SPENT}>{signed(v)}</span>
+      : <span className={`bp-val ${tone(v)}`} title={`From your imported game files, ${importedAt}`}>{signed(v)}</span>;
   };
-  const enduranceMax = unit?.battalion_endurance_max ?? entry?.endurance;
-  const enduranceNow = unit?.battalion_endurance;
   const g = entry?.gambit;
-  const usesMax = unit?.gambit_uses_max ?? g?.uses;
-  const usesNow = unit?.gambit_uses;
+  const usesMax = g?.uses;
+  // Between battles the game has refilled them: a run whose battalion state was read shows them full.
+  const refilled = scope === "run" && (unit?.gambit_uses === undefined || unit?.gambit_uses === null) && progress !== null;
+  const usesNow = refilled ? usesMax : unit?.gambit_uses;
   const missingParts = [
     !entry?.icon && "battalion icon",
     !general && (enduranceNow === undefined || enduranceNow === null) && "endurance left",
-    !read && !imported && "modifiers",
+    !imported && "modifiers",
     !g && "gambit",
     g && !g.icon && "gambit icon",
     !general && g && (usesNow === undefined || usesNow === null) && "gambit uses left",
     g && !g.area && "gambit area",
+  ].filter(Boolean) as string[];
+  const notes = general ? [] : [
+    scope === "battle" && "Assignment recorded for this battle.",
+    spent && SPENT,
+    imported && level === null && `Modifiers are level 1 reference values; the battalion level is ${scope === "battle" ? "not recorded for this battle" : "not read"}.`,
+    missingParts.length > 0 && `Not available yet: ${missingParts.join(", ")}.`,
   ].filter(Boolean) as string[];
 
   return (
@@ -147,14 +153,19 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: Unit; name
         <header className="bp-head">
           <BattalionIcon entry={entry} />
           <h4 className="bp-name">
-            <BattalionLink name={name} />
-            {level !== null && <span className="bp-level">Lv {level}</span>}
+            <BattalionName entry={entry} name={name} />
+            {progress ? (
+              <span className="bp-level" title={progress.level === 5 ? "Battalion level (the highest)" : "Battalion level, and experience toward the next (100 a level)"}>
+                Lv {progress.level}
+                {progress.level < 5 ? <span className="bp-exp">Exp {progress.exp}</span> : null}
+              </span>
+            ) : null}
           </h4>
-          <span className="bp-gauge" title={general ? "Endurance" : "Endurance left of most"}>
+          <span className={`bp-gauge${spent ? " spent" : ""}`} title={general ? "Endurance" : "Endurance left of most"}>
             <span className="bp-gauge-label">Endurance</span>
             <span className="bp-gauge-num">
               {!general && <>
-                {enduranceNow ?? <Missing why={`Endurance left: ${NOT_READ}`} />}
+                {enduranceNow ?? <Missing why={`Endurance left: ${unread}`} />}
                 <span className="bp-of">/</span>
               </>}
               {enduranceMax ?? <Missing why={`Endurance: ${NOT_IMPORTED}`} />}
@@ -175,11 +186,11 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: Unit; name
         <header className="bp-head">
           <BattalionIcon entry={g} gambit />
           <h4 className="bp-name">{g ? g.name : <span className="muted">Gambit</span>}</h4>
-          <span className="bp-gauge" title={general ? "Uses per battle" : "Uses left of most"}>
+          <span className="bp-gauge" title={general ? "Uses per battle" : refilled ? "Uses per battle: the game refills them after every battle" : "Uses left of most"}>
             <span className="bp-gauge-label">Uses</span>
             <span className="bp-gauge-num">
               {!general && <>
-                {usesNow ?? <Missing why={`Uses left: ${NOT_READ}`} />}
+                {usesNow ?? <Missing why={`Uses left: ${unread}`} />}
                 <span className="bp-of">/</span>
               </>}
               {usesMax ?? <Missing why={`Uses: ${NOT_IMPORTED}`} />}
@@ -197,17 +208,10 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: Unit; name
         </div>
       </section>
       {general ? (
-        missingParts.length > 0 && <p className="bp-note">Not in your imported game files yet: {missingParts.join(", ")}.</p>
-      ) : (
-        <p className="bp-note">
-          <span className="cv-unconfirmed" aria-hidden>?</span>
-          <span>
-            {scope === "battle" ? "The run's battalion as last read, not just this battle's. " : ""}
-            {UNCONFIRMED_BATTALION}
-            {missingParts.length > 0 && ` Not available yet: ${missingParts.join(", ")}.`}
-          </span>
-        </p>
-      )}
+        missingParts.length > 0 ? <p className="bp-note">Not in your imported game files yet: {missingParts.join(", ")}.</p> : null
+      ) : notes.length > 0 ? (
+        <p className="bp-note">{notes.join(" ")}</p>
+      ) : null}
     </div>
   );
 }

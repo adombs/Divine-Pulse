@@ -25,6 +25,7 @@ from dataclasses import dataclass, field
 from ..domain.combat import EQUIPPED_SPELL as EQUIPPED_SPELL
 from ..system import MEMORY_ACCESS_HELP
 from ..system.memory import AccessDenied, ProcessMemory, open_process
+from ..domain.battalions import valid_endurance, valid_exp, valid_uses
 from ..domain.units import SkillProgress
 from .emulators import EMULATORS, Emulator, MemoryLayout, names, running
 from .skills import decode_skill_progress
@@ -55,13 +56,20 @@ PLAYER_NAME_SIZE = 0x40
 
 # Slot fields
 _ITEMS = 0x00  # 6 x (u16 item ID, u16 uses)
-# The assigned battalion: a u16 at _BATTALION_SLOT (NO_BATTALION = none) and its ID (u8, data/battalions.json:
-# 0 Church of Seiros Soldiers, 1 Seiros Mercenaries ...) at _BATTALION. Seen live: assigning Church of
-# Seiros Soldiers to Byleth and Seiros Mercenaries to Claude set the IDs to 0 and 1; unassigned slots keep stale bytes.
+# The equipped battalion, 8 bytes (hashcade/feth-save-editor's Battalion struct, embedded at +0x18): u16 owner
+# marker (0xFFFF = none), u16 cumulative experience, u16 endurance left, u8 battalion ID, u8 gambit ID. Checked live
+# (1.2.0, docs/battalions.md): Seiros Pegasus Co. -> Almyra Mercenaries -> none -> Seiros Pegasus Co. matched the IDs
+# and the marker; using Assembly and taking damage moved experience 0 -> 46 -> 115 (level 2, Exp 15) and endurance
+# 60 -> 51 in the battle copy, while the roster slot kept the values from before the battle.
 _BATTALION_SLOT = 0x18
+_BATTALION_EXP = 0x1A
+_BATTALION_ENDURANCE = 0x1C
 _BATTALION = 0x1E
+_BATTALION_END = 0x20
 NO_BATTALION = 0xFFFF
-BATTALIONS = 200
+# Battle copies only: the gambit uses left (u8). Seen live dropping 2 -> 1 -> 0 as Assembly was used, apart from the
+# acted flags; 0 with no battalion. The game refills them after every battle.
+GAMBIT_USES = 0xF5
 _CHARACTER = 0x24  # u16; 0xFFFF = empty slot
 _LEVEL = 0x4A
 _CLASS = 0x4B
@@ -101,7 +109,7 @@ IN_ARMY = 0x03
 # Battle copies have the slot layout (up to the flags) and sit this far after this marker.
 BATTLE_MARKER = b"\x04\x03\x00\x00\x00\x00\x00\x00\x00"
 BATTLE_MARKER_TO_COPY = 0x14
-BATTLE_COPY_READ = _BATTLES + 2
+BATTLE_COPY_READ = GAMBIT_USES + 1
 # After a battle starts, look for its copies this many times, this far apart, until they're found.
 BATTLE_SCANS = 3
 BATTLE_RESCAN_S = 10.0
@@ -135,6 +143,9 @@ class RosterUnit:
     equipped: int | None = None  # raw equipped field; EQUIPPED_WEAPON means item slot zero
     item_slot_0: int | None = None  # raw item ID at inventory slot zero, before empty slots are compacted
     skills: dict[str, SkillProgress] = field(default_factory=dict)
+    # The assigned battalion's cumulative experience and endurance left (None with no battalion).
+    battalion_exp: int | None = None
+    battalion_endurance: int | None = None
 
 
 def decode_roster(data: bytes) -> list[RosterUnit]:
@@ -155,7 +166,7 @@ def decode_roster(data: bytes) -> list[RosterUnit]:
             for spell, uses in zip(s[_SPELL_IDS : _SPELL_IDS + SPELL_SLOTS], s[_SPELL_USES : _SPELL_USES + SPELL_SLOTS])
             if spell < NO_SPELL
         )
-        battalion = s[_BATTALION] if struct.unpack_from("<H", s, _BATTALION_SLOT)[0] != NO_BATTALION and s[_BATTALION] < BATTALIONS else None
+        battalion, battalion_exp, battalion_endurance = decode_battalion(s)
         units.append(
             RosterUnit(
                 character, s[_LEVEL], s[_CLASS], raw, abilities, accessory, decode_arts(s), carried, spells,
@@ -163,9 +174,27 @@ def decode_roster(data: bytes) -> list[RosterUnit]:
                 struct.unpack_from("<H", s, _EQUIPPED)[0],
                 struct.unpack_from("<H", s, _ITEMS)[0] if struct.unpack_from("<H", s, _ITEMS)[0] != EMPTY_SLOT else None,
                 decode_skill_progress(s),
+                battalion_exp,
+                battalion_endurance,
             )
         )
     return units
+
+
+def decode_battalion(record: bytes) -> tuple[int | None, int | None, int | None]:
+    """The equipped battalion of a roster slot or battle record: (ID, cumulative experience, endurance left), all None
+    with no battalion. Experience or endurance the game can't hold reads as None (unknown), not as a value."""
+    if struct.unpack_from("<H", record, _BATTALION_SLOT)[0] == NO_BATTALION:
+        return None, None, None
+    exp, endurance = struct.unpack_from("<HH", record, _BATTALION_EXP)
+    return record[_BATTALION], valid_exp(exp), valid_endurance(endurance)
+
+
+def gambit_uses(copy: bytes) -> int | None:
+    """Gambit uses left in a battle copy or record; None with no battalion or a value the game can't hold."""
+    if len(copy) <= GAMBIT_USES or struct.unpack_from("<H", copy, _BATTALION_SLOT)[0] == NO_BATTALION:
+        return None
+    return valid_uses(copy[GAMBIT_USES])
 
 
 def _bits(record: bytes, offset: int, count: int) -> tuple[int, ...]:
@@ -221,16 +250,35 @@ def is_ahead(slot: bytes, copy: bytes) -> bool:
 
 def merge_battle(roster: bytes, copies: dict[int, bytes]) -> tuple[bytes, int]:
     """The roster with each unit's live battle copy in place of its slot where the copy is newer.
-    Returns the merged roster and how many units came from the battle."""
+    Returns the merged roster and how many units came from the battle.
+
+    The battalion's experience and endurance change in the copy without any stat changing (using a gambit, taking
+    damage), and the roster keeps the values from before the battle, so they come from every live copy."""
     out = bytearray(roster)
     used = 0
     for i in range(SLOTS):
         slot = roster[i * SLOT_SIZE : (i + 1) * SLOT_SIZE]
         copy = copies.get(struct.unpack_from("<H", slot, _CHARACTER)[0])
-        if copy is not None and is_live_copy(slot, copy) and is_ahead(slot, copy):
+        if copy is None or not is_live_copy(slot, copy):
+            continue
+        if is_ahead(slot, copy):
             out[i * SLOT_SIZE : i * SLOT_SIZE + _FLAGS] = copy[:_FLAGS]
             used += 1
+        elif copy[_BATTALION_SLOT:_BATTALION_END] != slot[_BATTALION_SLOT:_BATTALION_END]:
+            out[i * SLOT_SIZE + _BATTALION_SLOT : i * SLOT_SIZE + _BATTALION_END] = copy[_BATTALION_SLOT:_BATTALION_END]
     return bytes(out), used
+
+
+def battle_gambit_uses(roster: bytes, copies: dict[int, bytes]) -> tuple[tuple[int, int], ...]:
+    """(character ID, gambit uses left) of each army unit in the battle in progress that has a battalion."""
+    found = []
+    for i in range(SLOTS):
+        slot = roster[i * SLOT_SIZE : (i + 1) * SLOT_SIZE]
+        character = struct.unpack_from("<H", slot, _CHARACTER)[0]
+        copy = copies.get(character)
+        if copy is not None and is_live_copy(slot, copy) and (uses := gambit_uses(copy)) is not None:
+            found.append((character, uses))
+    return tuple(sorted(found))
 
 
 def in_battle(roster: bytes, copies: dict[int, bytes]) -> tuple[int, ...]:
@@ -257,6 +305,8 @@ class Snapshot:
     start_counts: tuple[tuple[int, int, int], ...] = ()
     # The story's scenario id (a main-story chapter: 11 = Conflict in the Holy Tomb), also read between battles.
     scenario: int | None = None
+    # (character ID, gambit uses left) for the units in the battle in progress that have a battalion.
+    gambit_uses: tuple[tuple[int, int], ...] = ()
 
 
 class GameMemory:
@@ -341,7 +391,10 @@ class GameMemory:
             character = struct.unpack_from("<H", slot, _CHARACTER)[0]
             if character in fighting:
                 start.append((character, *struct.unpack_from("<HH", slot, _COMBATS)))
-        return Snapshot(merged, snapshot.player_name, used, fighting, key, tuple(start), snapshot.scenario)
+        return Snapshot(
+            merged, snapshot.player_name, used, fighting, key, tuple(start), snapshot.scenario,
+            battle_gambit_uses(roster, copies),
+        )
 
     def battle_units(self) -> list:
         """Every unit on the battle map (gamemem.battle.BattleUnit), read around the army's battle copies.

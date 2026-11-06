@@ -73,6 +73,14 @@ class Unit(BaseModel):
     learned_abilities: list[str] = Field(default_factory=list)
     learned_arts: list[str] = Field(default_factory=list)
     battalion: str = ""
+    # The battalion's ID in the import: distinguishes duplicate names and survives language changes.
+    battalion_id: int | None = Field(default=None, ge=0, le=255)
+    # Its runtime state as last read (docs/battalions.md); None when not read (older runs, or no battalion):
+    # cumulative experience (level = exp // 100 + 1), endurance left, and gambit uses left during a battle (None
+    # between battles, when the game has refilled them).
+    battalion_exp: int | None = Field(default=None, ge=0, le=400)
+    battalion_endurance: int | None = Field(default=None, ge=0)
+    gambit_uses: int | None = Field(default=None, ge=0)
     skills: dict[SkillKey, SkillProgress] = Field(default_factory=dict)
     source: Literal["scan", "memory", "manual"] = "manual"
     game_id: int | None = Field(default=None, ge=0)

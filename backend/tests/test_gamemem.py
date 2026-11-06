@@ -318,6 +318,54 @@ def test_battle_copies_that_are_not_newer_are_ignored():
     assert fe3h.merge_battle(ROSTER, {22: battle_copy(slot_index=3)}) == (ROSTER, 0)
 
 
+def with_battalion(record: bytes, ident=5, exp=0, endurance=60, uses: int | None = None) -> bytes:
+    out = bytearray(record)
+    struct.pack_into("<HHHB", out, 0x18, 0, exp, endurance, ident)
+    if uses is not None:
+        out[fe3h.GAMBIT_USES] = uses
+    return bytes(out)
+
+
+def test_battalion_runtime_comes_from_the_live_copy_even_without_stat_growth():
+    at = LYSITHEA * fe3h.SLOT_SIZE
+    roster = ROSTER[:at] + with_battalion(ROSTER[at : at + fe3h.SLOT_SIZE]) + ROSTER[at + fe3h.SLOT_SIZE :]
+    # Before anything happens: the roster's values, uses from the copy.
+    copy = with_battalion(battle_copy(level_up=False), uses=2)
+    merged, used = fe3h.merge_battle(roster, {22: copy})
+    assert used == 0 and (lysithea(merged).battalion_exp, lysithea(merged).battalion_endurance) == (0, 60)
+    assert fe3h.battle_gambit_uses(roster, {22: copy}) == ((22, 2),)
+    # A gambit used: experience and uses change in the copy only, no stat grows (the roster keeps 0 / 60).
+    copy = with_battalion(battle_copy(level_up=False), exp=46, uses=1)
+    merged, used = fe3h.merge_battle(roster, {22: copy})
+    assert used == 0 and lysithea(roster).battalion_exp == 0
+    u = lysithea(merged)
+    assert (u.battalion, u.battalion_exp, u.battalion_endurance) == (5, 46, 60)
+    assert u.raw == lysithea(roster).raw and u.level == lysithea(roster).level
+    assert fe3h.battle_gambit_uses(roster, {22: copy}) == ((22, 1),)
+    # Damage taken and a level-up of the unit too: level 2 battalion, endurance 51, no uses left.
+    copy = with_battalion(battle_copy(), exp=115, endurance=51, uses=0)
+    merged, used = fe3h.merge_battle(roster, {22: copy})
+    assert used == 1 and (lysithea(merged).battalion_exp, lysithea(merged).battalion_endurance) == (115, 51)
+    assert fe3h.battle_gambit_uses(roster, {22: copy}) == ((22, 0),)
+    # A copy from another battle gives nothing, not even battalion values.
+    stale = with_battalion(battle_copy(level_up=False, counter_behind=0), exp=300, uses=0)
+    assert fe3h.merge_battle(roster, {22: stale}) == (roster, 0)
+    assert fe3h.battle_gambit_uses(roster, {22: stale}) == ()
+
+
+def test_decodes_the_battalion_runtime_and_rejects_impossible_values():
+    slot = ROSTER[LYSITHEA * fe3h.SLOT_SIZE : (LYSITHEA + 1) * fe3h.SLOT_SIZE]
+    assert fe3h.decode_battalion(slot) == (None, None, None)  # 0xFFFF: no battalion, whatever the other bytes say
+    assert fe3h.gambit_uses(with_battalion(slot, uses=2)) == 2
+    assert fe3h.decode_battalion(with_battalion(slot, exp=115, endurance=51)) == (5, 115, 51)
+    # More experience than the cap or a huge endurance: unknown, not a value.
+    assert fe3h.decode_battalion(with_battalion(slot, exp=401, endurance=0xFFFE)) == (5, None, None)
+    assert fe3h.gambit_uses(with_battalion(slot, uses=200)) is None
+    none = bytearray(with_battalion(slot, uses=3))
+    struct.pack_into("<H", none, 0x18, 0xFFFF)
+    assert fe3h.gambit_uses(bytes(none)) is None
+
+
 HEAP = 0x2_0000_0000
 
 

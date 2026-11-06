@@ -63,6 +63,16 @@ class BattleUnitStats(BaseModel):
     inventory: list[InventoryItem] = Field(default_factory=list)  # its items, then its spells, as last read
     accessory: str | None = None  # equipped roster accessory, when known
     arts: list[str] = Field(default_factory=list)  # equipped combat arts, as last read
+    # The battalion assignment observed for this battle, never filled from today's roster on load.
+    # None = not recorded/unknown (including old files); "" = observed without an assignment.
+    battalion: str | None = None
+    battalion_id: int | None = Field(default=None, ge=0, le=255)
+    # Its state in this battle, as last read (None = not recorded: older files, or not read): cumulative experience,
+    # endurance left, gambit uses left. `start`/`now` leave out the battalion's Charm, so spent endurance isn't a
+    # stat loss.
+    battalion_exp: int | None = Field(default=None, ge=0, le=400)
+    battalion_endurance: int | None = Field(default=None, ge=0)
+    gambit_uses: int | None = Field(default=None, ge=0)
     # What it used, most used first, from the game's history (None = not tracked: the history couldn't be read).
     usage: list[Usage] | None = None
     hp: int | None = None  # current HP (None until read)
@@ -376,6 +386,11 @@ class ArmySample:
     accessory: str | None = None
     equipped_accessory_id: int | None = None
     look: str | None = None  # retained roster look for auxiliary/paralogue scenarios
+    battalion: str | None = None  # the assignment ("" none, None unknown), as for BattleUnitStats
+    battalion_id: int | None = None
+    battalion_exp: int | None = None  # as for BattleUnitStats
+    battalion_endurance: int | None = None
+    gambit_uses: int | None = None
 
 
 @dataclass(frozen=True)
