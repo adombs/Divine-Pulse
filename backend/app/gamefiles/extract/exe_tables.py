@@ -1,7 +1,8 @@
 """Tables read from the main executable, and the icons that need them.
 
 Writes data/exe/item-icons.json, plus
-images/icons/abilities/<ability id>.png, crests/<crest id>.png and items-native/<sprite id hex>.png.
+images/icons/abilities/<ability id>.png, crests/<crest id>.png, battalions/<battalion id>.png, gambits/<gambit id>.png
+and items-native/<sprite id hex>.png.
 
 How the icons are found:
 - The icon rectangle table (main+0xD52D60, 725 records, id == index) is indexed by sprite id; it points into atlas 6026.
@@ -10,6 +11,8 @@ How the icons are found:
   tile origins are listed here as coordinates (DLC_ABILITY_TILES), the way the game's own table would.
 - Items, weapons, spells and equipment pick their sprite with the selector at main+0x5D2A20 (item_sprite_id).
 - A crest id 0-21 is sprite 0x7A + id (the Dragon Sign selector), 96 px tiles of atlas 6026 texture 1.
+- A gambit's icon is sprite 0x23B (physical), 0x23C (magic) or 0x23D (support), picked from its fixed_data section 3 row
+  by the selector at main+0x5D9B10 (gambit_sprite_id); images/icons/gambits/<gambit id>.png.
 
 """
 
@@ -82,6 +85,20 @@ def battalion_sprite_id(row: bytes) -> int:
     base = 0x22B if rank < 2 else 0x233 if rank < 4 else 0x237
     movement = 3 if flags & 8 else 2 if flags & 4 else 1 if flags & 2 else 0
     return base + movement
+
+
+GAMBIT_SECTION = 3
+GAMBIT_PHYSICAL, GAMBIT_SUPPORT = 0x23B, 0x23D
+GAMBIT_SUPPORT_EFFECTS = 0x36DCB  # bit (effect - 1) set: a support gambit
+
+
+def gambit_sprite_id(row: bytes) -> int:
+    """Gambit icon selector at main+0x5D9B10: support for the effects in the mask (row +0x04), else physical or magic
+    by the magic flag (row +0x16 bit 0)."""
+    effect = row[4]
+    if 1 <= effect <= 0x12 and GAMBIT_SUPPORT_EFFECTS >> (effect - 1) & 1:
+        return GAMBIT_SUPPORT
+    return GAMBIT_PHYSICAL + (row[0x16] & 1)
 
 
 def _rows(ctx: Context, name: str, section: int) -> list[bytes]:
@@ -174,6 +191,30 @@ def _battalions(ctx: Context, table: list[rects.Rect], atlas: Callable[[int], Im
                       source=f"DATA {ICON_ATLAS} texture {rect.texture} sprite {sprite} (battalion {ident})")
 
 
+def _gambits(ctx: Context, table: list[rects.Rect], atlas: Callable[[int], Image.Image]) -> None:
+    try:
+        rows = _rows(ctx, "fixed_data.bin", GAMBIT_SECTION)
+    except FileNotFoundError:
+        ctx.skip("gambit icons: nx/data/fixed_data.bin is missing")
+        return
+    tiles: dict[int, Image.Image | None] = {}
+    for ident, row in enumerate(rows):
+        if not any(row):
+            continue
+        sprite = gambit_sprite_id(row)
+        if sprite not in tiles:
+            rect = table[sprite] if sprite < len(table) else None
+            try:
+                tiles[sprite] = rect and _crop(atlas(rect.texture), rect)
+            except (ValueError, struct.error):
+                tiles[sprite] = None
+        tile = tiles[sprite]
+        if tile is None or tile.getchannel("A").getbbox() is None:
+            continue
+        ctx.out.image(f"images/icons/gambits/{ident}.png", tile,
+                      source=f"DATA {ICON_ATLAS} texture {table[sprite].texture} sprite {sprite} (gambit {ident})")
+
+
 def _items(ctx: Context, table: list[rects.Rect], atlas: Callable[[int], Image.Image]) -> dict:
     names = _weapon_names(ctx)
     sections = (
@@ -223,6 +264,7 @@ def extract(ctx: Context) -> None:
     _abilities(ctx, table, atlas)
     _crests(ctx, table, atlas)
     _battalions(ctx, table, atlas)
+    _gambits(ctx, table, atlas)
     kinds = _items(ctx, table, atlas)
     ctx.out.json(
         "data/exe/item-icons.json",

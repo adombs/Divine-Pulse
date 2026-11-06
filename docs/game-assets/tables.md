@@ -157,7 +157,9 @@ Several class names occur at two IDs (Lord 6/53, Thief 8/49, Fortress Knight 21/
 ## Extended table fields
 
 The importer exports battalion endurance, eight modifiers and five-level progression from section 11, plus gambit
-parameters from section 3 and maximum uses from section 8. Current level, endurance and remaining uses are not read
+parameters from section 3 and maximum uses from section 8. Section 8 `+0x0A` is the gambit's area shape and section 3
+`+0x04` its effect (support effects centre radius areas on the user and pick the support icon); both are exported as
+the gambit's area and icon, see [Battalion integration](../battalions.md#imported-reference). Current level, endurance and remaining uses are not read
 from memory; see [Battalion integration](../battalions.md). Gift item rows hold price, lost-item flag and owner person id (not exported). Class certification rows hold the seal item, gender,
 selectability and skill rank numbers; the level comes from the tier table. The any-of rule for beginner
 classes with multiple requirements is inferred. Class descriptions are at text index 3554 plus the class id.

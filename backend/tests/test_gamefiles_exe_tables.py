@@ -45,6 +45,19 @@ def test_battalion_sprite_selector_uses_rank_and_movement_flags():
     assert exe_tables.battalion_sprite_id(data) == 0x23A
 
 
+def test_gambit_sprite_selector_uses_effect_and_magic_flag():
+    data = bytearray(24)
+    assert exe_tables.gambit_sprite_id(data) == 0x23B  # physical
+    data[0x16] = 0x19
+    assert exe_tables.gambit_sprite_id(data) == 0x23C  # magic
+    data[4] = 0x0E
+    assert exe_tables.gambit_sprite_id(data) == 0x23D  # support effect, whatever the flag
+    data[4] = 6
+    assert exe_tables.gambit_sprite_id(data) == 0x23C  # an effect outside the support mask
+    data[4] = 0x13
+    assert exe_tables.gambit_sprite_id(data) == 0x23C  # past the mask's range
+
+
 def test_extract_without_exefs_skips(tmp_path):
     ctx = Context(dump=dump.GameDump(romfs=tmp_path), out=Output(tmp_path / "out"), log=lambda _: None)
     ctx.__dict__["main"] = None
