@@ -10,7 +10,7 @@
 import type { ReactNode } from "react";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { battalionReference } from "../../reference/battalions";
-import type { Unit } from "../../api";
+import type { BattleUnit, Unit } from "../../api";
 import { BATTALION_STAT_KEYS, BATTALION_STAT_LABEL, useReference } from "../../reference/types";
 import type { Battalion, BattalionStatKey, GambitArea } from "../../reference/types";
 import { GameImage } from "../GameImage";
@@ -96,17 +96,19 @@ const Missing = ({ why }: { why: string }) => (
   </span>
 );
 
+type BattalionState = Pick<BattleUnit, "battalion" | "battalion_id"> & Pick<Unit,
+  "battalion_level" | "battalion_endurance" | "battalion_endurance_max" | "battalion_stats" | "gambit_uses" | "gambit_uses_max">;
+
 /**
- * The battalion panel. `unit` is the run's unit (its assignment and what's been read of it); `scope` says whether it
- * sits in a battle window (the figures are still the run's, as last read), the Roster, or the Archive ("reference":
- * the battalion itself, `name`, with no unit).
+ * The battalion panel. `unit` is the selected battle's recorded assignment or the run's last-read unit, according
+ * to `scope`. The Archive ("reference") supplies the battalion itself, `name`, with no unit.
  */
-export function BattalionPanel({ unit, name: given, scope }: { unit?: Unit; name?: string; scope: "battle" | "run" | "reference" }) {
+export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionState; name?: string; scope: "battle" | "run" | "reference" }) {
   const assigned = given ?? unit?.battalion;
   const entry = useBattalion(assigned, given === undefined ? unit?.battalion_id : undefined);
   const name = entry?.name ?? assigned;
   const general = scope === "reference";
-  if (name === undefined || name === null) return <p className="muted">{unit ? NOT_READ : "Battalions are tracked for your units."}</p>;
+  if (name === undefined || name === null) return <p className="muted">{scope === "battle" ? "Battalion assignment unknown: not recorded for this battle." : unit ? NOT_READ : "Battalions are tracked for your units."}</p>;
   if (!name) return <p className="muted">No battalion assigned.</p>;
 
   const candidateLevel = unit?.battalion_level;
@@ -209,9 +211,9 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: Unit; name
         <p className="bp-note">
           <span className="cv-unconfirmed" aria-hidden>?</span>
           <span>
-            {scope === "battle" ? "The run's battalion as last read, not just this battle's. " : ""}
+            {scope === "battle" ? "Assignment recorded for this battle. " : ""}
             {UNCONFIRMED_BATTALION}
-            {!read && imported && level === null && " Modifiers are level 1 reference values; the current battalion level is not read."}
+            {!read && imported && level === null && " Modifiers are level 1 reference values; the battalion level is not read."}
             {missingParts.length > 0 && ` Not available yet: ${missingParts.join(", ")}.`}
           </span>
         </p>

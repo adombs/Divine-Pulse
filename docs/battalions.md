@@ -15,9 +15,11 @@ or selected game language changes, even if the roster bytes have not changed.
 
 New battle unit payloads retain `battalion` and `battalion_id` independently of later roster updates, including saved
 battles and run/battle export and import. Null means the assignment was not recorded or was unknown; empty string
-means observed without an assignment. Older battles are not backfilled from today's roster. The existing battle
-character panel still displays the run's last-read assignment, as its note states; the separate recorded fields are
-available to historical views without manufacturing a gambit action or replay step.
+means observed without an assignment. The This Battle character panel uses that battle's recorded assignment;
+This Run keeps the current roster assignment. Older battles show an unknown assignment and are never backfilled
+from today's roster. Reference details still resolve by the recorded ID first, including translated names; runtime
+level, endurance and remaining gambit uses are not copied from the roster into historical panels. These recorded
+assignments do not manufacture a gambit action or replay step.
 
 ## Evidence boundary
 
