@@ -1,7 +1,7 @@
 import { CONCEPT_ICON } from "../icons/concepts";
 import "./character/panels.css";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { IconButton } from "./Icon";
+import { Icon, IconButton } from "./Icon";
 import { api, LABELS, PortraitGender, RunSummary, STAT_KEYS, StatKey, Unit, VALUE_KEYS, ValueKey } from "../api";
 import { characterKeyOfUnit, isByleth } from "../portraits";
 import { useNav } from "../nav";
@@ -282,7 +282,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
           </FilterMenu>
           {battleKeys.length > 0 && (
             <span className="battle-filter" title="Units in the battle in progress, read from game memory">
-              <Switch checked={battleOnly} onChange={onBattleOnly} label={`In battle · ${battleKeys.length}`} />
+              <span className="filter-label"><Icon name={CONCEPT_ICON.battle} /><Switch checked={battleOnly} onChange={onBattleOnly} label={`In battle · ${battleKeys.length}`} /></span>
             </span>
           )}
           {units.length > 0 && (

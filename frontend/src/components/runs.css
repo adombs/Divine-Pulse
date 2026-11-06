@@ -1,0 +1,68 @@
+/* Runs and its Updates view retain the shared banners, type and link states. */
+.runs-page .page-status { overflow-wrap: anywhere; }
+.runs-page .new-run { display: grid; gap: 0.45rem; margin-bottom: 1rem; }
+.runs-page .new-run > label { font-weight: 600; }
+.runs-page .runs-create-row { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+.runs-page .runs-create-row input { flex: 1 1 14rem; width: 0; }
+.runs-page .runs-create-row .btn { flex: 0 0 auto; }
+.runs-page .runs-transfer-actions { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 0.2rem; }
+.runs-page .new-run .field-hint { margin: 0; }
+
+.runs-page .list-row { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 0.3rem 0.7rem; padding: 0.7rem; }
+.runs-page .runs-list-lead { grid-row: 1 / span 2; width: 3.5rem; display: grid; justify-items: center; align-content: center; gap: 0.35rem; }
+.runs-page .runs-list-lead .crest { width: 1.5rem; height: 1.9rem; align-self: center; }
+.runs-page .runs-list-lead .crest-mark { width: 1rem; height: 1.2rem; }
+.runs-page .list-row-title { min-width: 0; overflow-wrap: anywhere; font-size: 1.1rem; line-height: 1.25; }
+.runs-page .list-row > .list-row-facts { grid-column: 2; font-size: 0.95rem; gap: 0.2rem 0.8rem; }
+.runs-page .list-row .status-chip { font-size: 0.7rem; letter-spacing: 0; }
+
+.runs-page .unit-card .name-banner { height: auto; min-height: 3.2rem; padding-block: 0.45rem; gap: 0.7rem; }
+.runs-page .unit-card .banner-title { white-space: normal; overflow-wrap: anywhere; font-size: 1.5rem; }
+.runs-page .unit-card .name-banner > .crest { align-self: center; }
+.runs-page .unit-card .banner-actions { flex: none; align-self: flex-start; }
+.runs-page .facts { width: 100%; max-width: none; grid-template-columns: 5.5rem minmax(0, 1fr); margin: 0.45rem 0 0; }
+.runs-page .facts :is(dt, dd) { padding-block: 0.4rem; }
+.runs-page .facts dd { min-width: 0; white-space: normal; overflow: visible; overflow-wrap: anywhere; text-align: right; }
+.runs-page .facts code { overflow-wrap: anywhere; white-space: normal; }
+.runs-page .rename input { min-width: 0; flex-basis: 14rem; }
+.runs-page .runs-battle-overview > .sec-head { margin-top: 1.2rem; }
+.runs-page .runs-battle-overview { container: runs-battles / inline-size; }
+.runs-page .runs-battle-overview .tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.45rem; margin: 0.6rem 0 0.8rem; }
+.runs-page .runs-battle-overview .tile { padding: 0.6rem 0.75rem; gap: 0.15rem; }
+.runs-page .runs-battle-overview .tile-label { font-size: 0.9rem; text-transform: none; letter-spacing: 0; }
+.runs-page .runs-battle-overview .tile-value { font-size: 1.65rem; }
+.runs-page .runs-battle-overview .tile-note { font-size: 0.9rem; }
+.runs-page .run-battles { gap: 0; margin: 0; }
+.runs-page .run-battles li { display: grid; gap: 0.3rem; padding: 0.65rem 0; border-bottom: 1px solid var(--line); }
+.runs-page .runs-battle-heading { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem 0.8rem; }
+.runs-page .runs-battle-heading time { font-weight: 600; font-variant-numeric: tabular-nums; }
+.runs-page .run-battles .list-row-facts { font-size: 0.95rem; gap: 0.2rem 0.8rem; }
+.runs-page .link-row { margin-top: 0.75rem; }
+.runs-page .runs-battle-error { display: grid; justify-items: start; gap: 0.5rem; padding-block: 0.6rem; }
+.runs-page .empty-state { max-width: 52rem; padding: 1.4rem; gap: 0.5rem; background: var(--paper-2); border: 1px solid var(--line); }
+.runs-page .empty-state > div { max-width: 65ch; }
+
+.runs-page .runs-updates .toolbar { margin-bottom: 0.8rem; padding-bottom: 0.65rem; border-bottom: 1px solid var(--line); }
+.runs-page .scan-list { gap: 0.6rem; }
+.runs-page .scan { padding: 0.8rem 1rem; border-left-width: 1px; }
+.runs-page .scan-body { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.35rem 1rem; }
+.runs-page .scan-body > * { grid-column: 1; min-width: 0; overflow-wrap: anywhere; }
+.runs-page .scan-top { gap: 0.35rem 0.65rem; }
+.runs-page .scan-msg { margin: 0; font-size: 1.15rem; line-height: 1.4; max-width: 75ch; }
+.runs-page .scan-body > .ref-link { justify-self: start; text-align: left; }
+.runs-page .scan .warnings { margin: 0.15rem 0; padding-left: 1.2rem; }
+.runs-page .scan-actions { grid-column: 2; grid-row: 1 / span 4; align-self: start; margin: 0; }
+.runs-page .scan-actions:empty { display: none; }
+
+@container runs-battles (min-width: 40rem) {
+  .runs-page .runs-battle-overview .tiles { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (min-width: 1151px) {
+  .runs-page > .roster-layout:not(.single) { grid-template-columns: minmax(0, 0.85fr) minmax(0, 1.4fr); gap: 1.2rem; }
+  .runs-page > .roster-layout.single { max-width: 52rem; }
+  .runs-page .unit-card { padding-left: 1.2rem; }
+  .runs-page .card-main { padding-right: 0.3rem; scrollbar-gutter: stable; }
+  .runs-page:has(> .runs-updates) { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+  .runs-page > .runs-updates { flex: 1 1 auto; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 0.2rem; }
+}

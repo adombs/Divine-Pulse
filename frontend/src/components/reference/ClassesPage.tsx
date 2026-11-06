@@ -15,6 +15,9 @@ import { passes, usePeopleFilters } from "../../filters";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../PeopleFilters";
 import { AbilityLink, ArtLink, CharLink, ClassLink, ItemLink, LinkedDescription } from "../Links";
 import { SkillIcon } from "../SkillIcon";
+import { FilterLabel, GENDER_OPTIONS, SkillFilterLabel } from "../FilterLabel";
+import { StepSlider } from "../Slider";
+import { WEAPON_RANKS, withinWeaponRank, type WeaponRank } from "../../reference/weaponRanks";
 import { SkillChips } from "./SkillChips";
 import {
   Character,
@@ -31,7 +34,7 @@ import {
   Tier,
 } from "../../reference/types";
 import { KeyPortrait, revealCard } from "../ui";
-import { AbilityIcon, ArtIcon, ItemIcon, SpellIcon, WeaponIcon } from "../../reference/icons";
+import { AbilityIcon, ArtIcon, ItemIcon, RefIcon, SpellIcon, WeaponIcon } from "../../reference/icons";
 import { DetailCard, MasterDetail, Section } from "../layout";
 import { artSummary } from "./CharactersPage";
 import { TierIcon, TierLabel, tierMetalStyle } from "./TierIcon";
@@ -41,6 +44,7 @@ import {
   CheckChips,
   CheckList,
   FilterMenu,
+  FilterChip,
   NoMatches,
   RefLink,
   RowCaret,
@@ -116,10 +120,7 @@ function ClassSprite({ c, index, units, data, size }: { c: GameClass; index: Spr
 }
 
 const TIER_OPTIONS = TIERS.map((t) => [t, <TierLabel key={t} tier={t} />] as const);
-const GENDERS = [
-  ["Male", "Men"],
-  ["Female", "Women"],
-] as const;
+const GENDERS = GENDER_OPTIONS;
 
 export type ClassesTab = "classes" | "arts" | "abilities" | "magic" | "weapons" | "items";
 
@@ -748,7 +749,7 @@ function ArtsTable({ data, initial }: { data: ReferenceData; initial: string }) 
     return hit ? hit.name + hit.weapon : null;
   });
   const { sort, header } = useSort<"name" | "weapon" | "might" | "hit" | "crit" | "cost">({ key: "weapon", dir: 1 }, ["name", "weapon"]);
-  const weaponOptions = [...new Set(data.combat_arts.map((a) => a.weapon))].map((w) => [w, w] as const);
+  const weaponOptions = [...new Set(data.combat_arts.map((a) => a.weapon))].map((w) => [w, <SkillFilterLabel key={w} label={w} />] as const);
 
   // Who learns each art: characters (by skill rank), a class mastery, or a budding talent.
   type Learner = { who: string; how: string; skill?: SkillKey; rank?: string; charKey?: string; className?: string };
@@ -869,10 +870,11 @@ function ArtsTable({ data, initial }: { data: ReferenceData; initial: string }) 
 }
 
 const KINDS = [
-  ["class", "Class"],
-  ["skill", "Skill rank"],
-  ["personal", "Personal"],
+  ["class", <FilterLabel key="class" icon={CONCEPT_ICON.classes}>Class</FilterLabel>],
+  ["skill", <FilterLabel key="skill" icon={CONCEPT_ICON.weapon}>Skill</FilterLabel>],
+  ["personal", <FilterLabel key="personal" icon={CONCEPT_ICON.characters}>Personal</FilterLabel>],
 ] as const;
+const KIND_LABEL = { class: "Class", skill: "Skill", personal: "Personal" } as const;
 
 function AbilitiesTable({ data, initial }: { data: ReferenceData; initial: string }) {
   const [filter, setFilter] = useState(initial);
@@ -920,7 +922,7 @@ function AbilitiesTable({ data, initial }: { data: ReferenceData; initial: strin
                   {a.name}
                 </td>
                 <td className="left wrap"><LinkedDescription text={a.description} /></td>
-                <td className="left wrap small">{kindOf(a) || "—"}</td>
+                <td className="left wrap small">{KIND_LABEL[kindOf(a) as keyof typeof KIND_LABEL] || "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -937,7 +939,8 @@ function MagicTable({ data, initial }: { data: ReferenceData; initial: string })
   const { sort, header } = useSort<"name" | "type" | "might" | "hit" | "uses">({ key: "name", dir: 1 }, ["name", "type"]);
   const rows = data.magic.filter((spell) => (!schools.length || schools.includes(spell.type)) && searchMatches(filter, spell.name, spell.type, spell.effect))
     .sort((a, b) => Number(normalize(b.name) === normalize(filter)) - Number(normalize(a.name) === normalize(filter)) || compareValues(a[sort.key], b[sort.key]) * sort.dir);
-  const options = (["Black", "Dark", "White"] as const).map((type) => [type, `${type} magic`] as const);
+  // The game's native selector maps dark-magic skill 7 to sprite 0x203 (exe_tables.item_sprite_id).
+  const options = (["Black", "Dark", "White"] as const).map((type) => [type, <span key={type} className="filter-label"><RefIcon src={type === "Dark" ? "images/icons/items-native/203.png" : `images/icons/magic/${type.toLowerCase()}.png`} />{type} magic</span>] as const);
   return <>
     <div className="toolbar">
       <SearchBox placeholder="Search spell, school or effect" value={filter} onChange={setFilter} />
@@ -974,26 +977,29 @@ function MagicTable({ data, initial }: { data: ReferenceData; initial: string })
 function InventoryTable({ data, initial, weapons = false }: { data: ReferenceData; initial: string; weapons?: boolean }) {
   const [filter, setFilter] = useState(initial);
   const [types, setTypes] = useState<string[]>([]);
-  const [ranks, setRanks] = useState<string[]>([]);
+  const [maximumRank, setMaximumRank] = useState<WeaponRank | null>(null);
   const [kinds, setKinds] = useState<string[]>([]);
   const [open, setOpen] = useState<string | null>(initial || null);
-  const rankOptions = ["E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+", "S", "S+"].map((r) => [r, r] as const);
-  const typeOptions = [...new Set(data.items.filter((i) => i.kind === "Weapon").map((i) => i.weapon_type ?? "Other"))].sort().map((t) => [t, t] as const);
-  const kindOptions = [...new Set(data.items.filter((i) => i.kind !== "Weapon").map((i) => i.kind))].sort().map((t) => [t, t] as const);
+  const typeOptions = [...new Set(data.items.filter((i) => i.kind === "Weapon").map((i) => i.weapon_type ?? "Other"))].sort().map((t) => [t, <SkillFilterLabel key={t} label={t} />] as const);
+  const kindOptions = [...new Set(data.items.filter((i) => i.kind !== "Weapon").map((i) => i.kind))].sort().map((t) => [t, <FilterLabel key={t} icon={t === "Equipment" ? CONCEPT_ICON.equipment : t === "Item" ? CONCEPT_ICON.item : undefined}>{t}</FilterLabel>] as const);
   const sortKeys = weapons ? ["name", "weapon_type", "rank", "might", "hit", "crit", "weight", "range", "uses"] as const : ["name", "kind"] as const;
   const { sort, header } = useSort<(typeof sortKeys)[number]>({ key: "name", dir: 1 }, ["name", "weapon_type", "rank", "range", "kind"] as (typeof sortKeys)[number][]);
   const rows = data.items.filter((i) => (i.kind === "Weapon") === weapons &&
-    (!weapons || ((!types.length || types.includes(i.weapon_type ?? "Other")) && (!ranks.length || ranks.includes(i.rank ?? "—")))) &&
+    (!weapons || ((!types.length || types.includes(i.weapon_type ?? "Other")) && withinWeaponRank(i.rank, maximumRank))) &&
     (weapons || !kinds.length || kinds.includes(i.kind)) && searchMatches(filter, i.name, i.kind, i.weapon_type ?? "", i.rank ?? "", i.effect ?? ""))
     .sort((a, b) => compareValues((a as unknown as Record<string, string | number>)[sort.key] ?? "", (b as unknown as Record<string, string | number>)[sort.key] ?? "") * sort.dir);
-  const count = weapons ? types.length + ranks.length : kinds.length;
-  const options = weapons ? [...typeOptions, ...rankOptions.map(([r]) => [r, `Rank ${r}`] as const)] : kindOptions;
-  const selected = weapons ? [...types, ...ranks] : kinds;
-  const change = (value: string[]) => weapons ? (setTypes(value.filter((x) => typeOptions.some(([t]) => t === x))), setRanks(value.filter((x) => rankOptions.some(([r]) => r === x)))) : setKinds(value);
+  const count = weapons ? types.length + Number(maximumRank !== null) : kinds.length;
+  const options = weapons ? typeOptions : kindOptions;
+  const selected = weapons ? types : kinds;
+  const change = weapons ? setTypes : setKinds;
   return <>
     <div className="toolbar"><SearchBox placeholder={weapons ? "Search weapon or effect" : "Search item, equipment or effect"} value={filter} onChange={setFilter} />
-      <FilterMenu count={count} onClear={() => { setTypes([]); setRanks([]); setKinds([]); }} chips={<CheckChips options={options} value={selected} onChange={change} />}>
-        {weapons ? <><CheckList label="Weapon type" columns={2} options={typeOptions} value={types} onChange={setTypes} /><CheckList label="Rank" columns={3} options={rankOptions} value={ranks} onChange={setRanks} /></> : <CheckList label="Kind" options={kindOptions} value={kinds} onChange={setKinds} />}
+      <FilterMenu count={count} onClear={() => { setTypes([]); setMaximumRank(null); setKinds([]); }} chips={<><CheckChips options={options} value={selected} onChange={change} />{weapons && maximumRank !== null && <FilterChip onClear={() => setMaximumRank(null)}>Up to rank {maximumRank}</FilterChip>}</>}>
+        {weapons ? <><CheckList label="Weapon type" columns={2} options={typeOptions} value={types} onChange={setTypes} /><fieldset className="checklist weapon-rank-filter">
+          <legend>Weapon rank<button type="button" className="checklist-clear" onClick={() => setMaximumRank(null)} disabled={maximumRank === null}>Any</button></legend>
+          <StepSlider bare label="Maximum weapon rank" stops={WEAPON_RANKS.length + 1} value={maximumRank === null ? WEAPON_RANKS.length : WEAPON_RANKS.indexOf(maximumRank)} onChange={(at) => setMaximumRank(WEAPON_RANKS[at] ?? null)} valueText={maximumRank === null ? "Any rank" : `Up to rank ${maximumRank}`} />
+          <output className="rank-threshold" aria-live="polite">{maximumRank === null ? "Any rank" : `Up to rank ${maximumRank}`}</output>
+        </fieldset></> : <CheckList label="Kind" options={kindOptions} value={kinds} onChange={setKinds} />}
       </FilterMenu><span className="muted small">{rows.length} {weapons ? "weapons" : "items"}</span>
     </div>
     <div className="table-wrap"><table className="units ref-table plain"><thead><tr>
@@ -1007,6 +1013,6 @@ function InventoryTable({ data, initial, weapons = false }: { data: ReferenceDat
         <td className="chevron"><RowCaret open={expanded} /></td>
       </tr>
       {expanded && <tr className="expand-row"><td colSpan={weapons ? 10 : 3}><span className="expand-label">Details</span><span><LinkedDescription text={item.effect || item.description || item.kind} /></span></td></tr>}
-    </Fragment>; })}</tbody></table>{rows.length === 0 && <NoMatches what={weapons ? "weapons" : "items"} onReset={() => { setFilter(""); setTypes([]); setRanks([]); setKinds([]); }} />}</div>
+    </Fragment>; })}</tbody></table>{rows.length === 0 && <NoMatches what={weapons ? "weapons" : "items"} onReset={() => { setFilter(""); setTypes([]); setMaximumRank(null); setKinds([]); }} />}</div>
   </>;
 }

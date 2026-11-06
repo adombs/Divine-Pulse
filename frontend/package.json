@@ -14,7 +14,7 @@
     "test": "npm run test:spoilers && npm run test:nav && npm run test:resilience && npm run test:game-images && npm run test:game-data && npm run test:game-language && npm run test:reference-prose && npm run test:links && npm run test:persons",
     "test:persons": "node --experimental-strip-types --test scripts/test-persons.mjs",
     "test:game-images": "node --experimental-strip-types --test scripts/test-game-images.mjs scripts/test-image-lookups.mjs",
-    "test:game-data": "node --experimental-strip-types --test scripts/test-game-data.mjs",
+    "test:game-data": "node --experimental-strip-types --test scripts/test-game-data.mjs scripts/test-weapon-ranks.mjs",
     "test:game-language": "node --experimental-strip-types --test scripts/test-game-language.mjs",
     "test:reference-prose": "node --experimental-strip-types --test scripts/test-reference-prose.mjs",
     "test:links": "node --experimental-strip-types --test scripts/test-links.mjs && node --experimental-strip-types --test scripts/test-crests.mjs"

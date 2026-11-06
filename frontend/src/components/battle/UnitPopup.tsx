@@ -300,8 +300,8 @@ function CrestFact({ character, fallback }: { character?: number | null; fallbac
     <span className="cv-crest-fact">
       {none ? "None" : shown && crests?.length ? <>
         <Crests crests={crests} />
-        <button type="button" className="link-btn" onClick={() => setShown(false)}>Hide crest spoilers</button>
-      </> : <span className="muted">Unknown. {crests?.length ? <SpoilerButton onClick={() => setShown(true)} label="Show crest spoilers" /> : null}</span>}
+        <SpoilerButton conceal onClick={() => setShown(false)} label="Hide crest spoilers" />
+      </> : <span className="muted">Unknown {crests?.length ? <SpoilerButton onClick={() => setShown(true)} label="Show crest spoilers" /> : null}</span>}
     </span>
   );
 }
