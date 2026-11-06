@@ -1,0 +1,103 @@
+import assert from "node:assert/strict";
+import { fileURLToPath, pathToFileURL } from "node:url";
+import test from "node:test";
+import { createElement as h } from "react";
+import { renderToStaticMarkup } from "react-dom/server";
+import { createServer } from "vite";
+
+export async function runLedgerTests(t) {
+const vite = await createServer({
+  root: fileURLToPath(new URL("..", import.meta.url)), configFile: false, appType: "custom",
+  optimizeDeps: { noDiscovery: true, entries: [] }, server: { middlewareMode: true, watch: null, hmr: false }, esbuild: { jsx: "automatic" },
+  plugins: [{ name: "ledger-review-inputs", enforce: "pre", transform(source, id) {
+    // Supply the portal host for server rendering; the public popup and recorded-statistics path stay real.
+    if (id.endsWith("/components/Modal.tsx")) return `export function Modal({ open, title, children }) { return open ? <section aria-label={title}>{children}</section> : null; }`;
+    if (id.includes("/battle/RunStatsPopup.tsx") && id.includes("review=records")) {
+      assert.ok(source.includes('useState<LedgerPart>("combat")'));
+      return source.replace('useState<LedgerPart>("combat")', 'useState<LedgerPart>("records")');
+    }
+  } }],
+});
+try {
+const { buildRunLedger, selectLedgerRows } = await vite.ssrLoadModule("/src/components/battle/runStatsLedger.ts");
+const { AWARDS } = await vite.ssrLoadModule("/src/components/battle/moreStats.ts");
+const unit = (key, overrides = {}) => ({ key, name: `Test ${key}`, class_name: "Synthetic Class", start_level: 1, level: 2,
+  start: { hp: 20 }, now: { hp: 21 }, on_map: true, combats: 2, defeats: 1, damage_dealt: 12, damage_taken: 3,
+  healing_given: 0, healed: 2, tiles_moved: 5, level_ups: 1, gains: { hp: 1 }, weapon_uses: 2, spells_cast: 0, item_uses: 1,
+  ...overrides });
+const battle = (id, overrides = {}) => ({ id, run_id: "test-run", started_at: `2026-01-0${id}T00:00:00Z`, ended_at: `2026-01-0${id}T00:01:30Z`,
+  active: false, seconds: 90, units: [unit("alpha")], events: [], log: [], branches: [], enemy_stats: {}, enemy_labels: {},
+  map_steps: [], trend: [], turn: 2, enemies_start: 1, divine_pulses: 0, level_ups: 1, stat_points: 1, weapon_uses: 2, spells_cast: 0, item_uses: 1,
+  ...overrides });
+
+await t.test("the battle ledger retains newest-first order and numeric time sorting", () => {
+  const source = [battle("1", { seconds: 620 }), battle("3", { seconds: 95 }), battle("2", { seconds: 2700 })];
+  const data = buildRunLedger(source, "battles");
+  assert.deepEqual(data.rows.map((r) => r.id), ["3", "2", "1"]);
+  assert.deepEqual(selectLedgerRows(data.rows, "combat", "", { column: 0, direction: "ascending" }).map((r) => r.id), ["3", "1", "2"]);
+  assert.deepEqual(data.rows.map((r) => r.id), ["3", "2", "1"], "sorting must not mutate default order");
+  assert.equal(data.totals.combat[0], 3415);
+});
+
+await t.test("search and sorting never recompute the entire-run totals", () => {
+  const data = buildRunLedger([battle("1", { units: [unit("alpha"), unit("beta", { name: "Beta Archer", class_name: "Test Archer" })] })], "characters");
+  const before = structuredClone(data.totals);
+  assert.deepEqual(selectLedgerRows(data.rows, "combat", " beta archer ", null).map((r) => r.id), ["beta"]);
+  assert.equal(selectLedgerRows(data.rows, "combat", "no match", null).length, 0);
+  assert.deepEqual(data.totals, before);
+  assert.equal(data.totals.combat[3], 24);
+});
+
+await t.test("unknown observations remain distinct from zero and sort last both ways", () => {
+  const data = buildRunLedger([battle("1", { units: [unit("unknown", { damage_dealt: null }), unit("zero", { damage_dealt: 0 }), unit("known", { damage_dealt: 14 })] })], "characters");
+  assert.equal(data.totals.combat[3], null);
+  for (const [direction, expected] of [["ascending", ["zero", "known", "unknown"]], ["descending", ["known", "zero", "unknown"]]]) {
+    assert.deepEqual(selectLedgerRows(data.rows, "combat", "", { column: 3, direction }).map((r) => r.id), expected);
+  }
+});
+
+await t.test("Records retain canonical groups, finished-battle evidence and battle-wide sentinels", () => {
+  const data = buildRunLedger([battle("1"), battle("2", { active: true, ended_at: null })], "characters");
+  assert.equal(data.awards.battles, 1);
+  assert.deepEqual(data.columns.records.map((c) => [c.key, c.label, c.group]), AWARDS.map((a) => [a.key, a.label, a.group]));
+  for (let i = 0; i < AWARDS.length; i++) {
+    if ("battleWide" in AWARDS[i]) assert.equal(data.rows[0].values.records[i], null);
+    assert.equal(data.totals.records[i], data.awards.totals[AWARDS[i].key]);
+  }
+});
+
+await t.test("the public popup renders accessible topics, sorting and honest unknown totals", async () => {
+  const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx");
+  const html = renderToStaticMarkup(h(RunStatsPopup, { kind: "characters", onClose() {}, battles: [battle("1", { units: [unit("alpha", { damage_dealt: null })] })], error: false, onRetry() {} }));
+  assert.match(html, /role="tablist" aria-label="Statistics topic"/);
+  assert.match(html, /role="tab" aria-selected="true"[^>]*tabindex="0"/);
+  assert.match(html, /role="tab" aria-selected="false"[^>]*tabindex="-1"[^]*>Records<\/button>/);
+  assert.match(html, /role="tabpanel" aria-labelledby=/);
+  assert.match(html, /aria-sort="none"/);
+  assert.match(html, /aria-label="Not fully recorded"/);
+  assert.match(html, /Run totals stay unchanged when searching/);
+  assert.doesNotMatch(html, />Awards<\/button>/);
+});
+
+await t.test("Records renders group filtering and run-only explanations through the real popup", async () => {
+  const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx?review=records");
+  const html = renderToStaticMarkup(h(RunStatsPopup, { kind: "characters", onClose() {}, battles: [battle("1")], error: false, onRetry() {} }));
+  assert.match(html, /Records earned/);
+  assert.match(html, /Record group<select/);
+  assert.match(html, /<option value="" selected="">All records<\/option>/);
+  assert.match(html, /Battle-wide record; no character recipient/);
+  assert.match(html, /Didn’t Happen and Do-overs count toward the run only/);
+});
+
+await t.test("loading, empty and error states provide a named status or recovery", async () => {
+  const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx");
+  const render = (props) => renderToStaticMarkup(h(RunStatsPopup, { kind: "battles", onClose() {}, onRetry() {}, error: false, battles: [], ...props }));
+  assert.match(render({ battles: null }), /role="status" aria-busy="true"/);
+  assert.match(render({}), /No recorded battles yet/);
+  assert.match(render({ error: true }), /role="alert"[^]*Try again/);
+});
+} finally { await vite.close(); }
+}
+
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) test("History run ledgers", runLedgerTests);
+

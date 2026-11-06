@@ -1,88 +1,95 @@
-/** Run scope, with no dependency on a selected recording or character. */
-import { useCallback, useMemo, useState } from "react";
+/** Run scope, independent of a selected recording or character. */
+import { useCallback, useId, useMemo, useState, type KeyboardEvent } from "react";
 import type { Battle } from "../../api";
 import { clock, plural } from "../../format";
+import { CONCEPT_ICON } from "../../icons/concepts";
+import { Icon } from "../Icon";
 import { Modal } from "../Modal";
-import { armyTotals, recordedSum, statGains } from "./model";
-import { battleName } from "./scenarios";
-import { characterStats, runAwards, runBattles, runStats, timelines } from "./stats";
-import { AWARDS } from "./moreStats";
+import { buildRunLedger, selectLedgerRows, type LedgerKind, type LedgerPart, type LedgerSort } from "./runStatsLedger";
 import "./run-stats.css";
 
-type Kind = "battles" | "characters";
-interface Props {
-  kind: Kind | null;
-  onClose: () => void;
-  battles: Battle[] | null;
-  error: boolean;
-  onRetry: () => void;
-}
+interface Props { kind: LedgerKind | null; onClose: () => void; battles: Battle[] | null; error: boolean; onRetry: () => void }
+const TOPICS: { key: LedgerPart; label: string; icon: "attack" | "growth" | "history" }[] = [
+  { key: "combat", label: "Combat", icon: "attack" }, { key: "growth", label: "Growth & Supplies", icon: "growth" }, { key: "records", label: "Records", icon: "history" },
+];
+const numberFormat = new Intl.NumberFormat();
+const unknown = (reason = "Not fully recorded") => <span className="run-stats-unknown" title={reason} aria-label={reason}>—</span>;
 
 export function RunStatsPopup({ kind, onClose, battles, error, onRetry }: Props) {
-  // Modal mounts its animated panel after open changes. Focus when the content actually mounts.
-  const focus = useCallback((node: HTMLDivElement | null) => {
-    node?.closest<HTMLElement>("[role=dialog]")?.focus();
-  }, []);
-  return <Modal open={kind !== null} onClose={onClose} title={kind === "characters" ? "Character Stats" : "Battle Stats"} wide className="run-stats-popup">
-    <div className="run-stats-content" ref={focus}>{error ? <div className="run-stats-state" role="alert"><h3>Battle history could not be loaded</h3><p>Try loading this run again to see its statistics.</p><button type="button" className="btn" onClick={onRetry}>Try again</button></div>
-      : battles === null ? <p className="run-stats-state" role="status">Loading run statistics…</p>
+  const focus = useCallback((node: HTMLDivElement | null) => { node?.closest<HTMLElement>("[role=dialog]")?.focus(); }, []);
+  return <Modal open={kind !== null} onClose={onClose} title={kind === "characters" ? "Character Stats" : "Battle Stats"}
+    icon={<Icon name={kind === "characters" ? CONCEPT_ICON.characters : CONCEPT_ICON.battle} />} wide className="run-stats-popup">
+    <div className="run-stats-content" ref={focus}>{error ? <div className="run-stats-state" role="alert">
+      <Icon name={CONCEPT_ICON.warning} /><h3>Battle history could not be loaded</h3><p>Try loading this run again to see its statistics.</p>
+      <button type="button" className="btn" onClick={onRetry}>Try again</button></div>
+      : battles === null ? <div className="run-stats-loading" role="status" aria-busy="true"><span>Loading run statistics…</span><div aria-hidden="true"><i /><i /><i /></div></div>
       : kind && <RunLedger key={kind} kind={kind} battles={battles} />}</div>
   </Modal>;
 }
 
-function RunLedger({ kind, battles: source }: { kind: Kind; battles: Battle[] }) {
+function RunLedger({ kind, battles: source }: { kind: LedgerKind; battles: Battle[] }) {
   const [query, setQuery] = useState("");
-  const [part, setPart] = useState<"combat" | "growth" | "awards">("combat");
-  const { battles, characters, run, awards } = useMemo(() => {
-    const battles = runBattles(source);
-    const items = timelines(battles);
-    const characters = characterStats(battles, items);
-    return { battles, characters, run: runStats(battles, characters, items), awards: runAwards(source) };
-  }, [source]);
+  const [part, setPart] = useState<LedgerPart>("combat");
+  const [sort, setSort] = useState<LedgerSort | null>(null);
+  const [recordGroup, setRecordGroup] = useState("");
+  const id = useId();
+  const data = useMemo(() => buildRunLedger(source, kind), [source, kind]);
+  const { battles, run, awards, rows } = data;
+  const topics = kind === "characters" ? TOPICS : TOPICS.slice(0, 2);
+  const groups = [...new Set(data.columns.records.map((column) => column.group!))];
+  const columns = data.columns[part].map((column, index) => ({ ...column, index })).filter((column) => part !== "records" || !recordGroup || column.group === recordGroup);
+  const shown = selectLedgerRows(rows, part, query, sort);
   const live = battles.filter((b) => b.active).length;
-  const figures: [string, number | string | null][] = [
-    ["Battles", run.battles], ["Characters", run.characters], ["Time in battle", clock(run.seconds)],
-    ["Damage dealt", run.damage_dealt], ["Damage taken", run.damage_taken], ["Healing given", run.healing],
-  ];
-  const rows = kind === "battles" ? battles.map((b) => {
-    const t = armyTotals(b);
-    return { id: b.id, name: battleName(b).title, note: `${new Date(b.started_at).toLocaleDateString()}${b.active ? " · Live" : ""}`,
-      combat: [clock(b.seconds), b.turn, t.fights, t.defeats, t.dealt, t.taken, t.healing, t.tiles],
-      growth: [b.units.reduce((n, u) => n + u.level_ups, 0), b.units.reduce((n, u) => n + statGains(u), 0), b.weapon_uses, b.spells_cast, b.item_uses, b.divine_pulses],
-      awards: [],
-    };
-  }) : characters.map((c) => ({ id: c.key, name: c.name, note: `${c.class_name} · Lv ${c.level}`,
-    combat: [c.battles, c.fights, c.defeats, c.damage_dealt, c.damage_taken, c.healing_given, c.healed, c.tiles_moved],
-    growth: [c.level_ups, c.stat_points, c.weapon_uses, c.spells_cast, c.item_uses],
-    awards: AWARDS.map((a) => "battleWide" in a ? null : awards.characters.get(c.key)?.[a.key] ?? 0),
-  }));
-  const columns = part === "awards" ? AWARDS.map((a) => a.label) : part === "combat" ? kind === "battles"
-    ? ["Time", "Turns", "Fights", "Kills", "Dealt", "Taken", "Healing", "Tiles"]
-    : ["Battles", "Fights", "Kills", "Dealt", "Taken", "Healing", "Received", "Tiles"]
-    : ["Level-ups", "Stat increases", "Weapon attacks", "Spells", "Items", ...(kind === "battles" ? ["Divine Pulse"] : [])];
-  const totals = part === "awards" ? AWARDS.map((a) => awards.totals[a.key]) : part === "growth" ? [run.level_ups, run.stat_points, run.weapon_uses, run.spells_cast, run.item_uses, ...(kind === "battles" ? [run.divine_pulses] : [])]
-    : kind === "battles" ? [clock(run.seconds), run.turns, run.fights, run.defeats, run.damage_dealt, run.damage_taken, run.healing, run.tiles_moved]
-    : [characters.reduce((n, c) => n + c.battles, 0), run.fights, run.defeats, run.damage_dealt, run.damage_taken, run.healing, recordedSum(characters.map((c) => c.healed)), run.tiles_moved];
-  const words = query.toLocaleLowerCase().trim().split(/\s+/);
-  const shown = rows.filter((r) => words.every((w) => `${r.name} ${r.note}`.toLocaleLowerCase().includes(w)));
+  const topic = TOPICS.find((t) => t.key === part)!;
+  const figures = [{ label: "Damage dealt", value: run.damage_dealt, icon: CONCEPT_ICON.attack },
+    { label: "Damage taken", value: run.damage_taken, icon: CONCEPT_ICON.danger }, { label: "Healing given", value: run.healing, icon: CONCEPT_ICON.heal }];
+  const selectTopic = (next: LedgerPart) => { setPart(next); setSort(null); };
+  const navigateTopics = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
+    const next = event.key === "Home" ? 0 : event.key === "End" ? topics.length - 1 : event.key === "ArrowRight" ? (index + 1) % topics.length
+      : event.key === "ArrowLeft" ? (index + topics.length - 1) % topics.length : null;
+    if (next === null) return;
+    event.preventDefault(); selectTopic(topics[next].key);
+    event.currentTarget.parentElement?.querySelectorAll<HTMLButtonElement>("button")[next]?.focus();
+  };
+  const toggleSort = (column: number) => setSort((old) => ({ column,
+    direction: old?.column === column ? old.direction === "descending" ? "ascending" : "descending" : column < 0 ? "ascending" : "descending" }));
+  const sortIcon = (column: number) => <Icon name={sort?.column === column && sort.direction === "ascending" ? CONCEPT_ICON.up : CONCEPT_ICON.down} />;
+  const formatValue = (value: number | null, key: string) => value === null ? unknown() : key === "seconds" ? clock(value) : numberFormat.format(value);
+  const maxSorted = sort && sort.column >= 0 ? rows.reduce((max, row) => Math.max(max, row.values[part][sort.column] ?? 0), 0) : 0;
   return <div className="run-stats-ledger">
-    <p className="run-stats-scope"><strong>Entire run</strong><span>{plural(battles.length - live, "finished battle")}{live ? ` + ${plural(live, "live battle")}` : ""}</span></p>
-    {!battles.length ? <div className="run-stats-state"><h3>No recorded battles yet</h3><p>Record a battle in this run to see totals and comparisons here.</p></div> : <>
-      <dl className="run-stats-totals">{figures.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value ?? <span title="Not fully recorded">—</span>}</dd></div>)}</dl>
-      <div className="run-stats-toolbar">
-        <div className="segmented" role="group" aria-label="Statistics topic"><button type="button" aria-pressed={part === "combat"} className={part === "combat" ? "on" : ""} onClick={() => setPart("combat")}>Combat</button><button type="button" aria-pressed={part === "growth"} className={part === "growth" ? "on" : ""} onClick={() => setPart("growth")}>Growth & Supplies</button>{kind === "characters" && <button type="button" aria-pressed={part === "awards"} className={part === "awards" ? "on" : ""} onClick={() => setPart("awards")}>Awards</button>}</div>
-        <label className="run-stats-search">Search {kind}<input type="search" value={query} onChange={(e) => setQuery(e.target.value)} placeholder={kind === "battles" ? "Battle or date" : "Name or class"} /></label>
-      </div>
-      {part === "awards" && <p className="run-stats-awards-note">Recorded awards across {plural(awards.battles, "finished battle")}. Scroll across for all awards. Didn't Happen and Do-overs belong to the battle; only the run total counts them.</p>}
-      <div className={`run-stats-table-scroll${part === "awards" ? " run-awards-scroll" : ""}`} tabIndex={0} role="region" aria-label={`${kind === "battles" ? "Battle" : "Character"} breakdown, scroll for more rows and columns`}>
-        <table className="run-stats-table">
-          <caption className="sr-only">Entire run {kind} · {part === "combat" ? "Combat" : part === "awards" ? "Awards" : "Growth & Supplies"}. Totals include every record, including search results hidden from view.</caption>
-          <thead><tr><th scope="col">{kind === "battles" ? "Battle" : "Character"}</th>{columns.map((c) => <th key={c} scope="col" title={c === "Fights" ? "Each character’s participation, from battle counters when read, otherwise recorded actions" : c === "MVPs" ? "Uses battle Awards: most kills, first observed on ties; incomplete kill counts earn no MVP" : c === "Battles" ? "Battles this character appeared in; the total counts all character appearances" : undefined}>{c}</th>)}</tr></thead>
-          <tbody>{shown.map((r) => <tr key={r.id}><th scope="row"><span>{r.name}</span><small>{r.note}</small></th>{r[part].map((v, i) => <td key={columns[i]}>{v ?? <span title={part === "awards" ? "Battle-wide award; no character recipient" : "Not fully recorded"}>—</span>}</td>)}</tr>)}</tbody>
-          <tfoot><tr><th scope="row">Run total</th>{totals.map((v, i) => <td key={columns[i]}>{v ?? <span title="Not fully recorded">—</span>}</td>)}</tr></tfoot>
-        </table>
-        {!shown.length && <p className="run-stats-state">No {kind} match this search. <button type="button" className="btn small" onClick={() => setQuery("")}>Clear search</button></p>}
-      </div>
+    <header className="run-stats-overview"><div className="run-stats-scope"><h3>Entire run</h3>
+      <p><strong>{numberFormat.format(run.battles)}</strong> {run.battles === 1 ? "battle" : "battles"}<span aria-hidden="true"> / </span><strong>{numberFormat.format(run.characters)}</strong> {run.characters === 1 ? "character" : "characters"}</p>
+      <span className="run-stats-duration"><b>{clock(run.seconds)}</b> in battle</span></div>
+      <dl className="run-stats-totals">{figures.map(({ label, value, icon }) => <div key={label}><dt><Icon name={icon} />{label}</dt><dd>{value === null ? unknown() : numberFormat.format(value)}</dd></div>)}</dl>
+    </header>
+    {!battles.length ? <div className="run-stats-state"><Icon name={CONCEPT_ICON.history} /><h3>No recorded battles yet</h3><p>Record a battle in this run to see totals and comparisons here.</p></div> : <>
+      <div className="run-stats-toolbar"><div className="run-stats-topics" role="tablist" aria-label="Statistics topic">{topics.map((t, index) => <button
+        type="button" key={t.key} id={`${id}-${t.key}`} role="tab" aria-selected={part === t.key} aria-controls={`${id}-panel`} tabIndex={part === t.key ? 0 : -1}
+        onClick={() => selectTopic(t.key)} onKeyDown={(event) => navigateTopics(event, index)}><Icon name={t.icon} />{t.label}</button>)}</div>
+        <label className="run-stats-search"><span className="sr-only">Search {kind}</span><Icon name={CONCEPT_ICON.search} /><input type="search" value={query}
+          onChange={(event) => setQuery(event.target.value)} placeholder={kind === "battles" ? "Search battle or date" : "Search name or class"} /></label></div>
+      <section className="run-stats-panel" id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${part}`}>
+        <div className="run-stats-table-heading"><div><h4>{part === "records" ? "Records earned" : kind === "battles" ? "Battle comparison" : "Character comparison"}</h4>
+          <p aria-live="polite">{query.trim() ? `${shown.length} of ${plural(rows.length, kind === "battles" ? "battle" : "character")}` : plural(rows.length, kind === "battles" ? "battle" : "character")}
+            {live ? ` · ${live} live` : ""}{sort ? ` · ${sort.column < 0 ? "Name" : data.columns[part][sort.column].label}, ${sort.column < 0 ? sort.direction === "ascending" ? "A to Z" : "Z to A" : sort.direction === "descending" ? "highest first" : "lowest first"}` : ""}</p></div>
+          {part === "records" ? <label className="run-stats-record-filter">Record group<select value={recordGroup} onChange={(event) => { setRecordGroup(event.target.value); setSort(null); }}>
+            <option value="">All records</option>{groups.map((group) => <option key={group}>{group}</option>)}</select></label> : <span className="run-stats-table-hint">Select a column to compare</span>}</div>
+        <div className={`run-stats-table-scroll${part === "records" ? " run-records-scroll" : ""}`} tabIndex={0} role="region" aria-label={`${kind === "battles" ? "Battle" : "Character"} breakdown, scroll for more rows and columns`}>
+          <table className="run-stats-table"><caption className="sr-only">Entire run {kind} · {topic.label}. Totals include every record, including search results hidden from view.</caption>
+            <thead><tr><th scope="col" aria-sort={sort?.column === -1 ? sort.direction : "none"} className={sort?.column === -1 ? "is-sorted" : undefined}><button type="button" onClick={() => toggleSort(-1)}>{kind === "battles" ? "Battle" : "Character"}{sortIcon(-1)}</button></th>
+              {columns.map((column) => <th scope="col" key={column.key} title={column.hint} aria-sort={sort?.column === column.index ? sort.direction : "none"} className={sort?.column === column.index ? "is-sorted" : undefined}>
+                <button type="button" onClick={() => toggleSort(column.index)}>{column.label}{sortIcon(column.index)}</button></th>)}</tr></thead>
+            <tbody>{shown.map((row) => <tr key={row.id}><th scope="row"><span>{row.name}{row.live && <em>Live</em>}</span><small>{row.note}</small></th>
+              {columns.map((column) => { const value = row.values[part][column.index]; const active = sort?.column === column.index;
+                return <td key={column.key} className={active ? "is-sorted" : undefined}>{active && value !== null && maxSorted > 0 && <span className="run-stats-cell-bar" style={{ width: `${Math.max(0, value) / maxSorted * 100}%` }} aria-hidden="true" />}
+                  <span className="run-stats-cell-value">{part === "records" && value === null ? unknown("Battle-wide record; no character recipient") : formatValue(value, column.key)}</span></td>;
+              })}</tr>)}</tbody>
+            <tfoot><tr><th scope="row">Run total<small>All {plural(rows.length, kind === "battles" ? "battle" : "character")}</small></th>{columns.map((column) => <td key={column.key} className={sort?.column === column.index ? "is-sorted" : undefined}>{formatValue(data.totals[part][column.index], column.key)}</td>)}</tr></tfoot>
+          </table>{!shown.length && <div className="run-stats-no-matches" role="status"><Icon name={CONCEPT_ICON.search} /><strong>No {kind} match this search</strong><button type="button" className="btn small" onClick={() => setQuery("")}>Clear search</button></div>}
+        </div><footer className="run-stats-footnote">{part === "records" ? <span>Records from {plural(awards.battles, "finished battle")}. Didn’t Happen and Do-overs count toward the run only.</span>
+          : <span>{plural(battles.length - live, "finished battle")}{live ? ` + ${plural(live, "live battle")}` : ""}. Run totals stay unchanged when searching.</span>}
+          <span>{part === "records" ? <>{unknown("Battle-wide record; no character recipient")} Run-wide record</> : <>{unknown()} Not fully recorded</>}</span></footer>
+      </section>
     </>}
   </div>;
 }
