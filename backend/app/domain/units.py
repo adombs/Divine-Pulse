@@ -73,6 +73,8 @@ class Unit(BaseModel):
     learned_abilities: list[str] = Field(default_factory=list)
     learned_arts: list[str] = Field(default_factory=list)
     battalion: str = ""
+    # Identity accompanying the legacy, unconfirmed assignment observation; not proof of combat effects.
+    battalion_id: int | None = Field(default=None, ge=0, le=255)
     skills: dict[SkillKey, SkillProgress] = Field(default_factory=dict)
     source: Literal["scan", "memory", "manual"] = "manual"
     game_id: int | None = Field(default=None, ge=0)

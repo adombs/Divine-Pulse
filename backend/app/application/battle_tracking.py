@@ -190,6 +190,8 @@ class BattleTracker:
                 start=dict(a.values),
                 now=dict(a.values),
                 adjutant_of=a.adjutant_of,
+                battalion=a.battalion,
+                battalion_id=a.battalion_id if a.battalion else None,
             )
             for a in sample.army
         ]
@@ -254,6 +256,8 @@ class BattleTracker:
                     start=dict(a.values),
                     now=dict(a.values),
                     adjutant_of=a.adjutant_of,
+                    battalion=a.battalion,
+                    battalion_id=a.battalion_id if a.battalion else None,
                 )
                 battle.units.append(unit)
                 battle.events.append(BattleEvent(t=t, kind="joined", unit=a.key, text=f"{a.name} joined the battle"))
@@ -266,6 +270,11 @@ class BattleTracker:
             if unit.adjutant_of != a.adjutant_of:
                 unit.adjutant_of = a.adjutant_of
                 changed = True
+            if a.battalion is not None:
+                ident = a.battalion_id if a.battalion else None
+                if (unit.battalion, unit.battalion_id) != (a.battalion, ident):
+                    unit.battalion, unit.battalion_id = a.battalion, ident
+                    changed = True
             if self._set_resources(unit, a):
                 changed = True
             if (a.level, a.values) == (unit.level, unit.now):

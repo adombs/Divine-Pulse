@@ -3,6 +3,11 @@ import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "./strip-types.mjs";
 import { buildCharacters, buildReference, buildSupports, itemSummary, spellSummary } from "../src/reference/gameData.ts";
 
+const sourceUrl = (source) => `data:text/javascript,${encodeURIComponent(stripTypeScriptTypes(source))}`;
+const fuzzyUrl = sourceUrl(readFileSync(new URL("../src/fuzzy.ts", import.meta.url), "utf8"));
+const { battalionReference } = await import(sourceUrl(readFileSync(new URL("../src/reference/battalions.ts", import.meta.url), "utf8")
+  .replace('"../fuzzy"', JSON.stringify(fuzzyUrl))));
+
 const structure = { playableCharacters: [], playableClasses: [] };
 const files = {
   abilities: { abilities: [{ id: 3, name: "Gift", description: "new" }] },
@@ -31,6 +36,24 @@ assert.deepEqual(battalions[1].stats_by_level, [{ hit: 1 }, { hit: 2 }]);
 assert.deepEqual(battalions[1].gambit, { name: "Test Gambit", description: "g", uses: 2, might: 6, hit: 70, area: { cells: [[0, -1]], origin: [0, 0], direction: "forward" } });
 assert.equal(battalions[1].icon, "images/x.png");
 assert.deepEqual(battalions[2], { id: 9, name: "Broken Company", description: "", endurance: 0 });
+// Select the saved identity, including ID zero, when names change language or are duplicated.
+const duplicateNames = [{ id: 0, name: "Twin Company" }, { id: 1, name: "Twin Company" }];
+assert.equal(battalionReference(duplicateNames, "Old name", 0), duplicateNames[0]);
+assert.equal(battalionReference(duplicateNames, "Twin Company", 1), duplicateNames[1]);
+assert.equal(battalionReference(duplicateNames, "Twin Company", 99), undefined);
+assert.equal(battalionReference(duplicateNames, "Twin Company"), undefined);
+assert.equal(battalionReference(battalions, "Test Company"), battalions[0]);
+assert.equal(battalionReference(duplicateNames, "", 0), undefined);
+const [translatedBattalion] = buildReference({ battalions: { battalions: [{
+  id: 0, name: "Base Company", endurance: 40, stats: { phys_atk: 1 },
+  gambit: { id: 2, name: "Base Tactic", description: "Base effect", uses: 2, range: [1, 2] },
+}] } }, {
+  battalion: { 0: "Translated Company" }, battalion_description: { 0: "Translated description" },
+  gambit: { 2: "Translated Tactic" }, gambit_description: { 2: "Translated effect" },
+}, structure, []).battalions;
+assert.equal(translatedBattalion.name, "Translated Company");
+assert.equal(translatedBattalion.description, "Translated description");
+assert.deepEqual(translatedBattalion.gambit, { id: 2, name: "Translated Tactic", description: "Translated effect", uses: 2, range: [1, 2] });
 assert.match(itemSummary({ name: "Blade", kind: "Weapon", description: "A blade", might: 5, hit: 80, crit: 0, weight: 3, range: "1", uses: 20 }), /Mt 5.*Hit 80.*Crit 0.*Wt 3.*Range 1.*Uses 20/);
 assert.match(spellSummary({ name: "Spark", type: "Black", might: 3, hit: 90, range: "1–2", uses: 10, effect: "Magic" }), /Magic\nMt 3/);
 
@@ -141,13 +164,12 @@ assert.doesNotThrow(() => buildSupports({ meals: { meals: [null, { id: 0, name: 
 
 // Exercise the public loader with only HTTP faked, including an older import being replaced.
 const assetsUrl = new URL("../src/gameAssets.ts", import.meta.url).href;
-const sourceUrl = (source) => `data:text/javascript,${encodeURIComponent(stripTypeScriptTypes(source))}`;
 const languageUrl = sourceUrl(readFileSync(new URL("../src/gameLanguage.ts", import.meta.url), "utf8").replaceAll('"./gameAssets"', JSON.stringify(assetsUrl)));
 const loaderSource = readFileSync(new URL("../src/reference/gameData.ts", import.meta.url), "utf8")
   .replaceAll('"../gameAssets"', JSON.stringify(assetsUrl))
   .replaceAll('"../gameLanguage"', JSON.stringify(languageUrl))
   .replaceAll('"./structure.json"', JSON.stringify(new URL("../src/reference/structure.json", import.meta.url).href));
-const { loadImportedSupports } = await import(sourceUrl(loaderSource));
+const { loadImportedSupports, loadImportedReference } = await import(sourceUrl(loaderSource));
 const { loadGameAssetsStatus } = await import(assetsUrl);
 let imported = false;
 globalThis.fetch = async (url) => {
@@ -156,7 +178,11 @@ globalThis.fetch = async (url) => {
     "/api/settings": { game_language: "GER" },
     "/game-assets/data/characters.json": { characters: [{ id: 1040, name_id: 550, name: "Bram" }] },
     "/game-assets/data/meals.json": imported ? { meals: [{ id: 0, name: "Dish", ingredients: [{ id: 96, name: "Fish", quantity: 3 }] }], characters: [{ character: 1040, liked: [0], disliked: [] }] } : null,
-    "/game-assets/text/GER.json": { categories: { character_given: { 1040: "Translated Bram" }, meal: { 0: "Translated dish" }, ingredient: { 96: "Translated fish" } } },
+    "/game-assets/data/battalions.json": { battalions: [{ id: 0, name: "Base Company", endurance: 40, gambit: { id: 2, name: "Base Tactic", description: "Base effect", uses: 2 } }] },
+    "/game-assets/text/GER.json": { categories: {
+      character_given: { 1040: "Translated Bram" }, meal: { 0: "Translated dish" }, ingredient: { 96: "Translated fish" },
+      battalion: { 0: "Translated Company" }, gambit: { 2: "Translated Tactic" }, gambit_description: { 2: "Translated effect" },
+    } },
   };
   return { ok: files[url] != null, json: async () => files[url] };
 };
@@ -167,4 +193,8 @@ await loadGameAssetsStatus(true);
 const loadedDining = await loadImportedSupports([], []);
 assert.deepEqual(loadedDining.meals[0].ingredients, [{ id: 96, name: "Translated fish", quantity: 3 }]);
 assert.deepEqual(loadedDining.people["Translated Bram"].liked_meals, ["Translated dish"]);
+const [loadedCompany] = (await loadImportedReference(structure, [])).battalions;
+assert.equal(loadedCompany.name, "Translated Company");
+assert.equal(loadedCompany.gambit.name, "Translated Tactic");
+assert.equal(loadedCompany.gambit.description, "Translated effect");
 console.log("game-data builder tests passed");

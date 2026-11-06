@@ -82,7 +82,11 @@ def apply_unit_stats(
         if ability.learned_arts is not None:
             unit.learned_arts = list(ability.learned_arts)
         if ability.battalion is not None:
+            if ability.battalion_id is not None or ability.battalion != unit.battalion:
+                unit.battalion_id = ability.battalion_id
             unit.battalion = ability.battalion
+            if not ability.battalion:
+                unit.battalion_id = None
         if ability.skills is not None:
             unit.skills = dict(ability.skills)
     if reading.game_id is not None:

@@ -35,6 +35,7 @@ from ..bonuses import BonusTable
 from ..config import DATA_DIR, SettingsStore
 from ..events import EventBus
 from .game_assets import game_assets
+from . import game_tables
 from ..gamemem.battle import FlagWatch
 from ..gamemem.combat import weapon_kind
 from ..gamemem.fe3h import EQUIPPED_WEAPON, GameMemory, GameMemoryError, Snapshot, decode_player_name, decode_roster
@@ -149,6 +150,7 @@ class Scanner:
         self.roster_updates = RosterUpdates(store, partial(handle, bonuses=bonuses))
         self.memory = memory or GameMemory()
         self._game_data: GameData | None = None
+        self._game_generation: tuple | None = None
         # Battle in progress (game memory only): the tracker, finished battles' store, and the last sample seen
         # (a sample is used once two reads in a row agree, like unit updates).
         self.battle_store = battles
@@ -335,6 +337,7 @@ class Scanner:
             self._end_battle()  # the game is gone, so is the battle
             self._publish_status("error", MEMORY_TITLE, message=str(exc))
             return
+        self._data()  # a new import/language must also refresh an otherwise unchanged snapshot
         self._track_battle(snapshot, run_id)
         if self._mem_applied == (run_id, snapshot):
             self._publish_status("watching", MEMORY_TITLE, self._mem_seeing)
@@ -571,6 +574,10 @@ class Scanner:
                     accessory,
                     accessory_id,
                     look=reading.look if reading.look is not None else stored.look if stored else None,
+                    battalion=(reading.abilities.battalion if reading.abilities.battalion is not None
+                               else stored.battalion if stored else None),
+                    battalion_id=(reading.abilities.battalion_id if reading.abilities.battalion is not None
+                                  else stored.battalion_id if stored else None),
                 )
             )
         enemies = []
@@ -679,8 +686,11 @@ class Scanner:
             )
 
     def _data(self) -> GameData:
-        if self._game_data is None:
+        generation = game_tables.generation()
+        if self._game_data is None or generation != self._game_generation:
             self._game_data = GameData.load()
+            self._game_generation = generation
+            self._reset()
         return self._game_data
 
     def _apply_memory(self, snapshot: Snapshot) -> None:

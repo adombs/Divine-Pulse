@@ -136,15 +136,25 @@ def test_battalion_observation_survives_missing_import_and_clears_on_removal(sca
     scanner._tick()
     scanner._tick()
     assert units(scanner)["hanneman"].battalion == "Test Magic Corps"
+    assert units(scanner)["hanneman"].battalion_id == 4
+
+    # A transient empty-marker read is not a confirmed removal.
+    slot = SLOT_OF[28] * SLOT_SIZE
+    original_marker = process.roster[slot + 0x18:slot + 0x1A]
+    struct.pack_into("<H", process.roster, slot + 0x18, 0xFFFF)
+    scanner._tick()
+    process.roster[slot + 0x18:slot + 0x1A] = original_marker
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion_id == 4
 
     # An assigned ID with no imported name is unknown, not an empty assignment.
     data = scanner._data()
     scanner._game_data = replace(data, battalions=[])
-    slot = SLOT_OF[28] * SLOT_SIZE
     process.roster[slot + MAG] += 1
     scanner._tick()
     scanner._tick()
     assert units(scanner)["hanneman"].battalion == "Test Magic Corps"
+    assert units(scanner)["hanneman"].battalion_id == 4
 
     # An unrecognized ID is also unknown, not proof that the slot is empty.
     scanner._game_data = data
@@ -152,6 +162,7 @@ def test_battalion_observation_survives_missing_import_and_clears_on_removal(sca
     scanner._tick()
     scanner._tick()
     assert units(scanner)["hanneman"].battalion == "Test Magic Corps"
+    assert units(scanner)["hanneman"].battalion_id == 4
 
     # A clear slot is an observed removal, even when the old ID byte is stale.
     struct.pack_into("<H", process.roster, slot + 0x18, 0xFFFF)
@@ -159,6 +170,76 @@ def test_battalion_observation_survives_missing_import_and_clears_on_removal(sca
     scanner._tick()
     assert units(scanner)["hanneman"].battalion == ""
     assert scanner.store.get(scanner.run_id).units["hanneman"].battalion == ""
+    assert scanner.store.get(scanner.run_id).units["hanneman"].battalion_id is None
+
+
+def test_battalion_only_identity_change_is_saved_even_with_duplicate_names(scanner):
+    from dataclasses import replace
+
+    scanner._tick()
+    scanner._tick()
+    names = list(scanner._data().battalions)
+    names[3] = names[4]
+    scanner._game_data = replace(scanner._data(), battalions=names)
+    slot = SLOT_OF[28] * SLOT_SIZE
+    scanner.memory.roster[slot + 0x1E] = 3
+    scanner._tick()
+    scanner._tick()
+    saved = units(scanner)["hanneman"]
+    assert saved.battalion == names[4] and saved.battalion_id == 3
+    assert scanner.log_entries()[0].can_undo
+
+
+def test_import_language_refreshes_unchanged_memory_and_keeps_missing_assignment(scanner, roster_import, monkeypatch):
+    language = ["ENG_U"]
+    original_text = roster_import.text
+
+    def text(category, *args, **kwargs):
+        if category == "battalion" and language[0] == "GER":
+            return {"4": "Test translated corps"}
+        return original_text(category, *args, **kwargs)
+
+    monkeypatch.setattr(roster_import, "text", text)
+    monkeypatch.setattr(roster_import, "language", lambda: language[0])
+    scanner._tick()
+    scanner._tick()
+    language[0] = "GER"
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == "Test translated corps"
+    assert units(scanner)["hanneman"].battalion_id == 4
+
+    # A fresh/incomplete import generation may temporarily have no battalion rows at all.
+    original_json = roster_import.json
+    monkeypatch.setattr(roster_import, "json", lambda rel, *args, **kwargs:
+                        {"battalions": []} if rel == "data/battalions.json" else original_json(rel, *args, **kwargs))
+    # Rewrite the synthetic manifest as a real reimport does, creating a fresh table-cache generation.
+    manifest = roster_import.root / "manifest.json"
+    manifest.write_text(manifest.read_text("utf-8") + "\n", encoding="utf-8")
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == "Test translated corps"
+    assert units(scanner)["hanneman"].battalion_id == 4
+
+
+def test_battle_keeps_assignment_after_later_roster_changes(scanner, tmp_path):
+    from app.storage import BattleStore
+
+    scanner.battle_store = BattleStore(tmp_path / "battles")
+    scanner.memory.in_battle = (28,)
+    scanner._tick()
+    scanner._tick()
+    assert scanner.current_battle().units[0].battalion_id == 4
+    scanner.memory.in_battle = ()
+    scanner._tick()
+    scanner._tick()
+    struct.pack_into("<H", scanner.memory.roster, SLOT_OF[28] * SLOT_SIZE + 0x18, 0xFFFF)
+    scanner._tick()
+    scanner._tick()
+    assert units(scanner)["hanneman"].battalion == ""
+    [recorded] = scanner.battle_store.list(scanner.run_id)
+    assert recorded.units[0].battalion == "Test Magic Corps"
+    assert recorded.units[0].battalion_id == 4
 
 
 def test_a_change_is_applied_once_two_reads_agree(scanner):

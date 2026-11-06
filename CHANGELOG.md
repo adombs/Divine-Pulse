@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Keep battalion identity through incomplete imports, language changes, run exports and unit updates; record each battle's observed assignment separately. Translate imported gambit details and match battalion panels by ID when available.
 - Put character scope beside the name, move compact crest names into the front facts, and rotate bordered information cards with an inside Flip button while portraits stay still. Preserve keyboard and reduced-motion support, and use eye buttons to reveal spoilers throughout the app. Remove battalion header badges and coloured sprite backgrounds.
 
 - Make Supports lost-item cards more compact, with smaller portraits and owners beside them so more items fit on desktop screens.

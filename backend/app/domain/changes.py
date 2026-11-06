@@ -45,6 +45,7 @@ def same_unit(a: Unit, b: Unit) -> bool:
         "learned_abilities",
         "learned_arts",
         "battalion",
+        "battalion_id",
         "skills",
         "source",
         "look",

@@ -69,8 +69,9 @@ export interface Unit {
   learned_abilities?: string[];
   learned_arts?: string[];
   battalion?: string;
-  /** The assigned battalion as the game has it now (game memory only, each absent until its read is verified). */
+  /** Identity from the existing, unconfirmed assignment observation; absent in older saved runs. */
   battalion_id?: number | null;
+  /** Runtime battalion state: reserved until the relevant memory fields are independently verified. */
   battalion_level?: number | null;
   battalion_endurance?: number | null;
   battalion_endurance_max?: number | null;
@@ -178,6 +179,9 @@ export interface BattleUnit {
   accessory?: string | null;
   /** Equipped combat arts, as last read (absent in battles saved before arts were read). */
   arts?: string[];
+  /** Unconfirmed roster assignment recorded with this battle; null/absent in older recordings, "" for none. */
+  battalion?: string | null;
+  battalion_id?: number | null;
   /** What it used, most used first, from the game's history (null or absent = not tracked). */
   usage?: Usage[] | null;
   /** Current HP; the rest from the game's record of the battle (null = not tracked). */

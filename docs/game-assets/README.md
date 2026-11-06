@@ -68,7 +68,7 @@ section or executable offset).
 | `images/houses/` | House and army banners | atlas 6026 tex 8, `700_patch` tex 1 |
 | `images/map/` | Class sprites, map heads, minimap pieces, per-map minimaps | DATA 6109 and 6050 with rectangles from `main`; `nx/ui/still/minimap.bin` |
 | `text/<LANG>.json` | 28 categories of names and descriptions in each of 12 languages (no index file) | `common/common/msgdata.bin` |
-| `data/*.json` | Characters (bases, growths, caps, ranks, learnsets, budding talents, age, birthday, height), classes, weapons, spells, equipment, items, combat arts, abilities, battalions (name, description, endurance), rank EXP, supports, gifts and lost items, factions, crests, maps, terrain, class sprites, minimap terrain, portraits and five fallback icons | `nx/data/fixed_*.bin`, DATA 365+ |
+| `data/*.json` | Characters (bases, growths, caps, ranks, learnsets, budding talents, age, birthday, height), classes, weapons, spells, equipment, items, combat arts, abilities, battalions (name, description, endurance, modifiers, level progression and gambit details), rank EXP, supports, gifts and lost items, factions, crests, maps, terrain, class sprites, minimap terrain, portraits and five fallback icons | `nx/data/fixed_*.bin`, DATA 365+ |
 | `data/exe/item-icons.json` | Weapon, spell, equipment and item id → native icon sprite id | `exefs/main` |
 
 The sprite rectangle tables in `main` (map sprites, battle UI, icons) are read directly and not written to a file.

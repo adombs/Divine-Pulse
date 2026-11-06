@@ -9,7 +9,7 @@
  */
 import type { ReactNode } from "react";
 import { CONCEPT_ICON } from "../../icons/concepts";
-import { canonical } from "../../fuzzy";
+import { battalionReference } from "../../reference/battalions";
 import type { Unit } from "../../api";
 import { BATTALION_STAT_KEYS, BATTALION_STAT_LABEL, useReference } from "../../reference/types";
 import type { Battalion, BattalionStatKey, GambitArea } from "../../reference/types";
@@ -24,19 +24,24 @@ const NOT_IMPORTED = "Not in your imported game files yet.";
 const NOT_READ = "Not read from the game yet.";
 
 /** The import's entry for a battalion name (matched loosely, as names saved by older versions may differ). */
-export function useBattalion(name: string | null | undefined): Battalion | undefined {
+export function useBattalion(name: string | null | undefined, id?: number | null): Battalion | undefined {
   const ref = useReference();
-  const list = ref?.battalions ?? [];
-  if (!name || !list.length) return undefined;
-  const known = canonical(name, list.map((b) => b.name));
-  return known ? list.find((b) => b.name === known) : undefined;
+  return battalionReference(ref?.battalions ?? [], name, id);
+}
+
+/** Archive routes use names, so don't link an unresolved identity or a name shared by different rows. */
+function BattalionName({ entry, name }: { entry?: Battalion; name: string }) {
+  const ref = useReference();
+  const ambiguous = ref?.battalions?.some((other) => other !== entry && other.name === entry?.name);
+  return entry && !ambiguous ? <BattalionLink name={entry.name} /> : <>{name}</>;
 }
 
 /** A compact badge for the hero: the flag, the name (linked to the Archive) and its endurance. `name` is the unit's
  * assignment: undefined when it hasn't been read, "" for none. */
-export function BattalionBadge({ unit }: { unit: Pick<Unit, "battalion" | "battalion_endurance" | "battalion_endurance_max"> | undefined }) {
-  const name = unit?.battalion;
-  const entry = useBattalion(name);
+export function BattalionBadge({ unit }: { unit: Pick<Unit, "battalion" | "battalion_id" | "battalion_endurance" | "battalion_endurance_max"> | undefined }) {
+  const assigned = unit?.battalion;
+  const entry = useBattalion(assigned, unit?.battalion_id);
+  const name = entry?.name ?? assigned;
   if (name === undefined || name === null) {
     return (
       <span className="cv-battalion none" title="Battalions are read from game memory; this unit hasn't been read with one yet.">
@@ -59,7 +64,7 @@ export function BattalionBadge({ unit }: { unit: Pick<Unit, "battalion" | "batta
     <span className="cv-battalion" title={entry?.description || name}>
       <BattalionIcon entry={entry} size="sm" />
       <span className="cv-battalion-name">
-        <BattalionLink name={name} />
+        <BattalionName entry={entry} name={name} />
       </span>
       {max !== undefined && max !== null && (
         <span className="cv-battalion-end" title={now === undefined || now === null ? "Endurance; what's left isn't read yet" : "Endurance left of most"}>
@@ -97,13 +102,15 @@ const Missing = ({ why }: { why: string }) => (
  * the battalion itself, `name`, with no unit).
  */
 export function BattalionPanel({ unit, name: given, scope }: { unit?: Unit; name?: string; scope: "battle" | "run" | "reference" }) {
-  const name = given ?? unit?.battalion;
-  const entry = useBattalion(name);
+  const assigned = given ?? unit?.battalion;
+  const entry = useBattalion(assigned, given === undefined ? unit?.battalion_id : undefined);
+  const name = entry?.name ?? assigned;
   const general = scope === "reference";
   if (name === undefined || name === null) return <p className="muted">{unit ? NOT_READ : "Battalions are tracked for your units."}</p>;
   if (!name) return <p className="muted">No battalion assigned.</p>;
 
-  const level = unit?.battalion_level ?? null;
+  const candidateLevel = unit?.battalion_level;
+  const level = typeof candidateLevel === "number" && Number.isInteger(candidateLevel) && candidateLevel >= 1 && candidateLevel <= 5 ? candidateLevel : null;
   const read = unit?.battalion_stats ?? null;
   const imported = level !== null && entry?.stats_by_level?.[level - 1] ? entry.stats_by_level[level - 1] : entry?.stats;
   const importedAt = level !== null && entry?.stats_by_level?.[level - 1] ? `at level ${level}` : "at level 1";
@@ -147,7 +154,7 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: Unit; name
         <header className="bp-head">
           <BattalionIcon entry={entry} />
           <h4 className="bp-name">
-            <BattalionLink name={name} />
+            <BattalionName entry={entry} name={name} />
             {level !== null && <span className="bp-level">Lv {level}</span>}
           </h4>
           <span className="bp-gauge" title={general ? "Endurance" : "Endurance left of most"}>
@@ -204,6 +211,7 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: Unit; name
           <span>
             {scope === "battle" ? "The run's battalion as last read, not just this battle's. " : ""}
             {UNCONFIRMED_BATTALION}
+            {!read && imported && level === null && " Modifiers are level 1 reference values; the current battalion level is not read."}
             {missingParts.length > 0 && ` Not available yet: ${missingParts.join(", ")}.`}
           </span>
         </p>

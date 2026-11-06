@@ -125,6 +125,11 @@ def to_reading(
     }
     class_name = game_class.female_name if character.gender == "Female" and game_class.female_name else game_class.name
     full_name = name if unit.character in BYLETH_IDS else character.full_name or name
+    # Preserve the existing candidate interpretation, without promoting its unverified offset into mechanics.
+    # A missing import/name is unknown, not evidence that a stored assignment was removed.
+    battalion = ("" if unit.battalion is None else
+                 (data.battalions[unit.battalion] or None)
+                 if 0 <= unit.battalion < len(data.battalions) else None)
     return UnitStatsReading(
         screen=SCREEN_ID,
         name_candidates=[name],
@@ -144,11 +149,8 @@ def to_reading(
             ),
             learned=[a for a in (data.ability(i) for i in unit.learned_abilities) if a],
             learned_arts=[data.combat_arts[a] for a in unit.learned_arts if a in data.combat_arts],
-            # None means the assignment could not be named, whereas an empty string
-            # explicitly clears a previously stored assignment.
-            battalion=("" if unit.battalion is None else
-                       (data.battalions[unit.battalion] or None)
-                       if 0 <= unit.battalion < len(data.battalions) else None),
+            battalion=battalion,
+            battalion_id=unit.battalion if battalion else None,
             skills=unit.skills,
         ),
         class_name=tidy_class(class_name) if class_name else None,

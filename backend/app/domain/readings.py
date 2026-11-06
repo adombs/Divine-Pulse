@@ -24,6 +24,7 @@ class AbilityInfo:
     learned_arts: list[str] | None = None
     battalion: str | None = None
     skills: dict[SkillKey, SkillProgress] | None = None
+    battalion_id: int | None = None  # meaningful only alongside a named assignment
 
 
 @dataclass

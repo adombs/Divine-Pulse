@@ -226,12 +226,20 @@ function enrichReference(base: ReferenceData, files: Record<string, unknown>, te
       const minor = text(texts?.crest_minor_description?.[String(r.id)]);
       return { ...c, major_description: major || c.major_description, minor_description: minor || c.minor_description, effect: major || minor || c.effect };
     }),
-    battalions: rows(files.battalions, "battalions").length ? rows(files.battalions, "battalions").map((r) => parseBattalion(r, description(r, "battalion_description"))).filter((b): b is Battalion => !!b) : base.battalions,
+    battalions: rows(files.battalions, "battalions").length ? rows(files.battalions, "battalions").map((r) => parseBattalion({
+      ...r,
+      name: text(texts?.battalion?.[String(r.id)], text(r.name)),
+      gambit: isBRow(r.gambit) ? {
+        ...r.gambit,
+        name: text(texts?.gambit?.[String(r.gambit.id)], text(r.gambit.name)),
+        description: text(texts?.gambit_description?.[String(r.gambit.id)], text(r.gambit.description)),
+      } : r.gambit,
+    }, description(r, "battalion_description"))).filter((b): b is Battalion => !!b) : base.battalions,
   };
 }
 
 const referenceFiles = ["characters", "classes", "abilities", "combat-arts", "spells", "weapons", "equipment", "items", "crests-by-person", "battalions"];
-const categories = ["ability_description", "combat_art_description", "spell_description", "weapon_description", "item_description", "equipment_description", "class_description", "crest_major_description", "crest_minor_description", "battalion_description", "ability", "combat_art", "spell", "weapon", "item", "equipment", "class", "character_given", "character_full", "crest_major", "crest_minor", "battalion"];
+const categories = ["ability_description", "combat_art_description", "spell_description", "weapon_description", "item_description", "equipment_description", "class_description", "crest_major_description", "crest_minor_description", "battalion_description", "gambit", "gambit_description", "ability", "combat_art", "spell", "weapon", "item", "equipment", "class", "character_given", "character_full", "crest_major", "crest_minor", "battalion"];
 export async function loadImportedReference(structure: Parameters<typeof buildReference>[2], wikiClasses: Parameters<typeof buildReference>[3]): Promise<ReferenceData> {
   const { gameAssetsAvailable, loadGameJson, loadGameText } = await import("../gameAssets");
   if (!gameAssetsAvailable()) return buildReference({}, {}, structure, wikiClasses);
@@ -332,9 +340,8 @@ export async function loadImportedSupports(wiki: Parameters<typeof buildSupports
   } catch { return buildSupports({}, wiki); }
 }
 
-/* Battalion rows (data/battalions.json). The importer writes id, name, description and endurance today; icons,
-   modifiers and gambits are optional and taken only when well formed, so nothing is filled in that the import doesn't
-   hold. */
+/* Battalion rows (data/battalions.json). Older imports may omit icons, modifiers and gambits;
+   nothing is filled in that the import doesn't hold. */
 type BRow = Record<string, unknown>;
 // The modifiers in the panel's order (the same keys as BATTALION_STAT_KEYS in types.ts).
 const BATTALION_KEYS = ["phys_atk", "mag_atk", "hit", "crit", "avo", "prt", "rsl", "cha"] as const;
