@@ -46,10 +46,15 @@ export function useHasSprite(sprite: Sprite | null): boolean {
   return !!(sprites && sprite && (spriteLayers(sprites, sprite, true) ?? spriteLayers(sprites, sprite, false)));
 }
 
-/** Use the portrait when the player's import cannot draw this sprite. */
+/** The map sprite in a round medallion like the portrait's. Use the portrait when the player's import cannot draw this sprite. */
 export function SpriteFace({ sprite, portrait, name }: { sprite: Sprite | null; portrait: ReactNode; name: string }) {
   const has = useHasSprite(sprite);
-  return <span className="cv-face">{has ? <SpriteFigure sprite={sprite} label={`${name}'s map sprite`} /> : portrait}</span>;
+  if (!has) return <span className="cv-face">{portrait}</span>;
+  return (
+    <span className="cv-face cv-sprite-face">
+      <span className="cv-sprite-disc"><SpriteFigure sprite={sprite} label={`${name}'s map sprite`} /></span>
+    </span>
+  );
 }
 
 /**

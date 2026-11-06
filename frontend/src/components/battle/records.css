@@ -76,6 +76,7 @@
   font: 0.95rem/1.25 var(--display); color: var(--ink);
 }
 .battle-page .standout-who .who-link { font-weight: 700; }
+.battle-page .standout-who .who-link::before { content: none; }
 .battle-page .standout-value { display: grid; justify-items: end; font: 1.45rem/1.05 var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink); white-space: nowrap; }
 .battle-page .standout-value small { font: 0.72rem var(--ui); color: var(--ink-soft); max-width: 7.5rem; overflow: hidden; text-overflow: ellipsis; }
 
