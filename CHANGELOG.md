@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Make Supports lost-item cards more compact, with smaller portraits and owners beside them so more items fit on desktop screens.
+- Coordinate the sidebar, run banner and active-page highlight during expansion and collapse, with an explicit navigation toggle, Escape support and reduced-motion behavior.
+- Apply the Settings font throughout the app, including Home and UI labels; simplify Home run text, remove Cancel from the New run form and space its Start run button, and give all text links white resting text with purple, underlined hover and keyboard focus states.
 - Reorganize Battle Records into a battle ledger, themed standouts, each unit's share of the fighting and comparisons with other battles. Keep the share table accessible in shorter windows.
 - Show run-wide character statistics when selecting a name in a battle's standouts, with Combat, Form, Growth, Arsenal and Battles sections.
 - Organize battle graphs by topic, with turn charts above unit charts, and add accessible carousel controls with pause and reduced-motion support.
@@ -12,6 +14,7 @@
 - Fit the updated views within the window with internal scrolling, including phone layouts, and prevent battle-header controls from overlapping.
 - Add battalion panels that display verified available data and identify fields not yet supported by imports or the game reader.
 - Restore the corrected Home chair image from Brand Pack v8 without changing code or layout.
+- Show each class's tier plate beside its name in the Archive's Classes list and tier filters, and redesign the class card: the class's unit on a dais in its tier's colour, its requirements, exam and movement at a glance, its place on the class-change ladder, a stats ledger with growth bars, and mastery rewards set apart.
 
 ## 1.2.9 (2026-11-01)
 

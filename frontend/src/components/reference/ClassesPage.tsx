@@ -1,8 +1,8 @@
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { isStoryClass } from "../../reference/links";
 import { gameLanguageLocale } from "../../gameLanguage";
-import { Fragment, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
+import { Fragment, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { Unit } from "../../api";
 import { characterPortraitKey, runCharacterKeys } from "../../portraits";
 import { portraitCharacterId } from "../../portraits";
@@ -31,10 +31,10 @@ import {
   Tier,
 } from "../../reference/types";
 import { KeyPortrait, revealCard } from "../ui";
-import { AbilityIcon, ArtIcon, ItemIcon, SkillIcons, SpellIcon, WeaponIcon } from "../../reference/icons";
+import { AbilityIcon, ArtIcon, ItemIcon, SpellIcon, WeaponIcon } from "../../reference/icons";
 import { DetailCard, MasterDetail, Section } from "../layout";
 import { artSummary } from "./CharactersPage";
-import { TierIcon } from "./TierIcon";
+import { TierIcon, TierLabel, tierMetalStyle } from "./TierIcon";
 import { Icon } from "../Icon";
 import { useSpoiler } from "../../spoilers";
 import {
@@ -115,7 +115,7 @@ function ClassSprite({ c, index, units, data, size }: { c: GameClass; index: Spr
   );
 }
 
-const TIER_OPTIONS = TIERS.map((t) => [t, t] as const);
+const TIER_OPTIONS = TIERS.map((t) => [t, <TierLabel key={t} tier={t} />] as const);
 const GENDERS = [
   ["Male", "Men"],
   ["Female", "Women"],
@@ -159,14 +159,19 @@ function requirementText(c: GameClass): string {
   return c.requirements.map((r) => `${SKILL_LABEL[r.skill]} ${r.rank}`).join(c.requirement_any ? " or " : ", ");
 }
 
-/** A class's skill requirements as weapon/skill icons with the rank beside each; the full wording on hover. */
+/** A class's skill requirements as skill icons, each with its rank, joined by "or" when any one is enough. */
 function Requirements({ c }: { c: GameClass }) {
   return (
-    <span title={`${requirementText(c)}${c.requirement_any ? " (either)" : ""}`}>
-      <SkillIcons
-        skills={c.requirements.map((r) => r.skill)}
-        ranks={Object.fromEntries(c.requirements.map((r) => [r.skill, r.rank]))}
-      />
+    <span className="class-reqs" title={`${requirementText(c)}${c.requirement_any ? " (either)" : ""}`}>
+      {c.requirements.map((r, i) => (
+        <Fragment key={r.skill}>
+          {i > 0 && c.requirement_any && <span className="class-reqs-or">or</span>}
+          <span className="class-req">
+            <SkillIcon skill={r.skill} title={SKILL_LABEL[r.skill]} />
+            <span className="class-req-rank">{r.rank}</span>
+          </span>
+        </Fragment>
+      ))}
     </span>
   );
 }
@@ -262,7 +267,8 @@ function ClassTable({ data, units, part2 }: { data: ReferenceData } & Props) {
                     <div className="class-lead">
                       <ClassSprite c={c} index={sprites} units={units} data={data} size={36} />
                       <div className="who-text">
-                      <span className="who-name">
+                      <span className="who-name class-name">
+                        <TierIcon tier={c.tier} size={20} />
                         {c.name}
                         {c.gender && (
                           <span className="gender-mark" title={`${c.gender} only`}>
@@ -329,6 +335,21 @@ function fit(ch: Character, c: GameClass): number | null {
   return scores.reduce((n, s) => n + s, 0);
 }
 
+/** The four steps of the class-change ladder, in order (DLC classes sit on the Advanced step). */
+const LADDER: Tier[] = ["Beginner", "Intermediate", "Advanced", "Master"];
+
+/** The level each step's exam asks for, from the classes on it. */
+function ladderGates(classes: GameClass[]): Partial<Record<Tier, number>> {
+  const gates: Partial<Record<Tier, number>> = {};
+  for (const c of classes) if (c.level && !gates[c.tier]) gates[c.tier] = c.level;
+  return gates;
+}
+
+/** The biggest growth change any class makes, so every class's growth bars share one scale. */
+function growthScale(classes: GameClass[]): number {
+  return Math.max(10, ...classes.flatMap((c) => STAT_KEYS.map((k) => Math.abs(c.growths[k] ?? 0))));
+}
+
 function ClassCard({
   c,
   data,
@@ -342,10 +363,10 @@ function ClassCard({
   part2: boolean;
   sprites: SpriteIndex | null;
 }) {
-  const ability = (name: string) => data.abilities.find((a) => a.name === name);
-  const art = data.combat_arts.find((a) => a.name === c.mastery_art);
   const [people] = usePeopleFilters();
   const runKeys = runCharacterKeys(units);
+  const gates = useMemo(() => ladderGates(data.classes), [data.classes]);
+  const scale = useMemo(() => growthScale(data.classes), [data.classes]);
   // The shared people filters (affiliation, current run, route) narrow who is listed here too.
   const shown = (ch: Character) => passes(people, { key: ch.key, house: ch.house, inRun: runKeys.has(ch.key) });
   const restricted = /only/i.test(c.restriction) && !/certified/i.test(c.restriction);
@@ -358,154 +379,327 @@ function ClassCard({
         .sort((a, b) => b.score - a.score || a.ch.name.localeCompare(b.ch.name, gameLanguageLocale()));
   const starters = data.characters.filter((ch) => ch.start_class === c.name && shown(ch));
   const restriction = c.name === "Death Knight" ? <Spoiler category="identities">{c.restriction}</Spoiler> : c.restriction;
+
+  return (
+    <DetailCard title={c.name} icon={<TierIcon tier={c.tier} size={30} />} label={`${c.name} reference`}>
+      {/* display: contents, so the sections stay the card's own panes; it only carries the tier's metal. */}
+      <div className="class-detail" style={tierMetalStyle(c.tier)}>
+        <ClassHero c={c} data={data} units={units} sprites={sprites} gates={gates} restriction={restriction} />
+
+        <Section title="Stats" icon={CONCEPT_ICON.growth}>
+          <ClassLedger c={c} scale={scale} />
+        </Section>
+
+        <Section title="Abilities" icon={CONCEPT_ICON.ability}>
+          <ClassAbilities c={c} data={data} />
+        </Section>
+
+        <Section title="Units" icon={CONCEPT_ICON.roster}>
+          <>
+            <WhoFilters />
+            {starters.length > 0 && (
+              <>
+                <h3 className="class-subhead">Starts in this class</h3>
+                {c.name === "Death Knight" ? <Spoiler category="identities"><PeopleRow people={starters} part2={part2} /></Spoiler> : <PeopleRow people={starters} part2={part2} />}
+              </>
+            )}
+            {fits.length > 0 ? (
+              <>
+                <h3 className="class-subhead" title="Strengths (or budding talents) in at least half of the required skills, and no weakness in any of them">
+                  Strong in its skills
+                </h3>
+                <PeopleRow people={fits.map((f) => f.ch)} part2={part2} skills={c.requirements.map((r) => r.skill)} />
+              </>
+            ) : (
+              starters.length === 0 && <p className="muted">{restricted ? "Restricted class." : "Nobody stands out for this class."}</p>
+            )}
+          </>
+        </Section>
+      </div>
+    </DetailCard>
+  );
+}
+
+/**
+ * A class's description. A compact card clamps it to two lines (classes.css); "Show all" appears only when the clamp
+ * actually hides text, and opens it in place. Keyed by class, so another class starts closed; it also re-measures
+ * whenever the text changes, since a new text can overflow the same box without resizing it.
+ */
+function ClassLore({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const [clamped, setClamped] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setClamped(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const watch = new ResizeObserver(check);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [text]);
+  return (
+    <div className={`class-lore-wrap${open ? " open" : ""}`}>
+      <p ref={ref} className="class-lore">
+        <LinkedDescription text={text} />
+      </p>
+      {(clamped || open) && (
+        <button type="button" className="class-lore-more" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? "Show less" : "Show all"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The top of a class card: its unit on a dais lit in the tier's metal, what the class is, what it takes to get in and
+ * how it moves, and where it sits on the class-change ladder.
+ */
+function ClassHero({
+  c,
+  data,
+  units,
+  sprites,
+  gates,
+  restriction,
+}: {
+  c: GameClass;
+  data: ReferenceData;
+  units: Unit[];
+  sprites: SpriteIndex | null;
+  gates: Partial<Record<Tier, number>>;
+  restriction: ReactNode;
+}) {
+  const step: Tier = c.tier === "DLC" ? "Advanced" : c.tier;
+  const onLadder = LADDER.includes(step);
+  const here = LADDER.indexOf(step);
+  const kicker = c.tier === "DLC" ? "DLC class, Advanced tier" : `${c.tier} class`;
   const weakTo = c.types
     .filter((t) => t !== "Infantry")
     .map((t) => (t === "Armored" ? "armorslayers" : t === "Cavalry" ? "horseslayers" : "bows"));
+  const mountMv = c.mount_boosts.mv;
 
   return (
-    <DetailCard title={c.name} icon={<ClassSprite c={c} index={sprites} units={units} data={data} size={36} />} label={`${c.name} reference`}>
-      <div className="class-head">
-        <ClassSprite c={c} index={sprites} units={units} data={data} size={88} />
-        <dl className="ref-facts">
-        <dt>Tier</dt>
-        <dd className="tier-row">
-          <TierIcon tier={c.tier} size={22} />
-          {c.tier === "DLC" ? "DLC (Advanced tier)" : c.tier}
-          {!!c.level && (
-            <span className="muted">
-              {" "}
-              · from Lv {c.level}, {c.seal}
-            </span>
-          )}
-        </dd>
-        <dt>Requires</dt>
-        <dd>
-          {c.requirements.length ? <Requirements c={c} /> : restriction || "—"}
-          {c.requirements.length > 0 && c.restriction && <div className="muted small">{restriction}</div>}
-          {c.restriction && <div className="muted small"><a href="https://fireemblemwiki.org/wiki/Class_change" target="_blank" rel="noreferrer">Fire Emblem Wiki</a></div>}
-        </dd>
-        <dt>Type</dt>
-        <dd>
-          {c.types.join(", ")}
-          {weakTo.length > 0 && <span className="muted small"> · weak to {weakTo.join(" and ")}</span>}
-          {c.gender && (
-            <span className="gender-mark" title={`${c.gender} units only`}>
-              <Icon name={c.gender === "Male" ? CONCEPT_ICON.male : CONCEPT_ICON.female} />
-            </span>
-          )}
-        </dd>
-        </dl>
+    <header className="class-hero">
+      <div className="class-hero-top">
+        <div className="class-dais">
+          <ClassSprite c={c} index={sprites} units={units} data={data} size={104} />
+        </div>
+        <div className="class-hero-body">
+          <p className="class-kicker">{kicker}</p>
+          {c.description && <ClassLore key={c.name} text={c.description} />}
+          <dl className="class-exam">
+            <div>
+              <dt>Requires</dt>
+              <dd>{c.requirements.length ? <Requirements c={c} /> : <span className="class-exam-text">{restriction || "Nothing"}</span>}</dd>
+            </div>
+            {!!c.level && (
+              <div>
+                <dt>Exam</dt>
+                <dd>
+                  <span className="class-exam-big">Lv {c.level}</span>
+                  {c.seal && <span className="class-exam-note">{c.seal}</span>}
+                </dd>
+              </div>
+            )}
+            <div>
+              <dt>Moves</dt>
+              <dd title={mountMv ? `${mountMv > 0 ? "+" : ""}${mountMv} while mounted` : "Movement in this class"}>
+                <span className="class-exam-big">{c.bases.mv}</span>
+                <span className="class-exam-note">{c.types.join(", ")}</span>
+              </dd>
+            </div>
+          </dl>
+        </div>
       </div>
-      {c.description && <p><LinkedDescription text={c.description} /></p>}
 
-      <Section title="Stats" icon={CONCEPT_ICON.growth}>
-        <>
-          <div className="stats-split">
-          <table className="ref-stats">
-            <thead>
-              <tr>
-                <th />
-                <th title={VIEW_HINT.bases}>Base</th>
-                <th title={VIEW_HINT.boosts}>Boost</th>
-                <th title={VIEW_HINT.growths}>Growth</th>
+      {onLadder && (
+        <ol className="class-rail" aria-label="Class tiers">
+          {LADDER.map((t, i) => (
+            <li
+              key={t}
+              className={i === here ? "here" : i < here ? "past" : ""}
+              style={tierMetalStyle(t)}
+              aria-current={i === here ? "step" : undefined}
+            >
+              <TierIcon tier={t} size={32} decorative />
+              <span className="rung-name">{t}</span>
+              {gates[t] && <span className="rung-gate">Lv {gates[t]}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {(weakTo.length > 0 || c.gender || c.restriction) && (
+        <div className="class-notes">
+          {/* Centred on the card under the ladder; the wiki link takes its own line at the right. */}
+          {(weakTo.length > 0 || c.gender || (c.requirements.length > 0 && c.restriction)) && (
+            <div className="class-note-group">
+              {weakTo.map((w) => (
+                <span key={w} className="class-note warn">
+                  <Icon name={CONCEPT_ICON.warning} />
+                  Weak to {w}
+                </span>
+              ))}
+              {c.gender && (
+                <span className="class-note">
+                  <Icon name={c.gender === "Male" ? CONCEPT_ICON.male : CONCEPT_ICON.female} />
+                  {c.gender === "Male" ? "Men" : "Women"} only
+                </span>
+              )}
+              {c.requirements.length > 0 && c.restriction && <span className="class-note plain">{restriction}</span>}
+            </div>
+          )}
+          {c.restriction && (
+            <a className="class-wiki" href="https://fireemblemwiki.org/wiki/Class_change" target="_blank" rel="noreferrer">
+              Class change on Fire Emblem Wiki
+            </a>
+          )}
+        </div>
+      )}
+    </header>
+  );
+}
+
+/** A growth change as a bar from the middle: right and green for a gain, left and red for a loss. */
+function GrowthBar({ value, scale }: { value: number; scale: number }) {
+  const share = Math.min(50, (Math.abs(value) / scale) * 50);
+  const tone = value > 0 ? "up" : value < 0 ? "down" : "flat";
+  return (
+    <span className={`growth-bar ${tone}`}>
+      <span className="growth-track" aria-hidden>
+        <span className="growth-fill" style={{ width: `${share}%` }} />
+      </span>
+      <span className="growth-value">{value ? `${value > 0 ? "+" : ""}${value}%` : "·"}</span>
+    </span>
+  );
+}
+
+function MountMark({ value }: { value: number | undefined }) {
+  if (!value) return null;
+  return (
+    <span className={`ledger-mount${value < 0 ? " neg" : ""}`} title={`${value > 0 ? "+" : ""}${value} more while mounted`}>
+      {value > 0 ? `+${value}` : value}
+    </span>
+  );
+}
+
+/** The class's stats as one ledger: the floor it sets, what it adds while worn, and how it bends growth. */
+function ClassLedger({ c, scale }: { c: GameClass; scale: number }) {
+  const growthTotal = STAT_KEYS.reduce((n, k) => n + (c.growths[k] ?? 0), 0);
+  const boostTotal = STAT_KEYS.reduce((n, k) => n + (c.boosts[k] ?? 0), 0);
+  const trains = c.proficient.length > 0 || Object.values(c.skill_bonus).some(Boolean);
+  const sign = (v: number) => (v > 0 ? "up" : v < 0 ? "down" : "flat");
+  return (
+    <>
+      <div className="class-ledger-wrap">
+        <table className="class-ledger">
+          <thead>
+            <tr>
+              <th aria-label="Stat" />
+              <th title={VIEW_HINT.bases}>Base</th>
+              <th title={VIEW_HINT.boosts}>Boost</th>
+              <th className="ledger-growth" title={VIEW_HINT.growths}>Growth</th>
+            </tr>
+          </thead>
+          <tbody>
+            {STAT_KEYS.map((k) => (
+              <tr key={k}>
+                <th scope="row">{STAT_LABEL[k]}</th>
+                <td className="ledger-base">{c.bases[k]}</td>
+                <td className={`ledger-boost ${sign(c.boosts[k])}`}>
+                  {fmt(c.boosts[k], "boosts")}
+                  <MountMark value={c.mount_boosts[k]} />
+                </td>
+                <td className="ledger-growth">
+                  <GrowthBar value={c.growths[k]} scale={scale} />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {COLS.map((k) => {
-                const m = c.mount_boosts[k];
-                return (
-                  <tr key={k}>
-                    <th>{STAT_LABEL[k]}</th>
-                    <td>{c.bases[k]}</td>
-                    <td>
-                      {fmt(c.boosts[k], "boosts")}
-                      {m ? (
-                        <span className={`mark mount ${m < 0 ? "neg" : ""}`} title="While mounted">
-                          {m > 0 ? `+${m}` : m}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td>{k === "mv" ? "" : `${fmt(c.growths[k], "growths")}${c.growths[k] ? "%" : ""}`}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="ledger-mv">
+              <th scope="row">Mv</th>
+              <td className="ledger-base">{c.bases.mv}</td>
+              <td className={`ledger-boost ${sign(c.boosts.mv)}`}>
+                {fmt(c.boosts.mv, "boosts")}
+                <MountMark value={c.mount_boosts.mv} />
+              </td>
+              <td className="ledger-growth ledger-aside">Movement has no growth</td>
+            </tr>
+            <tr className="ledger-total">
+              <th scope="row">Total</th>
+              <td />
+              <td className={`ledger-boost ${sign(boostTotal)}`} title="Sum of the nine stat boosts (Mv not included)">{fmt(boostTotal, "boosts")}</td>
+              <td className="ledger-growth" title="Sum of the nine growth changes">
+                <span className={`growth-sum ${sign(growthTotal)}`}>{growthTotal ? `${growthTotal > 0 ? "+" : ""}${growthTotal}%` : "·"}</span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {trains && (
+        <>
+          <h3 className="class-subhead">Skills it trains</h3>
           <SkillChips gameClass={c} />
         </>
-      </Section>
+      )}
+    </>
+  );
+}
 
-      <Section title="Abilities" icon={CONCEPT_ICON.ability}>
+/** What the class gives: its abilities while worn, then what mastering it teaches for good. */
+function ClassAbilities({ c, data }: { c: GameClass; data: ReferenceData }) {
+  const ability = (name: string) => data.abilities.find((a) => a.name === name);
+  const art = data.combat_arts.find((a) => a.name === c.mastery_art);
+  return (
+    <>
+      <h3 className="class-subhead">While in the class</h3>
+      {c.abilities.length ? (
+        <ul className="class-perks">
+          {c.abilities.map((a) => (
+            <li key={a}>
+              <AbilityIcon name={a} />
+              <span>
+                <b><AbilityLink name={a} /></b>
+                {ability(a) && <span className="class-perk-desc"><LinkedDescription text={ability(a)!.description} /></span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted">None</p>
+      )}
+      {(c.mastery_ability || c.mastery_art) && (
         <>
-          <ul className="item-list">
-            {c.abilities.map((a) => (
-              <li key={a}>
-                <span>
-                  <b>
-                    <AbilityIcon name={a} />
-                    <AbilityLink name={a} />
-                  </b>
-                  {ability(a) && <span className="desc"><LinkedDescription text={ability(a)!.description} /></span>}
-                </span>
-              </li>
-            ))}
-            {c.abilities.length === 0 && <li className="muted">None</li>}
-          </ul>
-          {(c.mastery_ability || c.mastery_art) && (
-            <>
-              <h4 className="sub-title">Mastery</h4>
-              <ul className="item-list">
-                {c.mastery_ability && (
-                  <li className="personal">
-                    <span>
-                      <b>
-                        <AbilityIcon name={c.mastery_ability} />
-                        <AbilityLink name={c.mastery_ability} />
-                      </b>
-                      {ability(c.mastery_ability) && <span className="desc"><LinkedDescription text={ability(c.mastery_ability)!.description} /></span>}
-                    </span>
-                  </li>
-                )}
-                {c.mastery_art && (
-                  <li className="personal">
-                    <span>
-                      <b>
-                        <ArtIcon name={c.mastery_art} />
-                        <ArtLink name={c.mastery_art} />
-                      </b>
-                      {art && <span className="desc">{artSummary(art)}</span>}
-                    </span>
-                  </li>
-                )}
-              </ul>
-            </>
-          )}
+          <h3 className="class-subhead">Mastery rewards</h3>
+          <p className="class-subnote">Unlocked through class mastery.</p>
+          <div className="class-mastery">
+            {c.mastery_ability && (
+              <article className="mastery-tile">
+                <span className="mastery-kind">Ability</span>
+                <b>
+                  <AbilityIcon name={c.mastery_ability} />
+                  <AbilityLink name={c.mastery_ability} />
+                </b>
+                {ability(c.mastery_ability) && <p><LinkedDescription text={ability(c.mastery_ability)!.description} /></p>}
+              </article>
+            )}
+            {c.mastery_art && (
+              <article className="mastery-tile">
+                <span className="mastery-kind">Combat art</span>
+                <b>
+                  <ArtIcon name={c.mastery_art} />
+                  <ArtLink name={c.mastery_art} />
+                </b>
+                {art && <p>{artSummary(art)}</p>}
+              </article>
+            )}
+          </div>
         </>
-      </Section>
-
-      <Section title="Units" icon={CONCEPT_ICON.roster}>
-        <>
-          <WhoFilters />
-          {starters.length > 0 && (
-            <>
-              <h4 className="sub-title">Starts in This Class</h4>
-              {c.name === "Death Knight" ? <Spoiler category="identities"><PeopleRow people={starters} part2={part2} /></Spoiler> : <PeopleRow people={starters} part2={part2} />}
-            </>
-          )}
-          {fits.length > 0 ? (
-            <>
-              <h4 className="sub-title" title="Strengths (or budding talents) in at least half of the required skills, and no weakness in any of them">
-                Strong in Its Skills
-              </h4>
-              <PeopleRow people={fits.map((f) => f.ch)} part2={part2} skills={c.requirements.map((r) => r.skill)} />
-            </>
-          ) : (
-            starters.length === 0 && <p className="muted">{restricted ? "Restricted class." : "Nobody stands out for this class."}</p>
-          )}
-        </>
-      </Section>
-    </DetailCard>
+      )}
+    </>
   );
 }
 
