@@ -3,8 +3,8 @@
 How the app's pages are put together, so new screens look and behave like the rest. The look itself (banners, cogs,
 paper, diamonds, styled after the in-game Status page) is separate; this is about structure.
 
-Maintainer decisions are recorded in [the root project instructions](../AGENTS.md) and take precedence over older
-design notes. The supported review targets are desktop **16:9 and 16:10** (1600×900 and 1600×1000). Do not spend
+Follow any repository-local `AGENTS.md` instructions; that file is kept outside Git. Maintainer decisions take
+precedence over older design notes. The supported review targets are desktop **16:9 and 16:10** (1600×900 and 1600×1000). Do not spend
 implementation, testing, or screenshot work on phone/mobile views unless explicitly requested.
 
 ## Principles

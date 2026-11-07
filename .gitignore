@@ -1,6 +1,9 @@
 # Runtime data (runs, battles, settings, log)
 /data/
 
+# Local coding-agent instructions
+/AGENTS.md
+
 # Python
 __pycache__/
 *.pyc

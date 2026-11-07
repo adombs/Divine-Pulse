@@ -55,7 +55,7 @@ No battles; active battle; incomplete older recording; unknown totals; many reco
 - FR-011: Omit comparison subtitles, repeated counts, sorting hints and footer legends in History statistics.
   Keep unknown values accessible without explanatory footer clutter.
 - FR-012: Put native character sprites beside names, center numeric columns, and reuse History's battle-type colours.
-- FR-013: Label the reference Battalion's 1–5 selector Level and persist maintainer UI preferences in root AGENTS.md.
+- FR-013: Label the reference Battalion's 1–5 selector Level and persist maintainer UI preferences in locally ignored root AGENTS.md.
 
 ### Key Entities
 Recorded battle; run totals; character aggregate; award/record count; Battalion assignment/reference; imported image; missing-asset sentinel; local dump.
