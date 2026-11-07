@@ -79,7 +79,8 @@ function RunLedger({ kind, battles: source }: { kind: LedgerKind; battles: Battl
                 <button type="button" onClick={() => toggleSort(column.index)}>{column.label}{sortIcon(column.index)}</button></th>)}</tr></thead>
             <tbody>{shown.map((row) => <tr key={row.id} className={kind === "battles" ? `run-stats-battle battle-kind-${row.kind ?? "unknown"}` : undefined}><th scope="row" title={row.kind ? KIND_LABEL[row.kind] : undefined}>
               <span className="run-stats-identity">{kind === "characters" && <span className="run-stats-sprite"><SpriteFigure sprite={row.sprite ?? null} size={36} /></span>}
-                <span className="run-stats-name">{row.name}{row.live && <em>Live</em>}<small>{row.note}</small></span></span></th>
+                <span className="run-stats-name">{row.name}{row.live && <em>Live</em>}<small className="run-stats-row-meta"><span>{row.note}</span>
+                  {kind === "battles" && row.kind && <span className="run-stats-kind">{KIND_LABEL[row.kind]}</span>}</small></span></span></th>
               {columns.map((column) => { const value = row.values[part][column.index]; const active = sort?.column === column.index;
                 return <td key={column.key} className={active ? "is-sorted" : undefined}>{active && value !== null && maxSorted > 0 && <span className="run-stats-cell-bar" style={{ width: `${Math.max(0, value) / maxSorted * 100}%` }} aria-hidden="true" />}
                   <span className="run-stats-cell-value">{part === "records" && value === null ? unknown("Battle-wide record; no character recipient") : formatValue(value, column.key)}</span></td>;

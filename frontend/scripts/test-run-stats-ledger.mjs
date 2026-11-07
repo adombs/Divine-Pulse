@@ -107,11 +107,14 @@ await t.test("Records renders group filtering and honest run-only sentinels with
   assert.doesNotMatch(html, /run-stats-footnote|Records earned/);
 });
 
-await t.test("battle comparison markup carries the shared History battle-kind classes", async () => {
+await t.test("battle comparison shows type tags beside dates using History's shared colours", async () => {
   const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx");
   const battles = [7, 40, 61, 86].map((scenario, index) => battle(String(index + 1), { scenario }));
   const html = renderToStaticMarkup(h(RunStatsPopup, { kind: "battles", onClose() {}, battles, error: false, onRetry() {} }));
   for (const kind of ["main", "paralogue", "auxiliary", "dlc"]) assert.match(html, new RegExp(`class="run-stats-battle battle-kind-${kind}"`));
+  for (const label of ["Main battle", "Paralogue", "Auxiliary battle", "Cindered Shadows"]) {
+    assert.match(html, new RegExp(`class="run-stats-row-meta"><span>[^<]+</span><span class="run-stats-kind">${label}</span>`));
+  }
   assert.doesNotMatch(html, /Select a column to compare|run-stats-footnote|Battle comparison/);
 });
 
