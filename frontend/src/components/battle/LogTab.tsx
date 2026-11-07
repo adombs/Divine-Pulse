@@ -1,5 +1,5 @@
 /**
- * The battle's log, on the Overview: newest first, as a list or the timelines as a tree. The Timeline picker goes
+ * The battle's log, on the Overview: in action order, as a list or the timelines as a tree. The Timeline picker goes
  * through the Divine Pulse uses, from Divine Pulse 0 (the battle as it first went) to the one that stands now. In the
  * list, the timeline that stands follows the replay, and picking a row sends the replay there.
  */

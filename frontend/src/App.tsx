@@ -1,7 +1,7 @@
 import { CONCEPT_ICON } from "./icons/concepts";
 import { ErrorBoundary } from "./components/ErrorBoundary";
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { api, AutoStatus, Battle, ScanEntry, type GameAssetsJob } from "./api";
+import { api, AutoStatus, Battle, type GameAssetsJob } from "./api";
 import { useEvents } from "./useEvents";
 import { useBootstrap } from "./useBootstrap";
 import { useBattleSync } from "./useBattleSync";
@@ -11,7 +11,7 @@ import { Sidebar } from "./components/Sidebar";
 import "./components/sidebar-motion.css";
 import { Toasts, useToasts } from "./components/Toasts";
 import { RunIcon, runIconUrl } from "./components/ui";
-import { useAppearance } from "./appearance";
+import { PortraitPhaseContext, useAppearance } from "./appearance";
 import { showPart2 } from "./portraits";
 import { NavProvider, Page, useNavState } from "./nav";
 import { PeopleFiltersContext, usePeopleFiltersState } from "./filters";
@@ -20,7 +20,6 @@ import { GameAssetAlert } from "./components/GameAssetAlert";
 import { reportAssetIssue } from "./requiredAssets";
 import { GameFilesGate } from "./components/GameFilesGate";
 import { loadPortraitIndex } from "./portraits";
-import { loadGameLanguage, onGameLanguageChange } from "./gameLanguage";
 import { loadReferenceIcons } from "./reference/icons";
 import { loadBattleIndexes } from "./components/battle/factions";
 import { loadScenarioText } from "./components/battle/scenarios";
@@ -86,11 +85,10 @@ export default function App() {
         .catch((error: unknown) => { if (current === generation) setIndexError(error instanceof Error ? error.message : String(error)); });
     };
     const offAssets = onGameAssetsChange(load);
-    const offLanguage = onGameLanguageChange(load);
-    void loadGameAssetsStatus().then(async (status) => {
-      if (status.available) { await loadGameLanguage(); load(); }
+    void loadGameAssetsStatus().then((status) => {
+      if (status.available) load();
     }).catch((error: unknown) => setIndexError(error instanceof Error ? error.message : String(error)));
-    return () => { generation++; offAssets(); offLanguage(); };
+    return () => { generation++; offAssets(); };
   }, []);
   useEffect(() => {
     let live = true;
@@ -120,8 +118,8 @@ export default function App() {
   const page = nav.route.page;
   const setPage = (p: Page) => nav.go({ page: p });
   const bootstrap = useBootstrap();
-  const { runs, activeRunId, loaded, units, scans, settings, auto } = bootstrap;
-  const { loadRuns, loadUnits, loadScans, loadAuto, retryStartup } = bootstrap;
+  const { runs, activeRunId, loaded, units, auto } = bootstrap;
+  const { loadRuns, loadUnits, loadAuto, retryStartup } = bootstrap;
   const peopleFilters = usePeopleFiltersState(loaded);
   const [flashKey, setFlashKey] = useState<string | null>(null);
   const appearance = useAppearance();
@@ -179,17 +177,12 @@ export default function App() {
   const redirectedBattles = useRef(new Set<string>());
   useEffect(() => { void loadBattle(); }, [activeRunId, loadBattle]);
 
-  const undo = useCallback(async () => {
-    const entry = await api.undo();
-    toasts.push({ kind: "info", title: entry ? `Undid: ${entry.message}` : "Nothing to undo" });
-  }, [toasts]);
-
   const connected = useEvents({
     game_assets: (data) => updateImport((data as { job?: GameAssetsJob }).job ?? null),
     hello: (data) => {
       const notices = (data as { notices?: unknown } | null)?.notices;
       if (Array.isArray(notices)) notices.forEach((notice) => toasts.push({ kind: "warning", title: String(notice) }));
-      return Promise.all([loadRuns(), loadUnits(), loadScans(), loadAuto(), loadBattle()]).then(() => undefined);
+      return Promise.all([loadRuns(), loadUnits(), loadAuto(), loadBattle()]).then(() => undefined);
     },
     battle: (data) => {
       const refresh = Promise.all([loadBattle(), loadRuns()]).then(() => undefined);
@@ -211,32 +204,21 @@ export default function App() {
       }
       return refresh;
     },
-    scan_log: () => loadScans(),
     auto: (data) => bootstrap.acceptAuto(data as AutoStatus),
-    scan: (data) => {
-      const e = data as ScanEntry;
-      const refresh = loadScans();
-      if (!loaded) return refresh;
-      if (e.status === "ok") {
-        toasts.push({ kind: "ok", title: e.message, body: e.is_new_unit ? "New unit added to this run." : undefined, ttl: 2500 });
-      } else if (e.status === "warning") {
-        toasts.push({ kind: "warning", title: e.message, body: e.warnings.join("\n"), action: { label: "Undo", run: undo } });
-      } else {
-        toasts.push({ kind: "error", title: "Couldn't update the run", body: e.message });
-      }
-      return refresh;
+    roster_warning: (data) => {
+      const { message } = data as { message: string };
+      pushToast({ kind: "warning", title: "Roster update", body: message });
     },
   });
 
   // In-battle filter: which units are in the battle in progress, and whether the Roster shows
-  // only them. With the setting on, it switches on when a battle starts; it always switches off when it ends.
+  // only them. It switches on when a battle starts and off when it ends.
   const [battleOnly, setBattleOnly] = useState(false);
   const battleKeys = auto?.battle ?? [];
   const inBattle = loaded && battleKeys.length > 0;
-  const battleFilterAuto = settings?.battle_filter_auto ?? true;
   const wasInBattle = useRef(false);
   useEffect(() => {
-    if (inBattle && !wasInBattle.current && battleFilterAuto) {
+    if (inBattle && !wasInBattle.current) {
       setBattleOnly(true);
       toasts.push({ kind: "info", title: `Battle started · showing the ${battleKeys.length} unit${battleKeys.length === 1 ? "" : "s"} in it`, ttl: 3000 });
     } else if (!inBattle && wasInBattle.current) {
@@ -244,14 +226,12 @@ export default function App() {
     }
     wasInBattle.current = inBattle;
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inBattle, battleFilterAuto, toasts]);
+  }, [inBattle, toasts]);
 
-  // A new live battle opens the Battle page at most once per browser session. Settings are
-  // deliberately awaited: the default must not override a saved opt-out while it is loading.
+  // Open the Battle page once per live battle in this session.
   const battleActive = battle?.active === true;
-  const battlePageAuto = settings?.battle_page_auto ?? true;
   useEffect(() => {
-    if (!loaded || !battleActive || !battle || settings === null || !battlePageAuto) return;
+    if (!loaded || !battleActive || !battle) return;
     const key = `divine-pulse:battle-page-redirected:${battle.run_id}:${battle.id}`;
     if (redirectedBattles.current.has(key)) return;
     redirectedBattles.current.add(key);
@@ -262,11 +242,10 @@ export default function App() {
       // Private/locked-down storage should not stop the page from following a new battle.
     }
     goNav({ page: "battle" });
-  }, [battle, battleActive, battlePageAuto, goNav, loaded, settings]);
+  }, [battle, battleActive, goNav, loaded]);
 
-  // Battle alerts (setting): a unit leaving the battle (it may have fallen) or a Divine Pulse. Only for events that
+  // Battle alerts: a unit leaving the battle (it may have fallen) or a Divine Pulse. Only for events that
   // arrive while the app is open, not those already in the battle when it loads.
-  const battleAlerts = settings?.battle_alerts ?? true;
   const seenEvents = useRef<{ id: string; count: number } | null>(null);
   useEffect(() => {
     if (!battle) {
@@ -274,7 +253,7 @@ export default function App() {
       return;
     }
     const seen = seenEvents.current;
-    if (loaded && battleAlerts && seen?.id === battle.id) {
+    if (loaded && seen?.id === battle.id) {
       for (const e of battle.events.slice(seen.count)) {
         if (e.kind === "left") {
           const critical = e.unit !== undefined && e.unit !== null && CRITICAL_UNITS.has(e.unit);
@@ -354,6 +333,8 @@ export default function App() {
   const battleAvailable = battleActive || recording !== null;
   const status = connected ? statusText(auto && !loaded ? { ...auto, seeing: null } : auto) : "Tracker disconnected";
   const tracking = connected && auto?.state === "watching";
+  const portraitPhase = appearance.appearance.portraits;
+  const part2 = showPart2(portraitPhase, units);
 
   if (assetsAvailable === null) return null;
   if (!assetsAvailable) return <GameFilesGate toasts={toasts} />;
@@ -363,6 +344,7 @@ export default function App() {
   return (
     <NavProvider nav={nav}>
     <PeopleFiltersContext.Provider value={peopleFilters}>
+    <PortraitPhaseContext.Provider value={portraitPhase}>
     <div className="app nav-collapsed">
       <Sidebar>
         <div className="side-banner" title={activeRun?.name ?? "Divine Pulse"}>
@@ -420,7 +402,7 @@ export default function App() {
                 run={activeRun}
                 units={units}
                 flashKey={flashKey}
-                part2={showPart2(appearance.appearance.portraits, units)}
+                part2={part2}
                 onGoToRuns={() => setPage("runs")}
                 toasts={toasts}
                 battleKeys={battleKeys}
@@ -435,7 +417,7 @@ export default function App() {
                 runId={activeRunId}
                 version={battleVersion}
                 units={units}
-                part2={showPart2(appearance.appearance.portraits, units)}
+                part2={part2}
                 mapLook={{ mine: appearance.appearance.mapMine, others: appearance.appearance.mapOthers, myFaces: appearance.appearance.myUnitFaces, otherFaces: appearance.appearance.otherUnitFaces }}
                 replaySpeed={appearance.appearance.replaySpeed}
                 onReplaySpeed={(replaySpeed) => appearance.update({ replaySpeed })}
@@ -449,13 +431,13 @@ export default function App() {
                 live={battle}
                 version={battleVersion}
                 units={units}
-                part2={showPart2(appearance.appearance.portraits, units)}
+                part2={part2}
                 onOpenRecording={openRecording}
               />
             )}
-            {page === "archive" && <ArchivePage units={units} part2={showPart2(appearance.appearance.portraits, units)} />}
-            {page === "supports" && <SupportsPage units={units} part2={showPart2(appearance.appearance.portraits, units)} />}
-            {loaded && page === "runs" && <Runs runs={runs} activeRunId={activeRunId} onActivate={switchRun} toasts={toasts} entries={scans} onUndo={undo} />}
+            {page === "archive" && <ArchivePage units={units} part2={part2} />}
+            {page === "supports" && <SupportsPage units={units} part2={part2} />}
+            {loaded && page === "runs" && <Runs runs={runs} activeRunId={activeRunId} onActivate={switchRun} toasts={toasts} />}
             {page === "settings" && (
               <SettingsPage
                 appearance={appearance}
@@ -472,6 +454,7 @@ export default function App() {
 
       <Toasts state={toasts} />
     </div>
+    </PortraitPhaseContext.Provider>
     </PeopleFiltersContext.Provider>
     </NavProvider>
   );

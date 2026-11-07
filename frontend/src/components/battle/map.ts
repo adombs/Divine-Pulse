@@ -106,7 +106,7 @@ export const TILE_MARKS: { mark: TileMark; label: string }[] = [
 
 // Terrain IDs of breakable walls (the import's data/terrain.json), for battles saved before the tiles said so.
 const BREAKABLE_IDS = new Set([38, 95]);
-// The terrain IDs the game's minimap puts an icon on (its code switches on the terrain ID; docs/minimap-atlas.md).
+// The terrain IDs the game's minimap puts an icon on (its code switches on the terrain ID).
 const MARK_BY_ID: Record<number, TileMark> = { 46: "chest", 17: "door", 72: "door", 107: "door", 51: "lever", 108: "lever", 78: "crest", 50: "trap", 64: "trap", 69: "warp" };
 
 /** The icon on a tile with this terrain ID, if the game's minimap has one. */

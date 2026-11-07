@@ -1,7 +1,7 @@
 """A unit's inventory as the battle pages show it: each item with its name, uses left and full uses.
 
 The battle record holds six (item ID, uses) pairs and, separately, the spell in each spell slot with its uses left
-(gamemem/battle.py). Item IDs fall into ranges (docs/reading-game-memory.md): weapons 10-509, equipment 600-649,
+(gamemem/battle.py). Item IDs fall into ranges: weapons 10-509, equipment 600-649,
 items 1000-1199. Weapon, spell, equipment, item, combat art and ability names come from the game's own tables
 from the import.
 """

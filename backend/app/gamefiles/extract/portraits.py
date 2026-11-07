@@ -1,6 +1,6 @@
 """Portraits: referenced faces of the "still" packs, plus the named-character and generic views.
 
-Chain (docs/game-assets/portraits.md): person row (+0x18 AssetsID) -> AssetID row (9 x i16; [4] Part 1, [2] Part 2,
+Chain: person row (+0x18 AssetsID) -> AssetID row (9 x i16; [4] Part 1, [2] Part 2,
 [0] and [6] further looks) -> portrait id -> Portraits row (11 expression face indices) -> pack item. Face indices
 below the base pack's length are items of DATA entry 6123; higher ones continue in the loose Cindered Shadows file.
 
@@ -28,11 +28,11 @@ PERSON_TABLE = "nx/data/fixed_persondata.bin"
 PEOPLE, ASSETS, PORTRAITS = 0, 1, 16
 EXPRESSIONS = 11
 NAMED_IDS = (*range(100), *range(1040, 1047))  # story characters, NPCs and the Cindered Shadows cast
-NAME_BASE, CLASS_NAME_BASE = 1157, 3453  # indices into the ENG_U string table (docs/game-assets/text.md)
+NAME_BASE, CLASS_NAME_BASE = 1157, 3453  # indices into the ENG_U string table
 # Looks no AssetID row references: Constance's second Part 1 and Part 2 faces follow her referenced ones.
 FOLLOW_UP_LOOKS = {554: (555,), 560: (561,)}
 
-# The app's portrait files and the portrait id each one is, from the image match in docs/game-assets/portraits.md.
+# The app's portrait files and the portrait id each one is, matched by image.
 # The app finds the importer's files by these keys.
 APP_PORTRAITS = """
     acheron:67 aelfric:557 alois:31 anna:48 anna_2:551 annette:17 annette_2:88 arundel:54 ashe:14 ashe_2:85

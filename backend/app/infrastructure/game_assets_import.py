@@ -2,23 +2,22 @@
 
 from __future__ import annotations
 
-import os
 import shutil
 import threading
-import tempfile
 from pathlib import Path
 
 from ..gamefiles import dump, verify
 from ..gamefiles.extract import Context, FAMILIES, run
 from ..gamefiles.output import Output
 from .game_assets import game_assets
+from .nsp_workspace import extraction_workspace, validate_destination
 
 
 class BusyError(RuntimeError):
     pass
 
 
-def import_assets(found, root: Path, progress, verifying=lambda: None) -> None:
+def import_assets(found, root: Path, progress, verifying, check_cancelled) -> None:
     """Extract, verify and atomically replace an import, preserving the previous one on failure."""
     staging = root.with_name(root.name + ".importing")
     backup = root.with_name(root.name + ".previous")
@@ -33,9 +32,10 @@ def import_assets(found, root: Path, progress, verifying=lambda: None) -> None:
                                  "dlc": sorted(found.dlc), "exefs": bool(found.main_path and found.main_path.is_file())},
                            families=families)
         verifying()
-        report = verify.check(staging)
+        report = verify.check(staging, require_complete=True)
         if not report.ok:
             raise ValueError("Verification failed: " + "; ".join(report.errors[:5]))
+        check_cancelled()
         if backup.exists():
             shutil.rmtree(backup)
         if root.exists():
@@ -65,76 +65,28 @@ def scan(folder: str) -> dict:
                     for name in dump.DLC_TITLES.values()}}
 
 
-EMULATOR_FOLDERS = ("eden", "yuzu", "suyu", "sudachi", "citron", "torzu", "Ryujinx")
-EMULATOR_SUBFOLDERS = ("dump", "load", "mods/contents", "user/dump", "user/load")
-NAME_HINTS = ("three houses", "threehouses", "fe3h", "fire emblem", "romfs", dump.BASE_TITLE.lower())
-MARKERS = ("romfs", "exefs", dump.BASE_TITLE.lower())
-
-
-def _subdirs(folder: Path) -> list[Path]:
-    try:
-        return [child for child in folder.iterdir() if child.is_dir()]
-    except OSError:
-        return []
-
-
-def _plausible(folder: Path) -> bool:
-    """Cheap check (one folder listing) before the deeper dump.find()."""
-    if (folder / "DATA0.bin").is_file():
-        return True
-    return any(child.name.lower() in MARKERS for child in _subdirs(folder))
-
-
-def _describe(folder: Path) -> dict | None:
-    try:
-        found = dump.find(folder)
-        if found.romfs is None:
-            return None
-        return {"path": str(folder), "romfs": str(found.romfs), "exefs": bool(found.exefs),
-                "version": found.version, "supported": found.version is not None,
-                "parts": found.parts(), "importable": not found.problems, "problems": found.problems,
-                "dlc": [name for name in dump.DLC_TITLES.values() if name in found.dlc],
-                "modified": found.romfs.stat().st_mtime}
-    except (OSError, ValueError):
-        return None
-
-
-def candidates(last_dump: str | None = None, env: dict | None = None) -> list[dict]:
-    """Real game dumps in the usual places, newest first. Existence checks and shallow listings only."""
-    env = os.environ if env is None else env
-    roots: list[Path] = []
-    if last_dump:
-        last = Path(last_dump)
-        roots += [last, last.parent]
-    appdata = env.get("APPDATA")
-    if appdata:
-        roots += [Path(appdata) / emu / sub for emu in EMULATOR_FOLDERS for sub in EMULATOR_SUBFOLDERS]
-    home = env.get("USERPROFILE") or env.get("HOME")
-    if home:
-        for name in ("Desktop", "Downloads", "Documents"):
-            roots += [child for child in _subdirs(Path(home) / name)
-                      if any(hint in child.name.lower() for hint in NAME_HINTS) or _plausible(child)]
-    seen, found = set(), []
-    for root in roots:
-        if not root.is_dir() or not _plausible(root):
-            continue
-        item = _describe(root)
-        if item and item["romfs"] not in seen:
-            seen.add(item["romfs"])
-            found.append(item)
-    return sorted(found, key=lambda item: item["modified"], reverse=True)
-
-
 class GameAssetsImport:
     def __init__(self, settings, events):
         self.settings, self.events = settings, events
         self.lock = threading.RLock()
-        self.job = {"state": "idle", "phase": None, "done": 0, "total": len(FAMILIES) + 1, "error": None, "log": []}
+        self.cancelled = threading.Event()
+        self.worker: threading.Thread | None = None
+        self.job = {"state": "idle", "phase": None, "done": 0, "total": len(FAMILIES) + 1, "error": None}
+
+    def close(self) -> None:
+        with self.lock:
+            self.cancelled.set()
+            worker = self.worker
+        if worker is not None:
+            worker.join()
+
+    def _check_cancelled(self) -> None:
+        if self.cancelled.is_set():
+            raise BusyError("The app closed before the import finished.")
 
     def status(self) -> dict:
         with self.lock:
-            return {**game_assets().status(), "last_dump": self.settings.get().last_dump,
-                    "job": {**self.job, "log": list(self.job["log"])}}
+            return {**game_assets().status(), "job": self.job.copy()}
 
     def emit(self) -> None:
         self.events.publish("game_assets", self.status())
@@ -142,26 +94,24 @@ class GameAssetsImport:
     def scan(self, folder: str) -> dict:
         return scan(folder)
 
-    def candidates(self) -> list[dict]:
-        return candidates(self.settings.get().last_dump)
-
     def start(self, folder: str) -> dict:
         with self.lock:
+            self._check_cancelled()
             if self.job["state"] == "running":
                 raise BusyError("An import is already running.")
             found = dump.find(Path(folder))
             if found.problems:
                 raise ValueError(" ".join(found.problems))
-            self.settings.update(last_dump=folder)
             self.job = {"state": "running", "phase": "starting", "done": 0, "total": len(FAMILIES) + 1,
-                        "error": None, "log": []}
+                        "error": None}
             job = self.status()["job"]
-            threading.Thread(target=self._run, args=(found,), daemon=True, name="game-assets-import").start()
+            self.worker = threading.Thread(target=self._run, args=(found,), daemon=True, name="game-assets-import")
+            self.worker.start()
         self.emit()
         return job
 
-    def start_nsps(self, nsps: list[str], keys: str) -> dict:
-        from .paths import INSTALL_DIR, PROJECT_ROOT, FROZEN
+    def start_nsps(self, nsps: list[str], keys: str, keep_dumps: str | None = None) -> dict:
+        from .paths import DATA_DIR, FROZEN, INSTALL_DIR, PROJECT_ROOT
 
         packages = [Path(name) for name in nsps]
         key_path = Path(keys)
@@ -172,64 +122,78 @@ class GameAssetsImport:
             raise ValueError("Choose your prod.keys file.")
         if not tool.is_file():
             raise ValueError("Bundled NSTool was not found. Reinstall the application.")
+        destination = Path(keep_dumps) if keep_dumps else None
+        protected = (DATA_DIR, game_assets().root, INSTALL_DIR) if FROZEN else (DATA_DIR, game_assets().root)
         with self.lock:
+            self._check_cancelled()
             if self.job["state"] == "running":
                 raise BusyError("An import is already running.")
+            if destination is not None:
+                validate_destination(destination, protected)
             self.job = {"state": "running", "phase": "extracting", "done": 0, "total": 0,
-                        "error": None, "log": []}
+                        "error": None}
             job = self.status()["job"]
-            threading.Thread(target=self._run_nsps, args=(packages, key_path, tool), daemon=True,
-                             name="game-assets-nsp-import").start()
+            self.worker = threading.Thread(target=self._run_nsps, args=(packages, key_path, tool, destination, protected),
+                                           daemon=True, name="game-assets-nsp-import")
+            self.worker.start()
         self.emit()
         return job
 
-    def _run_nsps(self, packages: list[Path], keys: Path, tool: Path) -> None:
+    def _run_nsps(self, packages: list[Path], keys: Path, tool: Path,
+                  destination: Path | None, protected: tuple[Path, ...]) -> None:
         from .nsp_extractor import extract_nsps
 
         try:
-            with tempfile.TemporaryDirectory(prefix="divine-pulse-nsp-") as temp:
-                def log(message: str) -> None:
-                    with self.lock:
-                        self.job["log"] = (self.job["log"] + [message])[-200:]
-                    self.emit()
-                extract_nsps(packages, tool, keys, Path(temp), log)
-                found = dump.find(Path(temp))
+            with extraction_workspace(destination, protected=protected) as workspace:
+                extract_nsps(packages, tool, keys, workspace, cancelled=self.cancelled)
+                found = dump.find(workspace)
                 if found.problems:
                     raise ValueError(" ".join(found.problems))
                 with self.lock:
                     self.job.update(total=len(FAMILIES) + 1, done=0)
-                self._run(found)
+                self._extract(found)
         except Exception as exc:
-            with self.lock:
-                self.job.update(state="failed", phase="failed", error=str(exc))
-            self.emit()
+            self._failed(exc)
+        else:
+            self._completed()
 
     def _run(self, found) -> None:
-        root = game_assets().root
         try:
-            def progress(message: str, out: Output) -> None:
-                with self.lock:
-                    self.job["log"].append(message)
-                    self.job["log"] = self.job["log"][-200:]
-                    if message.endswith(":") and message[:-1] in FAMILIES:
-                        self.job["phase"] = message[:-1]
-                        self.job["done"] = FAMILIES.index(message[:-1])
-                    self.job["files"] = len(out.files)
-                self.emit()
-
-            def verifying() -> None:
-                with self.lock:
-                    self.job.update(phase="verify", done=len(FAMILIES))
-                self.emit()
-
-            import_assets(found, root, progress, verifying)
-            with self.lock:
-                self.job.update(state="done", phase="done", done=self.job["total"])
+            self._extract(found)
         except Exception as exc:
+            self._failed(exc)
+        else:
+            self._completed()
+
+    def _extract(self, found) -> None:
+        def progress(message: str, out: Output) -> None:
+            self._check_cancelled()
             with self.lock:
-                self.job.update(state="failed", phase="failed", error=str(exc))
-        finally:
+                if message.endswith(":") and message[:-1] in FAMILIES:
+                    self.job["phase"] = message[:-1]
+                    self.job["done"] = FAMILIES.index(message[:-1])
+                self.job["files"] = len(out.files)
             self.emit()
+
+        def verifying() -> None:
+            self._check_cancelled()
+            with self.lock:
+                self.job.update(phase="verify", done=len(FAMILIES))
+            self.emit()
+
+        import_assets(found, game_assets().root, progress, verifying, self._check_cancelled)
+
+    def _completed(self) -> None:
+        with self.lock:
+            if self.settings.get().replace_import:
+                self.settings.update(replace_import=False)
+            self.job.update(state="done", phase="done", done=self.job["total"])
+        self.emit()
+
+    def _failed(self, error: Exception) -> None:
+        with self.lock:
+            self.job.update(state="failed", phase="failed", error=str(error))
+        self.emit()
 
     def delete(self) -> None:
         with self.lock:
@@ -241,6 +205,6 @@ class GameAssetsImport:
         self.emit()
 
     def verify(self) -> dict:
-        report = verify.check(game_assets().root)
+        report = verify.check(game_assets().root, require_complete=True)
         return {"ok": report.ok, "checked": report.checked, "errors": report.errors[:200],
                 "warnings": report.warnings[:200]}

@@ -31,7 +31,6 @@ datas = [
 hiddenimports = [
     *collect_submodules("app"),
     *collect_submodules("uvicorn"),  # picks its loop / protocol modules at runtime
-    "pystray._win32",
 ]
 
 nums = tuple(int(n) for n in re.findall(r"\d+", VERSION)[:3]) + (0,)

@@ -6,9 +6,7 @@ curve. Each factor is reported with how many percentage points it moves the esti
 Units at risk of falling weigh the most: one whose loss loses the battle (Byleth, a house leader) takes the estimate
 near the bottom; others cost less, since the battle goes on without them.
 
-Version 1 works without current HP (not located in game memory yet): it compares the army's strength with that of
-the other units on the map, and looks at progress (other units gone), losses (army units gone), Divine Pulses used
-and level-ups. Current HP, once available, should become the main factor (docs/battle-page-plan.md).
+The estimate compares remaining HP and strength on both sides. It also accounts for progress, losses and level-ups.
 """
 
 from __future__ import annotations
@@ -25,7 +23,6 @@ STRENGTH_WEIGHT = 1.2
 STRENGTH_PAR = 3.0
 PROGRESS_WEIGHT = 2.5
 LOSS_WEIGHT = 2.5
-PULSE_WEIGHT = 0.15
 LEVEL_UP_WEIGHT = 0.05
 LEVEL_UP_CAP = 0.4
 HEALTH_WEIGHT = 3.0
@@ -204,14 +201,6 @@ def factors(battle: Battle) -> list[tuple[str, float, str]]:
         out.append(("At risk", -score, "; ".join(_risk_text(r) for r in rest)))
     if deployed and lost:
         out.append(("Losses", -LOSS_WEIGHT * lost / deployed, f"{lost} of {deployed} units no longer on the map"))
-    if battle.divine_pulses:
-        out.append(
-            (
-                "Divine Pulse",
-                -PULSE_WEIGHT * battle.divine_pulses,
-                f"Time turned back {battle.divine_pulses} time{'s' if battle.divine_pulses != 1 else ''}",
-            )
-        )
     if battle.level_ups:
         out.append(
             (

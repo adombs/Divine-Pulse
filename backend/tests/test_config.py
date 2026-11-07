@@ -14,7 +14,7 @@ from app.main import create_app
 def test_damaged_settings_file_starts_with_defaults(tmp_path):
     (tmp_path / "settings.json").write_text("{not json", "utf-8")
     store = SettingsStore(tmp_path / "settings.json")
-    assert store.get().auto_interval_s == 1.0
+    assert store.get().max_recordings == 3
     assert (tmp_path / "settings.broken.json").exists()
 
 
@@ -43,7 +43,7 @@ def test_quit_route_answers_before_it_quits(tmp_path):
 
     quit_calls = []
     with TestClient(create_app(tmp_path, background=False)) as c:
-        assert c.post("/api/quit").status_code == 404  # a server only: no tray to quit from
+        assert c.post("/api/quit").status_code == 404  # no desktop window attached
         c.app.state.quit_app = lambda: quit_calls.append(True)
         assert c.get("/api/quit").status_code == 404  # only a POST quits
         assert c.post("/api/quit", headers={"origin": "https://evil.example"}).status_code == 403
@@ -126,15 +126,15 @@ def test_battle_settings_default_to_the_recommended_values(tmp_path):
     from app.config import SettingsStore
 
     s = SettingsStore(tmp_path / "settings.json").get()
-    assert (s.battle_interval_s, s.battle_estimate_fights, s.pairing_check, s.hide_history) == (0.1, True, False, False)
+    assert s.max_recordings == 3
     assert s.window_mode == "windowed"
 
 
 def test_settings_from_older_versions_still_load(tmp_path):
     # Older versions saved a first-run "setup_done", and the screenshot / OCR settings: ignored now.
-    old = {"auto_interval_s": 2.0, "setup_done": True, "scan_hotkey": "f9", "data_source": "screen", "screenshot_dir": ""}
+    old = {"record_battles": False, "setup_done": True, "scan_hotkey": "f9", "data_source": "screen", "screenshot_dir": ""}
     (tmp_path / "settings.json").write_text(json.dumps(old), "utf-8")
     store = SettingsStore(tmp_path / "settings.json")
-    assert store.get().auto_interval_s == 2.0
-    store.update(auto_interval_s=1.5)
+    assert store.get().max_recordings == 0
+    store.update(max_recordings=8)
     assert "scan_hotkey" not in json.loads((tmp_path / "settings.json").read_text("utf-8"))

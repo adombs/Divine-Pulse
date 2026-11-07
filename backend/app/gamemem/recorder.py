@@ -27,7 +27,7 @@ log = logging.getLogger(__name__)
 MAGIC = b"FRM1"
 SUFFIX = ".dprec"
 LEGACY_SUFFIX = ".fe3hrec"  # the name before the rename; still found and read
-KEEP = 5  # recordings kept; the oldest are deleted
+KEEP = 3  # recordings kept; the oldest are deleted
 MAX_BYTES = 200 * 1024 * 1024  # stop recording a battle past this size
 
 
@@ -102,8 +102,18 @@ class BattleRecorder:
     def recording(self) -> bool:
         return self.path is not None
 
+    def set_limit(self, limit: int) -> None:
+        if limit == self.keep:
+            return
+        self.keep = limit
+        if not limit:
+            self.stop()
+        self._prune()
+
     def start(self, name: str) -> None:
         self.stop()
+        if not self.keep:
+            return
         self.folder.mkdir(parents=True, exist_ok=True)
         self.path = self.folder / f"{name}{SUFFIX}"
         # The same battle again (the tracker restarted mid-battle): carry on with its recording. The first frame
@@ -154,7 +164,8 @@ class BattleRecorder:
 
     def _prune(self) -> None:
         recordings = find_recordings(self.folder)
-        for old in recordings[: max(0, len(recordings) - self.keep)]:
+        eligible = [path for path in recordings if path != self.path]
+        for old in eligible[: max(0, len(recordings) - self.keep)]:
             try:
                 old.unlink()
             except OSError:

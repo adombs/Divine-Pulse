@@ -25,7 +25,7 @@ class RuntimeView:
     game_import: object = field(default=None, kw_only=True)
     #: Messages about saves recovered from a backup, shown once when a window connects.
     take_notices: Callable[[], list[str]] = field(default=lambda: [], kw_only=True)
-    #: Quits the app the way the tray's Quit does; None with no tray to quit from (server only).
+    #: Closes the desktop application when a window is attached.
     quit_app: Callable[[], None] | None = field(default=None, kw_only=True)
 
 
@@ -38,7 +38,7 @@ class WindowCallbacks:
 
     def show(self) -> None:
         if self.show_callback is None:
-            raise LookupError("No desktop window (running in browser mode).")
+            raise LookupError("No desktop window is available.")
         self.show_callback()
 
     def set_mode(self, mode: str) -> None:

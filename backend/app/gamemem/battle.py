@@ -6,7 +6,7 @@ first, then everyone else (enemies, and possibly other units). Each record start
 ends the records are cleared (level 0, last marker byte 1).
 
 Current HP and map position use the offsets in app/data/battle_fields.json. Unit flags distinguish units
-off the map from those defeated; docs/battle-page-plan.md tracks the findings.
+off the map from those defeated.
 """
 
 from __future__ import annotations

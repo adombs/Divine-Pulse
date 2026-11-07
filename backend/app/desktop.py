@@ -1,12 +1,4 @@
-"""Standalone desktop window (pywebview) plus the system-tray icon.
-
-The window shows the same UI the server hosts; nothing about the app changes except where
-it's displayed. Closing the window hides it to the tray so the tracker keeps reading the game;
-"Quit" in the tray menu exits. Without a tray icon, closing the window quits.
-
-pywebview uses Edge WebView2 on Windows.
-Where there's none, the app opens in the browser instead (see available()).
-"""
+"""Divine Pulse desktop window, hosted in Microsoft Edge WebView2."""
 
 from __future__ import annotations
 
@@ -24,7 +16,6 @@ from .config import DATA_DIR, SettingsStore
 log = logging.getLogger(__name__)
 
 ICON_ICO = Path(__file__).parent / "data" / "icon.ico"
-ICON_PNG = Path(__file__).parent / "data" / "icon.png"
 
 DEFAULT_SIZE = (1500, 940)
 MIN_SIZE = (960, 640)
@@ -32,7 +23,7 @@ BACKGROUND = "#241a15"  # the dark wood behind the sheet, shown while the page l
 
 
 def available() -> bool:
-    """Whether this PC can show the desktop window (else the app opens in the browser)."""
+    """Whether WebView2 is available."""
     try:
         import webview  # noqa: F401
 
@@ -40,14 +31,14 @@ def available() -> bool:
 
         return bool(_is_chromium())  # WebView2 is installed
     except Exception:
-        log.exception("Desktop window unavailable; falling back to the browser")
+        log.exception("WebView2 is unavailable")
         return False
 
 
 def check_desktop() -> bool:
     """Open and close a hidden WebView2 window for the packaged build check.
 
-    No server, tray, saved settings or game reader is involved. Importing webview
+    No server, saved settings or game reader is involved. Importing webview
     alone misses .NET assembly failures that only happen while creating the window.
     """
     try:
@@ -172,9 +163,7 @@ class DesktopApp:
         self.state = app_state
         self.server = server
         self.window = None
-        self.tray = None
         self._quitting = False
-        self._told_about_tray = False
         # Borderless fullscreen (settings.window_mode): pywebview's fullscreen, which on Windows is a frameless
         # window over the whole monitor rather than the exclusive kind.
         self._fullscreen = False
@@ -196,12 +185,13 @@ class DesktopApp:
         placed = x is not None and bool(geo.get("physical"))
 
         exports = ExportDialogs()
+        import_route = "&replace_import=1#/settings/game-files" if self.settings.get().replace_import else ""
         self.window = webview.create_window(
             "Divine Pulse",
             # A new address every launch, so WebView2 always fetches the current page instead of a copy cached
             # by an older version of the tracker (its script and style files are content-hashed, so those stay
             # cached until they change).
-            f"{self.url}/?launch={int(time.time())}",
+            f"{self.url}/?launch={int(time.time())}{import_route}",
             width=max(MIN_SIZE[0], width),
             height=max(MIN_SIZE[1], height),
             x=x,
@@ -220,14 +210,13 @@ class DesktopApp:
         # window goes back to when it's switched to windowed.
         self.window.events.shown += lambda: self.set_window_mode(self.settings.get().window_mode)
 
-        # Lets a second launch (and the tray) bring this window back, and Settings switch it to fullscreen and back.
+        # Lets a second launch focus this window, and Settings switch it to fullscreen and back.
         self.state.show_window = self.show
         self.state.quit_app = self.quit
         self.state.set_window_mode = self.set_window_mode
         self.state.pick_game_dump = self.pick_game_dump
         self.state.pick_game_nsps = self.pick_game_nsps
         self.state.pick_game_keys = self.pick_game_keys
-        self._start_tray()
 
         webview.start(
             gui="edgechromium",
@@ -235,11 +224,6 @@ class DesktopApp:
             storage_path=str(DATA_DIR / "webview"),
             icon=str(ICON_ICO),
         )
-        # The window is gone: shut everything else down.
-        self._stop_tray()
-        self.state.events.close()
-        self.server.should_exit = True
-
     def pick_game_dump(self) -> str | None:
         import webview
 
@@ -337,22 +321,11 @@ class DesktopApp:
         if self._quitting:
             return True
         self._save_geometry()
-        if self.tray is None:  # nowhere to bring the window back from: closing it quits
-            self._quitting = True
-            return True
-        # Hide instead of closing so the tracker keeps reading the game. (Hide from another thread:
-        # this handler runs inside the window's own close event.)
-        threading.Thread(target=self.window.hide, daemon=True).start()
-        if not self._told_about_tray and self.tray is not None:
-            self._told_about_tray = True
-            try:
-                self.tray.notify("Still running in the tray. Right-click the icon to quit.", "Divine Pulse")
-            except Exception:
-                pass
-        return False  # cancel the close
+        self._quitting = True
+        return True
 
     def show(self) -> None:
-        """Bring the window back (from the tray, or when launched a second time)."""
+        """Focus the window when the application is launched a second time."""
         if self.window is None:
             return
         self.window.show()
@@ -367,34 +340,5 @@ class DesktopApp:
     def quit(self) -> None:
         self._quitting = True
         self._save_geometry()
-        self._stop_tray()
         if self.window is not None:
             self.window.destroy()
-
-    # Tray
-
-    def _start_tray(self) -> None:
-        try:
-            import pystray
-            from PIL import Image
-        except Exception:
-            log.exception("System tray unavailable")
-            return
-
-        menu = pystray.Menu(
-            pystray.MenuItem("Show window", lambda *_: self.show(), default=True),
-            pystray.Menu.SEPARATOR,
-            pystray.MenuItem("Quit", lambda *_: self.quit()),
-        )
-        self.tray = pystray.Icon("divine-pulse", Image.open(ICON_PNG), "Divine Pulse", menu=menu)
-
-        # The tray runs on a thread while the window owns the main thread.
-        threading.Thread(target=self.tray.run, name="tray", daemon=True).start()
-
-    def _stop_tray(self) -> None:
-        if self.tray is not None:
-            try:
-                self.tray.stop()
-            except Exception:
-                pass
-            self.tray = None

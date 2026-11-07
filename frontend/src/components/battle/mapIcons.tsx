@@ -3,7 +3,7 @@
  * `kind` is EnemyStats.weapon ("sword", "lance", "axe", "bow", "gauntlets", "reason", "faith", "dark");
  * a unit with no weapon (a villager) fights with its fists, the game's gauntlets icon. The minimap's own pieces
  * (mini-*.png: its tiles, army badges, weapon glyphs, tile icons, cursors) come from its atlas, named by what the game
- * draws them for (our labels in tools/minimap_atlas.json, docs/minimap-atlas.md). Units' sprites are put together from the game's
+ * draws them for (our labels in tools/minimap_atlas.json). Units' sprites are put together from the game's
  * map sprite layers like the game does (class-sprites.png: class bodies and characters' finished sprites, a column per army; map-heads.png: heads;
  * their index in class-sprites.json).
  */
@@ -208,7 +208,7 @@ export function UnitSprite({ index, layers, side }: { index: SpriteIndex; layers
   );
 }
 
-/** The minimap's icon for each thing on a tile (map.TileMark), as the game picks them (docs/minimap-atlas.md). */
+/** The minimap's icon for each thing on a tile (map.TileMark), as the game picks them. */
 const MARK_ICONS: Record<string, string> = { chest: "chest", door: "door", lever: "lever", crest: "crest-stone", trap: "trap", breakable: "wall", warp: "warp" };
 
 /** The icon for what's on a tile (map.TileMark), drawn in the tile's own coordinates (0, 0) to (1, 1). */

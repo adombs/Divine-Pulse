@@ -8,7 +8,7 @@ This bounded specification follows the Spec Kit specification/acceptance pattern
 - Damage, damage taken, healing given/received and movement come from the backend's standing-history replay (or its explicitly estimated fight recorder). Do not add the timeline to those totals. Map movement is recorded Manhattan distance, not a path-length claim. Stat points sum positive gains excluding movement.
 - Stable army keys identify characters across battles. Display names are labels, and enemy pool slots are battle-local. Explicit actor/target IDs win; legacy entries without IDs resolve only unambiguous army keys or enemy labels, never a guessed name match.
 - Missing metrics remain null, displayed as a dash. A total is null if any contributing metric is unknown; available observations remain visible in breakdown rows. Log-only fight/kill counts describe recorded actions and can be incomplete. Turn charts are recorded observations, not counter reconstructions.
-- Run scope includes all supplied finished battles and the current live battle once. Deduplicate by battle ID; the current live snapshot replaces a stale history copy. Sort newest first before character aggregation. No undone branches enter standing totals.
+- Run scope includes completed battles. Deduplicate by battle ID and exclude any stale copy of a battle that resumed. Sort newest first before character aggregation. No undone branches enter standing totals.
 - Battle Share opens the in-battle popup. Standouts may open a clearly labeled whole-run character card. History's Battles and Characters Stats buttons open run-wide summaries directly, without navigating to a recording.
 
 ## Acceptance

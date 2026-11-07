@@ -12,7 +12,7 @@ import { GameImage, MissingGameAsset, PortraitImage } from "../GameImage";
 import { GearIcon, WeaponIcon } from "./gameIcons";
 import { ArtIcon } from "../../reference/icons";
 import { AbilityLink, ArtLink, ItemLink, SpellLink } from "../Links";
-import { battleSummary, hpShare, ICON, Item, mergeHits, newestFirst, STAT_LABEL, STAT_ORDER, TEXT, Who } from "./model";
+import { battleSummary, hpShare, ICON, Item, mergeHits, STAT_LABEL, STAT_ORDER, TEXT, Who } from "./model";
 
 /** Opening a unit's card from anywhere on the page (names in the log, opponents, highlights). */
 export interface BattleNav {
@@ -61,16 +61,6 @@ export function WhoLink({ id, fallback = "A unit" }: { id: string | null; fallba
   );
 }
 
-export function ConfidenceBadge({ confidence }: { confidence: number }) {
-  const unsure = confidence < 0.6;
-  return (
-    <span className={`confidence ${unsure ? "unsure" : ""}`} title={TEXT.estimated}>
-      {unsure ? "best guess · " : "≈ "}
-      {Math.round(confidence * 100)}%
-    </span>
-  );
-}
-
 /** Which army's phase a heading row starts (for its colour). */
 const PHASE_CLASS = ["player", "enemy", "other", "other"];
 
@@ -94,7 +84,6 @@ export function ItemRow({ item, current, future, onSelect }: { item: Item; curre
       </span>
       <span className="log-text">
         <ItemText item={item} />
-        {item.confidence !== null && <ConfidenceBadge confidence={item.confidence} />}
         {item.branch > 0 && (
           <span className="undone-badge" title="Turned back by Divine Pulse: this no longer stands">
             undone
@@ -259,7 +248,7 @@ function ItemText({ item }: { item: Item }) {
   return <span className={item.heading ? "log-heading-text" : undefined}>{item.text}</span>;
 }
 
-/** A list of log rows, newest first. */
+/** A list of log rows in action order. */
 export function ItemList({
   items,
   empty = "Nothing yet.",
@@ -283,8 +272,7 @@ export function ItemList({
     if (r.top < b.top || r.bottom > b.bottom) box.scrollTo({ top: box.scrollTop + (r.top - b.top) - b.height / 2 + r.height / 2, behavior: "smooth" });
   }, [current]);
   if (!items.length) return <p className="muted">{empty}</p>;
-  const merged = mergeHits(items);
-  const shown = newestFirst(merged);
+  const shown = mergeHits(items);
   const first = (i: Item) => i.steps?.[0] ?? i.step;
   return (
     <ol className="log-list" ref={list}>

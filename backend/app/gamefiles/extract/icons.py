@@ -1,6 +1,6 @@
 """Atlas-cut icons that need no executable table and the house banners.
 
-Ability, crest and native item icons belong to exe_tables; map sprites and minimap pieces to map. See docs/game-assets/icons.md.
+Ability, crest and native item icons belong to exe_tables; map sprites and minimap pieces to map.
 """
 
 from __future__ import annotations

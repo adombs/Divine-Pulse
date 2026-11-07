@@ -314,9 +314,9 @@ class Extractor:
 
 
 
-def extract_nsps(inputs: list[Path], tool: Path, keys: Path, output: Path, log=None) -> None:
+def extract_nsps(inputs: list[Path], tool: Path, keys: Path, output: Path, *, cancelled: threading.Event) -> None:
     """Extract selected packages into a new or empty folder using NSTool."""
-    Extractor(tool, keys, output, log or (lambda message: None), threading.Event()).extract(inputs)
+    Extractor(tool, keys, output, lambda _: None, cancelled).extract(inputs)
 
 
 # NSP Unpacker license:

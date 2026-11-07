@@ -13,7 +13,6 @@ from uuid import uuid4
 from ..domain.text import normalize
 from ..domain.ebst import EbstConfig
 from ..domain.runs import Run, RunSummary
-from ..domain.scans import ScanLogEntry
 from ..domain.units import Unit
 from .ports import (
     BattleRepository,
@@ -48,6 +47,10 @@ class RunNameTaken(OperationError):
     def __init__(self, name: str):
         self.name = name
         super().__init__(f'There is already a run called "{name}".')
+
+
+class RunInBattle(OperationError):
+    pass
 
 
 @dataclass
@@ -176,29 +179,6 @@ class BackendOperations:
         self.events.publish("units_changed", {"run_id": run_id})
         return unit
 
-    def set_unit_portrait(self, run_id: str, key: str, gender: str) -> Unit:
-        _, unit = self._unit(run_id, key)
-        unit = Unit.model_validate({**unit.model_dump(), "portrait_gender": gender})
-        try:
-            self.runs.put_unit(run_id, key, unit)
-        except MissingRecord as exc:
-            raise RunMissing from exc
-        self.events.publish("units_changed", {"run_id": run_id})
-        return unit
-
-    def delete_unit(self, run_id: str, key: str) -> None:
-        try:
-            self.runs.delete_unit(run_id, key)
-        except MissingRecord as exc:
-            raise UnitMissing from exc
-        self.events.publish("units_changed", {"run_id": run_id})
-
-    def undo_scan(self) -> ScanLogEntry | None:
-        return self.scanner.undo()
-
-    def scan_log(self) -> list[ScanLogEntry]:
-        return self.scanner.log_entries()
-
     def get_settings(self) -> dict[str, Any]:
         return self.settings.get().model_dump()
 
@@ -244,47 +224,42 @@ class BackendOperations:
         return {"format": "divine-pulse-battles", "version": 1,
                 "battles": [battle.model_dump(mode="json") for battle in self.run_battles(run_id)]}
 
-    def import_run(self, source: Run, battles: list[Battle]) -> RunSummary:
-        names = {normalize(r.name) for r in self.runs.list()}
-        name = source.name
-        if normalize(name) in names:
-            name = f"{name} (imported)"
-            n = 2
-            while normalize(name) in names:
-                name = f"{source.name} (imported {n})"
-                n += 1
-        imported = self.runs.create(name)
-        imported = source.model_copy(deep=True, update={"id": imported.id, "name": name})
-        self.runs.save(imported)
-        for battle in battles:
-            self.battles.add(battle.model_copy(deep=True, update={"id": uuid4().hex, "run_id": imported.id}))
+    def import_run(self, source: Run, battles: list[Battle], name: str, overwrite: bool = False) -> RunSummary:
+        existing = next((run for run in self.runs.list() if normalize(run.name) == normalize(name)), None)
+        if existing and not overwrite:
+            raise RunNameTaken(existing.name)
+        live = self.scanner.current_battle()
+        if existing and live and live.run_id == existing.id:
+            raise RunInBattle("Finish the current battle before overwriting this run.")
+        previous = self.runs.get(existing.id) if existing else None
+        run_id = existing.id if existing else self.runs.create(name).id
+        imported = source.model_copy(deep=True, update={"id": run_id, "name": name})
+        copies = [battle.model_copy(deep=True, update={"id": uuid4().hex, "run_id": run_id}) for battle in battles]
+        try:
+            self.runs.save(imported)
+            self.battles.replace(run_id, copies)
+        except Exception:
+            if previous is None:
+                self.runs.delete(run_id)
+            else:
+                self.runs.save(previous)
+            raise
         if not self.settings.get().active_run_id:
             self.settings.update(active_run_id=imported.id)
         self.events.publish("runs_changed")
+        self.events.publish("battle", {"active": live is not None, "history": True})
         return self.get_run(imported.id)
 
     def import_battles(self, run_id: str, battles: list[Battle]) -> int:
         try:
             self.runs.get(run_id)
-            existing = self.battles.list(run_id)
         except MissingRecord as exc:
             raise RunMissing from exc
-        identities = {self._battle_identity(battle) for battle in existing}
-        added = 0
-        for source in battles:
-            identity = self._battle_identity(source)
-            if identity in identities:
-                continue
-            self.battles.add(source.model_copy(deep=True, update={"id": uuid4().hex, "run_id": run_id}))
-            identities.add(identity)
-            added += 1
-        if added:
+        copies = [battle.model_copy(deep=True, update={"id": uuid4().hex, "run_id": run_id}) for battle in battles]
+        if copies:
+            self.battles.extend(run_id, copies)
             self.events.publish("battle", {"active": self.scanner.current_battle() is not None, "history": True})
-        return added
-
-    @staticmethod
-    def _battle_identity(battle: Battle) -> str:
-        return battle.model_copy(update={"id": "", "run_id": ""}).model_dump_json(exclude={"id", "run_id"})
+        return len(copies)
 
     def check_memory(self) -> dict[str, Any]:
         return self.memory_check.check()

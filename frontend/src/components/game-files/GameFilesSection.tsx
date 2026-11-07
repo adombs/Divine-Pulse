@@ -1,11 +1,10 @@
 import { useEffect, useState } from "react";
-import { api, type GameFilesCandidate, type GameFilesScan, type GameFilesStatus, type GameFilesVerify } from "../../api";
+import { api, type GameFilesScan, type GameFilesStatus, type GameFilesVerify } from "../../api";
 import { loadGameAssetsStatus } from "../../gameAssets";
 import { useEvents } from "../../useEvents";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { Icon } from "../Icon";
 import { Modal } from "../Modal";
-import { LanguageSelect } from "../LanguageSelect";
 import { SectionHead } from "../ui";
 import { mergeNspPaths } from "./selection";
 import "../settings-game-files.css";
@@ -27,21 +26,22 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
   const [keys, setKeys] = useState("");
   const [scan, setScan] = useState<GameFilesScan | null>(null);
   const [scanning, setScanning] = useState(false);
-  const [found, setFound] = useState<GameFilesCandidate[]>([]);
+  const [keepDumps, setKeepDumps] = useState(false);
+  const [destination, setDestination] = useState("");
   const [verification, setVerification] = useState<GameFilesVerify | null>(null);
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [confirm, setConfirm] = useState(false);
-  const [reimport, setReimport] = useState(false);
+  const [reimport, setReimport] = useState(() => new URLSearchParams(window.location.search).has("replace_import"));
   useEffect(() => {
-    void api.gameFilesStatus().then((result) => { setStatus(result); setDump(result.last_dump ?? ""); }).catch((err: Error) => setError(err.message));
-    void api.gameFilesCandidates().then((result) => setFound(result.candidates)).catch(() => {});
+    void api.gameFilesStatus().then(setStatus).catch((err: Error) => setError(err.message));
   }, []);
   useEvents({ game_assets: (data) => {
     const next = data as GameFilesStatus;
     if (next && typeof next.available === "boolean") setStatus(next);
   } });
   const running = status?.job?.state === "running";
+  const phaseLabel = phases[status?.job?.phase ?? ""] ?? "Importing game files";
   useEffect(() => {
     if (!running) return;
     const timer = window.setInterval(() => {
@@ -71,7 +71,7 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
   const importable = !!scan?.importable;
   const reason = !dump.trim() ? "Choose a dump folder." : scanning ? "Checking the folder..." : !scan ? "Choose a readable dump folder." : !importable ? "Resolve the problems above before importing." : "";
   const showFlow = !status?.available || reimport || running || status?.job?.state === "failed";
-  const nspReason = !nsps.length ? "Add your base game, update and any DLC NSP files." : !keys.trim() ? "Choose your prod.keys file to continue." : "";
+  const nspReason = !nsps.length ? "Add your base game, update and any DLC NSP files." : !keys.trim() ? "Choose your prod.keys file to continue." : keepDumps && !destination.trim() ? "Enter a new folder for the extracted files." : "";
   return <>
     <SectionHead>Game files</SectionHead>
     <div className="game-files-layout">
@@ -96,10 +96,6 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
           <label className="game-files-choice"><input type="radio" name="source" checked={source === "nsp"} onChange={() => setSource("nsp")} /><span><strong>NSP files</strong><span className="hint">Select your base game, update and any DLC. Your prod.keys file is also required.</span></span></label>
         </div>
         {source === "dump" && <>
-        {found.length > 0 && <div className="game-files-choices" role="radiogroup" aria-label="Detected dumps">{found.map((candidate) => <label key={candidate.path} className="game-files-choice">
-          <input type="radio" name="dump" checked={candidate.path === dump} onChange={() => setDump(candidate.path)} />
-          <span><strong>{candidate.path.replace(/[\\/]+$/, "").split(/[\\/]/).pop()}</strong><span className="hint game-files-path">{candidate.path}</span><span className="hint">{[candidate.version, `${candidate.dlc.length} DLC`].filter(Boolean).join(" \u00b7 ")}</span></span>
-        </label>)}</div>}
         <div className="game-files-folder"><label><span className="field-label">Dump folder</span><input value={dump} onChange={(e) => setDump(e.target.value)} /></label>
           {desktop && <button type="button" className="btn" disabled={busy} onClick={() => action(async () => { const result = await api.pickGameFilesFolder(); if (result.path) setDump(result.path); })}>Browse</button>}
         </div>
@@ -129,18 +125,18 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
             </details>
           </section>
           <div className="game-files-keys"><div className="game-files-folder"><label><span className="field-label">prod.keys</span><input value={keys} disabled={busy} placeholder="Path to your prod.keys file" onChange={(e) => setKeys(e.target.value)} /></label>{desktop && <button type="button" className="btn" disabled={busy} onClick={() => action(async () => { const result = await api.pickGameFilesKeys(); if (result.path) setKeys(result.path); })}>Choose keys</button>}</div><p className="hint">Required to read your NSP files.</p></div>
+          <label><input type="checkbox" checked={keepDumps} disabled={busy} onChange={(e) => setKeepDumps(e.target.checked)} /> Keep extracted files after a successful import</label>
+          {keepDumps && <label><span className="field-label">New extraction folder</span><input value={destination} disabled={busy} onChange={(e) => setDestination(e.target.value)} placeholder="Full path to a new folder" /></label>}
         </div>}
-        <div className="game-files-import"><div>{source === "dump" ? <><button type="button" className="btn primary" disabled={busy || scanning || !importable} onClick={() => action(async () => { const result = await api.importGameFiles(dump); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{reason && <p className="hint">{reason}</p>}</> : <><button type="button" className="btn primary" disabled={busy || !nsps.length || !keys.trim()} onClick={() => action(async () => { const result = await api.importGameFilesNsps(nsps, keys); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{nspReason && <p className="hint">{nspReason}</p>}</>}</div>{status.available && reimport && <button type="button" className="link-btn" disabled={busy} onClick={() => setReimport(false)}>Cancel re-import</button>}</div>
+        <div className="game-files-import"><div>{source === "dump" ? <><button type="button" className="btn primary" disabled={busy || scanning || !importable} onClick={() => action(async () => { const result = await api.importGameFiles(dump); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{reason && <p className="hint">{reason}</p>}</> : <><button type="button" className="btn primary" disabled={busy || !!nspReason} onClick={() => action(async () => { const result = await api.importGameFilesNsps(nsps, keys, keepDumps ? destination.trim() : undefined); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{nspReason && <p className="hint">{nspReason}</p>}</>}</div>{status.available && reimport && <button type="button" className="link-btn" disabled={busy} onClick={() => setReimport(false)}>Cancel re-import</button>}</div>
       </div>}
       {status?.job && status.job.state !== "idle" && <div className="game-files-card game-files-progress" aria-live="polite">
-        <strong>{running ? (phases[status.job.phase] || "Importing game files") : status.job.state === "done" ? "Import complete" : "Import failed"}</strong>
-        {running && <><progress aria-label={phases[status.job.phase] || "Importing game files"} max={status.job.total || 1} value={status.job.total ? Math.min(status.job.done, Math.max(0, status.job.total - 1)) : undefined} />{status.job.total > 0 && status.job.phase !== "verify" && <span>{Math.min(status.job.done, Math.max(0, status.job.total - 1))} / {status.job.total}</span>}</>}
-        {status.job.state === "failed" && <><span>{status.job.error || "The game files could not be imported."}</span><span>Check your selected files and try again.</span></>}
+        <strong>{running ? phaseLabel : status.job.state === "done" ? "Import complete" : "Import failed"}</strong>
+        {running && <><progress aria-label={phaseLabel} max={status.job.total || 1} value={status.job.total ? Math.min(status.job.done, Math.max(0, status.job.total - 1)) : undefined} />{status.job.total > 0 && status.job.phase !== "verify" && <span>{Math.min(status.job.done, Math.max(0, status.job.total - 1))} / {status.job.total}</span>}</>}
+        {status.job.state === "failed" && <><span>{status.job.error || "The game files could not be imported."}</span><span>{status.available ? "Your previous import is still available." : "Check your selected files and try again."}</span></>}
         {status.job.state === "done" && <span>{[status.version, `${status.files ?? 0} files`, status.created && new Date(status.created).toLocaleString()].filter(Boolean).join(" \u00b7 ")}</span>}
-        {status.job.log?.length > 0 && <details><summary>Import details</summary><ul>{status.job.log.map((line, i) => <li key={i}>{line}</li>)}</ul></details>}
       </div>}
       {error && <p className="field-hint error" role="alert">{error}</p>}
-      {status?.available && <div className="game-files-card"><LanguageSelect /></div>}
     </div>
     <Modal open={confirm} onClose={() => setConfirm(false)} title="Remove imported files">
       <p>Remove the imported game files? The app will show the import screen afterwards.</p>

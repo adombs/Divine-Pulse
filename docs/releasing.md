@@ -12,7 +12,7 @@ Each build writes checksums only for the artifacts it produced. Old artifacts fo
 `release/`; only the current
 version's Windows portable zip, installer, and `SHA256SUMS.txt` should be uploaded.
 
-None needs Python, Node.js or anything else on the player's PC. Windows 10/11 (64-bit) is the tested platform.
+Both packages require Windows 10 or 11 (64-bit) with Microsoft Edge WebView2. They bundle their Python and frontend runtimes.
 
 ## Checklist
 
@@ -58,12 +58,10 @@ None needs Python, Node.js or anything else on the player's PC. Windows 10/11 (6
    allows the app's bundled .NET assemblies to load with those markers, without unblocking files or changing
    machine-wide settings.
 
-   Run the installer and import a dump when it asks (or skip it and import from Settings > Game files), start the
-   tracker, start a new run from the home page, check reading units with Eden running and not running, play a
-   battle, quit from the tray, start again, then uninstall with the tracker still in the tray and choose No when
-   asked about saved data. Check that the tracker closed, the program folder and Start menu entries went, and the data
-   folder (`%LOCALAPPDATA%\Divine Pulse`) survived. Choosing Yes deletes that folder, so try it only on data you can
-   lose.
+   On clean Windows, test the installer and the portable build. Import your own files through the app, start a run,
+   check tracking with Eden running and stopped, play a battle, close the window, and restart. Check that the
+   installer and uninstaller respect the user's data choices and that the previous import survives a failed replacement.
+
 
 If a pushed tag or release fails, do not reuse the tag: fix the problem through a release or hotfix PR and use the next
 patch version. Review the local and remote tag and draft state before retrying after an error.
@@ -87,7 +85,7 @@ PC are fixed on start:
   run (*More info → Run anyway*). Some antivirus tools also flag unsigned PyInstaller programs. Signing the exe and
   installer with a code-signing certificate removes both.
 - **WebView2.** The window uses Microsoft Edge WebView2, which Windows 11 includes and most Windows 10 PCs have via
-  Edge. Without it, the tracker opens in the default browser instead.
+  Edge. Install WebView2 before running Divine Pulse.
 - **Content.** The release must contain no game content. The release script scans the built zip using
   `tools/game_content.py` (`check_zip`); it checks for game images, game file formats or data, and a missing
   `LICENSE.txt`, `Third-party notices.txt`, `GFDL-1.3.txt` or `Third-party licenses` folder beside the program.

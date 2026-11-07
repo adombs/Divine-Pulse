@@ -175,15 +175,15 @@ const { loadGameAssetsStatus } = await import(assetsUrl);
 let imported = false;
 globalThis.fetch = async (url) => {
   const files = {
-    "/api/game-assets/status": { available: true, languages: ["GER"], created: String(imported) },
-    "/api/settings": { game_language: "GER" },
+    "/api/game-assets/status": { available: true, languages: ["ENG_U"], created: String(imported) },
+    "/api/settings": { game_language: "ENG_U" },
     "/game-assets/data/supports.json": { pairs: [] },
     "/game-assets/data/gifts.json": { characters: [] },
     ...Object.fromEntries(['classes', 'abilities', 'combat-arts', 'spells', 'weapons', 'equipment', 'items', 'crests-by-person'].map((name) => [`/game-assets/data/${name}.json`, {}])),
     "/game-assets/data/characters.json": { characters: [{ id: 1040, name_id: 550, name: "Bram" }] },
     "/game-assets/data/meals.json": imported ? { meals: [{ id: 0, name: "Dish", ingredients: [{ id: 96, name: "Fish", quantity: 3 }] }], characters: [{ character: 1040, liked: [0], disliked: [] }] } : null,
     "/game-assets/data/battalions.json": { battalions: [{ id: 0, name: "Base Company", endurance: 40, gambit: { id: 2, name: "Base Tactic", description: "Base effect", uses: 2 } }] },
-    "/game-assets/text/GER.json": { categories: {
+    "/game-assets/text/ENG_U.json": { categories: {
       ...Object.fromEntries(['gift', 'character_full', 'class', 'class_description', 'ability', 'ability_description', 'combat_art', 'combat_art_description', 'spell', 'spell_description', 'weapon', 'weapon_description', 'equipment', 'equipment_description', 'item', 'item_description', 'battalion_description', 'crest', 'crest_description', 'crest_major', 'crest_minor', 'faction', 'npc_and_generic_names'].map((name) => [name, {}])),
       character_given: { 1040: "Translated Bram" }, meal: { 0: "Translated dish" }, ingredient: { 96: "Translated fish" },
       battalion: { 0: "Translated Company" }, gambit: { 2: "Translated Tactic" }, gambit_description: { 2: "Translated effect" },
