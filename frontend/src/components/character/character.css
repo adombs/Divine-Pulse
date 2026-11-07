@@ -227,68 +227,10 @@
   .cv-hero.split .cv-facts { width: 100%; }
 }
 
-/* ---------- The battalion panel (Battalion.tsx), laid out like the game's: battalion | gambit. ---------- */
-.cv-sr, .bp-missing .sr-only {
+/* Text exposed to assistive technology alongside the character's visual facts. */
+.cv-sr {
   position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
 }
-.bp { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.7rem 0.9rem; align-items: start; }
-.bp-half {
-  display: grid; gap: 0.45rem; min-width: 0; padding: 0.55rem 0.65rem 0.65rem; border: 1px solid var(--row-border);
-  background: var(--row); border-radius: 6px;
-}
-.bp-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.5rem; }
-.bp-name {
-  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0 0.45rem; min-width: 0; margin: 0;
-  font: 600 1.12rem var(--display); color: var(--ink); overflow-wrap: anywhere;
-}
-.bp-level { flex: none; font: 600 0.78rem var(--ui); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.bp-exp { margin-left: 0.4rem; font-weight: 500; }
-.bp-icon { display: block; flex: none; width: 2rem; height: 2rem; object-fit: contain; }
-.bp-icon.sm { width: 1.15rem; height: 1.15rem; }
-.bp-icon.missing { border: 1px dashed var(--line); border-radius: 4px; background: var(--paper); }
-.bp-gauge { display: grid; justify-items: end; line-height: 1.1; }
-.bp-gauge-label { font: 600 0.68rem var(--ui); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); }
-.bp-gauge-num { font: 600 1.2rem var(--nums); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
-.bp-of { margin: 0 0.12rem; color: var(--ink-soft); font-weight: 400; }
-.bp-desc { margin: 0; font: 0.98rem/1.35 var(--text); color: var(--ink-soft); }
-.bp-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px; margin: 0; }
-.bp-stats.single { grid-template-columns: minmax(0, 1fr); align-content: start; }
-.bp-stat {
-  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.4rem; min-width: 0;
-  padding: 0.18rem 0.5rem; background: linear-gradient(90deg, var(--head-1), var(--head-2)); color: var(--head-ink);
-}
-.bp-stat dt { margin: 0; font: 600 0.92rem var(--display); white-space: nowrap; }
-.bp-stat dd {
-  display: flex; align-items: center; justify-content: flex-end; gap: 0.3rem; margin: 0;
-  font: 600 1rem var(--nums); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap;
-}
-/* Gains in the game's blue, losses in red; light versions on the dark bars. */
-.bp-val.up { color: #a8d0ff; }
-.bp-val.down { color: #ffb3ab; }
-/* No endurance left: the modifiers stay readable but plainly don't apply. */
-.bp-val.spent { opacity: 0.6; text-decoration: line-through; cursor: help; }
-.bp-gauge.spent .bp-gauge-num { color: var(--red); }
-.bp-missing { color: inherit; opacity: 0.75; cursor: help; }
-.bp-gambit-body { display: grid; grid-template-columns: auto minmax(0, 13.625rem); justify-content: space-between; gap: 0.6rem; align-items: start; }
-/* Native gambit preview: a fixed grid with square gold cells and one blue or red anchor badge. */
-.bp-area {
-  display: block; width: 13.625rem; max-width: 100%; height: auto; background: #000;
-}
-.bp-area.missing {
-  display: grid; place-items: center; aspect-ratio: 218 / 146; padding: 0.5rem; border: 1px dashed var(--line);
-  text-align: center; font: 600 0.74rem var(--ui); color: var(--ink-soft); background: var(--paper); box-shadow: none;
-}
-.bp-cell { fill: #000; stroke: #262626; stroke-width: 1; }
-.bp-hit { fill: #705300; stroke: #e2c777; stroke-width: 1; }
-.bp-marker.user .bp-badge { fill: #173ab8; }
-.bp-marker.foe .bp-badge { fill: #ad1717; }
-.bp-facing { fill: #fff; }
-@media (max-width: 700px) {
-  .bp { grid-template-columns: minmax(0, 1fr); }
-}
-/* A narrow card (the Roster's side card): one column. */
-.unit-card:not(.in-popup) .bp { grid-template-columns: minmax(0, 1fr); }
-
 /* A general card's link to the run (the Archive's character card): what's run-specific, set apart and labelled. */
 .cv-run-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin: 0.2rem 0 0.4rem; }
 
