@@ -48,6 +48,23 @@ await t.test("search and sorting never recompute the entire-run totals", () => {
   assert.equal(data.totals.combat[3], 24);
 });
 
+await t.test("character rows use the latest recorded native sprite identity", () => {
+  const earlier = battle("1", { units: [unit("alpha", { class_id: 4, character: 1, female: true, look: "dark" })] });
+  const latest = battle("2", { units: [unit("alpha", { class_id: 42, character: 1, female: true, look: "green" })] });
+  for (const source of [[earlier, latest], [latest, earlier]]) {
+    const [row] = buildRunLedger(source, "characters").rows;
+    assert.deepEqual(row.sprite, { classId: 42, character: 1, female: true, look: "green", side: "player" });
+  }
+});
+
+await t.test("battle rows keep History's scenario classification", () => {
+  for (const [scenario, kind] of [[7, "main"], [40, "paralogue"], [61, "auxiliary"], [86, "dlc"], [999, null]]) {
+    const [row] = buildRunLedger([battle("1", { scenario })], "battles").rows;
+    assert.equal(row.kind, kind);
+    assert.equal(row.sprite, undefined);
+  }
+});
+
 await t.test("unknown observations remain distinct from zero and sort last both ways", () => {
   const data = buildRunLedger([battle("1", { units: [unit("unknown", { damage_dealt: null }), unit("zero", { damage_dealt: 0 }), unit("known", { damage_dealt: 14 })] })], "characters");
   assert.equal(data.totals.combat[3], null);
@@ -75,18 +92,27 @@ await t.test("the public popup renders accessible topics, sorting and honest unk
   assert.match(html, /role="tabpanel" aria-labelledby=/);
   assert.match(html, /aria-sort="none"/);
   assert.match(html, /aria-label="Not fully recorded"/);
-  assert.match(html, /Run totals stay unchanged when searching/);
+  assert.match(html, /class="run-stats-sprite"[^]*class="run-stats-name"/);
+  assert.doesNotMatch(html, /run-stats-table-heading|run-stats-footnote|Select a column to compare|Run totals stay unchanged|Character comparison|Battle comparison/);
+  assert.doesNotMatch(html, /<p>[^]*characters<\/p>/);
   assert.doesNotMatch(html, />Awards<\/button>/);
 });
 
-await t.test("Records renders group filtering and run-only explanations through the real popup", async () => {
+await t.test("Records renders group filtering and honest run-only sentinels without footer clutter", async () => {
   const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx?review=records");
   const html = renderToStaticMarkup(h(RunStatsPopup, { kind: "characters", onClose() {}, battles: [battle("1")], error: false, onRetry() {} }));
-  assert.match(html, /Records earned/);
   assert.match(html, /Record group<select/);
   assert.match(html, /<option value="" selected="">All records<\/option>/);
   assert.match(html, /Battle-wide record; no character recipient/);
-  assert.match(html, /Didn’t Happen and Do-overs count toward the run only/);
+  assert.doesNotMatch(html, /run-stats-footnote|Records earned/);
+});
+
+await t.test("battle comparison markup carries the shared History battle-kind classes", async () => {
+  const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx");
+  const battles = [7, 40, 61, 86].map((scenario, index) => battle(String(index + 1), { scenario }));
+  const html = renderToStaticMarkup(h(RunStatsPopup, { kind: "battles", onClose() {}, battles, error: false, onRetry() {} }));
+  for (const kind of ["main", "paralogue", "auxiliary", "dlc"]) assert.match(html, new RegExp(`class="run-stats-battle battle-kind-${kind}"`));
+  assert.doesNotMatch(html, /Select a column to compare|run-stats-footnote|Battle comparison/);
 });
 
 await t.test("loading, empty and error states provide a named status or recovery", async () => {
@@ -100,4 +126,3 @@ await t.test("loading, empty and error states provide a named status or recovery
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) test("History run ledgers", runLedgerTests);
-

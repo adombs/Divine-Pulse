@@ -1,3 +1,5 @@
+@import "./battle-kinds.css";
+
 /* The Battle and History pages' layout, kept out of styles.css: denser views and the game's own icons. Selectors are
    prefixed with the page's class so they win over the older rules in styles.css. */
 
@@ -91,16 +93,8 @@
 .battle-page .hbar-track, .battle-page .bar-side > span { height: 0.4rem; }
 
 /* The battle popup's icon-first equipment rows. */
-.battle-card.main::before { background: var(--accent); }
-.battle-card.paralogue::before { background: #7a58aa; }
-.battle-card.auxiliary::before { background: #43866b; }
-.battle-card.dlc::before { background: #b87828; }
 .battle-card .bc-live { position: absolute; top: 0.45rem; left: 0.4rem; z-index: 1; padding: 0.14rem 0.4rem; border-radius: 3px; color: #fff; background: var(--red); font: 700 0.6rem var(--ui); letter-spacing: 0.07em; text-transform: uppercase; }
 .battle-kind-chip { display: inline-flex; align-items: center; padding: 0.12rem 0.38rem; border-radius: 999px; color: #fff; background: var(--ink-soft); font: 700 0.68rem var(--ui); white-space: nowrap; }
-.battle-kind-chip.main, .rh-pip.main { background: var(--accent); }
-.battle-kind-chip.paralogue, .rh-pip.paralogue { background: #7a58aa; }
-.battle-kind-chip.auxiliary, .rh-pip.auxiliary { background: #43866b; }
-.battle-kind-chip.dlc, .rh-pip.dlc { background: #b87828; }
 .battle-icon-row { display: grid; gap: 0.3rem; margin: 0; padding: 0; list-style: none; }
 .battle-icon-row li { display: flex; align-items: center; gap: 0.45rem; min-width: 0; }
 .battle-icon-row .ref-icons, .battle-icon-row .game-icon, .battle-icon-row .ref-icon { flex: 0 0 1.25rem; }

@@ -2,7 +2,9 @@
 import type { Battle } from "../../api";
 import { armyTotals, recordedSum, statGains } from "./model";
 import { AWARDS } from "./moreStats";
-import { battleName } from "./scenarios";
+import { armySprite } from "./map";
+import type { Sprite } from "./mapIcons";
+import { battleName, type Kind } from "./scenarios";
 import { characterStats, runAwards, runBattles, runStats, timelines } from "./stats";
 
 export type LedgerKind = "battles" | "characters";
@@ -10,6 +12,8 @@ export type LedgerPart = "combat" | "growth" | "records";
 export interface LedgerColumn { key: string; label: string; hint?: string; group?: string }
 export interface LedgerRow {
   id: string; name: string; note: string; live: boolean;
+  sprite?: Sprite;
+  kind?: Kind | null;
   values: Record<LedgerPart, (number | null)[]>;
 }
 export interface LedgerSort { column: number; direction: "ascending" | "descending" }
@@ -23,12 +27,14 @@ export function buildRunLedger(source: Battle[], kind: LedgerKind) {
   const awards = runAwards(source);
   const rows: LedgerRow[] = kind === "battles" ? battles.map((b) => {
     const t = armyTotals(b);
-    return { id: b.id, name: battleName(b).title, note: new Date(b.started_at).toLocaleDateString(), live: b.active,
+    const identity = battleName(b);
+    return { id: b.id, name: identity.title, kind: identity.kind, note: new Date(b.started_at).toLocaleDateString(), live: b.active,
       values: {
         combat: [b.seconds, b.turn, t.fights, t.defeats, t.dealt, t.taken, t.healing, t.tiles],
         growth: [b.units.reduce((n, u) => n + u.level_ups, 0), b.units.reduce((n, u) => n + statGains(u), 0), b.weapon_uses, b.spells_cast, b.item_uses, b.divine_pulses], records: [],
       } };
   }) : characters.map((c) => ({ id: c.key, name: c.name, note: `${c.class_name} · Lv ${c.level}`, live: false,
+    sprite: armySprite(c.appearances[0].unit),
     values: { combat: [c.battles, c.fights, c.defeats, c.damage_dealt, c.damage_taken, c.healing_given, c.healed, c.tiles_moved],
       growth: [c.level_ups, c.stat_points, c.weapon_uses, c.spells_cast, c.item_uses],
       records: AWARDS.map((a) => "battleWide" in a ? null : awards.characters.get(c.key)?.[a.key] ?? 0) } }));

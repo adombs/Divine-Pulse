@@ -1,12 +1,15 @@
 /** Run scope, independent of a selected recording or character. */
 import { useCallback, useId, useMemo, useState, type KeyboardEvent } from "react";
 import type { Battle } from "../../api";
-import { clock, plural } from "../../format";
+import { clock } from "../../format";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { Icon } from "../Icon";
 import { Modal } from "../Modal";
+import { SpriteFigure } from "../character/CharacterFace";
+import { KIND_LABEL } from "./scenarios";
 import { buildRunLedger, selectLedgerRows, type LedgerKind, type LedgerPart, type LedgerSort } from "./runStatsLedger";
 import "./run-stats.css";
+import "./battle-kinds.css";
 
 interface Props { kind: LedgerKind | null; onClose: () => void; battles: Battle[] | null; error: boolean; onRetry: () => void }
 const TOPICS: { key: LedgerPart; label: string; icon: "attack" | "growth" | "history" }[] = [
@@ -34,12 +37,11 @@ function RunLedger({ kind, battles: source }: { kind: LedgerKind; battles: Battl
   const [recordGroup, setRecordGroup] = useState("");
   const id = useId();
   const data = useMemo(() => buildRunLedger(source, kind), [source, kind]);
-  const { battles, run, awards, rows } = data;
+  const { battles, run, rows } = data;
   const topics = kind === "characters" ? TOPICS : TOPICS.slice(0, 2);
   const groups = [...new Set(data.columns.records.map((column) => column.group!))];
   const columns = data.columns[part].map((column, index) => ({ ...column, index })).filter((column) => part !== "records" || !recordGroup || column.group === recordGroup);
   const shown = selectLedgerRows(rows, part, query, sort);
-  const live = battles.filter((b) => b.active).length;
   const topic = TOPICS.find((t) => t.key === part)!;
   const figures = [{ label: "Damage dealt", value: run.damage_dealt, icon: CONCEPT_ICON.attack },
     { label: "Damage taken", value: run.damage_taken, icon: CONCEPT_ICON.danger }, { label: "Healing given", value: run.healing, icon: CONCEPT_ICON.heal }];
@@ -58,7 +60,6 @@ function RunLedger({ kind, battles: source }: { kind: LedgerKind; battles: Battl
   const maxSorted = sort && sort.column >= 0 ? rows.reduce((max, row) => Math.max(max, row.values[part][sort.column] ?? 0), 0) : 0;
   return <div className="run-stats-ledger">
     <header className="run-stats-overview"><div className="run-stats-scope"><h3>Entire run</h3>
-      <p><strong>{numberFormat.format(run.battles)}</strong> {run.battles === 1 ? "battle" : "battles"}<span aria-hidden="true"> / </span><strong>{numberFormat.format(run.characters)}</strong> {run.characters === 1 ? "character" : "characters"}</p>
       <span className="run-stats-duration"><b>{clock(run.seconds)}</b> in battle</span></div>
       <dl className="run-stats-totals">{figures.map(({ label, value, icon }) => <div key={label}><dt><Icon name={icon} />{label}</dt><dd>{value === null ? unknown() : numberFormat.format(value)}</dd></div>)}</dl>
     </header>
@@ -69,26 +70,23 @@ function RunLedger({ kind, battles: source }: { kind: LedgerKind; battles: Battl
         <label className="run-stats-search"><span className="sr-only">Search {kind}</span><Icon name={CONCEPT_ICON.search} /><input type="search" value={query}
           onChange={(event) => setQuery(event.target.value)} placeholder={kind === "battles" ? "Search battle or date" : "Search name or class"} /></label></div>
       <section className="run-stats-panel" id={`${id}-panel`} role="tabpanel" aria-labelledby={`${id}-${part}`}>
-        <div className="run-stats-table-heading"><div><h4>{part === "records" ? "Records earned" : kind === "battles" ? "Battle comparison" : "Character comparison"}</h4>
-          <p aria-live="polite">{query.trim() ? `${shown.length} of ${plural(rows.length, kind === "battles" ? "battle" : "character")}` : plural(rows.length, kind === "battles" ? "battle" : "character")}
-            {live ? ` · ${live} live` : ""}{sort ? ` · ${sort.column < 0 ? "Name" : data.columns[part][sort.column].label}, ${sort.column < 0 ? sort.direction === "ascending" ? "A to Z" : "Z to A" : sort.direction === "descending" ? "highest first" : "lowest first"}` : ""}</p></div>
-          {part === "records" ? <label className="run-stats-record-filter">Record group<select value={recordGroup} onChange={(event) => { setRecordGroup(event.target.value); setSort(null); }}>
-            <option value="">All records</option>{groups.map((group) => <option key={group}>{group}</option>)}</select></label> : <span className="run-stats-table-hint">Select a column to compare</span>}</div>
+        {part === "records" && <label className="run-stats-record-filter">Record group<select value={recordGroup} onChange={(event) => { setRecordGroup(event.target.value); setSort(null); }}>
+          <option value="">All records</option>{groups.map((group) => <option key={group}>{group}</option>)}</select></label>}
         <div className={`run-stats-table-scroll${part === "records" ? " run-records-scroll" : ""}`} tabIndex={0} role="region" aria-label={`${kind === "battles" ? "Battle" : "Character"} breakdown, scroll for more rows and columns`}>
           <table className="run-stats-table"><caption className="sr-only">Entire run {kind} · {topic.label}. Totals include every record, including search results hidden from view.</caption>
             <thead><tr><th scope="col" aria-sort={sort?.column === -1 ? sort.direction : "none"} className={sort?.column === -1 ? "is-sorted" : undefined}><button type="button" onClick={() => toggleSort(-1)}>{kind === "battles" ? "Battle" : "Character"}{sortIcon(-1)}</button></th>
               {columns.map((column) => <th scope="col" key={column.key} title={column.hint} aria-sort={sort?.column === column.index ? sort.direction : "none"} className={sort?.column === column.index ? "is-sorted" : undefined}>
                 <button type="button" onClick={() => toggleSort(column.index)}>{column.label}{sortIcon(column.index)}</button></th>)}</tr></thead>
-            <tbody>{shown.map((row) => <tr key={row.id}><th scope="row"><span>{row.name}{row.live && <em>Live</em>}</span><small>{row.note}</small></th>
+            <tbody>{shown.map((row) => <tr key={row.id} className={kind === "battles" ? `run-stats-battle battle-kind-${row.kind ?? "unknown"}` : undefined}><th scope="row" title={row.kind ? KIND_LABEL[row.kind] : undefined}>
+              <span className="run-stats-identity">{kind === "characters" && <span className="run-stats-sprite"><SpriteFigure sprite={row.sprite ?? null} size={36} /></span>}
+                <span className="run-stats-name">{row.name}{row.live && <em>Live</em>}<small>{row.note}</small></span></span></th>
               {columns.map((column) => { const value = row.values[part][column.index]; const active = sort?.column === column.index;
                 return <td key={column.key} className={active ? "is-sorted" : undefined}>{active && value !== null && maxSorted > 0 && <span className="run-stats-cell-bar" style={{ width: `${Math.max(0, value) / maxSorted * 100}%` }} aria-hidden="true" />}
                   <span className="run-stats-cell-value">{part === "records" && value === null ? unknown("Battle-wide record; no character recipient") : formatValue(value, column.key)}</span></td>;
               })}</tr>)}</tbody>
-            <tfoot><tr><th scope="row">Run total<small>All {plural(rows.length, kind === "battles" ? "battle" : "character")}</small></th>{columns.map((column) => <td key={column.key} className={sort?.column === column.index ? "is-sorted" : undefined}>{formatValue(data.totals[part][column.index], column.key)}</td>)}</tr></tfoot>
+            <tfoot><tr><th scope="row">Run total</th>{columns.map((column) => <td key={column.key} className={sort?.column === column.index ? "is-sorted" : undefined}>{formatValue(data.totals[part][column.index], column.key)}</td>)}</tr></tfoot>
           </table>{!shown.length && <div className="run-stats-no-matches" role="status"><Icon name={CONCEPT_ICON.search} /><strong>No {kind} match this search</strong><button type="button" className="btn small" onClick={() => setQuery("")}>Clear search</button></div>}
-        </div><footer className="run-stats-footnote">{part === "records" ? <span>Records from {plural(awards.battles, "finished battle")}. Didn’t Happen and Do-overs count toward the run only.</span>
-          : <span>{plural(battles.length - live, "finished battle")}{live ? ` + ${plural(live, "live battle")}` : ""}. Run totals stay unchanged when searching.</span>}
-          <span>{part === "records" ? <>{unknown("Battle-wide record; no character recipient")} Run-wide record</> : <>{unknown()} Not fully recorded</>}</span></footer>
+        </div>
       </section>
     </>}
   </div>;
