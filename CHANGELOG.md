@@ -2,17 +2,18 @@
 
 ## Unreleased
 
+## 1.3.0 (2026-11-07)
+
 - Open the Windows desktop app directly and exit completely when the window closes. Eden and Fire Emblem: Three Houses v1.2.0 are required.
 - Import extracted game folders or NSPs with your own keys in the app. Each import verifies the complete dataset and keeps the previous valid import if a replacement fails.
+- Optionally keep the raw files extracted from your NSPs after a successful import. By default, the app removes its temporary extraction files.
 - Keep roster updates automatic, with a warning when unit data cannot be read. Remove scan history and whole-update Undo.
 - Keep battle actions in chronological order and count completed battles on the standing Divine Pulse timeline in run totals. Retain three raw recordings by default, with a configurable limit from zero to 1000.
 - Copy imported replays and resolve run-name conflicts by overwriting or entering a new name.
 - Exclude Divine Pulse use from the estimated chance of winning.
 
-## 1.3.0 (2026-11-07)
-
 - Report missing or unreadable required game assets instead of substituting portraits, sprites, icons or terrain; provide a Game files alert and a retry after reimporting.
-- Report missing or damaged required imported game tables and selected-language text with their file paths and reimport guidance instead of silently using empty data or a different language.
+- Report missing or damaged required game tables and English text with their file paths and reimport guidance.
 - Give History's Character Stats and Battle Stats dialogs concise run ledgers with native character sprites, centered sortable numbers, coloured battle-type tags beside dates, sticky names and totals, and a Records tab with record-group filtering.
 - Refine Battalion details into a tactical dossier with compact modifiers, imported level progression labelled Level, a readable endurance track and gambit performance beside its native target map; report missing required preview assets instead of drawing substitutes.
 - Match the game's gambit previews with the native grid, gold tiles and one correctly facing badge, including target-centred areas such as Group Flames; prompt older game-file imports to refresh.
@@ -23,16 +24,14 @@
 - Remove the sidebar's Collapse/Expand button (the rail still opens on hover or keyboard focus and closes on leave or Escape), the eye button beside the Portraits choice in Settings, team dots in battle Awards and the per-fight damage line in run character statistics; swap Tiles moved and Stat increases in battle Records.
 - Include the game's battle history entries in battle recordings, so actions the tracker can't name yet (such as gambits) can be studied from them.
 - Remove the full stop from unknown crest labels in battle character cards.
-- Give Runs a labeled creation form, readable run details and aligned battle summaries; improve Updates scanning, Undo placement and empty states, and allow retrying failed battle loads.
-
-- Let setup optionally save raw NSP extractions in a new folder after a successful import; temporary cleanup remains the default, and existing source folders, NSPs and keys stay untouched.
+- Give Runs a labeled creation form, readable run details, aligned battle summaries, and a retry when battle history fails to load.
 - Filter weapons with a discrete maximum-rank slider, using notches and a live rank subtitle without redundant printed rank labels; show authentic dark-magic and Alive/Skill filter icons, and keep all Appearance portrait options visible.
 - Use eye and eye-slash buttons for showing and hiding spoilers, add existing semantic icons to filter options and selected chips, and capitalize Ability sources as Personal, Class and Skill.
 - Center Archive Stats skill chips and match Position zoom to the battle map's notched slider, with terrain and coordinates over the map.
 - Refine character Stats, Growth, Position, Fights and Arsenal panels with aligned ledgers, clearer skill ranks and more readable detail rows.
 - Keep battle and run statistics consistent, preserve unrecorded values, and open Battle Stats and Character Stats directly from History. Add a run-wide Awards table using the battle Awards' winners and tie rules, counting each finished battle once. Simplify More Stats to labels and values, rename Fight Breakdown and Awards, remove team dots from Fight Breakdown, and center the Awards controls.
 - Read each battalion's level, experience, endurance and gambit uses left from the game, live during battles. Show its modifiers at its current level, mark them as not applying when its endurance is spent, count its Charm in Cha as the game's Status page does, and include its modifiers in the fight calculations. Battle records keep their own battalion state.
-- Keep battalion identity through incomplete imports, language changes, run exports and unit updates; show each battle's recorded assignment separately from the current roster, with unknown assignments for older recordings. Translate imported gambit details and match battalion panels by ID when available.
+- Keep battalion identity through run exports and unit updates. Show each battle's recorded assignment separately from the current roster, with unknown assignments for older recordings. Show imported gambit details in English and match battalion panels by ID when available.
 - Put character scope beside the name, move compact crest names into the front facts, and rotate bordered information cards with an inside Flip button while portraits stay still. Preserve keyboard and reduced-motion support, and use eye buttons to reveal spoilers throughout the app. Remove battalion header badges and coloured sprite backgrounds.
 
 - Make Supports lost-item cards more compact, with smaller portraits and owners beside them so more items fit on desktop screens.
