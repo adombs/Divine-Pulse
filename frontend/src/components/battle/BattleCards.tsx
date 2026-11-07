@@ -17,6 +17,7 @@ import { Board, boardNow, hasMap } from "./map";
 import { Minimap, Zoom } from "./Minimap";
 import { battleName, KIND_LABEL, routeOf, searchText, type Kind } from "./scenarios";
 import "./battle-filters.css";
+import "./battle-kinds.css";
 
 /** Cards shown inline, the battle in progress among them. */
 const LATEST = 3;
