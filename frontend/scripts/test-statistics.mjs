@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test, { after } from "node:test";
 import { createServer } from "vite";
+import { runLedgerTests } from "./test-run-stats-ledger.mjs";
 
 // Load the real public modules through the project's TS resolver, including their real dependencies.
 const vite = await createServer({ configFile: false, optimizeDeps: { noDiscovery: true, entries: [] }, server: { middlewareMode: true }, appType: "custom" });
@@ -8,6 +9,8 @@ after(() => vite.close());
 const { armyId, armyTotals, battleUnitStats, tally, timeline } = await vite.ssrLoadModule("/src/components/battle/model.ts");
 const { AWARDS, battleAwards, moreStats } = await vite.ssrLoadModule("/src/components/battle/moreStats.ts");
 const { characterStats, finishedAwardBattles, runAwards, runStats, runBattles } = await vite.ssrLoadModule("/src/components/battle/stats.ts");
+
+test("History run ledgers", runLedgerTests);
 
 const unit = (key = "alpha", overrides = {}) => ({ key, name: "Test Person", class_name: "Test Class", start_level: 1, level: 2,
   start: { hp: 20 }, now: { hp: 21 }, on_map: true, combats: 2, defeats: 1,

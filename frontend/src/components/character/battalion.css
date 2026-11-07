@@ -1,0 +1,78 @@
+/* The battalion dossier uses the surrounding card's palette, type and native game art. */
+.bp-dossier { container: battalion / inline-size; min-width: 0; }
+.bp {
+  display: grid; gap: 1rem; min-width: 0; padding: 1rem;
+  border: 1px solid var(--row-border); border-radius: 6px; background: var(--row);
+}
+.bp-half { display: grid; align-content: start; gap: 0.65rem; min-width: 0; }
+.bp-gambit { border-top: 1px solid var(--line); padding-top: 1rem; }
+.bp-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 0.65rem; }
+.bp-name {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 0.15rem 0.5rem; min-width: 0; margin: 0;
+  font: 600 1.25rem/1.15 var(--display); color: var(--ink); overflow-wrap: anywhere;
+}
+.bp-level { flex: none; font: 600 0.8rem var(--ui); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.bp-exp { margin-left: 0.4rem; font-weight: 500; }
+.bp-icon { display: block; flex: none; width: 2.25rem; height: 2.25rem; object-fit: contain; }
+.bp-icon.sm { width: 1.15rem; height: 1.15rem; }
+.bp-icon-error { max-width: 4.5rem; color: var(--red); font: 600 0.72rem/1.1 var(--ui); }
+.bp-icon-error.sm { max-width: 3rem; font-size: 0.66rem; }
+.bp-gauge { display: grid; justify-items: end; gap: 0.15rem; line-height: 1.1; }
+.bp-gauge-label { font: 600 0.76rem var(--ui); color: var(--ink-soft); }
+.bp-gauge-num { font: 600 1.4rem var(--nums); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+.bp-of { margin: 0 0.12rem; color: var(--ink-soft); font-weight: 400; }
+.bp-desc { max-width: 65ch; margin: 0; font: 1rem/1.35 var(--text); color: var(--ink-soft); }
+.bp-endurance-track { height: 0.22rem; overflow: hidden; background: var(--bar-bg); }
+.bp-endurance-track > span { display: block; height: 100%; background: var(--bar); }
+.bp-endurance-track.spent { background: color-mix(in srgb, var(--red) 22%, var(--paper)); }
+.bp-modifier-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 0.4rem; margin-top: 0.3rem; }
+.bp-section-title { margin: 0; font: 600 1rem var(--display); color: var(--ink); }
+.bp-stat-level { color: var(--ink-soft); font: 0.8rem var(--ui); }
+.bp-level-picker { display: inline-flex; gap: 2px; padding: 2px; background: var(--paper-2); border-radius: 4px; }
+.bp-level-picker button {
+  display: grid; place-items: center; min-width: 1.7rem; min-height: 1.7rem; padding: 0.12rem 0.35rem;
+  border: 1px solid transparent; border-radius: 2px; background: transparent; color: var(--ink-soft);
+  font: 600 0.88rem var(--nums); cursor: pointer;
+}
+.bp-level-picker button:hover { background: var(--row-hover); color: var(--ink); }
+.bp-level-picker button[aria-pressed="true"] { background: var(--sel); color: var(--sel-ink); border-color: var(--sel-border); }
+.bp-level-picker button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.bp-stats { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 0.55rem; margin: 0; }
+.bp-stat {
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.4rem; min-width: 0;
+  padding: 0.3rem 0.5rem; background: var(--banner-2); color: var(--head-ink);
+}
+.bp-stat dt { margin: 0; font: 600 0.92rem var(--display); overflow-wrap: anywhere; }
+.bp-stat dd { margin: 0; font: 600 1.1rem var(--nums); font-variant-numeric: lining-nums tabular-nums; white-space: nowrap; }
+/* Gains and losses keep the game panel's semantic colours on its dark modifier bars. */
+.bp-val.up { color: #a8d0ff; }
+.bp-val.down { color: #ffb3ab; }
+.bp-val.spent { opacity: 0.65; text-decoration: line-through; cursor: help; }
+.bp-gauge.spent .bp-gauge-num { color: var(--red); }
+.bp-missing { color: inherit; opacity: 0.75; cursor: help; }
+.bp-missing .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0; }
+.bp-gambit-body { display: grid; grid-template-columns: minmax(4.5rem, 6.5rem) minmax(0, 13.625rem); gap: 1rem; align-items: start; }
+.bp-gambit-stats { display: grid; align-content: start; gap: 0; margin: 0; }
+.bp-gambit-stats .bp-stat { padding: 0.45rem 0; background: none; border-bottom: 1px solid var(--line); color: var(--ink); }
+.bp-gambit-stats .bp-stat:first-child { padding-top: 0; }
+.bp-gambit-stats dt { font: 500 0.88rem var(--ui); color: var(--ink-soft); }
+.bp-gambit-stats dd { font-size: 1.25rem; }
+.bp-target-area { display: grid; gap: 0.3rem; min-width: 0; margin: 0; }
+.bp-target-area figcaption { color: var(--ink-soft); text-align: center; font: 0.76rem var(--ui); }
+.bp-area { display: block; width: 100%; max-width: 13.625rem; height: auto; background: #000; }
+.bp-area.missing {
+  display: grid; align-content: center; gap: 0.35rem; min-height: 8rem; padding: 0.7rem; border: 1px dashed var(--line);
+  color: var(--ink-soft); background: var(--paper-2); font: 0.8rem/1.3 var(--ui);
+}
+.bp-area.missing strong { color: var(--ink); font-weight: 600; }
+@container battalion (min-width: 40rem) {
+  .bp { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.25rem; padding: 1.1rem; }
+  .bp-gambit { border-top: 0; border-left: 1px solid var(--line); padding-top: 0; padding-left: 1.25rem; }
+}
+@container battalion (max-width: 23rem) {
+  .bp { padding: 0.75rem; }
+  .bp-head { grid-template-columns: auto minmax(0, 1fr); gap: 0.55rem; }
+  .bp-gauge { grid-column: 2; grid-template-columns: auto auto; align-items: baseline; justify-content: start; gap: 0.4rem; }
+  .bp-gauge-num { font-size: 1.15rem; }
+  .bp-gambit-body { grid-template-columns: minmax(3.5rem, 5rem) minmax(0, 13.625rem); gap: 0.6rem; }
+}
