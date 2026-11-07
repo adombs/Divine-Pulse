@@ -1,9 +1,10 @@
 /* History's ledgers use the application's paper, violet rules and tabular-number language. */
 .history-stats-heading { display: inline-flex; align-items: center; gap: 0.65rem; }
 .history-stats-heading .btn { font-family: var(--ui); text-transform: none; letter-spacing: normal; }
-.modal.wide.run-stats-popup { width: min(92rem, calc(100vw - 4rem)); max-width: none; max-height: calc(100dvh - 4rem); }
+.modal.wide.run-stats-popup { width: min(92rem, calc(100vw - 4rem)); height: auto; max-width: none; max-height: calc(100dvh - 4rem); }
 .run-stats-popup .modal-body { min-height: 0; display: flex; overflow: hidden; padding: 1.1rem 1.3rem 0.85rem; }
 .run-stats-content { min-height: 0; min-width: 0; display: flex; flex: 1; }
+.run-stats-popup .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; border: 0; }
 .run-stats-ledger { min-height: 0; min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 1.1rem; }
 .run-stats-overview { display: grid; grid-template-columns: minmax(13rem, 1fr) minmax(0, 2fr); align-items: center; gap: 2rem; padding: 0.15rem 0 1.1rem; border-bottom: 1px solid var(--line); }
 .run-stats-scope h3 { margin: 0; font: 600 1.65rem/1.1 var(--display); color: var(--ink); }
