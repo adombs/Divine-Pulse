@@ -349,15 +349,6 @@ export function sideOf(item: Item, id: string): { dealt: number; taken: number }
   return { dealt: 0, taken: 0 };
 }
 
-/** Newest first, but each phase's heading stays above its actions. */
-export function newestFirst(items: Item[]): Item[] {
-  const segments: Item[][] = [];
-  for (const item of items) {
-    if (item.heading || !segments.length) segments.push([item]);
-    else segments[segments.length - 1].push(item);
-  }
-  return segments.reverse().flatMap((seg) => (seg[0].heading ? [seg[0], ...seg.slice(1).reverse()] : [...seg].reverse()));
-}
 
 /** Fights and defeats for `id` from the log: what the game's counters say when they're read, else what the log shows. */
 export function tally(items: Item[], id: string, counters: { fights?: number | null; defeats?: number | null } = {}) {

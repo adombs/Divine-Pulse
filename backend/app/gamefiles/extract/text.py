@@ -1,6 +1,6 @@
 """Names and descriptions in every language: text/<LANG>.json.
 
-All of it is the 15,397-string table (file 2 of msgdata.bin); the rules are in docs/game-assets/text.md. Person names
+All of it is the 15,397-string table (file 2 of msgdata.bin); Person names
 go through the person row's name id (u16 at +0x12 of fixed_persondata.bin section 0), so they are read here, not
 from a fixed index.
 """

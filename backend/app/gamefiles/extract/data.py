@@ -1,7 +1,7 @@
 """Game tables as JSON: characters, classes, items, abilities, supports, gifts ... (data/*.json).
 
 Numbers and ids come from the fixed_*.bin tables, names and descriptions from the English text (ENG_U). Everything is
-keyed by the game's own ids; row layouts are in docs/game-assets/tables.md and docs/game-assets/social.md. Combat
+keyed by the game's own ids; Combat
 tables retain `raw` hex for the memory reader.
 """
 
@@ -41,7 +41,7 @@ DLC_FIRST, DLC_LAST = 1040, 1046
 EMPTY = 0xFF
 GIFT_ROW_ID = {**{n: n for n in range(2, 37)}, **{n: n + 1002 for n in range(38, 45)}}  # presentdata s1 row -> person id
 
-# English text indices in the 15,397-string file (docs/game-assets/text.md).
+# English text indices in the 15,397-string file.
 TEXT_FILE = 2
 GIVEN, MIDDLE, SURNAME = 1157, 1731, 2305
 CLASS, CLASS_DESCRIPTION, ITEM, ITEM_DESCRIPTION = 3453, 3554, 3656, 3856

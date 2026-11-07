@@ -2,11 +2,10 @@
 
 from typing import Literal, TypedDict
 
-from pydantic import BaseModel, Field, field_validator
+from pydantic import BaseModel, Field, model_validator
 
 DEFAULT_PORT = 8765
-MIN_AUTO_INTERVAL = 0.1
-MAX_AUTO_INTERVAL = 60.0
+DEFAULT_ROSTER_INTERVAL = 1.0
 DEFAULT_BATTLE_INTERVAL = 0.1
 WindowMode = Literal["windowed", "fullscreen"]
 GameLanguage = Literal["JP", "ENG_E", "ENG_U", "GER", "FRA_E", "FRA_U", "ESP_E", "ESP_U", "ITA", "KOR", "TWN", "CHN"]
@@ -22,23 +21,18 @@ class WindowGeometry(TypedDict, total=False):
 
 
 class Settings(BaseModel):
-    game_language: GameLanguage = "ENG_U"
+    max_recordings: int = Field(3, ge=0, le=1000)
 
-    @field_validator("game_language", mode="before")
+    @model_validator(mode="before")
     @classmethod
-    def _game_language(cls, value):
-        return value if value in GAME_LANGUAGES else "ENG_U"
-    last_dump: str | None = None
-    battle_filter_auto: bool = True
-    battle_page_auto: bool = True
-    battle_alerts: bool = True
-    record_battles: bool = True
-    battle_interval_s: float = Field(DEFAULT_BATTLE_INTERVAL, ge=MIN_AUTO_INTERVAL, le=MAX_AUTO_INTERVAL)
-    battle_estimate_fights: bool = True
-    pairing_check: bool = False
-    hide_history: bool = False
-    auto_interval_s: float = Field(1.0, ge=MIN_AUTO_INTERVAL, le=MAX_AUTO_INTERVAL)
+    def _migrate_recording_limit(cls, value):
+        if isinstance(value, dict) and "max_recordings" not in value and value.get("record_battles") is False:
+            return {**value, "max_recordings": 0}
+        return value
+
     active_run_id: str | None = None
+    installation_version: str | None = None
+    replace_import: bool = False
     port: int = Field(DEFAULT_PORT, ge=1024, le=65535)
     window: WindowGeometry | None = None
     window_mode: WindowMode = "windowed"

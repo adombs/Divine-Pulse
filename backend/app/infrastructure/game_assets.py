@@ -1,4 +1,4 @@
-"""The assets extracted from the user's own game dump (see app/gamefiles and docs/game-assets/README.md).
+"""The assets extracted from the user's own game dump (see app/gamefiles ).
 
 An absent import is a first-run sentinel. Once an import exists, required reads fail with the asset's path and
 reason instead of silently substituting empty data or another language. Files are only served if listed.

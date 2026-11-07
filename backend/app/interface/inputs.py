@@ -11,9 +11,8 @@ from typing import Annotated
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..domain.text import clean_text
-from ..domain.settings import DEFAULT_BATTLE_INTERVAL, MAX_AUTO_INTERVAL, MIN_AUTO_INTERVAL, GameLanguage, WindowMode
+from ..domain.settings import WindowMode
 from ..domain.ebst import OTHER_KEYS, EbstType, ordered_others
-from ..domain.units import PortraitGender
 
 
 def _text(max_len: int, *, required: bool = True, what: str = "This"):
@@ -35,6 +34,7 @@ class Body(BaseModel):
 class GameNspsIn(Body):
     nsps: list[str] = Field(min_length=1, max_length=64)
     keys: str = Field(min_length=1, max_length=4096)
+    keep_dumps: str | None = Field(None, min_length=1, max_length=4096)
 
 
 class GameDumpIn(Body):
@@ -69,22 +69,9 @@ class EbstIn(Body):
         return self
 
 
-class PortraitIn(Body):
-    gender: PortraitGender
-
-
 class SettingsIn(Body):
-    game_language: GameLanguage | None = None
-    auto_interval_s: float = Field(ge=MIN_AUTO_INTERVAL, le=MAX_AUTO_INTERVAL)
-    battle_filter_auto: bool = True
-    battle_page_auto: bool = True
-    battle_alerts: bool = True
-    record_battles: bool = True
-    battle_interval_s: float = Field(DEFAULT_BATTLE_INTERVAL, ge=MIN_AUTO_INTERVAL, le=MAX_AUTO_INTERVAL)
-    battle_estimate_fights: bool = True
-    pairing_check: bool = False
-    hide_history: bool = False
-    window_mode: WindowMode = "windowed"
+    max_recordings: int | None = Field(None, ge=0, le=1000)
+    window_mode: WindowMode | None = None
 
 
 def describe_errors(errors: list[dict]) -> str:

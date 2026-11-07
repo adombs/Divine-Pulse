@@ -1,4 +1,4 @@
-"""Complete roster updates: propose changes, save once, and support whole-update Undo."""
+"""Complete roster updates: propose changes and save once."""
 
 from __future__ import annotations
 
@@ -20,14 +20,12 @@ class RosterRepository(Protocol):
 @dataclass
 class RosterResult:
     changes: list[UnitChange] = field(default_factory=list)
-    added: list[str] = field(default_factory=list)
-    updated: list[str] = field(default_factory=list)
     warnings: list[str] = field(default_factory=list)
     keys: dict[int, str] = field(default_factory=dict)
 
 
 class RosterUpdates:
-    """The worker and Undo share one operation lock; failed saves do not complete an update."""
+    """Failed saves do not complete an update."""
 
     def __init__(self, repository: RosterRepository, propose: Callable[[UnitStatsReading, Run], Outcome]):
         self.repository = repository
@@ -47,12 +45,7 @@ class RosterUpdates:
                 for change in outcome.changes:
                     result.changes.append(change)
                     run.units[change.key] = change.after
-                (result.added if outcome.is_new else result.updated).append(outcome.subject)
                 result.warnings.extend(f"{outcome.subject}: {warning}" for warning in outcome.warnings)
             if result.changes:
                 self.repository.apply_units(run.id, {change.key: change.after for change in result.changes})
         return result
-
-    def undo(self, run_id: str, changes: Iterable[UnitChange]) -> None:
-        with self.lock:
-            self.repository.apply_units(run_id, {change.key: change.before for change in changes})

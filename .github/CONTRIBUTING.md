@@ -1,6 +1,6 @@
 # Working on Divine Pulse
 
-For player-facing behavior see [README](../README.md); for technical guides by audience see [docs](../docs/README.md).
+For player-facing behavior see [README](../README.md); use this guide to contribute.
 Everyone taking part follows the [code of conduct](CODE_OF_CONDUCT.md). Divine Pulse is GPL-3.0: by contributing, you
 agree that your work is released under that license.
 
@@ -35,7 +35,7 @@ npm run build
 ```
 
 Source-mode data is stored in the repository's `data/` directory; set `DIVINE_PULSE_DATA_DIR` to use another location.
-See [Development in the README](../README.md#development) for run commands and the battle demo.
+Run the desktop app from the `backend` folder with `.venv\Scripts\python -m app` after building the frontend.
 
 ## No game files in the repository
 
@@ -45,23 +45,23 @@ it. Players import their own dump, and the only images in the repository are the
 `tools/release.py`) fails when a tracked file looks like game content. Test data is synthetic: made-up names and
 rows.
 
-Your own dump may live in the ignored `game-dump/` directory at the repository root. Your import lives in
-`game-assets/`, which git also ignores (import it with the app's Game
-files page or `python -m app.gamefiles extract "<dump folder>"` from `backend/`; see
-[the importer guide](../docs/game-assets/README.md)).
+Keep personal dumps, NSPs, keys, captures and imported assets outside Git. Use the app's **Game files** screen to
+import for local testing. To run the desktop app from the source checkout, use the shortcut created by setup or
+run `tools\\launch.bat`. Windows, Eden, and FE3H v1.2.0 are required.
 
 ## Optional test inputs
 
-Public checks need no game files. Three environment variables enable more tests; without them those tests skip:
+The two Windows CI jobs use synthetic data and project files. To run additional local tests, set the appropriate
+PowerShell environment variable and run pytest from the backend directory with the project virtual environment.
 
 | Variable | Points at |
 |---|---|
-| `DIVINE_PULSE_GAME_ASSETS` | an import of your own game (the folder the importer wrote) |
-| `DIVINE_PULSE_GAME_DUMP` | a dump of your own game |
-| `DIVINE_PULSE_CAPTURES` | memory captures taken from your own game |
+| DIVINE_PULSE_GAME_ASSETS | A directory containing an already imported game and its manifest.json |
+| DIVINE_PULSE_GAME_DUMP | An extracted FE3H v1.2.0 dump |
+| DIVINE_PULSE_CAPTURES | Private recorded test fixtures |
+| DIVINE_PULSE_TEST_PACKAGED_DIR | A built Windows program folder. Inno Setup 6 is required for these tests. |
 
-`DIVINE_PULSE_DATA_DIR` moves the data folder, which keeps experiments away from your real runs. Keep captures and
-imports in the ignored directories above or outside the repository.
+Use DIVINE_PULSE_DATA_DIR to keep source experiments away from your real runs.
 
 ## Naming
 

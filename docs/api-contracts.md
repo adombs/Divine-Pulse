@@ -17,7 +17,7 @@ maintained TypeScript client and API types are in `frontend/src/api.ts`.
 
 Useful routes include `/api/runs`, `/api/runs/{run_id}/units`, `/api/settings`, `/api/battle`, `/api/events` (SSE),
 `/api/memory/check`, `/api/health`, and `/api/quit` (quits the app after answering with its `pid`, for the uninstaller's
-`--quit`; 404 when running as a server only). The route declarations and contract tests are authoritative for the complete
+`--quit`; 404 when no window is attached). The route declarations and contract tests are authoritative for the complete
 surface; this guide intentionally does not duplicate every payload schema.
 
 ## Local access
@@ -40,19 +40,20 @@ only reader; callers treat missing assets as not imported yet.
 
 | Route | Result |
 |---|---|
-| `GET /api/game-assets/status` | `{available, folder, version, dlc, created, files, families, skipped, outdated, languages, last_dump, job}` (with nothing imported: `{available: false, folder, last_dump, job}`); `job` is the import job: `{state: "idle" \| "running" \| "done" \| "failed", phase, done, total, error, log}` |
-| `GET /api/game-assets/candidates` | `{candidates: [{path, romfs, exefs, version, supported, dlc: [name], modified}]}`: real dumps found in the usual places (the last used folder and its parent, Eden/yuzu/suyu/sudachi/citron/torzu/Ryujinx folders under `%APPDATA%`, and name-matching folders one level inside Desktop/Downloads/Documents), newest first, one per base RomFS; `path` goes to `scan`/`import`. Existence checks and shallow listings only |
+| `GET /api/game-assets/status` | `{available, folder, version, dlc, created, files, families, skipped, outdated, languages, job}`. With no import, the response includes `available`, `folder`, and `job`. The job includes `state`, `phase`, `done`, `total`, and `error`. |
 | `POST /api/game-assets/scan` `{dump}` | What the folder holds: `{romfs, exefs, build, version, supported, dlc: {name: path \| null}, parts, importable, problems}`; a missing base has `romfs: null` and a problem entry |
 | `POST /api/game-assets/import` `{dump}` | 202 `{job}`; extracts into a temporary folder beside `GAME_ASSETS_DIR`, verifies it, then swaps it in, so a failed import keeps the old assets; 409 while a job runs; 400 for an unsupported build |
+| `POST /api/game-assets/import-nsps` `{nsps, keys, keep_dumps?}` | 202 `{job}`. Extracts the selected NSPs using the player's keys and imports the verified outputs. An optional new `keep_dumps` directory retains the raw extraction on success. |
 | `POST /api/game-assets/verify` | `{ok, checked, errors, warnings}` (lists capped at 200) |
 | `POST /api/game-assets/pick-folder` | `{path}` from the desktop folder dialog, `{path: null}` if cancelled; 501 outside the desktop window |
+| `POST /api/game-assets/pick-nsps`, `POST /api/game-assets/pick-keys` | Native file dialogs returning `{paths}` for the selected packages and `{path}` for the keys file. |
 | `DELETE /api/game-assets` | Removes the imported folder; 409 while a job runs |
 | `GET /game-assets/{path}` | A file listed in the manifest (404 otherwise), with an `ETag` from its manifest hash |
 
 `parts` contains one entry each for `base`, `update`, `exefs`, and each DLC title ID. Each entry is
 `{id, name, found, path, detail, required}`: `path` and `detail` are strings or null, while `found` and
 `required` are booleans. `detail` describes the detected update or build when known. `importable` is a boolean;
-`problems` is a list of explanations when an identified part prevents import. Candidates also include these fields.
+`problems` is a list of explanations when an identified part prevents import.
 
 The event stream sends `game_assets` events with the status (including `job`) whenever a job progresses or the
 assets change. The frontend reads files through `frontend/src/gameAssets.ts`.

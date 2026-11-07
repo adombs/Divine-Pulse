@@ -31,7 +31,7 @@ def test_roster_retains_post_chapter_10_state_after_reload(tmp_path, scenario, f
     runs, battles = RunStore(tmp_path / "runs"), BattleStore(tmp_path / "battles")
     runs.battles, battles.on_change = battles, runs.refresh_route
     run = runs.create("Test")
-    runs.put_unit(run.id, "professor", Unit(name="Professor", game_id=1, look="dark", portrait_gender="female"))
+    runs.put_unit(run.id, "professor", Unit(name="Professor", game_id=1, look="dark"))
     battle = a_battle(run_id=run.id, scenario=scenario)
     if finished:
         battles.add(battle)
@@ -40,7 +40,7 @@ def test_roster_retains_post_chapter_10_state_after_reload(tmp_path, scenario, f
     restored = RunStore(runs.dir)
     restored.battles = battles
     unit = restored.get(run.id).units["professor"]
-    assert (unit.look, unit.portrait_gender) == (expected, "female")
+    assert unit.look == expected
 
 
 def test_apply_units_batches_writes_and_preserves_new_unit_defaults(tmp_path, monkeypatch):
@@ -95,7 +95,7 @@ def test_apply_units_does_not_replace_cached_run_when_save_fails(tmp_path, monke
 
 def test_settings_memory_changes_only_after_atomic_save(tmp_path, monkeypatch):
     store = SettingsStore(tmp_path / "settings.json")
-    store.update(auto_interval_s=2.0)
+    store.update(max_recordings=2)
     before = store.get()
     saved_before = store.path.read_bytes()
 
@@ -104,7 +104,7 @@ def test_settings_memory_changes_only_after_atomic_save(tmp_path, monkeypatch):
 
     monkeypatch.setattr("app.infrastructure.json_files.os.replace", fail_replace)
     with pytest.raises(OSError, match="disk full"):
-        store.update(auto_interval_s=3.0)
+        store.update(max_recordings=3)
 
     assert store.get() == before
     assert store.path.read_bytes() == saved_before

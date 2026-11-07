@@ -245,8 +245,7 @@ export async function loadImportedReference(structure: Parameters<typeof buildRe
   const { gameAssetsAvailable, loadGameJson, loadGameText } = await import("../gameAssets");
   if (!gameAssetsAvailable()) return buildReference({}, {}, structure, wikiClasses);
   try {
-    const { gameLanguage, loadGameLanguage } = await import("../gameLanguage");
-    await loadGameLanguage();
+    const { gameLanguage } = await import("../gameLanguage");
     const language = gameLanguage();
     const [files, texts] = await Promise.all([Promise.all(referenceFiles.map((name) => loadGameJson(`data/${name}.json`))), Promise.all(categories.map((name) => loadGameText(name, language)))]);
     const missing = files.findIndex((file) => file === null);
@@ -338,8 +337,7 @@ export async function loadImportedSupports(wiki: Parameters<typeof buildSupports
   const { gameAssetsAvailable, loadGameJson, loadGameText } = await import("../gameAssets");
   if (!gameAssetsAvailable()) return buildSupports({}, wiki);
   try {
-    const { gameLanguage, loadGameLanguage } = await import("../gameLanguage");
-    await loadGameLanguage();
+    const { gameLanguage } = await import("../gameLanguage");
     const names = ["supports", "gifts", "characters", "meals"];
     const [values, characterGiven, gift, meal, ingredient] = await Promise.all([Promise.all(names.map((name) => loadGameJson(`data/${name}.json`))), loadGameText("character_given", gameLanguage()), loadGameText("gift", gameLanguage()), loadGameText("meal", gameLanguage()), loadGameText("ingredient", gameLanguage())]);
     const missing = values.findIndex((value) => value === null);

@@ -60,7 +60,7 @@ export function HistoryPage({ runId, live, version, units, part2, onOpenRecordin
           const battle = history?.find((b) => b.id === battleId);
           if (battle) onOpenRecording(battle, key);
         }}
-        battlesSection={<>{error && <p className="notice" role="alert">Battle history could not be loaded. <button type="button" className="btn small" onClick={() => setRetry((n) => n + 1)}>Try again</button></p>}<BattleCards history={battles?.filter((b) => !b.active) ?? null} live={live?.run_id === runId ? live : null} roster={roster} part2={part2} onOpenRecording={onOpenRecording} onStats={() => setStats("battles")} /></>}
+        battlesSection={<>{error && <p className="notice" role="alert">Battle history could not be loaded. <button type="button" className="btn small" onClick={() => setRetry((n) => n + 1)}>Try again</button></p>}<BattleCards history={history?.filter((b) => !b.active && b.id !== live?.id) ?? null} live={live?.run_id === runId ? live : null} roster={roster} part2={part2} onOpenRecording={onOpenRecording} onStats={() => setStats("battles")} /></>}
       />
       <RunStatsPopup kind={stats} onClose={() => setStats(null)} battles={battles} error={error} onRetry={() => setRetry((n) => n + 1)} />
     </section>

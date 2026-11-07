@@ -6,12 +6,14 @@ import json
 import os
 from pathlib import Path
 import struct
+from types import SimpleNamespace
 
-from PIL import Image
+from PIL import Image, ImageDraw
 import pytest
 
 from app.gamefiles.extract import map as maps
 from app.gamefiles.output import Output
+from test_gamefiles_core import chunked, make_g1t
 
 
 def grid(tiles: dict[tuple[int, int], int]) -> bytes:
@@ -69,17 +71,32 @@ def stage_row(defense: int, res: int, avo: int, heal: int, wall_hp: int, move: i
 
 
 def test_terrain_effects_and_names(tmp_path):
-    names = [""] * maps.TERRAIN_NAME + ["Impassable", "Plain  ", "Sky"]
-    rows = [stage_row(0, 0, 0, 0, 0, 0), stage_row(0, 0, 0, 0, 0, 2), stage_row(-1, 2, 20, -10, 5, 1)]
+    # Hand-built records model distinct terrain types instead of combining wall HP,
+    # poison damage, and a movement restriction on a single made-up tile.
+    rows = [stage_row(0, 0, 0, 0, 0, 0)] * 81
+    names = [""] * (maps.TERRAIN_NAME + len(rows))
+    for tile_id, name, row in (
+        (0, "Impassable", stage_row(0, 0, 0, 0, 0, 0)),
+        (2, "Plain  ", stage_row(0, 0, 0, 0, 0, 2)),
+        (3, "Forest", stage_row(1, 0, 30, 0, 0, 3)),
+        (6, "River", stage_row(0, 0, 0, 0, 0, 1)),
+        (38, "Breakable Wall", stage_row(0, 0, 0, 0, 20, 0)),
+        (39, "Snow", stage_row(0, 0, -20, 0, 0, 6)),
+        (80, "Poison", stage_row(0, 0, 0, -10, 0, 9)),
+    ):
+        names[maps.TERRAIN_NAME + tile_id] = name
+        rows[tile_id] = row
     ctx = FakeContext(tmp_path, rows, names)
     maps.terrain(ctx)
     tiles = json.loads((tmp_path / "data" / "terrain.json").read_text("utf-8"))["tiles"]
-    assert tiles["0"]["enter"] == "none" and tiles["1"]["enter"] == "all" and tiles["2"]["enter"] == "fliers"
-    assert tiles["1"]["name"] == "Plain"
-    assert tiles["2"] | {"name": ""} == {
-        "name": "", "avo": 20, "def": -1, "res": 2, "heal": -10, "wall_hp": 5, "enter": "fliers",
-        "move_name": "Fliers only",
+    assert tiles["0"]["enter"] == "none" and tiles["2"]["enter"] == "all" and tiles["6"]["enter"] == "fliers"
+    assert tiles["2"]["name"] == "Plain"
+    assert tiles["3"] == {
+        "name": "Forest", "avo": 30, "def": 1, "res": 0, "heal": 0, "wall_hp": 0, "enter": "all",
+        "move_name": "Forest",
     }
+    assert tiles["38"]["enter"] == "none" and tiles["38"]["wall_hp"] == 20
+    assert tiles["39"]["avo"] == -20 and tiles["80"]["heal"] == -10
 
 
 def test_terrain_ids_are_capped(tmp_path):
@@ -93,6 +110,68 @@ def test_minimap_tables_are_consistent():
     assert set(maps.MINIMAP_VARIANTS).isdisjoint({38, 39, 40, 41})
     assert set(maps.MINIMAP_INDEX.values()).isdisjoint(maps.MINIMAP_VARIANTS.values())
     assert set(maps.TERRAIN_TILES) <= set(maps.MINIMAP_PIECES.values())
+
+
+def minimap_pack(images: dict[int, Image.Image]) -> bytes:
+    """Build a still-image pack with generated pixels and empty unused slots."""
+    count = max(images) + 1
+    index = bytearray(struct.pack("<I", count))
+    contents = bytearray()
+    for slot in range(count):
+        item = chunked(make_g1t(images[slot]), 0x4000) if slot in images else b""
+        index.extend(struct.pack("<II", 4 + 8 * count + len(contents), len(item)))
+        contents.extend(item)
+    return bytes(index + contents)
+
+
+def test_minimap_import_crops_native_cells_and_selects_the_matching_map_state(tmp_path, monkeypatch):
+    # Use made-up artwork with the game's geometry: 32 px atlas swatches, 24 px map cells,
+    # a transparent bare grid, and a bridge whose tile changes between the two map states.
+    forest, water, bare, border = (30, 125, 50, 255), (20, 80, 215, 255), (0, 0, 0, 0), (90, 85, 80, 100)
+    atlas = Image.new("RGBA", (128, 64))
+    atlas.paste(forest, (0, 0, 32, 32))
+    atlas.paste(water, (32, 0, 64, 32))
+    atlas.paste(border, (66, 2, 90, 26))
+    rects = [maps.rects.Rect(128, 64, 10, sprite, x, 0, width, height)
+             for sprite, x, width, height in [(203, 0, 32, 32), (209, 32, 32, 32), (220, 64, 56, 48)]]
+
+    def picture(cells):
+        image = Image.new("RGBA", (256, 128))
+        draw = ImageDraw.Draw(image)
+        draw.rectangle((71, 71, 144, 120), outline=border)
+        for y, row in enumerate(cells):
+            for x, color in enumerate(row):
+                left, top = 72 + x * 24, 72 + y * 24
+                draw.rectangle((left, top, left + 23, top + 23), outline=border, fill=color)
+        return image
+
+    reference = picture([[forest, water, bare], [bare, water, bare]])
+    raised = picture([[forest, water, bare], [bare, water, forest]])
+    lowered = picture([[forest, water, bare], [bare, bare, forest]])
+    pack = minimap_pack({0: reference, 7: raised, 37: lowered})
+    decode_texture = maps.g1t.texture
+    monkeypatch.setattr(maps.rects, "battle_ui", lambda _: rects)
+    monkeypatch.setattr(maps.g1t, "texture", lambda data, n: atlas if data == b"test atlas" and n == 10
+                        else decode_texture(data, n))
+    inputs = {maps.BATTLE_UI: b"test atlas", maps.MINIMAPS_ENTRY: pack}
+    ctx = SimpleNamespace(main=object(), out=Output(tmp_path), skip=lambda _: None,
+                          base=SimpleNamespace(resolve=lambda _: None, read=inputs.__getitem__))
+
+    maps.minimaps(ctx, {0: [[3, 6, 2], [2, 6, 10]], 7: [[3, 6, 2], [2, 10, 3]]})
+
+    index = json.loads((tmp_path / "data/minimap-terrain.json").read_text("utf-8"))
+    assert index == {"cell": 24, "maps": [0, 7], "tiles": {"2": None, "3": "tile-forest", "6": "tile-water", "10": None}}
+    with Image.open(tmp_path / "images/map/minimaps/7.png") as image:
+        assert image.size == (74, 50)
+        assert image.getpixel((0, 0)) == border
+        assert image.getpixel((37, 13)) == water
+        assert image.getpixel((37, 37)) == bare  # the lowered bridge uses the grid, not the water swatch
+    with Image.open(tmp_path / "images/map/minimap-pieces/grid.png") as image:
+        assert image.size == (24, 24)
+        assert image.getpixel((0, 0)) == border
+    with Image.open(tmp_path / "images/map/minimap-pieces/tile-forest.png") as image:
+        assert image.size == (32, 32)
+        assert image.getpixel((16, 16)) == forest
 
 
 DUMP = os.environ.get("DIVINE_PULSE_GAME_DUMP")
@@ -111,12 +190,32 @@ def test_map_family_on_a_real_dump(tmp_path):
         return sum(1 for rel in files if rel.startswith(prefix))
 
     expected = 41 if "cindered_shadows" in ctx.dump.dlc else 37  # that DLC adds four maps
-    assert len(json.loads((tmp_path / "data" / "maps.json").read_text("utf-8"))["maps"]) == expected
+    grids = json.loads((tmp_path / "data" / "maps.json").read_text("utf-8"))["maps"]
+    assert len(grids) == expected
     assert len(json.loads((tmp_path / "data" / "terrain.json").read_text("utf-8"))["tiles"]) == maps.TERRAIN_IDS
     assert count("images/map/minimaps/") == expected
     assert count("images/map/minimap-pieces/") == len(maps.MINIMAP_PIECES)
+    index = json.loads((tmp_path / "data/minimap-terrain.json").read_text("utf-8"))
+    assert set(map(str, index["maps"])) == set(grids)
+    assert index["cell"] == 24
+    assert {key: index["tiles"][key] for key in ("2", "3", "6", "10")} == {
+        "2": None, "3": "tile-forest", "6": "tile-water", "10": None,
+    }
+    for map_id, rows in grids.items():
+        width, height = max(len(bytes.fromhex(row)) for row in rows), len(rows)
+        with Image.open(tmp_path / f"images/map/minimaps/{map_id}.png") as image:
+            assert image.size == (24 * width + 2, 24 * height + 2)
+            assert image.getbbox() is not None, f"map {map_id} is blank"
     for name, size in {"range-cell": (24, 24), "range-grid": (218, 146), "range-chevron": (96, 96),
-                       "range-player": (64, 64), "range-enemy": (64, 64)}.items():
+                       "range-player": (64, 64), "range-enemy": (64, 64),
+                       "grid": (24, 24), "tile-forest": (32, 32), "tile-water": (32, 32)}.items():
         with Image.open(tmp_path / "images/map/minimap-pieces" / f"{name}.png") as image:
             assert image.size == size
+            assert image.getbbox() is not None, f"{name} is blank"
+    # The documented FE3H 1.2.0 swatches must survive extraction pixel for pixel.
+    # The expected pixels come from this local dump, never from a checked-in image.
+    atlas = maps.g1t.texture(ctx.base.read(maps.BATTLE_UI), maps.MINIMAP_TEXTURE)
+    for name, box in {"tile-forest": (992, 36, 1024, 68), "tile-water": (600, 384, 632, 416)}.items():
+        with Image.open(tmp_path / "images/map/minimap-pieces" / f"{name}.png") as image:
+            assert image.tobytes() == atlas.crop(box).tobytes(), name
     assert {"images/map/class-sprites.png", "images/map/map-heads.png", "data/class-sprites.json"} <= set(files)

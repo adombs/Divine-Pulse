@@ -11,7 +11,6 @@ export const LABELS: Record<ValueKey, string> = {
   lck: "Lck", def: "Def", res: "Res", cha: "Cha",
 };
 
-export type PortraitGender = "auto" | "male" | "female";
 
 export type RunRoute = "black-eagles" | "blue-lions" | "golden-deer" | "cf" | "ss" | "am" | "vw";
 
@@ -52,8 +51,6 @@ export interface Unit {
   base_values: Record<ValueKey, number>;
   /** The unit's eBST setup: offense and defense types, and which other stats count. */
   ebst_effective: EbstConfig;
-  /** Byleth's portrait: "auto" follows the gender read from the game. */
-  portrait_gender: PortraitGender;
   /** Byleth's hair as the game has it now (game memory only): green from the Sothis merge on. */
   look?: "dark" | "green" | null;
   blue: ValueKey[];
@@ -82,58 +79,13 @@ export interface Unit {
   updated_at: string;
 }
 
-export interface ScanEntry {
-  id: number;
-  time: string;
-  status: "ok" | "warning" | "rejected" | "error";
-  message: string;
-  run_id: string | null;
-  unit_key: string | null;
-  unit_name: string | null;
-  is_new_unit: boolean;
-  warnings: string[];
-  can_undo: boolean;
-  /** Where it was read from, e.g. "Game memory". */
-  screen: string | null;
-}
-
 export interface Settings {
-  /** filter the Roster to the units in a battle when one starts. */
-  battle_filter_auto: boolean;
-  /** switch from the Roster to the Battle page while a battle is in progress. */
-  battle_page_auto: boolean;
-  /** a notification when a unit leaves the battle or a Divine Pulse is used. */
-  battle_alerts: boolean;
-  /** save raw battle memory during battles, to find the fields the Battle page still needs. */
-  record_battles: boolean;
-  /** read the game this often (seconds) during a battle, instead of auto_interval_s. */
-  battle_interval_s: number;
-  /** work out fights from HP changes when the game's history can't be read. */
-  battle_estimate_fights: boolean;
-  /** Testing: compare fight estimates with the game's history (a report per battle in pairing-checks/). */
-  pairing_check: boolean;
-  /** Testing: ignore the game's history, so the Battle page shows fight estimates. */
-  hide_history: boolean;
-  /** Read the game this often (seconds) outside battles. */
-  auto_interval_s: number;
   active_run_id: string | null;
-  /** The desktop window: a normal window, or borderless over its monitor. */
+  max_recordings: number;
   window_mode: "windowed" | "fullscreen";
 }
 
-export type SettingsInput = Pick<
-  Settings,
-  | "auto_interval_s"
-  | "battle_filter_auto"
-  | "battle_page_auto"
-  | "battle_alerts"
-  | "record_battles"
-  | "battle_interval_s"
-  | "battle_estimate_fights"
-  | "pairing_check"
-  | "hide_history"
-  | "window_mode"
->;
+export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode">>;
 
 /** What the game reader is doing. */
 export interface AutoStatus {
@@ -487,24 +439,23 @@ export interface About {
 
 export interface GameAssetsJob {
   state: "idle" | "running" | "done" | "failed";
-  phase: string; done: number; total: number; error: string | null; log: string[];
+  phase: string | null; done: number; total: number; error: string | null;
 }
 export interface GameFilesStatus {
   available: boolean; version?: string | null; dlc?: string[];
   error?: string;
-  created?: string; files?: number; outdated?: boolean; last_dump?: string | null; job?: GameAssetsJob;
+  created?: string; files?: number; outdated?: boolean; job?: GameAssetsJob;
 }
 export interface GameFilesScan {
   version: string | null;
   parts: GameFilesPart[]; importable: boolean; problems: string[];
 }
 export interface GameFilesPart { id: string; name: string; found: boolean; detail: string | null; required: boolean }
-export interface GameFilesCandidate {
-  path: string; version: string | null; dlc: string[];
-}
 export interface GameFilesVerify { ok: boolean; checked: number; errors: string[]; warnings: string[] }
 
-export class ApiError extends Error {}
+export class ApiError extends Error {
+  constructor(message: string, readonly status?: number) { super(message); }
+}
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
@@ -520,7 +471,7 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     } catch {
       /* keep statusText */
     }
-    throw new ApiError(res.status === 404 && path.startsWith("/game-assets") ? "Not available" : detail);
+    throw new ApiError(res.status === 404 && path.startsWith("/game-assets") ? "Not available" : detail, res.status);
   }
   const text = await res.text();
   return (text ? JSON.parse(text) : null) as T;
@@ -536,27 +487,19 @@ export const api = {
   activateRun: (id: string) => request<void>("POST", `/runs/${enc(id)}/activate`),
 
   units: (runId: string) => request<Unit[]>("GET", `/runs/${enc(runId)}/units`),
-  deleteUnit: (runId: string, key: string) => request<void>("DELETE", `/runs/${enc(runId)}/units/${enc(key)}`),
   /** Change a unit's offense / defense type or which other stats count. */
   runEbst: (runId: string) => request<EbstConfig>("GET", `/runs/${enc(runId)}/ebst`),
   setRunEbst: (runId: string, body: EbstConfig) => request<EbstConfig>("PUT", `/runs/${enc(runId)}/ebst`, body),
   setUnitEbst: (runId: string, key: string, body: Partial<EbstConfig>) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/ebst`, body),
-  setUnitPortrait: (runId: string, key: string, gender: PortraitGender) =>
-    request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/portrait`, { gender }),
-
-  undo: () => request<ScanEntry | null>("POST", "/scan/undo"),
-  scans: () => request<ScanEntry[]>("GET", "/scans"),
-
   gameFilesStatus: () => request<GameFilesStatus>("GET", "/game-assets/status"),
-  gameFilesCandidates: () => request<{ candidates: GameFilesCandidate[] }>("GET", "/game-assets/candidates"),
   scanGameFiles: (dump: string) => request<GameFilesScan>("POST", "/game-assets/scan", { dump }),
   importGameFiles: (dump: string) => request<{ job: GameAssetsJob }>("POST", "/game-assets/import", { dump }),
   verifyGameFiles: () => request<GameFilesVerify>("POST", "/game-assets/verify"),
   pickGameFilesFolder: () => request<{ path: string | null }>("POST", "/game-assets/pick-folder"),
   pickGameFilesNsps: () => request<{ paths: string[] }>("POST", "/game-assets/pick-nsps"),
   pickGameFilesKeys: () => request<{ path: string | null }>("POST", "/game-assets/pick-keys"),
-  importGameFilesNsps: (nsps: string[], keys: string) => request<{ job: GameAssetsJob }>("POST", "/game-assets/import-nsps", { nsps, keys }),
+  importGameFilesNsps: (nsps: string[], keys: string, keepDumps?: string) => request<{ job: GameAssetsJob }>("POST", "/game-assets/import-nsps", { nsps, keys, keep_dumps: keepDumps }),
   removeGameFiles: () => request<void>("DELETE", "/game-assets"),
   settings: () => request<Settings>("GET", "/settings"),
   saveSettings: (s: SettingsInput) => request<Settings>("PUT", "/settings", s),
@@ -564,7 +507,12 @@ export const api = {
   battle: () => request<{ battle: Battle | null }>("GET", "/battle"),
   battles: (runId: string) => request<Battle[]>("GET", `/runs/${enc(runId)}/battles`),
   exportRun: (runId: string) => request<Record<string, unknown>>("GET", `/runs/${enc(runId)}/export`),
-  importRun: (body: unknown) => request<RunSummary>("POST", "/runs/import", body),
+  importRun: (body: unknown, options?: { name?: string; overwrite?: boolean }) => {
+    const query = new URLSearchParams();
+    if (options?.name) query.set("name", options.name);
+    if (options?.overwrite) query.set("overwrite", "true");
+    return request<RunSummary>("POST", "/runs/import" + (query.size ? "?" + query : ""), body);
+  },
   exportBattles: (runId: string) => request<Record<string, unknown>>("GET", `/runs/${enc(runId)}/battles/export`),
   importBattles: (runId: string, body: unknown) => request<{ added: number }>("POST", `/runs/${enc(runId)}/battles/import`, body),
   deleteBattle: (runId: string, id: string) => request<void>("DELETE", `/runs/${enc(runId)}/battles/${enc(id)}`),

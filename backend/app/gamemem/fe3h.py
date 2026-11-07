@@ -1,8 +1,7 @@
 """Where FE3H keeps its unit roster in the emulator's memory, and how to decode it.
 
-How this was worked out, step by step: docs/reading-game-memory.md.
 
-Eden (and the yuzu family) maps the Switch's memory into its own address space so that a game address `a`
+Eden maps the Switch's memory into its own address space so that a game address `a`
 lives at host address `base + a` ("fastmem"; emulators.py says where each emulator keeps it). The game's main program sits near Switch address 0x80000000 (not
 at a fixed one: 0x80004000 in one session, 0x8077B000 in another), and the roster is a global inside it: 60 slots
 of 0x24C bytes, one per character the save knows about. Only the layout relative to the main program is fixed, so
@@ -59,7 +58,7 @@ _ITEMS = 0x00  # 6 x (u16 item ID, u16 uses)
 # The equipped battalion, 8 bytes (hashcade/feth-save-editor's Battalion struct, embedded at +0x18): u16 owner
 # (the character ID of the player's unit that owns it; 0xFFFF on other units, and on yours without one), u16
 # cumulative experience, u16 endurance left, u8 battalion ID (NO_BATTALION_ID = none), u8 gambit ID. Checked live
-# (1.2.0, docs/battalions.md): Seiros Pegasus Co. -> Almyra Mercenaries -> none -> Seiros Pegasus Co. matched the IDs
+# (1.2.0): Seiros Pegasus Co. -> Almyra Mercenaries -> none -> Seiros Pegasus Co. matched the IDs
 # and the marker; using Assembly and taking damage moved experience 0 -> 46 -> 115 (level 2, Exp 15) and endurance
 # 60 -> 51 in the battle copy, while the roster slot kept the values from before the battle. Enemies carry real
 # battalions with owner 0xFFFF: 21 bandits held Thieves/Rogues/Bandits (173-175), 300 exp, endurance 75 (the import's).
@@ -108,7 +107,7 @@ _BATTLES = 0xBC  # u16 battle counter: the roster counts a battle when it starts
 _COMBATS = 0x26
 _VICTORIES = 0x28
 # What the unit has equipped (u16): EQUIPPED_SPELL + the spell's ID for a spell, EQUIPPED_WEAPON for the weapon at the
-# top of its inventory, 0xFFFF if it has nothing to fight with. docs/reading-game-memory.md has the evidence.
+# top of its inventory, 0xFFFF if it has nothing to fight with.
 _EQUIPPED = 0x2E
 EQUIPPED_WEAPON = 1
 IN_ARMY = 0x03

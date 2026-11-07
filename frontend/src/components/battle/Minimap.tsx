@@ -19,6 +19,7 @@ import "../character/panels.css";
 import { MapImage, useGameImageUrl } from "../GameImage";
 import { loadGameJson, onGameAssetsChange } from "../../gameAssets";
 import { faceUrl } from "../../portraits";
+import { PortraitPhaseContext } from "../../appearance";
 import { flushSync } from "react-dom";
 import { KeyboardEvent, memo, PointerEvent as ReactPointerEvent, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Collapse } from "../disclosure";
@@ -174,6 +175,7 @@ function stage(board: Board, animation: StepAnimation | null | undefined, keep: 
 }
 
 export function Minimap({ board, selected, focus, action, animation, onPick, size = "full", part2 = false, label, zoom, cursor, onWheelAt, onDrag }: Props) {
+  const automatic = useContext(PortraitPhaseContext) === "auto";
   const uid = useId().replace(/:/g, "");
   const svg = useRef<SVGSVGElement>(null);
   const drag = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
@@ -357,7 +359,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
           opacity={d.opacity}
           hp={d.hp}
           tile={tileAt(board, d.piece.x, d.piece.y)}
-          portrait={portraitOf ? portraitOf(d.piece.id) : faceUrl({ ...d.piece.sprite, name: d.piece.name, seed: d.piece.id }, part2)}
+          portrait={portraitOf ? portraitOf(d.piece.id) : faceUrl({ ...d.piece.sprite, name: d.piece.name, seed: d.piece.id }, part2, automatic)}
           importedFace={nav?.importedFace?.(d.piece.id) ?? null}
           sprites={sprites}
           look={look}

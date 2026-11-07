@@ -1,8 +1,7 @@
 """Sprite rectangle tables in the main executable (1.2.0, build 89048449BA238C8CF565518B83BF02D3).
 
 Each table is an array of 16-byte records: u16 texture width, texture height, texture index, sprite id, x, y, w, h.
-Offsets are main + offset (see nso.py). Found by disassembly; see docs/battle-page-plan.md, docs/minimap-atlas.md
-and docs/native-inventory-icons.md.
+Offsets are relative to main (see nso.py).
 """
 
 from __future__ import annotations

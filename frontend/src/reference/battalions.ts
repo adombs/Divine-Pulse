@@ -11,7 +11,7 @@ export function battalionReference(list: readonly Battalion[], name?: string | n
 }
 
 /** The game keeps a battalion's experience as one running total: 100 per level, levels 1-5, capped at 400
- * (docs/battalions.md). */
+ *. */
 export const BATTALION_MAX_LEVEL = 5;
 const EXP_PER_LEVEL = 100;
 const MAX_EXP = EXP_PER_LEVEL * (BATTALION_MAX_LEVEL - 1);

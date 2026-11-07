@@ -92,7 +92,7 @@ class GameDump:
         optional."""
         problems = [] if self.romfs else ["Base game not found"]
         latest = self._latest_patch()
-        if not latest or latest[0] < UPDATE_PATCH:
+        if not latest or latest[0] != UPDATE_PATCH:
             problems.append(f"Update 1.2.0 not found: the dump needs the update's patch{UPDATE_PATCH} folder.")
         if not self.exefs:
             problems.append("ExeFS not found: the dump needs the main file from update 1.2.0.")

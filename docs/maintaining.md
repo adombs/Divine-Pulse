@@ -110,5 +110,5 @@ Check each one rather than assuming it worked:
 3. Publish a release built from current `main` ([release guide](releasing.md)), after the source is public, so
    the program and its source are available together. Every release so far is a draft and invisible to the public, so
    the README's download link leads nowhere until then. Don't publish older drafts: delete them.
-4. In a private browser window, signed out, open the README, CONTRIBUTING, the license, both issue forms and the
+4. In a private browser window, signed out, open the README, CONTRIBUTING, the license and the
    release downloads.

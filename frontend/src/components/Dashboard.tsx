@@ -2,8 +2,8 @@ import { CONCEPT_ICON } from "../icons/concepts";
 import "./character/panels.css";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Icon, IconButton } from "./Icon";
-import { api, LABELS, PortraitGender, RunSummary, STAT_KEYS, StatKey, Unit, VALUE_KEYS, ValueKey } from "../api";
-import { characterKeyOfUnit, isByleth } from "../portraits";
+import { api, LABELS, RunSummary, STAT_KEYS, StatKey, Unit, VALUE_KEYS, ValueKey } from "../api";
+import { characterKeyOfUnit } from "../portraits";
 import { useNav } from "../nav";
 import { searchMatches } from "../fuzzy";
 import { passes, usePeopleFilters } from "../filters";
@@ -178,16 +178,6 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
   // With none picked, the first row's card shows.
   const current = units.find((u) => u.key === selected) ?? sorted[0] ?? null;
 
-  const remove = async (u: Unit) => {
-    if (!run || !confirm(`Delete ${u.name} from "${run.name}"?`)) return;
-    try {
-      await api.deleteUnit(run.id, u.key);
-      toasts.push({ kind: "info", title: `Deleted ${u.name}` });
-    } catch (e) {
-      toasts.push({ kind: "error", title: "Delete failed", body: String((e as Error).message) });
-    }
-  };
-
   if (!run) {
     return (
       <section className="roster-page">
@@ -270,7 +260,6 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
               lens={lens}
               part2={part2}
               toasts={toasts}
-              onDelete={() => remove(current)}
             />
           )
         }
@@ -418,10 +407,9 @@ interface CardProps {
   lens: Lens;
   part2: boolean;
   toasts: ToastState;
-  onDelete: () => void;
 }
 
-function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProps) {
+function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
   const left: StatKey[] = ["str", "mag", "dex", "spd"];
   const right: StatKey[] = ["lck", "def", "res", "cha"];
   const values = valuesFor(unit, mode);
@@ -435,14 +423,6 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
       await api.setUnitEbst(runId, unit.key, body);
     } catch (e) {
       toasts.push({ kind: "error", title: "Couldn't update eBST", body: (e as Error).message });
-    }
-  };
-
-  const setPortrait = async (gender: PortraitGender) => {
-    try {
-      await api.setUnitPortrait(runId, unit.key, gender);
-    } catch (e) {
-      toasts.push({ kind: "error", title: "Couldn't change the portrait", body: (e as Error).message });
     }
   };
 
@@ -533,7 +513,6 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
       actions={
         <>
           <IconButton icon={CONCEPT_ICON.history} label="Battle Stats" onClick={() => nav.go({ page: "history", tab: "stats", id: unit.key })} />
-          <IconButton icon={CONCEPT_ICON.delete} label="Delete" onClick={onDelete} className="danger" />
         </>
       }
     >
@@ -550,20 +529,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
           ["Crest", crests.length ? <span className="crest-marks">{crests.map((c) => <span key={`${c.name}-${c.major}`}><CrestLink name={c.name}>{crestLabel(c.name, c.major)}</CrestLink></span>)}</span> : "None"],
         ]}
         backFacts={[
-          ["Gender", isByleth(unit) ? (
-                <Segmented
-                  key="portrait"
-                  size="mini"
-                  label="Byleth's portrait"
-                  value={unit.portrait_gender}
-                  onChange={setPortrait}
-                  options={[
-                    ["auto", "Auto", `Follow the gender read from the Status page${unit.gender ? ` (${unit.gender})` : ""}`],
-                    ["male", "Male", "Always the male portrait"],
-                    ["female", "Female", "Always the female portrait"],
-                  ]}
-                />
-          ) : unit.gender || character?.gender || "—"],
+          ["Gender", unit.gender || character?.gender || "—"],
           ["Affiliation", character?.house || "—"],
           ["Birthday", character?.birthday || "—"],
           ["Height", character?.height || "—"],

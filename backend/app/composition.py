@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import __version__
@@ -17,7 +17,6 @@ from .infrastructure.persistence import BattleStore, RunStore
 from .infrastructure.runtime_services import MemoryCheck, SystemAdapter
 from .infrastructure.route_inference import route_of
 from .infrastructure.settings import SettingsStore
-from .infrastructure.game_assets import game_assets
 from .interface.runtime import RuntimeView
 from .infrastructure.polling import Scanner
 
@@ -29,17 +28,20 @@ class AppRuntime(RuntimeView):
     store: RunStore
     battles: BattleStore
     scanner: Scanner
+    game_import: GameAssetsImport = field(kw_only=True)
 
     def close(self) -> None:
         try:
             self.scanner.stop()
         finally:
-            self.events.close()
+            try:
+                self.game_import.close()
+            finally:
+                self.events.close()
 
 
 def build_runtime(data_dir: Path, settings: SettingsStore | None = None) -> AppRuntime:
     settings = settings or SettingsStore(data_dir / "settings.json")
-    game_assets().language = lambda: settings.get().game_language
     runs = RunStore(data_dir / "runs")
     battles = BattleStore(data_dir / "battles")
     runs.battles = battles

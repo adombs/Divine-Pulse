@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+- Open the Windows desktop app directly and exit completely when the window closes. Eden and Fire Emblem: Three Houses v1.2.0 are required.
+- Import extracted game folders or NSPs with your own keys in the app. Each import verifies the complete dataset and keeps the previous valid import if a replacement fails.
+- Keep roster updates automatic, with a warning when unit data cannot be read. Remove scan history and whole-update Undo.
+- Keep battle actions in chronological order and count completed battles on the standing Divine Pulse timeline in run totals. Retain three raw recordings by default, with a configurable limit from zero to 1000.
+- Copy imported replays and resolve run-name conflicts by overwriting or entering a new name.
+- Exclude Divine Pulse use from the estimated chance of winning.
+
 ## 1.3.0 (2026-11-07)
 
 - Report missing or unreadable required game assets instead of substituting portraits, sprites, icons or terrain; provide a Game files alert and a retry after reimporting.

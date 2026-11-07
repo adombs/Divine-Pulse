@@ -1,9 +1,8 @@
 import { CONCEPT_ICON } from "../icons/concepts";
 import { FormEvent, useEffect, useState } from "react";
-import { api, Battle, RunSummary, ScanEntry } from "../api";
+import { api, Battle, RunSummary } from "../api";
 import { ToastState } from "./Toasts";
 import { Icon, IconButton } from "./Icon";
-import { ScanLog } from "./ScanLog";
 import { useNav } from "../nav";
 import { RunIcon } from "./ui";
 import { plural } from "../format";
@@ -18,21 +17,14 @@ interface Props {
   activeRunId: string | null;
   onActivate: (id: string) => void;
   toasts: ToastState;
-  /** This session's updates read from the game (the Updates tab). */
-  entries: ScanEntry[];
-  onUndo: () => void;
 }
 
-type Tab = "runs" | "log";
-
-export function Runs({ runs, activeRunId, onActivate, toasts, entries, onUndo }: Props) {
+export function Runs({ runs, activeRunId, onActivate, toasts }: Props) {
   const nav = useNav();
   const [name, setName] = useState("");
   const newError = name.trim() ? runNameError(name, runs) : null;
   const current = runs.find((r) => r.id === nav.route.id) ?? runs.find((r) => r.id === activeRunId) ?? runs[0] ?? null;
   const active = runs.find((r) => r.id === activeRunId);
-  const tab: Tab = nav.route.tab === "log" ? "log" : "runs";
-  const toCheck = entries.filter((e) => e.status === "warning").length;
   const [transfer, setTransfer] = useState<"import" | "export" | null>(null);
 
   const create = async (e: FormEvent) => {
@@ -51,24 +43,8 @@ export function Runs({ runs, activeRunId, onActivate, toasts, entries, onUndo }:
     <section className="runs-page">
       <PageHeader
         title="Runs"
-        status={
-          <>
-            {active && <span>Active: {active.name}</span>}
-            {toCheck > 0 && <StatusChip tone="warn">{toCheck} update{toCheck === 1 ? "" : "s"} to check</StatusChip>}
-          </>
-        }
-        tabs={[
-          { id: "runs" as Tab, label: "Runs", count: runs.length },
-          { id: "log" as Tab, label: "Updates", count: entries.length },
-        ]}
-        tab={tab}
-        onTab={(t) => nav.go({ page: "runs", tab: t === "log" ? "log" : undefined })}
+        status={active && <span>Active: {active.name}</span>}
       />
-      {tab === "log" ? (
-        <div className="runs-updates">
-          <ScanLog entries={entries} runs={runs} onUndo={onUndo} />
-        </div>
-      ) : (
       <MasterDetail
         detail={current && <RunCard key={current.id} run={current} runs={runs} active={current.id === activeRunId} onActivate={onActivate} toasts={toasts} />}
       >
@@ -97,7 +73,7 @@ export function Runs({ runs, activeRunId, onActivate, toasts, entries, onUndo }:
         </form>
         {transfer && <RunTransfer mode={transfer} runs={runs} toasts={toasts} onClose={() => setTransfer(null)} />}
         {runs.length === 0 ? (
-          <EmptyState title="No runs yet">Name your playthrough above and create it. Scans go into the active run.</EmptyState>
+          <EmptyState title="No runs yet">Name your playthrough above and create it. Units and battles are saved in the active run.</EmptyState>
         ) : (
           <RowList>
             {runs.map((r) => (
@@ -118,7 +94,6 @@ export function Runs({ runs, activeRunId, onActivate, toasts, entries, onUndo }:
           </RowList>
         )}
       </MasterDetail>
-      )}
     </section>
   );
 }

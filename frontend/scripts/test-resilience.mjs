@@ -167,22 +167,22 @@ test("SSE parse and async failures are contained, reconnect stays native, and cl
   const connections = [];
   const received = [];
   const cleanup = subscribeToEvents(source, {
-    scan: async (data) => {
+    roster_warning: async (data) => {
       received.push(data);
       if (data.fail) throw new Error("handler failed");
     },
   }, (connected) => connections.push(connected), (error) => errors.push(error));
 
   source.onopen();
-  source.emit("scan", "{");
-  source.emit("scan", JSON.stringify({ fail: true }));
+  source.emit("roster_warning", "{");
+  source.emit("roster_warning", JSON.stringify({ fail: true }));
   await new Promise((resolve) => setImmediate(resolve));
   assert.equal(errors.length, 2);
   assert.deepEqual(received, [{ fail: true }]);
   source.onerror();
   assert.deepEqual(connections, [true, false]);
   assert.equal(source.closed, false);
-  assert.equal(source.listeners.size, 7);
+  assert.equal(source.listeners.size, 6);
   cleanup();
   assert.equal(source.closed, true);
   assert.equal(source.listeners.size, 0);

@@ -1,5 +1,5 @@
 // Assets extracted from the user's own game dump, served by the backend under /game-assets/ (see
-// docs/game-assets/README.md and docs/api-contracts.md "Game assets"). Missing content is an explicit sentinel,
+// docs/api-contracts.md "Game assets"). Missing content is an explicit sentinel,
 // also reported to the application's game-file alert. It never selects substitute art.
 import { assertAssetPath, clearAssetIssues, reportAssetIssue, RequiredGameAssetError } from "./requiredAssets.ts";
 

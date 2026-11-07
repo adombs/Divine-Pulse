@@ -77,7 +77,7 @@ RALLY_TAIL = 4
 # A battalion's gambit (ACTION and KIND 0x13). The gambit's ID is at GAMBIT (the same byte as SPELL/ART; the
 # battalion's gambit ID, as at +0x1F of its record), TARGET the unit aimed at (0xFF for one on the user's area) and
 # ITEM as for an attack, for the target only; every unit it hit or moved follows with its new state. Seen live (1.2.0,
-# docs/battalions.md): Byleth's Assembly (ID 1) on two bandits held 1103 (11 damage each), Marianne's Stride (ID 25)
+# 1.2.0): Byleth's Assembly (ID 1) on two bandits held 1103 (11 damage each), Marianne's Stride (ID 25)
 # held 0 and listed seven of your units (the ones in its area).
 ACTION_GAMBIT = 0x13
 GAMBIT = 0x26

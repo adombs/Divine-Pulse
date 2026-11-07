@@ -7,7 +7,6 @@
  */
 import { CONCEPT_ICON } from "../icons/concepts";
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useId, useRef, useState } from "react";
-import { numberError } from "../validation";
 import { About, api, LABELS, Settings } from "../api";
 import { DEFAULT_CONFIG, EBST_TYPES, EbstConfig, OTHER_KEYS } from "../ebst";
 import { SPOILER_CATEGORIES, SpoilerCategory, setAllSpoilers, useSpoilers } from "../spoilers";
@@ -16,7 +15,7 @@ import { Segmented, Switch } from "./ui";
 import { AppearanceState, FONTS, TEXT_SCALE, loadFont } from "../appearance";
 import { useNav } from "../nav";
 import { PageHeader } from "./layout";
-import { Icon, IconButton, IconName } from "./Icon";
+import { Icon, IconName } from "./Icon";
 import { MemoryCheck } from "./MemoryCheck";
 import { ReplaySpeedSlider } from "./battle/replay";
 import { FACE_LOOKS, UNIT_LOOKS } from "./battle/mapIcons";
@@ -29,30 +28,15 @@ import "./settings.css";
 
 const TEXT_STOPS = Math.round((TEXT_SCALE.max - TEXT_SCALE.min) / TEXT_SCALE.step) + 1;
 
-type SettingsTab = "game-files" | "general" | "battles" | "ebst" | "spoilers" | "appearance" | "testing" | "about";
+type SettingsTab = "game-files" | "general" | "ebst" | "spoilers" | "appearance" | "about";
 const TABS: { id: SettingsTab; label: string; icon: IconName; blurb: string }[] = [
   { id: "general", label: "General", icon: CONCEPT_ICON.settings, blurb: "Game connection and window" },
   { id: "game-files", label: "Game files", icon: CONCEPT_ICON.item, blurb: "Import from your own game" },
-  { id: "battles", label: "Battles", icon: CONCEPT_ICON.battle, blurb: "Reading battles and alerts" },
   { id: "ebst", label: "eBST", icon: CONCEPT_ICON.statUp, blurb: "How effective stats are counted" },
   { id: "spoilers", label: "Spoilers", icon: CONCEPT_ICON.hide, blurb: "What stays hidden for now" },
   { id: "appearance", label: "Appearance", icon: CONCEPT_ICON.edit, blurb: "Theme, text, faces and the map" },
-  { id: "testing", label: "Debug", icon: CONCEPT_ICON.log, blurb: "Research and diagnostics" },
   { id: "about", label: "About", icon: CONCEPT_ICON.info, blurb: "Version, data folder, credits" },
 ];
-
-/** What "Restore recommended" sets (the defaults). */
-const RECOMMENDED = {
-  interval: "1",
-  battleInterval: "0.1",
-  battleFilter: true,
-  battlePage: true,
-  battleAlerts: true,
-  estimateFights: true,
-  recordBattles: true,
-  pairingCheck: false,
-  hideHistory: false,
-};
 
 /** A group of settings under a small title, in one framed panel. */
 function Group({ title, right, note, children }: { title: string; right?: ReactNode; note?: ReactNode; children: ReactNode }) {
@@ -85,16 +69,6 @@ function Row({ label, hint, htmlFor, error, wide, children }: { label: ReactNode
   );
 }
 
-/** A number of seconds, with its unit. */
-function Seconds({ id, value, onChange, error }: { id: string; value: string; onChange: (v: string) => void; error?: string }) {
-  return (
-    <span className="with-unit">
-      <input id={id} type="number" min={0.1} max={60} step={0.1} value={value} onChange={(e) => onChange(e.target.value)} className={error ? "invalid" : ""} aria-invalid={!!error} />
-      seconds
-    </span>
-  );
-}
-
 function AppearanceSection({ state }: { state: AppearanceState }) {
   const { appearance, update } = state;
   const { preferences, setSpoiler } = useSpoilers();
@@ -105,7 +79,7 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
   useEffect(() => setTextScale(appearance.textScale), [appearance.textScale]);
   return (
     <>
-      <Group title="Theme and text" note="Changes apply at once and are remembered in this browser.">
+      <Group title="Theme and text" note="Changes apply at once and are remembered for this installation.">
         <Row label="Theme">
           <Segmented label="Theme" value={appearance.theme} onChange={(theme) => update({ theme })} options={[["light", "Light"], ["dark", "Dark"]]} />
         </Row>
@@ -206,7 +180,7 @@ function SpoilerSection() {
   return (
     <Group
       title={`${shown} of ${categories.length} shown`}
-      note="Spoilers apply at once and are remembered in this browser."
+      note="Spoilers apply at once and are remembered for this installation."
       right={
         <div className="settings-actions">
           <SpoilerButton onClick={() => setAllSpoilers(true)} label="Show all spoilers" />
@@ -302,15 +276,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const tab = TABS.find((t) => t.id === nav.route.tab)?.id ?? "general";
   const setTab = (t: SettingsTab) => nav.go({ page: "settings", tab: t });
   const [settings, setSettings] = useState<Settings | null>(null);
-  const [interval, setIntervalS] = useState("1");
-  const [battleAuto, setBattleAuto] = useState(true);
-  const [battlePage, setBattlePage] = useState(true);
-  const [recordBattles, setRecordBattles] = useState(true);
-  const [battleAlerts, setBattleAlerts] = useState(true);
-  const [battleInterval, setBattleInterval] = useState(RECOMMENDED.battleInterval);
-  const [estimateFights, setEstimateFights] = useState(true);
-  const [pairingCheck, setPairingCheck] = useState(false);
-  const [hideHistory, setHideHistory] = useState(false);
+  const [recordingLimit, setRecordingLimit] = useState("3");
   const [windowMode, setWindowMode] = useState<Settings["window_mode"]>("windowed");
   // The window mode only applies to the desktop window, not the browser.
   const [desktop, setDesktop] = useState(false);
@@ -320,28 +286,8 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
 
   const apply = (s: Settings) => {
     setSettings(s);
-    setIntervalS(String(s.auto_interval_s));
-    setBattleAuto(s.battle_filter_auto);
-    setBattlePage(s.battle_page_auto);
-    setRecordBattles(s.record_battles);
-    setBattleAlerts(s.battle_alerts);
-    setBattleInterval(String(s.battle_interval_s));
-    setEstimateFights(s.battle_estimate_fights);
-    setPairingCheck(s.pairing_check);
-    setHideHistory(s.hide_history);
     setWindowMode(s.window_mode);
-  };
-
-  const restoreRecommended = () => {
-    setIntervalS(RECOMMENDED.interval);
-    setBattleInterval(RECOMMENDED.battleInterval);
-    setBattleAuto(RECOMMENDED.battleFilter);
-    setBattlePage(RECOMMENDED.battlePage);
-    setBattleAlerts(RECOMMENDED.battleAlerts);
-    setEstimateFights(RECOMMENDED.estimateFights);
-    setRecordBattles(RECOMMENDED.recordBattles);
-    setPairingCheck(RECOMMENDED.pairingCheck);
-    setHideHistory(RECOMMENDED.hideHistory);
+    setRecordingLimit(String(s.max_recordings));
   };
 
   useEffect(() => {
@@ -351,30 +297,17 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   // A new section starts at its top.
   useEffect(() => { panelRef.current?.scrollTo({ top: 0 }); }, [tab]);
 
-  const intervalError = numberError(interval, "The interval", [0.1, 60], " seconds");
-  const battleIntervalError = numberError(battleInterval, "The battle interval", [0.1, 60], " seconds");
-  // Which tabs hold unsaved changes or a field to fix, so the Save bar can point to them.
-  const problems: Partial<Record<SettingsTab, boolean>> = {
-    general: !!intervalError,
-    battles: !!battleIntervalError,
-  };
-  const invalid = Object.values(problems).some(Boolean);
+  const count = Number(recordingLimit);
+  const invalid = !recordingLimit.trim() || !Number.isInteger(count) || count < 0 || count > 1000;
+  const problems: Partial<Record<SettingsTab, boolean>> = { general: invalid };
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
     if (invalid) return;
     try {
       const s = await api.saveSettings({
-        auto_interval_s: Number(interval),
-        battle_filter_auto: battleAuto,
-        battle_page_auto: battlePage,
-        record_battles: recordBattles,
-        battle_alerts: battleAlerts,
-        battle_interval_s: Number(battleInterval),
-        battle_estimate_fights: estimateFights,
-        pairing_check: pairingCheck,
-        hide_history: hideHistory,
         window_mode: windowMode,
+        max_recordings: count,
       });
       apply(s);
       onSaved(s);
@@ -387,14 +320,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   if (!settings) return <p className="muted">Loading…</p>;
 
   const changed: Partial<Record<SettingsTab, boolean>> = {
-    general: Number(interval) !== settings.auto_interval_s || windowMode !== settings.window_mode,
-    battles:
-      Number(battleInterval) !== settings.battle_interval_s ||
-      battlePage !== settings.battle_page_auto ||
-      battleAuto !== settings.battle_filter_auto ||
-      battleAlerts !== settings.battle_alerts ||
-      estimateFights !== settings.battle_estimate_fights,
-    testing: recordBattles !== settings.record_battles || pairingCheck !== settings.pairing_check || hideHistory !== settings.hide_history,
+    general: count !== settings.max_recordings || windowMode !== settings.window_mode,
   };
   const dirty = Object.values(changed).some(Boolean);
 
@@ -420,7 +346,6 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
     <section className="settings-page">
       <PageHeader
         title="Settings"
-        actions={<IconButton icon={CONCEPT_ICON.turn} label="Restore recommended values (save to keep them)" onClick={restoreRecommended} />}
       />
       <div className="settings-shell">
         <nav className="settings-rail" aria-label="Settings sections">
@@ -466,12 +391,17 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
               {tab === "game-files" && <GameFilesSection desktop={desktop} />}
               {tab === "general" && (
                 <>
-                  <Group title="Game" note="Requires FE3H 1.2.0 in Eden with fastmem enabled. Other yuzu-based emulators may work but have not been tested.">
+                  <Group title="Game" note="Requires Windows, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0.">
                     <Row label="Connection">
                       <MemoryCheck />
                     </Row>
-                    <Row label="Read interval" htmlFor={`${ids}-interval`} hint="Recommended: 1 second. Changes are stored after two matching reads." error={intervalError || undefined}>
-                      <Seconds id={`${ids}-interval`} value={interval} onChange={setIntervalS} error={intervalError || undefined} />
+                  </Group>
+                  <Group title="Battle recordings">
+                    <Row label="Maximum raw recordings" htmlFor={ids + "-recordings"}
+                      hint="Enter 0 to turn off raw recording. Older recordings are removed when the limit is reached."
+                      error={invalid ? "Enter a whole number from 0 to 1000." : undefined}>
+                      <input id={ids + "-recordings"} type="number" min={0} max={1000} step={1}
+                        value={recordingLimit} onChange={(e) => setRecordingLimit(e.target.value)} aria-invalid={invalid} />
                     </Row>
                   </Group>
                   {desktop && (
@@ -483,57 +413,9 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                   )}
                 </>
               )}
-              {tab === "battles" && (
-                <>
-                  <Group title="Reading">
-                    <Row
-                      label="Battle read interval"
-                      htmlFor={`${ids}-battle-interval`}
-                      hint={<>Recommended: 0.1 seconds, or 0.5 to ease emulator load. Changes appear after about {battleLatency(Number(battleInterval))}; faster reads can improve fight estimates.</>}
-                      error={battleIntervalError || undefined}
-                    >
-                      <Seconds id={`${ids}-battle-interval`} value={battleInterval} onChange={setBattleInterval} error={battleIntervalError || undefined} />
-                    </Row>
-                    <Row label="Fight estimates" hint="When the game's battle history cannot be read, estimates use HP changes and combat math. The tracker returns to exact history when available.">
-                      <Switch
-                        checked={estimateFights}
-                        onChange={setEstimateFights}
-                        label={estimateFights ? "Work out fights when the game's battle history can't be read" : "Leave damage untracked when the history can't be read"}
-                      />
-                    </Row>
-                  </Group>
-                  <Group title="During a battle">
-                    <Row label="Battle page" hint="Show the Battle page instead of the Roster during a battle.">
-                      <Switch checked={battlePage} onChange={setBattlePage} label={battlePage ? "Show the Battle page instead of the Roster during a battle" : "Stay on the Roster during a battle"} />
-                    </Row>
-                    <Row label="Roster filter" hint="Show only the units in a battle when it starts.">
-                      <Switch checked={battleAuto} onChange={setBattleAuto} label={battleAuto ? "Show only the units in a battle when it starts" : "Don't filter the Roster in battles"} />
-                    </Row>
-                    <Row label="Battle alerts" hint="Notify when a unit leaves the battle or a Divine Pulse is used.">
-                      <Switch checked={battleAlerts} onChange={setBattleAlerts} label={battleAlerts ? "Notify when a unit leaves the battle or a Divine Pulse is used" : "No battle notifications"} />
-                    </Row>
-                  </Group>
-                </>
-              )}
               {tab === "spoilers" && <SpoilerSection />}
               {tab === "ebst" && <EbstSection key={settings.active_run_id} runId={settings.active_run_id} toasts={toasts} />}
               {tab === "appearance" && <AppearanceSection state={appearance} />}
-              {tab === "testing" && (
-                <Group title="Research tools" note="Leave the last two options off for normal play.">
-                  <Row label="Record battles" hint="Keeps raw memory for the last 5 battles in battle-recordings. Each can use up to 200 MB; older recordings are deleted.">
-                    <Switch checked={recordBattles} onChange={setRecordBattles} label={recordBattles ? "Save raw battle memory for research (last 5 battles)" : "Don't record battles"} />
-                  </Row>
-                  <Row label="Check fight estimates" hint="Writes a comparison with the game's history to pairing-checks after each battle. The Battle page is unchanged.">
-                    <Switch checked={pairingCheck} onChange={setPairingCheck} label={pairingCheck ? "Compare the estimates with the game's history" : "Off"} />
-                  </Row>
-                  <Row
-                    label="Ignore the history"
-                    hint={<span className={hideHistory ? "form-error" : undefined}>The log and damage become estimates while this is on. Turn it off to restore exact history on the next read.</span>}
-                  >
-                    <Switch checked={hideHistory} onChange={setHideHistory} label={hideHistory ? "The Battle page shows estimates only" : "Off"} />
-                  </Row>
-                </Group>
-              )}
               {tab === "about" && <AboutSection toasts={toasts} />}
             </div>
           </div>
@@ -551,13 +433,6 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
       </div>
     </section>
   );
-}
-
-/** How long a change takes to reach the Battle page at this read interval: one to two reads. */
-function battleLatency(seconds: number): string {
-  if (!Number.isFinite(seconds) || seconds <= 0) return "—";
-  const fmt = (n: number) => (n < 10 ? n.toFixed(n < 1 ? 2 : 1).replace(/\.?0+$/, "") : String(Math.round(n)));
-  return `${fmt(seconds)}–${fmt(seconds * 2)} seconds`;
 }
 
 /** Version and the data folder, so it's easy to back up, move to another PC, or find the log. Also shown in a window
@@ -598,8 +473,7 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
       <Group title="Tracking and reference notes">
         <div className="set-prose">
           <p>Battles are recorded while the tracker reads the game. Each one is filed in History when it ends.</p>
-          <p>Battle outlook is a rough estimate from what the tracker can read: units at risk of falling (losing Byleth or a house leader loses the battle), current HP, army strength against the other units on the map, progress, losses, Divine Pulses and level-ups.</p>
-          <p>When the game's battle history cannot be read, fight estimates use HP changes and combat math. The tracker returns to exact history when available. Untracked values come from the game's Divine Pulse list, which could not be read.</p>
+          <p>Battle outlook is a rough estimate based on units at risk of falling, current HP, relative army strength, progress, losses, and level-ups. Losing Byleth or a house leader loses the battle.</p>
           <p>For eBST, Offense and Defense each count as one value: Auto uses the higher of the pair, Flex the average. Click HP, Mv, Dex, Spd, Lck or Cha to count it too. eBST is everything counted added up and divided by how many went in.</p>
           <p>Return a lost item to its owner for +20 support. Liked gifts give +20, neutral +10, disliked nothing. Anyone not listed is neutral.</p>
           {reference && <Sources sources={reference.sources} />}
