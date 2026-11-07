@@ -166,7 +166,7 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
         <p className="bp-desc">{entry?.description || <span className="muted">{NOT_IMPORTED}</span>}</p>
         {enduranceRatio !== null && <div className={`bp-endurance-track${spent ? " spent" : ""}`} aria-hidden="true"><span style={{ width: `${enduranceRatio * 100}%` }} /></div>}
         <div className="bp-modifier-head">
-          <h5 className="bp-section-title">Modifiers</h5>
+          <h5 className="bp-section-title">{general && hasProgression ? "Level" : "Modifiers"}</h5>
           {general && hasProgression ? <div className="bp-level-picker" role="group" aria-label="Reference battalion level">
             {[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" aria-label={`Level ${n}`} aria-pressed={referenceLevel === n} title={`Show modifiers at level ${n}`} onClick={() => setPickedLevel(n)}>{n}</button>)}
           </div> : <span className="bp-stat-level">{level !== null ? `Level ${level}` : "Level 1 reference"}</span>}
