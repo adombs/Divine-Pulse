@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Report missing or damaged required imported game tables and selected-language text with their file paths and reimport guidance instead of silently using empty data or a different language.
 - Match the game's gambit previews with the native grid, gold tiles and one correctly facing badge, including target-centred areas such as Group Flames; prompt older game-file imports to refresh.
 - Show gambits in the battle log and usage, read enemies' battalions and the rattled status, and leave out battalion bonuses while a unit is rattled.
 - Import each gambit's target area and its physical, magic or support icon from the game files, so battalion panels show them.

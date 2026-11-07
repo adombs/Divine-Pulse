@@ -14,7 +14,7 @@ from .api import router
 from .composition import build_runtime
 from .config import DATA_DIR, FRONTEND_DIST, SettingsStore
 from .inputs import describe_errors
-from .infrastructure.game_assets import game_assets
+from .infrastructure.game_assets import GameAssetError, game_assets
 from .interface.security import LocalOnly
 
 log = logging.getLogger(__name__)
@@ -42,6 +42,12 @@ def create_app(data_dir: Path = DATA_DIR, background: bool = True, settings: Set
     async def readable_validation_error(_request: Request, exc: RequestValidationError):
         # One plain sentence the UI can show as-is, instead of pydantic's error list.
         return JSONResponse(status_code=422, content={"detail": describe_errors(list(exc.errors()))})
+
+    @app.exception_handler(GameAssetError)
+    async def required_game_asset_error(_request: Request, exc: GameAssetError):
+        return JSONResponse(status_code=503, content={"detail": str(exc), "code": "game_asset_error",
+                                                     "asset": exc.asset, "reason": exc.reason})
+
     runtime = build_runtime(data_dir, settings)
     app.state.runtime = runtime
     # Stable handles for desktop integration and existing test/tool callers.

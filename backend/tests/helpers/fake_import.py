@@ -49,6 +49,14 @@ def write_fake_import(root: Path) -> None:
             "scenario_title": {"0": "Erste Prüfung"},
         }},
     }
+    for filename, key in (("weapons", "weapons"), ("spells", "spells"), ("combat-arts", "combat_arts"),
+                          ("abilities", "abilities"), ("equipment", "equipment"), ("battalions", "battalions")):
+        files[f"data/{filename}.json"] = {key: []}
+    for language in ("ENG_U", "GER"):
+        categories = files[f"text/{language}.json"]["categories"]
+        for category in ("weapon", "spell", "combat_art", "ability", "equipment", "battalion", "gambit",
+                         "character_full", "npc_and_generic_names", "terrain"):
+            categories[category] = {}
     for relative, content in files.items():
         path = root / relative
         path.parent.mkdir(parents=True, exist_ok=True)

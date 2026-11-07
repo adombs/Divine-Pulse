@@ -229,5 +229,6 @@ def write_roster_tables(root: Path) -> None:
         "equipment": {str(i): n for i, n in EQUIPMENT.items()},
         "item": {str(i): n for i, n in ITEMS.items()},
         "battalion": {str(i): n for i, n in BATTALIONS.items()},
+        "gambit": {}, "terrain": {},
         "scenario_title": {"0": "First Trial"},
     }})
