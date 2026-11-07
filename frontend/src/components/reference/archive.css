@@ -1,0 +1,17 @@
+/* The Archive (ArchivePage.tsx): its nine tabs, and the Battalions tab. */
+.archive-page .sub-tabs { flex-wrap: wrap; row-gap: 0.25rem; }
+.archive-empty {
+  display: flex; align-items: center; gap: 0.8rem; max-width: 40rem; margin: 1.5rem 0; padding: 1rem 1.1rem;
+  border: 1px dashed var(--line); background: var(--row); color: var(--ink-soft);
+}
+.archive-empty .icon { flex: none; font-size: 1.8rem; color: var(--accent); }
+.archive-empty p { margin: 0; }
+.archive-battalion-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem; margin: 0.2rem 0 0.6rem; }
+.battalion-table .who { display: flex; align-items: center; gap: 0.45rem; }
+.battalion-table td.small { max-width: 14rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.archive-battalions .unit-card .sub-title { margin-top: 0.9rem; }
+/* Phones: the nine tabs are one row that scrolls sideways, so the header that stays put stays short. */
+@media (max-width: 760px) {
+  .archive-page .sub-tabs { flex-wrap: nowrap; overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: none; }
+  .archive-page .sub-tabs > * { flex: none; }
+}

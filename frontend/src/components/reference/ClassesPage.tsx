@@ -1,12 +1,13 @@
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { isStoryClass } from "../../reference/links";
 import { gameLanguageLocale } from "../../gameLanguage";
-import { Fragment, useMemo, useState } from "react";
-import type { CSSProperties } from "react";
+import { Fragment, useLayoutEffect, useMemo, useRef, useState } from "react";
+import type { CSSProperties, ReactNode } from "react";
 import type { Unit } from "../../api";
 import { characterPortraitKey, runCharacterKeys } from "../../portraits";
 import { portraitCharacterId } from "../../portraits";
 import { SpriteIndex, UnitSprite, useSprites } from "../battle/mapIcons";
+import { CLASS_UNIT, EXCLUSIVE_CLASS_OWNERS } from "../../reference/classSprites";
 import "./classes.css";
 import { useNav } from "../../nav";
 import { canonical, normalize, searchMatches } from "../../fuzzy";
@@ -14,6 +15,9 @@ import { passes, usePeopleFilters } from "../../filters";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../PeopleFilters";
 import { AbilityLink, ArtLink, CharLink, ClassLink, ItemLink, LinkedDescription } from "../Links";
 import { SkillIcon } from "../SkillIcon";
+import { FilterLabel, GENDER_OPTIONS, SkillFilterLabel } from "../FilterLabel";
+import { StepSlider } from "../Slider";
+import { WEAPON_RANKS, withinWeaponRank, type WeaponRank } from "../../reference/weaponRanks";
 import { SkillChips } from "./SkillChips";
 import {
   Character,
@@ -28,20 +32,19 @@ import {
   SkillKey,
   TIERS,
   Tier,
-  useReference,
 } from "../../reference/types";
 import { KeyPortrait, revealCard } from "../ui";
-import { AbilityIcon, ArtIcon, ItemIcon, SkillIcons, SpellIcon, WeaponIcon } from "../../reference/icons";
-import { DetailCard, MasterDetail, PageHeader, Section } from "../layout";
+import { AbilityIcon, ArtIcon, ItemIcon, RefIcon, SpellIcon, WeaponIcon } from "../../reference/icons";
+import { DetailCard, MasterDetail, Section } from "../layout";
 import { artSummary } from "./CharactersPage";
-import { TierIcon } from "./TierIcon";
+import { TierIcon, TierLabel, tierMetalStyle } from "./TierIcon";
 import { Icon } from "../Icon";
 import { useSpoiler } from "../../spoilers";
 import {
   CheckChips,
   CheckList,
   FilterMenu,
-  Loading,
+  FilterChip,
   NoMatches,
   RefLink,
   RowCaret,
@@ -53,7 +56,6 @@ import {
 const compareValues = (a: number | string, b: number | string) => typeof a === "number" && typeof b === "number" ? a - b : String(a).localeCompare(String(b), gameLanguageLocale());
 
 type View = "growths" | "boosts" | "bases";
-type Tab = "classes" | "arts" | "abilities" | "magic" | "weapons" | "items";
 type ColKey = keyof ClassStats;
 type SortKey = "name" | "tier" | ColKey | "total";
 
@@ -70,86 +72,6 @@ interface Props {
   part2: boolean;
 }
 
-/**
- * The unit each class is shown as: the character the game and its players most associate with it, by Characters page
- * key, with the game's class ID for the body sprite (frontend/public/game/class-sprites.json). A class only one
- * character can be in (the lords' unique classes, Death Knight) uses that character. Where the atlas has no body for
- * the class — the lords' classes, the DLC fliers — the character's own finished sprite stands in; where the atlas has
- * no head for the character (the Ashen Wolves, Jeritza), the body gets a generic head of the right gender.
- */
-const EXCLUSIVE_CLASS_OWNERS: Record<string, string> = {
-  "Enlightened One": "byleth",
-  "Armored Lord": "edelgard",
-  Emperor: "edelgard",
-  "High Lord": "dimitri",
-  "Great Lord": "dimitri",
-  "Wyvern Master": "claude",
-  Barbarossa: "claude",
-  "Death Knight": "jeritza",
-};
-
-const CLASS_UNIT: Record<string, { id: number; who: string }> = {
-  // Exclusive classes keep their canonical owners and do not consume a character in the
-  // rotation. Ordinary classes use every playable character once before beginning repeats.
-  Noble: { id: 0, who: "edelgard" },
-  Commoner: { id: 1, who: "byleth" },
-  Dancer: { id: 43, who: "dorothea" }, // the songstress of the Black Eagles
-  "Enlightened One": { id: 42, who: "byleth" },
-  "Armored Lord": { id: 56, who: "edelgard" },
-  "High Lord": { id: 57, who: "dimitri" },
-  "Wyvern Master": { id: 58, who: "claude" },
-  Emperor: { id: 40, who: "edelgard" },
-  "Great Lord": { id: 44, who: "dimitri" },
-  Barbarossa: { id: 17, who: "claude" },
-  // Beginner
-  Myrmidon: { id: 2, who: "felix" },
-  Soldier: { id: 3, who: "ingrid" },
-  Fighter: { id: 4, who: "anna" },
-  Monk: { id: 5, who: "linhardt" },
-  // Intermediate
-  Lord: { id: 6, who: "dimitri" }, // one of the three house leaders eligible for the shared class
-  Mercenary: { id: 7, who: "leonie" }, // Jeralt's apprentice mercenary
-  Thief: { id: 8, who: "ashe" }, // a thief before House Gaspard took him in
-  "Armored Knight": { id: 9, who: "dedue" },
-  Cavalier: { id: 10, who: "ferdinand" },
-  Brigand: { id: 11, who: "raphael" },
-  Archer: { id: 12, who: "ignatz" },
-  Brawler: { id: 13, who: "balthus" },
-  Mage: { id: 14, who: "lysithea" },
-  "Dark Mage": { id: 15, who: "hubert" },
-  Priest: { id: 16, who: "mercedes" },
-  "Pegasus Knight": { id: 23, who: "annette" },
-  // Advanced
-  Hero: { id: 18, who: "alois" },
-  Swordmaster: { id: 19, who: "catherine" },
-  Assassin: { id: 20, who: "petra" },
-  "Fortress Knight": { id: 21, who: "gilbert" },
-  Paladin: { id: 22, who: "sylvain" },
-  "Wyvern Rider": { id: 24, who: "cyril" },
-  Warrior: { id: 25, who: "hilda" },
-  Sniper: { id: 26, who: "shamir" },
-  Grappler: { id: 27, who: "caspar" },
-  Warlock: { id: 28, who: "hanneman" },
-  "Dark Bishop": { id: 29, who: "jeritza" },
-  Bishop: { id: 30, who: "flayn" },
-  // Master
-  "Falcon Knight": { id: 31, who: "marianne" },
-  "Wyvern Lord": { id: 32, who: "seteth" },
-  "Mortal Savant": { id: 33, who: "manuela" },
-  "Great Knight": { id: 34, who: "lorenz" },
-  "Bow Knight": { id: 35, who: "claude" },
-  "Dark Knight": { id: 36, who: "hapi" },
-  "Holy Knight": { id: 37, who: "bernadetta" },
-  "War Master": { id: 38, who: "jeralt" },
-  Gremory: { id: 39, who: "constance" },
-  // DLC (Cindered Shadows): the Ashen Wolves have no map head, so these fall back to a generic one.
-  Trickster: { id: 84, who: "yuri" },
-  "War Monk": { id: 85, who: "balthus" },
-  "War Cleric": { id: 85, who: "mercedes" },
-  "Dark Flier": { id: 86, who: "annette" },
-  Valkyrie: { id: 87, who: "marianne" },
-  "Death Knight": { id: 59, who: "jeritza" },
-};
 
 /** Catch accidental duplicate sprite choices while developing the reference data. */
 export function assertClassSpriteRotation(classes: GameClass[], characters: Character[]) {
@@ -197,54 +119,40 @@ function ClassSprite({ c, index, units, data, size }: { c: GameClass; index: Spr
   );
 }
 
-const TIER_OPTIONS = TIERS.map((t) => [t, t] as const);
-const GENDERS = [
-  ["Male", "Men"],
-  ["Female", "Women"],
-] as const;
+const TIER_OPTIONS = TIERS.map((t) => [t, <TierLabel key={t} tier={t} />] as const);
+const GENDERS = GENDER_OPTIONS;
 
-export function ClassesPage(props: Props) {
-  return <ClassesContent {...props} />;
+export type ClassesTab = "classes" | "arts" | "abilities" | "magic" | "weapons" | "items";
+
+/** The Archive's tab counts for the classes and gear tabs (ArchivePage.tsx draws the header). */
+export function classesTabCounts(data: ReferenceData | null, showStoryClasses: boolean): Record<ClassesTab, number | undefined> {
+  return {
+    classes: data?.classes.filter((c) => showStoryClasses || !isStoryClass(c.name)).length,
+    arts: data?.combat_arts.length,
+    abilities: data?.abilities.length,
+    magic: data?.magic.length,
+    weapons: data?.items.filter((i) => i.kind === "Weapon").length,
+    items: data?.items.filter((i) => i.kind !== "Weapon").length,
+  };
 }
 
-function ClassesContent({ units, part2 }: Props) {
-  const data = useReference();
+/** One of the Archive's classes and gear tabs. */
+export function ClassesView({ tab, data, units, part2 }: Props & { tab: ClassesTab; data: ReferenceData }) {
   const nav = useNav();
-  if (import.meta.env.DEV && data) assertClassSpriteRotation(data.classes, data.characters);
-  const [showStoryClasses] = useSpoiler("storyClasses");
-  const tab = (nav.route.tab as Tab | undefined) ?? "classes";
-  const setTab = (t: Tab) => nav.go({ page: "archive", tab: t });
-  return (
-    <div className="ref-page classes-page">
-      <PageHeader
-        title="Archive"
-        tabs={[
-          { id: "classes", label: "Classes", count: data?.classes.filter((c) => showStoryClasses || !isStoryClass(c.name)).length },
-          { id: "arts", label: "Combat Arts", count: data?.combat_arts.length },
-          { id: "abilities", label: "Abilities", count: data?.abilities.length },
-          { id: "magic", label: "Magic", count: data?.magic.length },
-          { id: "weapons", label: "Weapons", count: data?.items.filter((i) => i.kind === "Weapon").length },
-          { id: "items", label: "Items", count: data?.items.filter((i) => i.kind !== "Weapon").length },
-        ]}
-        tab={tab}
-        onTab={setTab}
-      />
-      {!data ? (
-        <Loading />
-      ) : tab === "classes" ? (
-        <ClassTable data={data} units={units} part2={part2} />
-      ) : tab === "arts" ? (
-        <ArtsTable key={nav.route.q ?? ""} data={data} initial={nav.route.q ?? ""} />
-      ) : tab === "magic" ? (
-        <MagicTable key={nav.route.q ?? ""} data={data} initial={nav.route.q ?? ""} />
-      ) : tab === "weapons" ? (
-        <InventoryTable key={`weapons-${nav.route.q ?? ""}`} data={data} initial={nav.route.q ?? ""} weapons />
-      ) : tab === "items" ? (
-        <InventoryTable key={`items-${nav.route.q ?? ""}`} data={data} initial={nav.route.q ?? ""} />
-      ) : (
-        <AbilitiesTable key={nav.route.q ?? ""} data={data} initial={nav.route.q ?? ""} />
-      )}
-    </div>
+  if (import.meta.env.DEV) assertClassSpriteRotation(data.classes, data.characters);
+  const q = nav.route.q ?? "";
+  return tab === "classes" ? (
+    <ClassTable data={data} units={units} part2={part2} />
+  ) : tab === "arts" ? (
+    <ArtsTable key={q} data={data} initial={q} />
+  ) : tab === "magic" ? (
+    <MagicTable key={q} data={data} initial={q} />
+  ) : tab === "weapons" ? (
+    <InventoryTable key={`weapons-${q}`} data={data} initial={q} weapons />
+  ) : tab === "items" ? (
+    <InventoryTable key={`items-${q}`} data={data} initial={q} />
+  ) : (
+    <AbilitiesTable key={q} data={data} initial={q} />
   );
 }
 
@@ -252,14 +160,19 @@ function requirementText(c: GameClass): string {
   return c.requirements.map((r) => `${SKILL_LABEL[r.skill]} ${r.rank}`).join(c.requirement_any ? " or " : ", ");
 }
 
-/** A class's skill requirements as weapon/skill icons with the rank beside each; the full wording on hover. */
+/** A class's skill requirements as skill icons, each with its rank, joined by "or" when any one is enough. */
 function Requirements({ c }: { c: GameClass }) {
   return (
-    <span title={`${requirementText(c)}${c.requirement_any ? " (either)" : ""}`}>
-      <SkillIcons
-        skills={c.requirements.map((r) => r.skill)}
-        ranks={Object.fromEntries(c.requirements.map((r) => [r.skill, r.rank]))}
-      />
+    <span className="class-reqs" title={`${requirementText(c)}${c.requirement_any ? " (either)" : ""}`}>
+      {c.requirements.map((r, i) => (
+        <Fragment key={r.skill}>
+          {i > 0 && c.requirement_any && <span className="class-reqs-or">or</span>}
+          <span className="class-req">
+            <SkillIcon skill={r.skill} title={SKILL_LABEL[r.skill]} />
+            <span className="class-req-rank">{r.rank}</span>
+          </span>
+        </Fragment>
+      ))}
     </span>
   );
 }
@@ -355,7 +268,8 @@ function ClassTable({ data, units, part2 }: { data: ReferenceData } & Props) {
                     <div className="class-lead">
                       <ClassSprite c={c} index={sprites} units={units} data={data} size={36} />
                       <div className="who-text">
-                      <span className="who-name">
+                      <span className="who-name class-name">
+                        <TierIcon tier={c.tier} size={20} />
                         {c.name}
                         {c.gender && (
                           <span className="gender-mark" title={`${c.gender} only`}>
@@ -422,6 +336,21 @@ function fit(ch: Character, c: GameClass): number | null {
   return scores.reduce((n, s) => n + s, 0);
 }
 
+/** The four steps of the class-change ladder, in order (DLC classes sit on the Advanced step). */
+const LADDER: Tier[] = ["Beginner", "Intermediate", "Advanced", "Master"];
+
+/** The level each step's exam asks for, from the classes on it. */
+function ladderGates(classes: GameClass[]): Partial<Record<Tier, number>> {
+  const gates: Partial<Record<Tier, number>> = {};
+  for (const c of classes) if (c.level && !gates[c.tier]) gates[c.tier] = c.level;
+  return gates;
+}
+
+/** The biggest growth change any class makes, so every class's growth bars share one scale. */
+function growthScale(classes: GameClass[]): number {
+  return Math.max(10, ...classes.flatMap((c) => STAT_KEYS.map((k) => Math.abs(c.growths[k] ?? 0))));
+}
+
 function ClassCard({
   c,
   data,
@@ -435,10 +364,10 @@ function ClassCard({
   part2: boolean;
   sprites: SpriteIndex | null;
 }) {
-  const ability = (name: string) => data.abilities.find((a) => a.name === name);
-  const art = data.combat_arts.find((a) => a.name === c.mastery_art);
   const [people] = usePeopleFilters();
   const runKeys = runCharacterKeys(units);
+  const gates = useMemo(() => ladderGates(data.classes), [data.classes]);
+  const scale = useMemo(() => growthScale(data.classes), [data.classes]);
   // The shared people filters (affiliation, current run, route) narrow who is listed here too.
   const shown = (ch: Character) => passes(people, { key: ch.key, house: ch.house, inRun: runKeys.has(ch.key) });
   const restricted = /only/i.test(c.restriction) && !/certified/i.test(c.restriction);
@@ -451,154 +380,325 @@ function ClassCard({
         .sort((a, b) => b.score - a.score || a.ch.name.localeCompare(b.ch.name, gameLanguageLocale()));
   const starters = data.characters.filter((ch) => ch.start_class === c.name && shown(ch));
   const restriction = c.name === "Death Knight" ? <Spoiler category="identities">{c.restriction}</Spoiler> : c.restriction;
+
+  return (
+    <DetailCard title={c.name} icon={<TierIcon tier={c.tier} size={30} />} label={`${c.name} reference`}>
+      {/* display: contents, so the sections stay the card's own panes; it only carries the tier's metal. */}
+      <div className="class-detail" style={tierMetalStyle(c.tier)}>
+        <ClassHero c={c} data={data} units={units} sprites={sprites} gates={gates} restriction={restriction} />
+
+        <Section title="Stats" icon={CONCEPT_ICON.growth}>
+          <ClassLedger c={c} scale={scale} />
+        </Section>
+
+        <Section title="Abilities" icon={CONCEPT_ICON.ability}>
+          <ClassAbilities c={c} data={data} />
+        </Section>
+
+        <Section title="Units" icon={CONCEPT_ICON.roster}>
+          <>
+            <WhoFilters />
+            {starters.length > 0 && (
+              <>
+                <h3 className="class-subhead">Starts in this class</h3>
+                {c.name === "Death Knight" ? <Spoiler category="identities"><PeopleRow people={starters} part2={part2} /></Spoiler> : <PeopleRow people={starters} part2={part2} />}
+              </>
+            )}
+            {fits.length > 0 ? (
+              <>
+                <h3 className="class-subhead" title="Strengths (or budding talents) in at least half of the required skills, and no weakness in any of them">
+                  Strong in its skills
+                </h3>
+                <PeopleRow people={fits.map((f) => f.ch)} part2={part2} skills={c.requirements.map((r) => r.skill)} />
+              </>
+            ) : (
+              starters.length === 0 && <p className="muted">{restricted ? "Restricted class." : "Nobody stands out for this class."}</p>
+            )}
+          </>
+        </Section>
+      </div>
+    </DetailCard>
+  );
+}
+
+/**
+ * A class's description. A compact card clamps it to two lines (classes.css); "Show all" appears only when the clamp
+ * actually hides text, and opens it in place. Keyed by class, so another class starts closed; it also re-measures
+ * whenever the text changes, since a new text can overflow the same box without resizing it.
+ */
+function ClassLore({ text }: { text: string }) {
+  const [open, setOpen] = useState(false);
+  const [clamped, setClamped] = useState(false);
+  const ref = useRef<HTMLParagraphElement>(null);
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const check = () => setClamped(el.scrollHeight > el.clientHeight + 1);
+    check();
+    const watch = new ResizeObserver(check);
+    watch.observe(el);
+    return () => watch.disconnect();
+  }, [text]);
+  return (
+    <div className={`class-lore-wrap${open ? " open" : ""}`}>
+      <p ref={ref} className="class-lore">
+        <LinkedDescription text={text} />
+      </p>
+      {(clamped || open) && (
+        <button type="button" className="class-lore-more" aria-expanded={open} onClick={() => setOpen((v) => !v)}>
+          {open ? "Show less" : "Show all"}
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The top of a class card: its unit on a dais lit in the tier's metal, what the class is, what it takes to get in and
+ * how it moves, and where it sits on the class-change ladder.
+ */
+function ClassHero({
+  c,
+  data,
+  units,
+  sprites,
+  gates,
+  restriction,
+}: {
+  c: GameClass;
+  data: ReferenceData;
+  units: Unit[];
+  sprites: SpriteIndex | null;
+  gates: Partial<Record<Tier, number>>;
+  restriction: ReactNode;
+}) {
+  const step: Tier = c.tier === "DLC" ? "Advanced" : c.tier;
+  const onLadder = LADDER.includes(step);
+  const here = LADDER.indexOf(step);
+  const kicker = c.tier === "DLC" ? "DLC class, Advanced tier" : `${c.tier} class`;
   const weakTo = c.types
     .filter((t) => t !== "Infantry")
     .map((t) => (t === "Armored" ? "armorslayers" : t === "Cavalry" ? "horseslayers" : "bows"));
+  const mountMv = c.mount_boosts.mv;
 
   return (
-    <DetailCard title={c.name} icon={<ClassSprite c={c} index={sprites} units={units} data={data} size={36} />} label={`${c.name} reference`}>
-      <div className="class-head">
-        <ClassSprite c={c} index={sprites} units={units} data={data} size={88} />
-        <dl className="ref-facts">
-        <dt>Tier</dt>
-        <dd className="tier-row">
-          <TierIcon tier={c.tier} size={22} />
-          {c.tier === "DLC" ? "DLC (Advanced tier)" : c.tier}
-          {!!c.level && (
-            <span className="muted">
-              {" "}
-              · from Lv {c.level}, {c.seal}
-            </span>
-          )}
-        </dd>
-        <dt>Requires</dt>
-        <dd>
-          {c.requirements.length ? <Requirements c={c} /> : restriction || "—"}
-          {c.requirements.length > 0 && c.restriction && <div className="muted small">{restriction}</div>}
-          {c.restriction && <div className="muted small"><a href="https://fireemblemwiki.org/wiki/Class_change" target="_blank" rel="noreferrer">Fire Emblem Wiki</a></div>}
-        </dd>
-        <dt>Type</dt>
-        <dd>
-          {c.types.join(", ")}
-          {weakTo.length > 0 && <span className="muted small"> · weak to {weakTo.join(" and ")}</span>}
-          {c.gender && (
-            <span className="gender-mark" title={`${c.gender} units only`}>
-              <Icon name={c.gender === "Male" ? CONCEPT_ICON.male : CONCEPT_ICON.female} />
-            </span>
-          )}
-        </dd>
-        </dl>
+    <header className="class-hero">
+      <div className="class-hero-top">
+        <div className="class-dais">
+          <ClassSprite c={c} index={sprites} units={units} data={data} size={104} />
+        </div>
+        <div className="class-hero-body">
+          <p className="class-kicker">{kicker}</p>
+          {c.description && <ClassLore key={c.name} text={c.description} />}
+          <dl className="class-exam">
+            <div>
+              <dt>Requires</dt>
+              <dd>{c.requirements.length ? <Requirements c={c} /> : <span className="class-exam-text">{restriction || "Nothing"}</span>}</dd>
+            </div>
+            {!!c.level && (
+              <div className="class-exam-level">
+                <dt>Exam</dt>
+                <dd title={c.seal ?? undefined}>
+                  <span className="class-exam-big">Lv {c.level}</span>
+                </dd>
+              </div>
+            )}
+            <div className="class-exam-moves">
+              <dt>Moves</dt>
+              <dd title={`${c.types.join(", ") || "Movement"}${mountMv ? `, ${mountMv > 0 ? "+" : ""}${mountMv} while mounted` : ""}`}>
+                <span className="class-exam-big">{c.bases.mv}</span>
+              </dd>
+            </div>
+          </dl>
+        </div>
       </div>
-      {c.description && <p><LinkedDescription text={c.description} /></p>}
 
-      <Section title="Stats" icon={CONCEPT_ICON.growth}>
-        <>
-          <div className="stats-split">
-          <table className="ref-stats">
-            <thead>
-              <tr>
-                <th />
-                <th title={VIEW_HINT.bases}>Base</th>
-                <th title={VIEW_HINT.boosts}>Boost</th>
-                <th title={VIEW_HINT.growths}>Growth</th>
+      {onLadder && (
+        <ol className="class-rail" aria-label="Class tiers">
+          {LADDER.map((t, i) => (
+            <li
+              key={t}
+              className={i === here ? "here" : i < here ? "past" : ""}
+              style={tierMetalStyle(t)}
+              aria-current={i === here ? "step" : undefined}
+            >
+              <TierIcon tier={t} size={32} decorative />
+              <span className="rung-name">{t}</span>
+              {gates[t] && <span className="rung-gate">Lv {gates[t]}</span>}
+            </li>
+          ))}
+        </ol>
+      )}
+
+      {(weakTo.length > 0 || c.gender || c.restriction) && (
+        <div className="class-notes">
+          {/* Centred on the card under the ladder; the wiki link takes its own line at the right. */}
+          {(weakTo.length > 0 || c.gender || (c.requirements.length > 0 && c.restriction)) && (
+            <div className="class-note-group">
+              {weakTo.map((w) => (
+                <span key={w} className="class-note warn">
+                  <Icon name={CONCEPT_ICON.warning} />
+                  Weak to {w}
+                </span>
+              ))}
+              {c.gender && (
+                <span className="class-note">
+                  <Icon name={c.gender === "Male" ? CONCEPT_ICON.male : CONCEPT_ICON.female} />
+                  {c.gender === "Male" ? "Men" : "Women"} only
+                </span>
+              )}
+              {c.requirements.length > 0 && c.restriction && <span className="class-note plain">{restriction}</span>}
+            </div>
+          )}
+          {c.restriction && (
+            <a className="class-wiki" href="https://fireemblemwiki.org/wiki/Class_change" target="_blank" rel="noreferrer">
+              Class change on Fire Emblem Wiki
+            </a>
+          )}
+        </div>
+      )}
+    </header>
+  );
+}
+
+/** A growth change as a bar from the middle: right and green for a gain, left and red for a loss. */
+function GrowthBar({ value, scale }: { value: number; scale: number }) {
+  const share = Math.min(50, (Math.abs(value) / scale) * 50);
+  const tone = value > 0 ? "up" : value < 0 ? "down" : "flat";
+  return (
+    <span className={`growth-bar ${tone}`}>
+      <span className="growth-track" aria-hidden>
+        <span className="growth-fill" style={{ width: `${share}%` }} />
+      </span>
+      <span className="growth-value">{value ? `${value > 0 ? "+" : ""}${value}%` : "·"}</span>
+    </span>
+  );
+}
+
+function MountMark({ value }: { value: number | undefined }) {
+  if (!value) return null;
+  return (
+    <span className={`ledger-mount${value < 0 ? " neg" : ""}`} title={`${value > 0 ? "+" : ""}${value} more while mounted`}>
+      {value > 0 ? `+${value}` : value}
+    </span>
+  );
+}
+
+/** The class's stats as one ledger: the floor it sets, what it adds while worn, and how it bends growth. */
+function ClassLedger({ c, scale }: { c: GameClass; scale: number }) {
+  const growthTotal = STAT_KEYS.reduce((n, k) => n + (c.growths[k] ?? 0), 0);
+  const boostTotal = STAT_KEYS.reduce((n, k) => n + (c.boosts[k] ?? 0), 0);
+  const trains = c.proficient.length > 0 || Object.values(c.skill_bonus).some(Boolean);
+  const sign = (v: number) => (v > 0 ? "up" : v < 0 ? "down" : "flat");
+  return (
+    <>
+      <div className="class-ledger-wrap">
+        <table className="class-ledger">
+          <thead>
+            <tr>
+              <th aria-label="Stat" />
+              <th title={VIEW_HINT.bases}>Base</th>
+              <th title={VIEW_HINT.boosts}>Boost</th>
+              <th className="ledger-growth" title={VIEW_HINT.growths}>Growth</th>
+            </tr>
+          </thead>
+          <tbody>
+            {STAT_KEYS.map((k) => (
+              <tr key={k}>
+                <th scope="row">{STAT_LABEL[k]}</th>
+                <td className="ledger-base">{c.bases[k]}</td>
+                <td className={`ledger-boost ${sign(c.boosts[k])}`}>
+                  {fmt(c.boosts[k], "boosts")}
+                  <MountMark value={c.mount_boosts[k]} />
+                </td>
+                <td className="ledger-growth">
+                  <GrowthBar value={c.growths[k]} scale={scale} />
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {COLS.map((k) => {
-                const m = c.mount_boosts[k];
-                return (
-                  <tr key={k}>
-                    <th>{STAT_LABEL[k]}</th>
-                    <td>{c.bases[k]}</td>
-                    <td>
-                      {fmt(c.boosts[k], "boosts")}
-                      {m ? (
-                        <span className={`mark mount ${m < 0 ? "neg" : ""}`} title="While mounted">
-                          {m > 0 ? `+${m}` : m}
-                        </span>
-                      ) : null}
-                    </td>
-                    <td>{k === "mv" ? "" : `${fmt(c.growths[k], "growths")}${c.growths[k] ? "%" : ""}`}</td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          </div>
+            ))}
+          </tbody>
+          <tfoot>
+            <tr className="ledger-mv">
+              <th scope="row">Mv</th>
+              <td className="ledger-base">{c.bases.mv}</td>
+              <td className={`ledger-boost ${sign(c.boosts.mv)}`}>
+                {fmt(c.boosts.mv, "boosts")}
+                <MountMark value={c.mount_boosts.mv} />
+              </td>
+              <td className="ledger-growth ledger-aside">Movement has no growth</td>
+            </tr>
+            <tr className="ledger-total">
+              <th scope="row">Total</th>
+              <td />
+              <td className={`ledger-boost ${sign(boostTotal)}`} title="Sum of the nine stat boosts (Mv not included)">{fmt(boostTotal, "boosts")}</td>
+              <td className="ledger-growth" title="Sum of the nine growth changes">
+                <span className={`growth-sum ${sign(growthTotal)}`}>{growthTotal ? `${growthTotal > 0 ? "+" : ""}${growthTotal}%` : "·"}</span>
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+      {trains && (
+        <>
+          <h3 className="class-subhead">Skills it trains</h3>
           <SkillChips gameClass={c} />
         </>
-      </Section>
+      )}
+    </>
+  );
+}
 
-      <Section title="Abilities" icon={CONCEPT_ICON.ability}>
+/** What the class gives: its abilities while worn, then what mastering it teaches for good. */
+function ClassAbilities({ c, data }: { c: GameClass; data: ReferenceData }) {
+  const ability = (name: string) => data.abilities.find((a) => a.name === name);
+  const art = data.combat_arts.find((a) => a.name === c.mastery_art);
+  return (
+    <>
+      <h3 className="class-subhead">While in the class</h3>
+      {c.abilities.length ? (
+        <ul className="class-perks">
+          {c.abilities.map((a) => (
+            <li key={a}>
+              <AbilityIcon name={a} />
+              <span>
+                <b><AbilityLink name={a} /></b>
+                {ability(a) && <span className="class-perk-desc"><LinkedDescription text={ability(a)!.description} /></span>}
+              </span>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="muted">None</p>
+      )}
+      {(c.mastery_ability || c.mastery_art) && (
         <>
-          <ul className="item-list">
-            {c.abilities.map((a) => (
-              <li key={a}>
-                <span>
-                  <b>
-                    <AbilityIcon name={a} />
-                    <AbilityLink name={a} />
-                  </b>
-                  {ability(a) && <span className="desc"><LinkedDescription text={ability(a)!.description} /></span>}
-                </span>
-              </li>
-            ))}
-            {c.abilities.length === 0 && <li className="muted">None</li>}
-          </ul>
-          {(c.mastery_ability || c.mastery_art) && (
-            <>
-              <h4 className="sub-title">Mastery</h4>
-              <ul className="item-list">
-                {c.mastery_ability && (
-                  <li className="personal">
-                    <span>
-                      <b>
-                        <AbilityIcon name={c.mastery_ability} />
-                        <AbilityLink name={c.mastery_ability} />
-                      </b>
-                      {ability(c.mastery_ability) && <span className="desc"><LinkedDescription text={ability(c.mastery_ability)!.description} /></span>}
-                    </span>
-                  </li>
-                )}
-                {c.mastery_art && (
-                  <li className="personal">
-                    <span>
-                      <b>
-                        <ArtIcon name={c.mastery_art} />
-                        <ArtLink name={c.mastery_art} />
-                      </b>
-                      {art && <span className="desc">{artSummary(art)}</span>}
-                    </span>
-                  </li>
-                )}
-              </ul>
-            </>
-          )}
+          <h3 className="class-subhead">Mastery rewards</h3>
+          <p className="class-subnote">Unlocked through class mastery.</p>
+          <div className="class-mastery">
+            {c.mastery_ability && (
+              <article className="mastery-tile">
+                <span className="mastery-kind">Ability</span>
+                <b>
+                  <AbilityIcon name={c.mastery_ability} />
+                  <AbilityLink name={c.mastery_ability} />
+                </b>
+                {ability(c.mastery_ability) && <p><LinkedDescription text={ability(c.mastery_ability)!.description} /></p>}
+              </article>
+            )}
+            {c.mastery_art && (
+              <article className="mastery-tile">
+                <span className="mastery-kind">Combat art</span>
+                <b>
+                  <ArtIcon name={c.mastery_art} />
+                  <ArtLink name={c.mastery_art} />
+                </b>
+                {art && <p>{artSummary(art)}</p>}
+              </article>
+            )}
+          </div>
         </>
-      </Section>
-
-      <Section title="Units" icon={CONCEPT_ICON.roster}>
-        <>
-          <WhoFilters />
-          {starters.length > 0 && (
-            <>
-              <h4 className="sub-title">Starts in This Class</h4>
-              {c.name === "Death Knight" ? <Spoiler category="identities"><PeopleRow people={starters} part2={part2} /></Spoiler> : <PeopleRow people={starters} part2={part2} />}
-            </>
-          )}
-          {fits.length > 0 ? (
-            <>
-              <h4 className="sub-title" title="Strengths (or budding talents) in at least half of the required skills, and no weakness in any of them">
-                Strong in Its Skills
-              </h4>
-              <PeopleRow people={fits.map((f) => f.ch)} part2={part2} skills={c.requirements.map((r) => r.skill)} />
-            </>
-          ) : (
-            starters.length === 0 && <p className="muted">{restricted ? "Restricted class." : "Nobody stands out for this class."}</p>
-          )}
-        </>
-      </Section>
-    </DetailCard>
+      )}
+    </>
   );
 }
 
@@ -619,7 +719,7 @@ function PeopleRow({ people, part2, skills }: { people: Character[]; part2: bool
   return (
     <div className="people unit-grid">
       {people.map((ch) => (
-        <RefLink key={ch.key} onClick={() => nav.go({ page: "characters", tab: "characters", id: ch.key })} title={`Open ${ch.name} on the Characters page`}>
+        <RefLink key={ch.key} onClick={() => nav.go({ page: "archive", tab: "characters", id: ch.key })} title={`Open ${ch.name} in the Archive`}>
           <span className="person">
             <KeyPortrait portraitKey={characterPortraitKey(ch.key)} name={ch.name} part2={part2} size={72} />
             <span className="person-name">{ch.name}</span>
@@ -647,7 +747,7 @@ function ArtsTable({ data, initial }: { data: ReferenceData; initial: string }) 
     return hit ? hit.name + hit.weapon : null;
   });
   const { sort, header } = useSort<"name" | "weapon" | "might" | "hit" | "crit" | "cost">({ key: "weapon", dir: 1 }, ["name", "weapon"]);
-  const weaponOptions = [...new Set(data.combat_arts.map((a) => a.weapon))].map((w) => [w, w] as const);
+  const weaponOptions = [...new Set(data.combat_arts.map((a) => a.weapon))].map((w) => [w, <SkillFilterLabel key={w} label={w} />] as const);
 
   // Who learns each art: characters (by skill rank), a class mastery, or a budding talent.
   type Learner = { who: string; how: string; skill?: SkillKey; rank?: string; charKey?: string; className?: string };
@@ -768,10 +868,11 @@ function ArtsTable({ data, initial }: { data: ReferenceData; initial: string }) 
 }
 
 const KINDS = [
-  ["class", "Class"],
-  ["skill", "Skill rank"],
-  ["personal", "Personal"],
+  ["class", <FilterLabel key="class" icon={CONCEPT_ICON.classes}>Class</FilterLabel>],
+  ["skill", <FilterLabel key="skill" icon={CONCEPT_ICON.weapon}>Skill</FilterLabel>],
+  ["personal", <FilterLabel key="personal" icon={CONCEPT_ICON.characters}>Personal</FilterLabel>],
 ] as const;
+const KIND_LABEL = { class: "Class", skill: "Skill", personal: "Personal" } as const;
 
 function AbilitiesTable({ data, initial }: { data: ReferenceData; initial: string }) {
   const [filter, setFilter] = useState(initial);
@@ -819,7 +920,7 @@ function AbilitiesTable({ data, initial }: { data: ReferenceData; initial: strin
                   {a.name}
                 </td>
                 <td className="left wrap"><LinkedDescription text={a.description} /></td>
-                <td className="left wrap small">{kindOf(a) || "—"}</td>
+                <td className="left wrap small">{KIND_LABEL[kindOf(a) as keyof typeof KIND_LABEL] || "—"}</td>
               </tr>
             ))}
           </tbody>
@@ -836,7 +937,8 @@ function MagicTable({ data, initial }: { data: ReferenceData; initial: string })
   const { sort, header } = useSort<"name" | "type" | "might" | "hit" | "uses">({ key: "name", dir: 1 }, ["name", "type"]);
   const rows = data.magic.filter((spell) => (!schools.length || schools.includes(spell.type)) && searchMatches(filter, spell.name, spell.type, spell.effect))
     .sort((a, b) => Number(normalize(b.name) === normalize(filter)) - Number(normalize(a.name) === normalize(filter)) || compareValues(a[sort.key], b[sort.key]) * sort.dir);
-  const options = (["Black", "Dark", "White"] as const).map((type) => [type, `${type} magic`] as const);
+  // The game's native selector maps dark-magic skill 7 to sprite 0x203 (exe_tables.item_sprite_id).
+  const options = (["Black", "Dark", "White"] as const).map((type) => [type, <span key={type} className="filter-label"><RefIcon src={type === "Dark" ? "images/icons/items-native/203.png" : `images/icons/magic/${type.toLowerCase()}.png`} />{type} magic</span>] as const);
   return <>
     <div className="toolbar">
       <SearchBox placeholder="Search spell, school or effect" value={filter} onChange={setFilter} />
@@ -873,26 +975,29 @@ function MagicTable({ data, initial }: { data: ReferenceData; initial: string })
 function InventoryTable({ data, initial, weapons = false }: { data: ReferenceData; initial: string; weapons?: boolean }) {
   const [filter, setFilter] = useState(initial);
   const [types, setTypes] = useState<string[]>([]);
-  const [ranks, setRanks] = useState<string[]>([]);
+  const [maximumRank, setMaximumRank] = useState<WeaponRank | null>(null);
   const [kinds, setKinds] = useState<string[]>([]);
   const [open, setOpen] = useState<string | null>(initial || null);
-  const rankOptions = ["E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+", "S", "S+"].map((r) => [r, r] as const);
-  const typeOptions = [...new Set(data.items.filter((i) => i.kind === "Weapon").map((i) => i.weapon_type ?? "Other"))].sort().map((t) => [t, t] as const);
-  const kindOptions = [...new Set(data.items.filter((i) => i.kind !== "Weapon").map((i) => i.kind))].sort().map((t) => [t, t] as const);
+  const typeOptions = [...new Set(data.items.filter((i) => i.kind === "Weapon").map((i) => i.weapon_type ?? "Other"))].sort().map((t) => [t, <SkillFilterLabel key={t} label={t} />] as const);
+  const kindOptions = [...new Set(data.items.filter((i) => i.kind !== "Weapon").map((i) => i.kind))].sort().map((t) => [t, <FilterLabel key={t} icon={t === "Equipment" ? CONCEPT_ICON.equipment : t === "Item" ? CONCEPT_ICON.item : undefined}>{t}</FilterLabel>] as const);
   const sortKeys = weapons ? ["name", "weapon_type", "rank", "might", "hit", "crit", "weight", "range", "uses"] as const : ["name", "kind"] as const;
   const { sort, header } = useSort<(typeof sortKeys)[number]>({ key: "name", dir: 1 }, ["name", "weapon_type", "rank", "range", "kind"] as (typeof sortKeys)[number][]);
   const rows = data.items.filter((i) => (i.kind === "Weapon") === weapons &&
-    (!weapons || ((!types.length || types.includes(i.weapon_type ?? "Other")) && (!ranks.length || ranks.includes(i.rank ?? "—")))) &&
+    (!weapons || ((!types.length || types.includes(i.weapon_type ?? "Other")) && withinWeaponRank(i.rank, maximumRank))) &&
     (weapons || !kinds.length || kinds.includes(i.kind)) && searchMatches(filter, i.name, i.kind, i.weapon_type ?? "", i.rank ?? "", i.effect ?? ""))
     .sort((a, b) => compareValues((a as unknown as Record<string, string | number>)[sort.key] ?? "", (b as unknown as Record<string, string | number>)[sort.key] ?? "") * sort.dir);
-  const count = weapons ? types.length + ranks.length : kinds.length;
-  const options = weapons ? [...typeOptions, ...rankOptions.map(([r]) => [r, `Rank ${r}`] as const)] : kindOptions;
-  const selected = weapons ? [...types, ...ranks] : kinds;
-  const change = (value: string[]) => weapons ? (setTypes(value.filter((x) => typeOptions.some(([t]) => t === x))), setRanks(value.filter((x) => rankOptions.some(([r]) => r === x)))) : setKinds(value);
+  const count = weapons ? types.length + Number(maximumRank !== null) : kinds.length;
+  const options = weapons ? typeOptions : kindOptions;
+  const selected = weapons ? types : kinds;
+  const change = weapons ? setTypes : setKinds;
   return <>
     <div className="toolbar"><SearchBox placeholder={weapons ? "Search weapon or effect" : "Search item, equipment or effect"} value={filter} onChange={setFilter} />
-      <FilterMenu count={count} onClear={() => { setTypes([]); setRanks([]); setKinds([]); }} chips={<CheckChips options={options} value={selected} onChange={change} />}>
-        {weapons ? <><CheckList label="Weapon type" columns={2} options={typeOptions} value={types} onChange={setTypes} /><CheckList label="Rank" columns={3} options={rankOptions} value={ranks} onChange={setRanks} /></> : <CheckList label="Kind" options={kindOptions} value={kinds} onChange={setKinds} />}
+      <FilterMenu count={count} onClear={() => { setTypes([]); setMaximumRank(null); setKinds([]); }} chips={<><CheckChips options={options} value={selected} onChange={change} />{weapons && maximumRank !== null && <FilterChip onClear={() => setMaximumRank(null)}>Up to rank {maximumRank}</FilterChip>}</>}>
+        {weapons ? <><CheckList label="Weapon type" columns={2} options={typeOptions} value={types} onChange={setTypes} /><fieldset className="checklist weapon-rank-filter">
+          <legend>Weapon rank<button type="button" className="checklist-clear" onClick={() => setMaximumRank(null)} disabled={maximumRank === null}>Any</button></legend>
+          <StepSlider bare label="Maximum weapon rank" stops={WEAPON_RANKS.length + 1} value={maximumRank === null ? WEAPON_RANKS.length : WEAPON_RANKS.indexOf(maximumRank)} onChange={(at) => setMaximumRank(WEAPON_RANKS[at] ?? null)} valueText={maximumRank === null ? "Any rank" : `Up to rank ${maximumRank}`} />
+          <output className="rank-threshold" aria-live="polite">{maximumRank === null ? "Any rank" : `Up to rank ${maximumRank}`}</output>
+        </fieldset></> : <CheckList label="Kind" options={kindOptions} value={kinds} onChange={setKinds} />}
       </FilterMenu><span className="muted small">{rows.length} {weapons ? "weapons" : "items"}</span>
     </div>
     <div className="table-wrap"><table className="units ref-table plain"><thead><tr>
@@ -906,6 +1011,6 @@ function InventoryTable({ data, initial, weapons = false }: { data: ReferenceDat
         <td className="chevron"><RowCaret open={expanded} /></td>
       </tr>
       {expanded && <tr className="expand-row"><td colSpan={weapons ? 10 : 3}><span className="expand-label">Details</span><span><LinkedDescription text={item.effect || item.description || item.kind} /></span></td></tr>}
-    </Fragment>; })}</tbody></table>{rows.length === 0 && <NoMatches what={weapons ? "weapons" : "items"} onReset={() => { setFilter(""); setTypes([]); setRanks([]); setKinds([]); }} />}</div>
+    </Fragment>; })}</tbody></table>{rows.length === 0 && <NoMatches what={weapons ? "weapons" : "items"} onReset={() => { setFilter(""); setTypes([]); setMaximumRank(null); setKinds([]); }} />}</div>
   </>;
 }

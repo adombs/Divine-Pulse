@@ -4,7 +4,7 @@ import { SKILL_LABEL, type SkillKey } from "./types";
 import "./icons.css";
 import { loadGameJson, loadGameText } from "../gameAssets";
 import { gameLanguage } from "../gameLanguage";
-import { GameImage } from "../components/GameImage";
+import { GameImage, MissingGameAsset } from "../components/GameImage";
 import { artWeapon } from "./gameData";
 
 type Manifest = {
@@ -37,10 +37,7 @@ let NATIVE_SPELLS = index(DATA.native_spells);
 export async function loadReferenceIcons(): Promise<void> {
   const kinds = ["abilities", "combat-arts", "spells", "weapons", "equipment", "items", "crests-by-person"];
   const files = await Promise.all(kinds.map((kind) => loadGameJson<Record<string, any>>(`data/${kind}.json`)));
-  const [native, iconIndex] = await Promise.all([
-    loadGameJson<Record<string, Record<string, number>>>("data/exe/item-icons.json"),
-    loadGameJson<{ icons?: Record<string, { path: string }> }>("data/icons.json"),
-  ]);
+  const native = await loadGameJson<Record<string, Record<string, number>>>("data/exe/item-icons.json");
   const categories = ["ability", "combat_art", "spell", "weapon", "equipment", "item", "crest_major", "crest_minor"];
   const texts = await Promise.all(categories.map((category) => loadGameText(category, gameLanguage())));
   const [abilities, arts, spells, weapons, equipment, items, crests] = files;
@@ -49,13 +46,13 @@ export async function loadReferenceIcons(): Promise<void> {
     for (const row of rows ?? []) for (const name of [row.name, names[String(row.id)]]) if (name) map.set(norm(name), path(row));
   };
   add(ABILITIES, abilities?.abilities, texts[0], (r) => `images/icons/abilities/${r.id}.png`);
-  const nativePath = (kind: string, row: any, fallback: string) => {
+  const nativePath = (kind: string, row: any) => {
     const id = native?.[kind]?.[String(row.id)];
-    return typeof id === "number" ? `images/icons/items-native/${id.toString(16).padStart(3, "0")}.png` : iconIndex?.icons?.[fallback]?.path ?? "";
+    return typeof id === "number" ? `images/icons/items-native/${id.toString(16).padStart(3, "0")}.png` : "";
   };
-  add(SPELLS, spells?.spells, texts[2], (r) => nativePath("spells", r, `magic/${r.skill === 6 ? "white" : "black"}`));
-  for (const [kind, rows, names, file] of [["weapons", weapons?.weapons, texts[3], "items/sword"], ["equipment", equipment?.equipment, texts[4], "items/shield"], ["items", items?.items, texts[5], "items/potion"]] as const)
-    add(ITEMS, rows, names, (r) => nativePath(kind, r, file));
+  add(SPELLS, spells?.spells, texts[2], (r) => nativePath("spells", r));
+  for (const [kind, rows, names] of [["weapons", weapons?.weapons, texts[3]], ["equipment", equipment?.equipment, texts[4]], ["items", items?.items, texts[5]]] as const)
+    add(ITEMS, rows, names, (r) => nativePath(kind, r));
   for (const row of arts?.combat_arts ?? []) {
     const weapon = artWeapon(row).toLowerCase();
     for (const name of [row.name, texts[1][String(row.id)]]) if (name) ARTS.set(norm(name), { weapon, icon: `images/icons/combat-arts/${weapon}.png` });
@@ -108,7 +105,7 @@ export function spellIconUrl(name: string): string | null {
 /** The icon of a weapon, shield, ring, staff, gem, consumable or key by its in-game name ("Steel Shield", "Vulnerary"). */
 export function itemIconUrl(name: string): string | null {
   const key = norm(name);
-  const file = NATIVE_ITEMS.get(key) ?? ITEMS.get(key) ?? ITEMS.get(key.replace(/\s*[+\u0370-\u03ff]+$/, ""));
+  const file = NATIVE_ITEMS.get(key) ?? ITEMS.get(key);
   return file ? url(file) : null;
 }
 
@@ -166,12 +163,10 @@ export function ArtIcon({ name, weapon = false }: { name: string; weapon?: boole
 
 
 function Group({ icons }: { icons: [string | null, string][] }) {
-  const found = icons.filter(([src]) => src);
-  if (found.length === 0) return null;
   return (
     <span className="ref-icons" aria-hidden>
-      {found.map(([src, className]) => (
-        <RefIcon key={src} src={src} className={className} />
+      {icons.map(([src, className], i) => (
+        src ? <RefIcon key={src} src={src} className={className} /> : <MissingGameAsset key={i} label="Reference icon" />
       ))}
     </span>
   );
@@ -181,14 +176,14 @@ function Group({ icons }: { icons: [string | null, string][] }) {
 export function WeaponIcon({ weapon }: { weapon: string }) {
   const file = WEAPON_FILE[weapon.toLowerCase()];
   if (!file) return <span className="ref-weapon-text">{weapon}</span>;
-  return <GameImage className="ref-icon weapon-solo" imported={`images/icons/weapons/${file}.png`} fallback={<span className="ref-weapon-text">{weapon}</span>} alt={weapon} title={weapon} loading="lazy" draggable={false} />;
+  return <GameImage className="ref-icon weapon-solo" imported={`images/icons/weapons/${file}.png`} alt={weapon} title={weapon} loading="lazy" draggable={false} />;
 }
 
 /** A crest as its in-game icon alone, "Major Crest of Blaiddyd" on hover. */
 export function CrestMark({ name, major = true }: { name: string; major?: boolean }) {
   const src = crestIconUrl(name, major);
   const label = crestLabel(name, major);
-  if (!src) return isMysteryCrest(name) ? null : <span className="ref-crest-text" title={label}>{crestName(name)}</span>;
+  if (!src) return isMysteryCrest(name) ? null : <MissingGameAsset label={crestName(name)} />;
   return <span role="img" aria-label={label} title={label}><RefIcon className="crest-icon" src={src} /></span>;
 }
 

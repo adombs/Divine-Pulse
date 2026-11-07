@@ -3,6 +3,11 @@ import { readFileSync } from "node:fs";
 import { stripTypeScriptTypes } from "./strip-types.mjs";
 import { buildCharacters, buildReference, buildSupports, itemSummary, spellSummary } from "../src/reference/gameData.ts";
 
+const sourceUrl = (source) => `data:text/javascript,${encodeURIComponent(stripTypeScriptTypes(source))}`;
+const fuzzyUrl = sourceUrl(readFileSync(new URL("../src/fuzzy.ts", import.meta.url), "utf8"));
+const { battalionReference } = await import(sourceUrl(readFileSync(new URL("../src/reference/battalions.ts", import.meta.url), "utf8")
+  .replace('"../fuzzy"', JSON.stringify(fuzzyUrl))));
+
 const structure = { playableCharacters: [], playableClasses: [] };
 const files = {
   abilities: { abilities: [{ id: 3, name: "Gift", description: "new" }] },
@@ -13,6 +18,41 @@ assert.equal(adapted.abilities[0].description, "game text");
 assert.equal(adapted.items[0].effect, "Restore HP");
 assert.deepEqual(buildReference({}, {}, structure, []).items, []);
 assert.doesNotThrow(() => buildReference({ characters: { characters: [null, []] }, items: { items: "damaged" } }, {}, structure, []));
+
+// Battalions: today's import (id, name, description, endurance) keeps working; the optional panel fields are taken only
+// when well formed, and nothing is filled in that the row doesn't hold. Made-up rows.
+const battalions = buildReference({ battalions: { battalions: [
+  { id: 7, name: "Test Company", description: "plain", endurance: 40 },
+  { id: 8, name: "Full Company", description: "full", endurance: 50, icon: "images/x.png", stats: { phys_atk: 2, avo: -3, bogus: 9 },
+    stats_by_level: [{ hit: 1 }, { hit: 2 }],
+    gambit: { name: "Test Gambit", description: "g", uses: 2, might: 6, hit: 70, area: { cells: [[0, -1], [0, "x"]], origin: [0, 0], direction: "forward" } } },
+  { id: 10, description: "unnamed" },
+] } }, { battalion_description: { 7: "game text" } }, structure, []).battalions;
+assert.deepEqual(battalions.map((b) => b.name), ["Test Company", "Full Company"]);
+assert.deepEqual(battalions[0], { id: 7, name: "Test Company", description: "game text", endurance: 40 });
+assert.deepEqual(battalions[1].stats, { phys_atk: 2, avo: -3 });
+assert.deepEqual(battalions[1].stats_by_level, [{ hit: 1 }, { hit: 2 }]);
+assert.deepEqual(battalions[1].gambit, { name: "Test Gambit", description: "g", uses: 2, might: 6, hit: 70, area: { cells: [[0, -1]], origin: [0, 0], direction: "forward" } });
+assert.equal(battalions[1].icon, "images/x.png");
+assert.throws(() => buildReference({ battalions: { battalions: [{ name: "Broken Company", endurance: "lots" }] } }, {}, structure, []), /endurance missing or invalid/);
+// Select the saved identity, including ID zero, when names change language or are duplicated.
+const duplicateNames = [{ id: 0, name: "Twin Company" }, { id: 1, name: "Twin Company" }];
+assert.equal(battalionReference(duplicateNames, "Old name", 0), duplicateNames[0]);
+assert.equal(battalionReference(duplicateNames, "Twin Company", 1), duplicateNames[1]);
+assert.equal(battalionReference(duplicateNames, "Twin Company", 99), undefined);
+assert.equal(battalionReference(duplicateNames, "Twin Company"), undefined);
+assert.equal(battalionReference(battalions, "Test Company"), battalions[0]);
+assert.equal(battalionReference(duplicateNames, "", 0), undefined);
+const [translatedBattalion] = buildReference({ battalions: { battalions: [{
+  id: 0, name: "Base Company", endurance: 40, stats: { phys_atk: 1 },
+  gambit: { id: 2, name: "Base Tactic", description: "Base effect", uses: 2, range: [1, 2] },
+}] } }, {
+  battalion: { 0: "Translated Company" }, battalion_description: { 0: "Translated description" },
+  gambit: { 2: "Translated Tactic" }, gambit_description: { 2: "Translated effect" },
+}, structure, []).battalions;
+assert.equal(translatedBattalion.name, "Translated Company");
+assert.equal(translatedBattalion.description, "Translated description");
+assert.deepEqual(translatedBattalion.gambit, { id: 2, name: "Translated Tactic", description: "Translated effect", uses: 2, range: [1, 2] });
 assert.match(itemSummary({ name: "Blade", kind: "Weapon", description: "A blade", might: 5, hit: 80, crit: 0, weight: 3, range: "1", uses: 20 }), /Mt 5.*Hit 80.*Crit 0.*Wt 3.*Range 1.*Uses 20/);
 assert.match(spellSummary({ name: "Spark", type: "Black", might: 3, hit: 90, range: "1–2", uses: 10, effect: "Magic" }), /Magic\nMt 3/);
 
@@ -123,30 +163,44 @@ assert.doesNotThrow(() => buildSupports({ meals: { meals: [null, { id: 0, name: 
 
 // Exercise the public loader with only HTTP faked, including an older import being replaced.
 const assetsUrl = new URL("../src/gameAssets.ts", import.meta.url).href;
-const sourceUrl = (source) => `data:text/javascript,${encodeURIComponent(stripTypeScriptTypes(source))}`;
-const languageUrl = sourceUrl(readFileSync(new URL("../src/gameLanguage.ts", import.meta.url), "utf8").replaceAll('"./gameAssets"', JSON.stringify(assetsUrl)));
+const requiredUrl = new URL("../src/requiredAssets.ts", import.meta.url).href;
+const languageUrl = sourceUrl(readFileSync(new URL("../src/gameLanguage.ts", import.meta.url), "utf8").replaceAll('"./gameAssets"', JSON.stringify(assetsUrl)).replaceAll('"./requiredAssets.ts"', JSON.stringify(requiredUrl)));
 const loaderSource = readFileSync(new URL("../src/reference/gameData.ts", import.meta.url), "utf8")
   .replaceAll('"../gameAssets"', JSON.stringify(assetsUrl))
+  .replaceAll('"../requiredAssets.ts"', JSON.stringify(requiredUrl))
   .replaceAll('"../gameLanguage"', JSON.stringify(languageUrl))
   .replaceAll('"./structure.json"', JSON.stringify(new URL("../src/reference/structure.json", import.meta.url).href));
-const { loadImportedSupports } = await import(sourceUrl(loaderSource));
+const { loadImportedSupports, loadImportedReference } = await import(sourceUrl(loaderSource));
 const { loadGameAssetsStatus } = await import(assetsUrl);
 let imported = false;
 globalThis.fetch = async (url) => {
   const files = {
     "/api/game-assets/status": { available: true, languages: ["GER"], created: String(imported) },
     "/api/settings": { game_language: "GER" },
+    "/game-assets/data/supports.json": { pairs: [] },
+    "/game-assets/data/gifts.json": { characters: [] },
+    ...Object.fromEntries(['classes', 'abilities', 'combat-arts', 'spells', 'weapons', 'equipment', 'items', 'crests-by-person'].map((name) => [`/game-assets/data/${name}.json`, {}])),
     "/game-assets/data/characters.json": { characters: [{ id: 1040, name_id: 550, name: "Bram" }] },
     "/game-assets/data/meals.json": imported ? { meals: [{ id: 0, name: "Dish", ingredients: [{ id: 96, name: "Fish", quantity: 3 }] }], characters: [{ character: 1040, liked: [0], disliked: [] }] } : null,
-    "/game-assets/text/GER.json": { categories: { character_given: { 1040: "Translated Bram" }, meal: { 0: "Translated dish" }, ingredient: { 96: "Translated fish" } } },
+    "/game-assets/data/battalions.json": { battalions: [{ id: 0, name: "Base Company", endurance: 40, gambit: { id: 2, name: "Base Tactic", description: "Base effect", uses: 2 } }] },
+    "/game-assets/text/GER.json": { categories: {
+      ...Object.fromEntries(['gift', 'character_full', 'class', 'class_description', 'ability', 'ability_description', 'combat_art', 'combat_art_description', 'spell', 'spell_description', 'weapon', 'weapon_description', 'equipment', 'equipment_description', 'item', 'item_description', 'battalion_description', 'crest', 'crest_description', 'crest_major', 'crest_minor', 'faction', 'npc_and_generic_names'].map((name) => [name, {}])),
+      character_given: { 1040: "Translated Bram" }, meal: { 0: "Translated dish" }, ingredient: { 96: "Translated fish" },
+      battalion: { 0: "Translated Company" }, gambit: { 2: "Translated Tactic" }, gambit_description: { 2: "Translated effect" },
+      crest_major_description: {}, crest_minor_description: {},
+    } },
   };
   return { ok: files[url] != null, json: async () => files[url] };
 };
 await loadGameAssetsStatus();
-assert.deepEqual((await loadImportedSupports([], [])).meals, [{ id: "0", name: "Translated dish" }]);
+await assert.rejects(loadImportedSupports([], []), /data\/meals.json/);
 imported = true;
 await loadGameAssetsStatus(true);
 const loadedDining = await loadImportedSupports([], []);
 assert.deepEqual(loadedDining.meals[0].ingredients, [{ id: 96, name: "Translated fish", quantity: 3 }]);
 assert.deepEqual(loadedDining.people["Translated Bram"].liked_meals, ["Translated dish"]);
+const [loadedCompany] = (await loadImportedReference(structure, [])).battalions;
+assert.equal(loadedCompany.name, "Translated Company");
+assert.equal(loadedCompany.gambit.name, "Translated Tactic");
+assert.equal(loadedCompany.gambit.description, "Translated effect");
 console.log("game-data builder tests passed");

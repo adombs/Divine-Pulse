@@ -21,7 +21,7 @@ EventKind = Literal[
 ]
 
 
-UsageKind = Literal["weapon", "spell", "art", "item", "rally"]
+UsageKind = Literal["weapon", "spell", "art", "item", "rally", "gambit"]
 
 
 class Usage(BaseModel):
@@ -63,6 +63,18 @@ class BattleUnitStats(BaseModel):
     inventory: list[InventoryItem] = Field(default_factory=list)  # its items, then its spells, as last read
     accessory: str | None = None  # equipped roster accessory, when known
     arts: list[str] = Field(default_factory=list)  # equipped combat arts, as last read
+    # The battalion assignment observed for this battle, never filled from today's roster on load.
+    # None = not recorded/unknown (including old files); "" = observed without an assignment.
+    battalion: str | None = None
+    battalion_id: int | None = Field(default=None, ge=0, le=255)
+    # Its state in this battle, as last read (None = not recorded: older files, or not read): cumulative experience,
+    # endurance left, gambit uses left. `start`/`now` leave out the battalion's Charm, so spent endurance isn't a
+    # stat loss.
+    battalion_exp: int | None = Field(default=None, ge=0, le=400)
+    battalion_endurance: int | None = Field(default=None, ge=0)
+    gambit_uses: int | None = Field(default=None, ge=0)
+    # Rattled by a gambit, as last read (its battalion's modifiers don't apply); None = not read.
+    rattled: bool | None = None
     # What it used, most used first, from the game's history (None = not tracked: the history couldn't be read).
     usage: list[Usage] | None = None
     hp: int | None = None  # current HP (None until read)
@@ -109,7 +121,7 @@ class BattleEvent(BaseModel):
 # spell: a staff on a unit that changed no HP (Rescue, Ward, Silence...); art: a combat art that isn't an attack (Swap,
 # Draw Back...); act: an action not identified.
 LogKind = Literal[
-    "phase", "move", "wait", "attack", "defeat", "fell", "heal", "spell", "item", "art", "rally", "act", "pulse"
+    "phase", "move", "wait", "attack", "defeat", "fell", "heal", "spell", "item", "art", "rally", "gambit", "act", "pulse"
 ]
 
 
@@ -376,6 +388,12 @@ class ArmySample:
     accessory: str | None = None
     equipped_accessory_id: int | None = None
     look: str | None = None  # retained roster look for auxiliary/paralogue scenarios
+    battalion: str | None = None  # the assignment ("" none, None unknown), as for BattleUnitStats
+    battalion_id: int | None = None
+    battalion_exp: int | None = None  # as for BattleUnitStats
+    battalion_endurance: int | None = None
+    gambit_uses: int | None = None
+    rattled: bool | None = None
 
 
 @dataclass(frozen=True)
@@ -459,6 +477,7 @@ class HistoryStep:
     spell: int | None = None  # gamemem.history.SPELL (magic only)
     art: int | None = None  # the combat art used (gamemem.history.ART)
     rally: bool = False  # Rally; `target` is the unit rallied
+    gambit: int | None = None  # the battalion gambit used (gamemem.history.GAMBIT); every unit it hit follows
 
 
 def used_in_step(before: StepUnit, after: StepUnit) -> list[tuple[UsageKind, int, int]]:

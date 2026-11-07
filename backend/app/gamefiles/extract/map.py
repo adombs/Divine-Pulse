@@ -38,7 +38,9 @@ MINIMAP_TEXTURE = 10
 MINIMAP_PIECES = {
     201: "tile-heal", 202: "tile-impassable", 203: "tile-forest", 204: "tile-thicket", 205: "tile-sand",
     206: "tile-fliers", 207: "tile-hazard", 208: "tile-shoal", 209: "tile-water", 210: "tile-floor",
-    211: "tile-siege", 212: "tile-cover", 220: "grid", 224: "badge-player", 225: "badge-enemy", 226: "badge-ally",
+    211: "tile-siege", 212: "tile-cover", 216: "range-cell", 220: "grid", 221: "range-grid",
+    223: "range-chevron", 224: "badge-player", 225: "badge-enemy", 226: "badge-ally",
+    228: "range-player", 229: "range-enemy",
     227: "badge-third", 241: "cursor", 242: "cursor-target", 252: "door", 253: "lever", 254: "crest-stone",
     255: "trap", 256: "chest", 257: "chest-open", 258: "wall", 259: "warp", 268: "weapon-sword",
     269: "weapon-lance", 270: "weapon-axe", 271: "weapon-bow", 272: "weapon-gauntlets", 273: "weapon-faith",

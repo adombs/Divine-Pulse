@@ -58,7 +58,7 @@ export type Category = "fight" | "defeat" | "move" | "support" | "growth" | "tur
 
 
 const LOG_CATEGORY: Record<LogEntry["kind"], Category> = {
-  phase: "turn", move: "move", wait: "move", attack: "fight", defeat: "defeat", fell: "defeat", heal: "support", spell: "support", item: "support", art: "move", rally: "support", act: "move", pulse: "turn",
+  phase: "turn", move: "move", wait: "move", attack: "fight", defeat: "defeat", fell: "defeat", heal: "support", spell: "support", item: "support", art: "move", rally: "support", gambit: "fight", act: "move", pulse: "turn",
 };
 const EVENT_CATEGORY: Record<BattleEvent["kind"], Category> = {
   start: "turn", turn: "turn", end: "turn", divine_pulse: "turn", level_up: "growth", stat_up: "growth",
@@ -90,7 +90,8 @@ export const ICON: Record<string, IconName> = {
   left: CONCEPT_ICON.left,
   enemies: CONCEPT_ICON.enemies,
   defeated: CONCEPT_ICON.defeat,
-
+  // A battalion's gambit, once the tracker reads one (no gambit event is verified yet).
+  gambit: CONCEPT_ICON.battalion,
 };
 
 /** One thing that happened: from the game's log or one of the tracker's events. */
@@ -253,9 +254,16 @@ function turnNumber(text: string): number | null {
 
 /** One timeline's items, oldest first: the game's log and the tracker's events (level-ups, Divine Pulses...). */
 function build(battle: Battle, entries: LogEntry[], tracked: BattleEvent[], branch: number): Item[] {
+  const legacyId = (value: string | null, actor = false): string | null => {
+    if (!value) return null;
+    if (battle.units.some((u) => u.key === value)) return armyId(value);
+    if (actor) return null;
+    const matches = Object.entries(battle.enemy_labels ?? {}).filter(([, label]) => label === value);
+    return matches.length === 1 ? enemyId(matches[0][0]) : null;
+  };
   const log: Item[] = entries.map((e, i) => {
-    const actor = e.actor_id ?? null;
-    const target = e.target_id ?? null;
+    const actor = e.actor_id ?? legacyId(e.unit, true);
+    const target = e.target_id ?? legacyId(e.target);
     // Battles saved before staff use was told from attacks: no damage between your own units is no attack.
     const staff = e.kind === "attack" && !e.dealt && !e.taken && !!actor?.startsWith("a:") && !!target?.startsWith("a:");
     const kind = staff ? "heal" : e.kind;
@@ -359,10 +367,10 @@ export function tally(items: Item[], id: string, counters: { fights?: number | n
     if (i.kind === "attack" && involves(i, id)) fights += 1;
     if ((i.kind === "defeat" && i.actor === id) || (i.kind === "fell" && i.target === id)) defeats += 1;
   }
-  const logged = items.length > 0;
+  const logged = fights > 0 || defeats > 0;
   return {
-    fights: Math.max(counters.fights ?? 0, fights),
-    defeats: counters.defeats !== null && counters.defeats !== undefined ? Math.max(counters.defeats, defeats) : logged ? defeats : null,
+    fights: counters.fights ?? (logged ? fights : null),
+    defeats: counters.defeats ?? (logged ? defeats : null),
   };
 }
 
@@ -425,17 +433,30 @@ export function statGains(u: BattleUnit): number {
 
 /** The army's damage, healing and movement totals (null while not tracked). */
 export function armyTotals(battle: Battle) {
-  const sum = (pick: (u: BattleUnit) => number | null) => {
-    const known = battle.units.map(pick).filter((v): v is number => v !== null);
-    return known.length ? known.reduce((n, v) => n + v, 0) : null;
-  };
+  const items = timeline(battle);
+  const rows = battle.units.map((u) => battleUnitStats(battle, u, items));
+  const sum = (pick: (u: ReturnType<typeof battleUnitStats>) => number | null) => recordedSum(rows.map(pick));
   return {
-    dealt: sum((u) => u.damage_dealt),
-    taken: sum((u) => u.damage_taken),
-    healing: sum((u) => u.healing_given),
-    tiles: sum((u) => u.tiles_moved),
+    fights: sum((u) => u.fights),
+    dealt: sum((u) => u.dealt),
+    taken: sum((u) => u.taken),
+    healing: sum((u) => u.healing),
+    tiles: sum((u) => u.tiles),
     defeats: sum((u) => u.defeats),
   };
+}
+
+/** A complete total only when every contributor is known. Zero is a recorded value. */
+export function recordedSum(values: (number | null | undefined)[]): number | null {
+  return values.length && values.every((v) => v !== null && v !== undefined)
+    ? (values as number[]).reduce((n, v) => n + v, 0) : null;
+}
+
+/** Canonical battle-scoped unit metrics. Backend metrics already exclude undone branches; never add log damage. */
+export function battleUnitStats(battle: Battle, unit: BattleUnit, items: Item[] = timeline(battle)) {
+  const counts = tally(items.filter((i) => i.branch === 0), armyId(unit.key), { fights: unit.combats, defeats: unit.defeats });
+  return { ...counts, dealt: unit.damage_dealt ?? null, taken: unit.damage_taken ?? null,
+    healing: unit.healing_given ?? null, healed: unit.healed ?? null, tiles: unit.tiles_moved ?? null };
 }
 
 /** The battle as plain text, to paste into a message or notes. */

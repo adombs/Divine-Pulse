@@ -2,7 +2,7 @@ import { CONCEPT_ICON } from "../icons/concepts";
 import { ReactNode, useEffect, useRef, useState } from "react";
 import { StatTip } from "./ui";
 import { Icon } from "./Icon";
-import { SpoilerCategory, useSpoiler } from "../spoilers";
+import { SPOILER_CATEGORIES, SpoilerCategory, useSpoiler } from "../spoilers";
 
 export type Sort<K extends string> = { key: K; dir: 1 | -1 };
 
@@ -44,15 +44,20 @@ export function compareValues(a: number | string, b: number | string): number {
 }
 
 
-/** Text hidden behind a click, for story reveals. */
+/** An explicit, labelled reveal or conceal action, shared by every spoiler entry point. */
+export function SpoilerButton({ onClick, label, conceal = false }: { onClick: () => void; label: string; conceal?: boolean }) {
+  return <button type="button" className="spoiler-btn" onClick={onClick} title={label} aria-label={label}>
+    <Icon name={conceal ? CONCEPT_ICON.hide : CONCEPT_ICON.show} />
+  </button>;
+}
+
+/** Text hidden behind an eye button, for story reveals. */
 export function Spoiler({ children, category = "crests" }: { children: ReactNode; category?: SpoilerCategory }) {
   const [open, setOpen] = useSpoiler(category);
   return open ? (
-    <span className="spoiler-open">{children}</span>
+    <span className="spoiler-open">{children}{" "}<SpoilerButton conceal onClick={() => setOpen(false)} label={`Hide ${SPOILER_CATEGORIES[category].label.toLowerCase()}`} /></span>
   ) : (
-    <button type="button" className="spoiler-btn" onClick={() => setOpen(true)} title="Story spoiler: click to show">
-      Show spoiler
-    </button>
+    <SpoilerButton onClick={() => setOpen(true)} label={`Show ${SPOILER_CATEGORIES[category].label.toLowerCase()}`} />
   );
 }
 

@@ -73,6 +73,9 @@ def apply_unit_stats(
             ability.accessory,
         )
         unit.bonuses = bonuses.compute(ability.equipped, ability.personal, ability.accessory)
+        # The battalion's share of the values is a bonus too, so base() stays the unit's own stat.
+        for stat, amount in (ability.battalion_bonus or {}).items():
+            unit.bonuses = {**unit.bonuses, stat: unit.bonuses.get(stat, 0) + amount}
         if ability.arts is not None:
             unit.combat_arts = list(ability.arts)
         if ability.inventory is not None:
@@ -82,7 +85,14 @@ def apply_unit_stats(
         if ability.learned_arts is not None:
             unit.learned_arts = list(ability.learned_arts)
         if ability.battalion is not None:
+            if ability.battalion_id is not None or ability.battalion != unit.battalion:
+                unit.battalion_id = ability.battalion_id
             unit.battalion = ability.battalion
+            unit.battalion_exp = ability.battalion_exp if ability.battalion else None
+            unit.battalion_endurance = ability.battalion_endurance if ability.battalion else None
+            unit.gambit_uses = ability.gambit_uses if ability.battalion else None
+            if not ability.battalion:
+                unit.battalion_id = None
         if ability.skills is not None:
             unit.skills = dict(ability.skills)
     if reading.game_id is not None:

@@ -31,6 +31,8 @@ LICENSE_FOLDER = "Third-party licenses/"
 
 def check_path(path: str, size: int = 0) -> str | None:
     """Why a file at this repository-relative path (forward slashes) may not ship, or None."""
+    if PurePosixPath(path).parts and PurePosixPath(path).parts[0].lower() in {"game-dump", "game-assets"}:
+        return "private game dump or import directory"
     name = PurePosixPath(path).name
     stem, ext = PurePosixPath(name).stem.lower(), PurePosixPath(name).suffix.lower()
     if ext in IMAGE_EXTS and not path.startswith(IMAGE_OK):

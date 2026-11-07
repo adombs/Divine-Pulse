@@ -1,11 +1,12 @@
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { gameLanguageLocale } from "../../gameLanguage";
 import { Fragment, useMemo, useState } from "react";
-import { Icon } from "../Icon";
+import { Icon, IconButton } from "../Icon";
 import { useSpoiler } from "../../spoilers";
+import { isStoryClass } from "../../reference/links";
 import type { Unit } from "../../api";
 import { characterPortraitKey, runCharacterKeys, unitForCharacter } from "../../portraits";
-import { crestLabel, crestName, isMysteryCrest } from "../../reference/crests";
+import { crestLabel, crestName } from "../../reference/crests";
 import { canonical, searchMatches } from "../../fuzzy";
 import {
   Character,
@@ -16,28 +17,29 @@ import {
   STAT_KEYS,
   STAT_LABEL,
   StatKey,
-  TIERS,
-  useReference,
 } from "../../reference/types";
 import { KeyPortrait } from "../ui";
 import { AffiliationIcon } from "../AffiliationIcon";
 import { SkillIcon } from "../SkillIcon";
 import { SkillChips } from "./SkillChips";
-import { DetailCard, MasterDetail, PageHeader, Section } from "../layout";
+import { ClassGrowthFilter } from "./ClassGrowthFilter";
+import { TierIcon } from "./TierIcon";
+import { DetailCard, MasterDetail, Section } from "../layout";
+import { CharacterHero } from "../character/CharacterHero";
+import { characterSprite, SpriteFace } from "../character/CharacterFace";
 import { useNav } from "../../nav";
 import { AFFILIATIONS, passes, usePeopleFilters } from "../../filters";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../PeopleFilters";
-import { AbilityLink, ArtLink, BattalionLink, ClassLink, CrestLink, ItemLink, SupportsLink, SpellLink, LinkedDescription } from "../Links";
-import { itemSummary, spellSummary } from "../../reference/gameData";
-import { GearIcon } from "../battle/gameIcons";
-import { AbilityIcon, ArtIcon, CrestMark, ItemIcon, SpellIcon } from "../../reference/icons";
+import { AbilityLink, ArtLink, ClassLink, CrestLink, SupportsLink, SpellLink, LinkedDescription } from "../Links";
+import { spellSummary } from "../../reference/gameData";
+import { AbilityIcon, ArtIcon, CrestMark, SpellIcon } from "../../reference/icons";
 import "./classes.css";
 import "./characters.css";
+import "../character/panels.css";
 import {
   FilterChip,
   FilterMenu,
   RefLink,
-  Loading,
   NoMatches,
   SearchBox,
   Segmented,
@@ -47,7 +49,6 @@ import {
 const compareValues = (a: number | string, b: number | string) => typeof a === "number" && typeof b === "number" ? a - b : String(a).localeCompare(String(b), gameLanguageLocale());
 
 type View = "growths" | "bases" | "maxes";
-type Tab = "characters" | "crests";
 type SortKey = "name" | "house" | StatKey | "total";
 
 const VIEW_LABEL: Record<View, string> = { growths: "Growth Rates", bases: "Base Stats", maxes: "Max Stats" };
@@ -57,50 +58,22 @@ interface Props {
   part2: boolean;
 }
 
-export function CharactersPage(props: Props) {
-  return <CharactersContent {...props} />;
-}
-
-function CharactersContent({ units, part2 }: Props) {
-  const data = useReference();
-  const nav = useNav();
-  const tab: Tab = nav.route.tab === "crests" ? "crests" : "characters";
-  const setTab = (t: Tab) => nav.go({ page: "characters", tab: t });
-  return (
-    <div className="ref-page list-page">
-      <PageHeader
-        title="Characters"
-        tabs={[
-          { id: "characters", label: "Characters", count: data?.characters.length },
-          { id: "crests", label: "Crests", count: data?.crests.length },
-        ]}
-        tab={tab}
-        onTab={setTab}
-      />
-      {!data ? (
-        <Loading />
-      ) : tab === "characters" ? (
-        <CharacterTable data={data} units={units} part2={part2} />
-      ) : (
-        <CrestTable data={data} units={units} part2={part2} />
-      )}
-    </div>
-  );
-}
-
-function CharacterTable({ data, units, part2 }: { data: ReferenceData } & Props) {
+/** The Archive's Characters tab: every character's growths, bases and maxes, with the picked one's reference card. */
+export function CharacterTable({ data, units, part2 }: { data: ReferenceData } & Props) {
   const nav = useNav();
   const [people] = usePeopleFilters();
   const [showIdentities] = useSpoiler("identities");
+  const [showStoryClasses] = useSpoiler("storyClasses");
   const [peopleCount, clearPeople] = usePeopleFilterCount(["affiliation", "run"]);
   const [view, setView] = useState<View>("growths");
   const [filter, setFilter] = useState("");
   const [withClass, setWithClass] = useState("");
   const selected = nav.route.id ?? null;
-  const select = (key: string) => nav.go({ page: "characters", tab: "characters", id: key });
+  const select = (key: string) => nav.go({ page: "archive", tab: "characters", id: key });
   const { sort, header } = useSort<SortKey>({ key: "house", dir: 1 }, ["name", "house"]);
 
-  const cls = view === "growths" ? data.classes.find((c) => c.name === withClass) : undefined;
+  const availableClasses = data.classes.filter((c) => showStoryClasses || !isStoryClass(c.name));
+  const cls = view === "growths" ? availableClasses.find((c) => c.name === withClass) : undefined;
   const inRun = useMemo(() => runCharacterKeys(units), [units]);
   const value = (c: Character, k: StatKey) => c[view][k] + (cls ? cls.growths[k] : 0);
   const total = (c: Character) => STAT_KEYS.reduce((n, k) => n + value(c, k), 0);
@@ -143,29 +116,13 @@ function CharacterTable({ data, units, part2 }: { data: ReferenceData } & Props)
           }}
           chips={
             <>
-              {cls && <FilterChip onClear={() => setWithClass("")}>Growths as a {cls.name}</FilterChip>}
+              {cls && <FilterChip onClear={() => setWithClass("")}><span className="filter-label"><TierIcon tier={cls.tier} size={18} decorative />Growths as a {cls.name}</span></FilterChip>}
               <PeopleFilterChips fields={["affiliation", "run"]} />
             </>
           }
         >
           <PeopleFilterFields fields={["affiliation", "run"]} />
-          <label className="field" title="Growth rates in a class are the character's own plus the class's">
-            <span>Growths in a class</span>
-            <select value={withClass} onChange={(e) => setWithClass(e.target.value)}>
-              <option value="">Own growths only</option>
-              {TIERS.map((t) => (
-                <optgroup key={t} label={t}>
-                  {data.classes
-                    .filter((c) => c.tier === t)
-                    .map((c) => (
-                      <option key={c.name} value={c.name}>
-                        + {c.name}
-                      </option>
-                    ))}
-                </optgroup>
-              ))}
-            </select>
-          </label>
+          <ClassGrowthFilter classes={availableClasses} value={availableClasses.some((c) => c.name === withClass) ? withClass : ""} onChange={setWithClass} />
         </FilterMenu>
         <span className="toolbar-end">
           <Segmented label="Values" value={view} onChange={setView} options={(Object.keys(VIEW_LABEL) as View[]).map((v) => [v, VIEW_LABEL[v]] as const)} />
@@ -246,9 +203,12 @@ function CharacterCard({
   part2: boolean;
   withClass?: GameClass;
 }) {
+  const nav = useNav();
   // Byleth starts as the tracked Byleth's portrait (see the Portrait setting on their roster card).
-  const [bylethGender, setBylethGender] = useState<"m" | "f">(unit && characterPortraitKey("byleth", [unit]) === "byleth_f" ? "f" : "m");
+  const [bylethGenderChoice, setBylethGender] = useState<"m" | "f" | null>(null);
+  const bylethGender = bylethGenderChoice ?? (unit && characterPortraitKey("byleth", [unit]) === "byleth_f" ? "f" : "m");
   const isByleth = c.key === "byleth";
+  const portraitKeyName = isByleth ? `byleth_${bylethGender}` : c.key;
   const classNames = new Set(data.classes.map((x) => x.name));
   const classLink = (name: string) => (name && classNames.has(name) ? <ClassLink name={name} /> : name || "—");
   const art = (name: string) => data.combat_arts.find((a) => a.name === name);
@@ -257,95 +217,85 @@ function CharacterCard({
   const crestText = (list: { name: string; major: boolean }[]) =>
     list.length ? list.map((x) => crestLabel(x.name, x.major)).join(", ") : "None";
   const crestList = (list: { name: string; major: boolean }[]) =>
-    list.length ? list.map((x) => <span key={`${x.name}-${x.major}`}><CrestMark name={x.name} major={x.major} /> <CrestLink name={x.name} /> {!isMysteryCrest(x.name) && <span className="muted">({x.major ? "Major" : "Minor"})</span>}</span>) : <span className="muted">None</span>;
+    list.length ? list.map((x) => <span key={`${x.name}-${x.major}`}><CrestLink name={x.name}>{crestLabel(x.name, x.major)}</CrestLink> <CrestMark name={x.name} major={x.major} /></span>) : <span className="muted">None</span>;
   // A learned ability or art's skill (its icon) and rank.
   const rankMark = (a: { skill?: SkillKey | ""; rank: string }) => (
     <>
       {a.skill && <SkillIcon skill={a.skill} />} {a.rank}
     </>
   );
-  const carried = (unit?.inventory ?? []).filter((it) => it.kind !== "spell");
   const hiddenCrests = c.crests_spoiler && crestText(c.crests_spoiler) !== crestText(c.crests) ? crestText(c.crests_spoiler) : null;
 
   return (
-    <DetailCard title={c.name} icon={<AffiliationIcon house={c.house} />} label={`${c.name} reference`}>
-      <div className="profile">
-        <span className="profile-portrait">
-          <KeyPortrait portraitKey={isByleth ? `byleth_${bylethGender}` : c.key} name={c.name} part2={part2} size={96} />
-        </span>
-        <dl className="profile-rows">
-          <dt>Name</dt>
-          <dd className="wide" title={c.full_name}>
-            {c.full_name}
-          </dd>
-          <dt>House</dt>
-          <dd className="house-mark">
-            <AffiliationIcon house={c.house} />
-          </dd>
-          <dt className="second">Gender</dt>
-          <dd>
-            {isByleth ? (
-              <span className="gender-toggle" role="group" aria-label="Byleth's gender">
-                {(["m", "f"] as const).map((g) => (
-                  <button
-                    key={g}
-                    type="button"
-                    className={bylethGender === g ? "on" : ""}
-                    aria-pressed={bylethGender === g}
-                    title={g === "m" ? "Male" : "Female"}
-                    onClick={() => setBylethGender(g)}
-                  >
-                    <Icon name={g === "m" ? CONCEPT_ICON.male : CONCEPT_ICON.female} />
-                  </button>
-                ))}
-              </span>
-            ) : (
-              c.gender
-            )}
-          </dd>
-          <dt>Class</dt>
-          <dd>{c.start_class === "Death Knight" ? <Spoiler category="identities">{classLink(c.start_class)}</Spoiler> : classLink(c.start_class)}</dd>
-          <dt className="second">Crest</dt>
-          <dd className="crest-marks" title={crestText(c.crests)}>
-            {crestList(c.crests)}
-          </dd>
-          <dt>Birthday</dt>
-          <dd>{c.birthday || "—"}</dd>
-          <dt className="second">Age</dt>
-          <dd>{c.age || "—"}</dd>
-        </dl>
-      <dl className="profile-rows more">
-        {hiddenCrests && (
-          <>
-            <dt title="Crest revealed later in the story">Later</dt>
-            <dd className="crest-marks wide">
-              <Spoiler>{crestList(c.crests_spoiler!)}</Spoiler>
-            </dd>
-          </>
-        )}
-          <dt>Height</dt>
-          <dd className="wide">{c.height || "—"}</dd>
-      </dl>
-      </div>
+    <DetailCard
+      title={c.full_name || c.name}
+      scope="reference"
+      icon={<AffiliationIcon house={c.house} />}
+      label={`${c.name} reference`}
+      // General only: what the run's unit has is on the Roster, one click away.
+      actions={unit && <IconButton icon={CONCEPT_ICON.roster} label={`Open ${unit.name} on the Roster`} onClick={() => nav.go({ page: "roster", id: unit.key })} />}
+    >
+      <CharacterHero
+        key={c.key}
+        name={c.name}
+        layout="flip"
+        scope="reference"
+        face={
+          <span className="cv-face"><KeyPortrait portraitKey={portraitKeyName} name={c.name} part2={part2} size={96} /></span>
+        }
+        backFace={
+          <SpriteFace
+            sprite={characterSprite(portraitKeyName, c.start_class, isByleth ? bylethGender === "f" : c.gender === "Female")}
+            name={c.name}
+          />
+        }
+        facts={[
+          ["Name", <span key="name" title={c.full_name}>{c.full_name}</span>],
+          ["Class", c.start_class === "Death Knight" ? <Spoiler key="class" category="identities">{classLink(c.start_class)}</Spoiler> : classLink(c.start_class)],
+          ["Crest", <span key="crest" className="crest-marks">{crestList(c.crests)}{!isByleth && hiddenCrests && <Spoiler>{crestList(c.crests_spoiler!)}</Spoiler>}</span>],
+        ]}
+        backFacts={[
+          ["Gender", isByleth ? (
+            <span key="gender" className="gender-toggle" role="group" aria-label="Byleth's gender">
+              {(["m", "f"] as const).map((g) => (
+                <button
+                  key={g}
+                  type="button"
+                  className={bylethGender === g ? "on" : ""}
+                  aria-pressed={bylethGender === g}
+                  aria-label={g === "m" ? "Male" : "Female"}
+                  title={g === "m" ? "Male" : "Female"}
+                  onClick={() => setBylethGender(g)}
+                >
+                  <Icon name={g === "m" ? CONCEPT_ICON.male : CONCEPT_ICON.female} />
+                </button>
+              ))}
+            </span>
+          ) : c.gender],
+          ["Affiliation", c.house || "—"],
+          ["Birthday", c.birthday || "—"],
+          ["Height", c.height || "—"],
+        ]}
+      />
 
       <Section title="Stats" icon={CONCEPT_ICON.growth}>
+        <div className="archive-stat-panel">
         <SkillChips character={c} />
         <div className="stats-split character-stats">
         <table className="ref-stats">
           <thead>
             <tr>
-              <th />
-              <th title="Stats when the character joins">Base</th>
-              <th title="Chance (%) to gain a point each level">Growth</th>
-              {withClass && <th title={`Growth as a ${withClass.name}`}>+{withClass.name.split(" ")[0]}</th>}
-              <th title="Highest the stat can go">Max</th>
-              {unit && <th title={`${unit.name} in your active run (bonuses from abilities removed)`}>Yours</th>}
+              <th scope="col" className="left">Stat</th>
+              <th scope="col" title="Stats when the character joins">Base</th>
+              <th scope="col" title="Chance (%) to gain a point each level">Growth</th>
+              {withClass && <th scope="col" title={`Growth as a ${withClass.name}`}>+{withClass.name.split(" ")[0]}</th>}
+              <th scope="col" title="Highest the stat can go">Max</th>
             </tr>
           </thead>
           <tbody>
             {STAT_KEYS.map((k) => (
               <tr key={k}>
-                <th>{STAT_LABEL[k]}</th>
+                <th scope="row">{STAT_LABEL[k]}</th>
                 <td>{c.bases[k]}</td>
                 <td>
                   <span className="growth">
@@ -357,69 +307,22 @@ function CharacterCard({
                 </td>
                 {withClass && <td>{c.growths[k] + withClass.growths[k]}%</td>}
                 <td>{c.maxes[k]}</td>
-                {unit && <td className={unit.base_values[k] >= c.maxes[k] ? "capped" : ""}>{unit.base_values[k] || "—"}</td>}
               </tr>
             ))}
             <tr className="total">
-              <th>Total</th>
+              <th scope="row">Total</th>
               <td>{STAT_KEYS.reduce((n, k) => n + c.bases[k], 0)}</td>
               <td>{STAT_KEYS.reduce((n, k) => n + c.growths[k], 0)}%</td>
               {withClass && <td>{STAT_KEYS.reduce((n, k) => n + c.growths[k] + withClass.growths[k], 0)}%</td>}
               <td>{STAT_KEYS.reduce((n, k) => n + c.maxes[k], 0)}</td>
-              {unit && <td />}
             </tr>
           </tbody>
         </table>
         </div>
+        </div>
       </Section>
 
-      {unit && (
-        <>
-          <Section title="Equipment" icon={CONCEPT_ICON.equipment}>
-            {carried.length > 0 || unit.accessory ? (
-              <ul className="item-list">
-                {carried.map((it, i) => (
-                  <li key={`${it.id}-${i}`} title={itemSummary(data.items.find((item) => item.name === it.name))}>
-                    <span>
-                      <GearIcon kind={it.kind === "other" ? "item" : it.kind} weapon={it.weapon} name={it.name} /> <ItemLink name={it.name} />
-                    </span>
-                    <span className="rank">{it.full ? `${it.uses}/${it.full}` : `×${it.uses}`}</span>
-                  </li>
-                ))}
-                {unit.accessory && (
-                  <li title={itemSummary(data.items.find((item) => item.name === unit.accessory))}>
-                    <span>
-                      <ItemIcon name={unit.accessory} />
-                      <ItemLink name={unit.accessory} />
-                    </span>
-                  </li>
-                )}
-              </ul>
-            ) : (
-              <p className="muted">No equipment</p>
-            )}
-          </Section>
-
-        </>
-      )}
-
       <Section title="Abilities" icon={CONCEPT_ICON.ability}>
-        {unit && (unit.personal_ability || unit.abilities.length > 0) && (
-          <>
-            <h4 className="sub-title">Equipped in your run</h4>
-            <ul className="item-list">
-              {[unit.personal_ability, ...unit.abilities].filter(Boolean).map((name, i) => (
-                <li key={`${name}-${i}`} title={data.abilities.find((a) => a.name === name)?.description} className={i === 0 && unit.personal_ability ? "personal" : ""}>
-                  <span>
-                    <AbilityIcon name={name} />
-                    <AbilityLink name={name} />
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <h4 className="sub-title">Personal and learned</h4>
-          </>
-        )}
         <ul className="item-list">
           {c.personal.map((p) => (
             <li key={p.name} className="personal" title="Personal ability">
@@ -486,23 +389,6 @@ function CharacterCard({
             </li>
           </ul>
         )}
-        {unit && <>
-          <h4 className="sub-title">Equipped in your run</h4>
-            {unit.combat_arts?.length ? (
-              <ul className="item-list">
-                {unit.combat_arts.map((name) => (
-                  <li key={name} title={art(name) ? artSummary(art(name)!) : undefined}>
-                    <span>
-                      <ArtIcon name={name} />
-                      <ArtLink name={name} />
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="muted">No combat arts</p>
-            )}
-        </>}
         <h4 className="sub-title">Learned from skill ranks</h4>
         {c.arts.length > 0 ? (
           <>
@@ -551,17 +437,6 @@ function CharacterCard({
         {c.spells.reason.length === 0 && c.spells.faith.length === 0 && <p className="muted">No spells</p>}
       </Section>
 
-      {unit && (
-        <>
-          <Section title="Battalion" icon={CONCEPT_ICON.battalion}>
-            {unit.battalion ? <><p><BattalionLink name={unit.battalion} /></p>{data.battalions?.filter((b) => b.name === unit.battalion).map((b) => <p className="desc" key={b.name}><LinkedDescription text={b.description} /> · Endurance {b.endurance}</p>)}</> : <p className="muted">No battalion</p>}
-          </Section>
-          <Section title="Crest" icon={CONCEPT_ICON.crest}>
-            {c.crests.length ? <div className="crest-marks">{crestList(c.crests)}</div> : <p className="muted">No crest</p>}
-          </Section>
-        </>
-      )}
-
       <p className="card-link">
         <SupportsLink name={c.name}>Supports &amp; gifts <Icon name={CONCEPT_ICON.go} /></SupportsLink>
       </p>
@@ -580,7 +455,8 @@ export function artSummary(a: { might: string; hit: string; crit: string; range:
   return parts.join(" · ") + (a.description ? `\n${a.description}` : "");
 }
 
-function CrestTable({ data, units, part2 }: { data: ReferenceData } & Props) {
+/** The Archive's Crests tab. */
+export function CrestTable({ data, units, part2 }: { data: ReferenceData } & Props) {
   const nav = useNav();
   const [people] = usePeopleFilters();
   const [filter, setFilter] = useState("");
@@ -593,7 +469,7 @@ function CrestTable({ data, units, part2 }: { data: ReferenceData } & Props) {
   });
   const selected = nav.route.id ?? filtered[0]?.name;
   const current = filtered.find((c) => c.name === selected) ?? filtered[0];
-  const select = (name: string) => nav.go({ page: "characters", tab: "crests", id: name });
+  const select = (name: string) => nav.go({ page: "archive", tab: "crests", id: name });
   if (!current) return <><div className="toolbar"><SearchBox placeholder="Search crest or bearer" value={filter} onChange={setFilter} /><FilterMenu count={peopleCount} onClear={clearPeople} chips={<PeopleFilterChips fields={["affiliation", "run"]} />}><PeopleFilterFields fields={["affiliation", "run"]} /></FilterMenu></div><NoMatches what="crests" onReset={() => { setFilter(""); clearPeople(); }} /></>;
   const bearerGroup = (title: string, names: string[]) => {
     const people = names.map((n) => data.characters.find((c) => c.name === n)).filter((c): c is Character => !!c);
@@ -604,7 +480,7 @@ function CrestTable({ data, units, part2 }: { data: ReferenceData } & Props) {
         <div className="people unit-grid">
           {people.map((ch) => {
             const person = (
-              <RefLink onClick={() => nav.go({ page: "characters", tab: "characters", id: ch.key })} title={`Open ${ch.name} on the Characters page`}>
+              <RefLink onClick={() => nav.go({ page: "archive", tab: "characters", id: ch.key })} title={`Open ${ch.name} in the Archive`}>
                 <span className="person">
                   <KeyPortrait portraitKey={characterPortraitKey(ch.key, units)} name={ch.name} part2={part2} size={72} />
                   <span className="person-name">{ch.name}</span>

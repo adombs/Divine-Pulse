@@ -69,6 +69,14 @@ export interface Unit {
   learned_abilities?: string[];
   learned_arts?: string[];
   battalion?: string;
+  /** The battalion's ID in the import; absent in older saved runs. */
+  battalion_id?: number | null;
+  /** Its state as last read from game memory (null/absent: not read): cumulative experience (level = exp / 100 + 1,
+   * capped at 400), endurance left, and gambit uses left during a battle (null between battles: the game refills
+   * them). */
+  battalion_exp?: number | null;
+  battalion_endurance?: number | null;
+  gambit_uses?: number | null;
   /** Current skill progress from game memory, when its roster fields are known. */
   skills?: Partial<Record<SkillKey, { rank: string; exp: number }>>;
   updated_at: string;
@@ -169,6 +177,15 @@ export interface BattleUnit {
   accessory?: string | null;
   /** Equipped combat arts, as last read (absent in battles saved before arts were read). */
   arts?: string[];
+  /** Battalion assignment recorded with this battle; null/absent in older recordings, "" for none. */
+  battalion?: string | null;
+  battalion_id?: number | null;
+  /** Its state in this battle, as last read; null/absent when not recorded (older recordings). */
+  battalion_exp?: number | null;
+  battalion_endurance?: number | null;
+  gambit_uses?: number | null;
+  /** Rattled by a gambit when last read: its battalion's modifiers don't apply. Null/absent: not read. */
+  rattled?: boolean | null;
   /** What it used, most used first, from the game's history (null or absent = not tracked). */
   usage?: Usage[] | null;
   /** Current HP; the rest from the game's record of the battle (null = not tracked). */
@@ -214,7 +231,7 @@ export interface BattleEvent {
 
 /** spell: a staff that changed no HP (Rescue, Ward...); art: a combat art that isn't an attack (Swap, Draw Back...);
  * act: an action the tracker can't identify. */
-export type LogKind = "phase" | "move" | "wait" | "attack" | "defeat" | "fell" | "heal" | "spell" | "item" | "art" | "rally" | "act" | "pulse";
+export type LogKind = "phase" | "move" | "wait" | "attack" | "defeat" | "fell" | "heal" | "spell" | "item" | "art" | "rally" | "gambit" | "act" | "pulse";
 
 /** One line of the action log, like the game's Divine Pulse list. */
 export interface LogEntry {
@@ -262,7 +279,7 @@ export interface Branch {
 
 /** A weapon, spell, combat art, item or Rally a unit used in a battle. */
 export interface Usage {
-  kind: "weapon" | "spell" | "art" | "item" | "rally";
+  kind: "weapon" | "spell" | "art" | "item" | "rally" | "gambit";
   id: number;
   name: string;
   /** Actions it was used in (a weapon's counterattacks too). */
@@ -474,6 +491,7 @@ export interface GameAssetsJob {
 }
 export interface GameFilesStatus {
   available: boolean; version?: string | null; dlc?: string[];
+  error?: string;
   created?: string; files?: number; outdated?: boolean; last_dump?: string | null; job?: GameAssetsJob;
 }
 export interface GameFilesScan {

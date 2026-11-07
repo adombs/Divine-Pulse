@@ -6,6 +6,7 @@ import struct
 from app.gamemem import history as h
 from app.gamemem.battle import BattleFields, BattleUnit
 from app.gamemem.fe3h import GameMemory
+from app.gamemem.recorder import unpack_history
 from app.system.memory import Region
 from app.infrastructure.polling import history_steps
 
@@ -65,6 +66,17 @@ def test_decodes_phase_starts_and_actions():
     assert h.decode_entry(entry(fulls=(full(0, 41, 3, 29),))[:-1], F.hp, F.x, F.y) is None  # cut short
 
 
+def test_decodes_a_gambit():
+    data = bytearray(entry(start=False, action=h.ACTION_GAMBIT, actor=0, target=30, fulls=(full(0, 43, 6, 17),),
+                           compacts=(compact(29, 28, 9, 17), compact(30, 30, 7, 17))))
+    data[h.KIND], data[h.GAMBIT], data[h.MOVED] = h.ACTION_GAMBIT, 1, 1  # (MOVED is the gambit's byte)
+    struct.pack_into("<H", data, h.ITEM, 1103)
+    gambit = decode(bytes(data))
+    assert (gambit.gambit, gambit.target, gambit.item, gambit.moved, gambit.art, gambit.rally) == (1, 30, 1103, False, None, False)
+    assert [u.index for u in gambit.units if u.index is not None] == [29, 30]  # every unit it hit
+    assert decode(entry(start=False, actor=8, moved=True, fulls=(full(22, 33, 1, 27),))).gambit is None
+
+
 def test_pool_start_from_where_units_stand():
     entries = [decode(entry(compacts=(compact(20, 41, 1, 7), compact(30, 30, 9, 15), compact(31, 31, 1, 5))))]
     live = {1020: (1, 7, 41), 1030: (9, 15, 30), 1031: (1, 5, 31), 1050: (4, 4, 20)}
@@ -115,6 +127,14 @@ def test_reads_the_history_in_memory(emulator):  # noqa: F811
     assert start == 500  # unit 20 stands where slot 520 is
     assert memory._arena == ARENA
     assert memory.battle_history(units) == (entries, start)  # (decoded entries are kept)
+    # The battle recorder gets the same entries' bytes, in history order, for actions not decoded yet (gambits).
+    from app.gamemem.battle import pool_window
+
+    low, high = pool_window(list(memory._copies.values()))
+    emulator[7].memory[low] = bytes(high - low)  # a blank pool around the copy, for capture_battle to read
+    raw = unpack_history(memory.capture_battle()["history"])
+    assert [address for address, _ in raw][0] == FIRST and len(raw) == 3
+    assert [h.decode_entry(data, F.hp, F.x, F.y) for _, data in raw] == entries
 
 
 def test_no_history_outside_a_battle(emulator):  # noqa: F811

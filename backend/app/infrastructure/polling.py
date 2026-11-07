@@ -35,6 +35,7 @@ from ..bonuses import BonusTable
 from ..config import DATA_DIR, SettingsStore
 from ..events import EventBus
 from .game_assets import game_assets
+from . import game_tables
 from ..gamemem.battle import FlagWatch
 from ..gamemem.combat import weapon_kind
 from ..gamemem.fe3h import EQUIPPED_WEAPON, GameMemory, GameMemoryError, Snapshot, decode_player_name, decode_roster
@@ -126,6 +127,7 @@ def history_steps(entries: list, start: int | None, keys: dict[int, str], on_map
                 entry.spell,
                 entry.art,
                 entry.rally,
+                entry.gambit,
             )
         )
     return tuple(steps)
@@ -149,6 +151,7 @@ class Scanner:
         self.roster_updates = RosterUpdates(store, partial(handle, bonuses=bonuses))
         self.memory = memory or GameMemory()
         self._game_data: GameData | None = None
+        self._game_generation: tuple | None = None
         # Battle in progress (game memory only): the tracker, finished battles' store, and the last sample seen
         # (a sample is used once two reads in a row agree, like unit updates).
         self.battle_store = battles
@@ -335,6 +338,7 @@ class Scanner:
             self._end_battle()  # the game is gone, so is the battle
             self._publish_status("error", MEMORY_TITLE, message=str(exc))
             return
+        self._data()  # a new import/language must also refresh an otherwise unchanged snapshot
         self._track_battle(snapshot, run_id)
         if self._mem_applied == (run_id, snapshot):
             self._publish_status("watching", MEMORY_TITLE, self._mem_seeing)
@@ -502,6 +506,7 @@ class Scanner:
         benched = {u.character: u for u in pool if u.army and u.off_map and u.character not in records}
         adjutants = {c: by_index.get(u.attached_to) for c, u in benched.items()}
         start_counts = {c: (fights, wins) for c, fights, wins in snapshot.start_counts}
+        gambit_uses = dict(snapshot.gambit_uses)
         army = []
         # Character ID -> unit key, for the game's history: the whole army, since units that fell are no longer in
         # the battle but are still in its history.
@@ -528,7 +533,12 @@ class Scanner:
                 current_personal=stored.personal_ability if stored else None,
                 scenario=snapshot.scenario,
                 in_battle=True,
+                gambit_uses=gambit_uses.get(unit.character),
             )
+            ability = reading.abilities
+            # The battle's values are the unit's own: the battalion's Charm leaves them when its endurance runs out,
+            # which isn't a stat going down (that only happens with a Divine Pulse).
+            own_values = {k: v - (ability.battalion_bonus or {}).get(k, 0) for k, v in reading.values.items()}
             name = stored.name if stored else reading.name_candidates[0]
             record = records.get(unit.character) or benched.get(unit.character)
             items, spells = (record.items, record.spell_uses) if record else ((), ())
@@ -548,7 +558,7 @@ class Scanner:
                     name,
                     reading.class_name or "",
                     unit.level,
-                    dict(reading.values),
+                    own_values,
                     items,
                     spells,
                     hp,
@@ -571,6 +581,15 @@ class Scanner:
                     accessory,
                     accessory_id,
                     look=reading.look if reading.look is not None else stored.look if stored else None,
+                    # An unresolved name keeps the stored assignment; its runtime state isn't attached to it.
+                    battalion=(ability.battalion if ability.battalion is not None
+                               else stored.battalion if stored else None),
+                    battalion_id=(ability.battalion_id if ability.battalion is not None
+                                  else stored.battalion_id if stored else None),
+                    battalion_exp=ability.battalion_exp,
+                    battalion_endurance=ability.battalion_endurance,
+                    gambit_uses=ability.gambit_uses,
+                    rattled=record.rattled if record else None,
                 )
             )
         enemies = []
@@ -679,8 +698,11 @@ class Scanner:
             )
 
     def _data(self) -> GameData:
-        if self._game_data is None:
+        generation = game_tables.generation()
+        if self._game_data is None or generation != self._game_generation:
             self._game_data = GameData.load()
+            self._game_generation = generation
+            self._reset()
         return self._game_data
 
     def _apply_memory(self, snapshot: Snapshot) -> None:
@@ -715,8 +737,10 @@ class Scanner:
                     current_personal=stored.personal_ability if stored else None,
                     scenario=snapshot.scenario,
                     in_battle=bool(snapshot.in_battle),
+                    gambit_uses=uses.get(unit.character),
                 )
 
+        uses = dict(snapshot.gambit_uses)
         result = self.roster_updates.apply(run, readings())
         changes, added, updated = result.changes, result.added, result.updated
         warnings, key_of = result.warnings, result.keys

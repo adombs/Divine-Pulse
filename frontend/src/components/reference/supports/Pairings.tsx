@@ -346,7 +346,7 @@ function PairCard({ row, part2, onOpen }: { row: Row | null; part2: boolean; onO
           (p) =>
             p.charKey && (
               <CharLink key={p.name} charKey={p.charKey}>
-                {p.label} on the Characters page <Icon name={CONCEPT_ICON.go} />
+                {p.label} in the Archive <Icon name={CONCEPT_ICON.go} />
               </CharLink>
             ),
         )}

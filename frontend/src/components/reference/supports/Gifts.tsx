@@ -96,7 +96,7 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
           setKind(k);
           setPicked(null);
         }}
-        options={LABELS.map(([id, label]) => [id, <>{label}<span className="seg-count">{counts[id]}</span></>] as const)}
+        options={LABELS.map(([id, label]) => [id, <span className="filter-label"><Icon name={KIND_ICON[id]} />{label}<span className="seg-count">{counts[id]}</span></span>] as const)}
       />
       <SearchBox placeholder={kind === "meals" ? "Search meals, ingredients or names" : "Search items or names"} value={q} onChange={setQ} />
     </div>
@@ -108,7 +108,7 @@ export function Gifts({ data, people, part2 }: { data: SupportData; people: Pers
       {rows.length === 0 ? <NoMatches what="lost items" onReset={q ? () => setQ("") : undefined} /> :
         <ul className="sup-lost-grid">{rows.map((entry) => <li key={entry.id} className="sup-lost-card">
           <h3>{itemIconUrl(entry.title) ? <RefIcon src={itemIconUrl(entry.title)} /> : <Icon name={CONCEPT_ICON.lostItem} />} {entry.title}</h3>
-          <Faces names={entry.groups.flatMap((group) => group.names)} people={people} part2={part2} size={72} />
+          <Faces names={entry.groups.flatMap((group) => group.names)} people={people} part2={part2} size={40} />
         </li>)}</ul>}
     </div>;
   }

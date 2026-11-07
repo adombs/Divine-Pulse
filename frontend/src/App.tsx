@@ -7,13 +7,17 @@ import { useBootstrap } from "./useBootstrap";
 import { useBattleSync } from "./useBattleSync";
 import { Home } from "./components/Home";
 import { Icon } from "./components/Icon";
+import { Sidebar } from "./components/Sidebar";
+import "./components/sidebar-motion.css";
 import { Toasts, useToasts } from "./components/Toasts";
 import { RunIcon, runIconUrl } from "./components/ui";
 import { useAppearance } from "./appearance";
 import { showPart2 } from "./portraits";
 import { NavProvider, Page, useNavState } from "./nav";
 import { PeopleFiltersContext, usePeopleFiltersState } from "./filters";
-import { gameAssetsAvailable, gameAssetUrl, loadGameAssetsStatus, onGameAssetsChange, preferGameAsset } from "./gameAssets";
+import { gameAssetsAvailable, gameAssetUrl, loadGameAssetsStatus, onGameAssetsChange } from "./gameAssets";
+import { GameAssetAlert } from "./components/GameAssetAlert";
+import { reportAssetIssue } from "./requiredAssets";
 import { GameFilesGate } from "./components/GameFilesGate";
 import { loadPortraitIndex } from "./portraits";
 import { loadGameLanguage, onGameLanguageChange } from "./gameLanguage";
@@ -26,8 +30,7 @@ const Dashboard = lazy(() => import("./components/Dashboard").then((module) => (
 const Runs = lazy(() => import("./components/Runs").then((module) => ({ default: module.Runs })));
 const SettingsPage = lazy(() => import("./components/SettingsPage").then((module) => ({ default: module.SettingsPage })));
 const HistoryPage = lazy(() => import("./components/HistoryPage").then((module) => ({ default: module.HistoryPage })));
-const CharactersPage = lazy(() => import("./components/reference/CharactersPage").then((module) => ({ default: module.CharactersPage })));
-const ClassesPage = lazy(() => import("./components/reference/ClassesPage").then((module) => ({ default: module.ClassesPage })));
+const ArchivePage = lazy(() => import("./components/reference/ArchivePage").then((module) => ({ default: module.ArchivePage })));
 const SupportsPage = lazy(() => import("./components/reference/SupportsPage").then((module) => ({ default: module.SupportsPage })));
 
 /** Units whose loss ends the battle in defeat (as CRITICAL in backend/app/domain/battle.py). */
@@ -38,7 +41,6 @@ const PAGES: { id: Page; label: string }[] = [
   { id: "roster", label: "Roster" },
   { id: "battle", label: "Battle" },
   { id: "history", label: "History" },
-  { id: "characters", label: "Characters" },
   { id: "archive", label: "Archive" },
   { id: "supports", label: "Supports" },
   { id: "runs", label: "Runs" },
@@ -62,6 +64,7 @@ export default function App() {
   const [assetsVersion, setAssetsVersion] = useState(0);
   const [assetsAvailable, setAssetsAvailable] = useState<boolean | null>(null);
   const [indexesReady, setIndexesReady] = useState(false);
+  const [indexError, setIndexError] = useState<string | null>(null);
   useEffect(() => {
     let live = true;
     const unsubscribe = onGameAssetsChange((status) => { setAssetsVersion((v) => v + 1); setAssetsAvailable(status.available); });
@@ -76,14 +79,17 @@ export default function App() {
     const load = () => {
       const current = ++generation;
       setIndexesReady(false);
+      setIndexError(null);
       if (!gameAssetsAvailable()) return;
-      void Promise.all([loadPortraitIndex(), loadReferenceIcons(), loadBattleIndexes(), loadScenarioText()]).then(() => { if (current === generation) setIndexesReady(true); });
+      void Promise.all([loadPortraitIndex(), loadReferenceIcons(), loadBattleIndexes(), loadScenarioText()])
+        .then(() => { if (current === generation) setIndexesReady(true); })
+        .catch((error: unknown) => { if (current === generation) setIndexError(error instanceof Error ? error.message : String(error)); });
     };
     const offAssets = onGameAssetsChange(load);
     const offLanguage = onGameLanguageChange(load);
     void loadGameAssetsStatus().then(async (status) => {
       if (status.available) { await loadGameLanguage(); load(); }
-    });
+    }).catch((error: unknown) => setIndexError(error instanceof Error ? error.message : String(error)));
     return () => { generation++; offAssets(); offLanguage(); };
   }, []);
   useEffect(() => {
@@ -95,6 +101,7 @@ export default function App() {
       const url = gameAssetUrl(`images/map/minimap-pieces/${name}.png`);
       const image = new Image();
       image.onload = () => { if (live) document.documentElement.style.setProperty(property, `url("${url}")`); };
+      image.onerror = () => { if (live) reportAssetIssue(`images/map/minimap-pieces/${name}.png`, "unreadable"); };
       image.src = url;
     }
     return () => { live = false; };
@@ -289,11 +296,10 @@ export default function App() {
   useEffect(() => {
     const icon = document.querySelector<HTMLLinkElement>('link[rel="icon"]');
     if (!icon) return;
-    icon.dataset.fallback ??= icon.href;
     const bundled = runIconUrl(iconRoute);
-    const candidate = bundled ? preferGameAsset(bundled) : null;
-    icon.onerror = () => { icon.onerror = null; icon.href = icon.dataset.fallback!; };
-    icon.href = candidate ?? icon.dataset.fallback;
+    if (!bundled || !gameAssetsAvailable()) return;
+    icon.onerror = () => { icon.onerror = null; icon.removeAttribute("href"); reportAssetIssue(bundled, "unreadable"); };
+    icon.href = gameAssetUrl(bundled);
   }, [iconRoute, assetsVersion]);
 
   // The app opens on Home, asking for a run to load. Preserve an explicitly addressed
@@ -351,19 +357,19 @@ export default function App() {
 
   if (assetsAvailable === null) return null;
   if (!assetsAvailable) return <GameFilesGate toasts={toasts} />;
-  if (!indexesReady) return null;
+  if (!indexesReady) return indexError ? <><div className="startup-error" role="alert">Game files could not be loaded: {indexError}</div><GameFilesGate toasts={toasts} /></> : <main className="game-files-gate"><p role="status">Loading game files…</p></main>;
   if (wasGated.current) return null;
 
   return (
     <NavProvider nav={nav}>
     <PeopleFiltersContext.Provider value={peopleFilters}>
     <div className="app nav-collapsed">
-      <aside className="sidebar">
+      <Sidebar>
         <div className="side-banner" title={activeRun?.name ?? "Divine Pulse"}>
           <RunIcon route={activeRun?.route} />
           <span className="banner-title">{activeRun?.name ?? "Divine Pulse"}</span>
         </div>
-        <nav className="side-tabs" aria-label="Pages">
+        <nav id="sidebar-pages" className="side-tabs" aria-label="Pages">
           {pages.map((p) => (
             <button
               key={p.id}
@@ -392,10 +398,11 @@ export default function App() {
             <span className="status-text">{status}</span>
           </div>
         </div>
-      </aside>
+      </Sidebar>
 
       <main className="sheet">
-        <ErrorBoundary resetKey={`${page}/${routeId ?? ""}`}>
+        <GameAssetAlert onGameFiles={() => nav.go({ page: "settings", tab: "game-files" })} />
+        <ErrorBoundary resetKey={`${page}/${routeId ?? ""}/${assetsVersion}`}>
         {bootstrap.startup.error && (
           <div className="startup-error" role="alert">
             <span>Couldn't start the tracker: {bootstrap.startup.error}</span>
@@ -446,8 +453,7 @@ export default function App() {
                 onOpenRecording={openRecording}
               />
             )}
-            {page === "characters" && <CharactersPage units={units} part2={showPart2(appearance.appearance.portraits, units)} />}
-            {page === "archive" && <ClassesPage units={units} part2={showPart2(appearance.appearance.portraits, units)} />}
+            {page === "archive" && <ArchivePage units={units} part2={showPart2(appearance.appearance.portraits, units)} />}
             {page === "supports" && <SupportsPage units={units} part2={showPart2(appearance.appearance.portraits, units)} />}
             {loaded && page === "runs" && <Runs runs={runs} activeRunId={activeRunId} onActivate={switchRun} toasts={toasts} entries={scans} onUndo={undo} />}
             {page === "settings" && (

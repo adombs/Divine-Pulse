@@ -15,7 +15,7 @@ assert SPEC is not None and SPEC.loader is not None
 game_content = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(game_content)
 
-SKIP_DIRS = {".git", "node_modules", ".venv", "game-assets", "build", "release", "dist", "__pycache__"}
+SKIP_DIRS = {".git", "node_modules", ".venv", "game-assets", "game-dump", "build", "release", "dist", "__pycache__"}
 
 
 def tracked_files() -> list[str]:
@@ -47,6 +47,9 @@ def test_pyinstaller_spec_bundles_only_the_web_ui_and_app_data() -> None:
 
 
 @pytest.mark.parametrize("path", [
+    "game-dump/extraction.json",
+    "game-assets/manifest.json",
+    "Game-Dump/notes.txt",
     "frontend/src/portrait.png",
     "backend/app/data/face.JPG",
     "docs/shot.webp",
@@ -148,3 +151,9 @@ def test_zip_check_names_game_content_and_missing_licenses(tmp_path: Path) -> No
     assert any("backend/app/data/x.g1t" in line for line in found)
     assert any("missing GFDL-1.3.txt" in line for line in found)
     assert any(f"missing {game_content.LICENSE_FOLDER}" in line for line in found)
+
+
+def test_zip_check_rejects_private_dump_metadata(tmp_path: Path) -> None:
+    names = [*LICENSES, LICENSE_TEXT, "Divine Pulse/game-dump/extraction.json"]
+    found = game_content.check_zip(make_zip(tmp_path / "dump.zip", names))
+    assert found == ["game-dump/extraction.json: private game dump or import directory"]

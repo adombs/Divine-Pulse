@@ -1,6 +1,9 @@
 # Runtime data (runs, battles, settings, log)
 /data/
 
+# Local coding-agent instructions
+/AGENTS.md
+
 # Python
 __pycache__/
 *.pyc
@@ -20,6 +23,7 @@ frontend/dist/
 /game-assets/
 
 # Game dumps, console keys and files read from them
+/game-dump/
 romfs/
 exefs/
 DATA0.bin

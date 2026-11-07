@@ -3,7 +3,73 @@
  * what Divine Pulse undid. Pure functions over the battle and its timeline (model.ts), like the rest of the page.
  */
 import type { Battle } from "../../api";
-import { armyId, Item, mergeHits, tally } from "./model";
+import { armyId, armyTotals, battleUnitStats, Item, mergeHits, statGains, tally } from "./model";
+
+/** All existing Awards, shared by the battle cards and run table. Order is also the table's column order. */
+export const AWARDS = [
+  { key: "mvp", label: "MVPs", title: "MVP", group: "Offense", icon: "defeat" },
+  { key: "close", label: "Closest Calls", title: "Closest Call", group: "Defense", icon: "lowHp" },
+  { key: "medic", label: "Field Medics", title: "Field Medic", group: "Support & Movement", icon: "heal" },
+  { key: "carry", label: "Carried the Team", title: "Carried the Team", group: "Offense", icon: "carry" },
+  { key: "hit", label: "Heaviest Blows", title: "Heaviest Blow", group: "Offense", icon: "attack" },
+  { key: "rampage", label: "Rampages", title: "Rampage", group: "Offense", icon: "enemies" },
+  { key: "one", label: "One and Done", title: "One and Done", group: "Offense", icon: "end" },
+  { key: "fighter", label: "Weapon Masters", title: "Weapon Master", group: "Offense", icon: "attack" },
+  { key: "caster", label: "Spellslingers", title: "Spellslinger", group: "Offense", icon: "spell" },
+  { key: "signature", label: "Signature Moves", title: "Signature Move", group: "Offense", icon: "art" },
+  { key: "ouch", label: "Ouch", title: "Ouch", group: "Defense", icon: "danger" },
+  { key: "wanted", label: "Most Wanted", title: "Most Wanted", group: "Defense", icon: "target" },
+  { key: "untouchable", label: "Untouchables", title: "Untouchable", group: "Defense", icon: "avoid" },
+  { key: "payback", label: "Paybacks", title: "Payback", group: "Defense", icon: "counter" },
+  { key: "sponge", label: "Damage Sponges", title: "Damage Sponge", group: "Defense", icon: "absorb" },
+  { key: "grew", label: "Glow-ups", title: "Glow-up", group: "Support & Movement", icon: "levelUp" },
+  { key: "walker", label: "Marathons", title: "Marathon", group: "Support & Movement", icon: "move" },
+  { key: "bench", label: "Bench Warmers", title: "Bench Warmer", group: "Support & Movement", icon: "wait" },
+  { key: "first", label: "First Bloods", title: "First Blood", group: "Turning Points", icon: "start" },
+  { key: "last", label: "Final Blows", title: "Final Blow", group: "Turning Points", icon: "finalBlow" },
+  { key: "saved", label: "Didn't Happen", title: "Didn't Happen", group: "Turning Points", icon: "pulse", battleWide: true },
+  { key: "redo", label: "Do-overs", title: "Do-over", group: "Turning Points", icon: "pulse", battleWide: true },
+] as const;
+export type AwardKey = typeof AWARDS[number]["key"];
+export interface BattleAward { key: AwardKey; id: string | null; value: number | string }
+
+/** Canonical selection, including the original thresholds and first-observed tie rules. No undone log enters it. */
+export function battleAwards(battle: Battle, items: Item[], s = moreStats(battle, items)): BattleAward[] {
+  const out: BattleAward[] = [];
+  const put = (key: AwardKey, r: UnitRecord | null) => { if (r) out.push({ key, id: r.id, value: r.value }); };
+  const top = (pick: (u: Battle["units"][number]) => number) => {
+    let best: Battle["units"][number] | undefined;
+    for (const u of battle.units) if (pick(u) > 0 && (!best || pick(u) > pick(best))) best = u;
+    return best;
+  };
+  put("mvp", s.mvp);
+  put("carry", s.carry && s.carry.value >= 0.3 ? { ...s.carry, value: Math.round(s.carry.value * 100) } : null);
+  if (s.biggestHit) out.push({ key: "hit", id: s.biggestHit.by, value: s.biggestHit.amount });
+  put("rampage", s.rampage);
+  put("one", s.oneRound);
+  for (const [key, pick] of [
+    ["fighter", (u) => u.weapon_uses ?? 0], ["caster", (u) => u.spells_cast ?? 0],
+    ["sponge", (u) => u.damage_taken ?? 0], ["medic", (u) => u.healing_given ?? 0],
+    ["walker", (u) => u.tiles_moved ?? 0], ["grew", (u) => u.level_ups * 100 + statGains(u)],
+  ] as [AwardKey, (u: Battle["units"][number]) => number][]) {
+    const u = top(pick);
+    if (u) out.push({ key, id: armyId(u.key), value: key === "grew" ? `+${statGains(u)}` : pick(u) });
+  }
+  let signature: BattleAward | null = null;
+  for (const u of battle.units) for (const m of u.usage ?? [])
+    if ((m.kind === "art" || m.kind === "spell") && m.times > Number(signature?.value ?? 0)) signature = { key: "signature", id: armyId(u.key), value: m.times };
+  if (signature) out.push(signature);
+  put("close", s.closestCall);
+  if (s.biggestTaken) out.push({ key: "ouch", id: s.biggestTaken.on, value: s.biggestTaken.amount });
+  put("wanted", s.mostWanted);
+  put("untouchable", s.untouchable);
+  put("payback", s.counters);
+  if (s.bench) out.push({ key: "bench", id: s.bench.id, value: 0 });
+  for (const [key, r] of [["first", s.firstBlood], ["last", s.lastBlow]] as const)
+    if (r) out.push({ key, id: r.id, value: r.turn ? `T${r.turn}` : "—" });
+  if (s.pulses) out.push({ key: s.pulses.falls.length ? "saved" : "redo", id: null, value: s.pulses.uses });
+  return out;
+}
 
 /** One hit: who dealt it to whom, and when. */
 export interface Blow {
@@ -29,7 +95,8 @@ export interface PulseStats {
 }
 
 export interface MoreStats {
-  fights: number;
+  fights: number | null;
+  mvp: UnitRecord | null;
   biggestHit: Blow | null;
   biggestTaken: Blow | null;
   /** Lowest HP one of your units got down to without falling, at half HP or less (needs the history's map steps). */
@@ -63,6 +130,8 @@ export interface MoreStats {
 
 export interface UnitRow {
   id: string;
+  /** Nullable source metrics for labels/tables; numeric fields below are chart coordinates only. */
+  metrics: ReturnType<typeof battleUnitStats>;
   dealt: number;
   taken: number;
   healing: number;
@@ -198,6 +267,7 @@ export function benchWarmer(battle: Battle, items: Item[]): UnitRecord | null {
 }
 
 export function moreStats(battle: Battle, items: Item[]): MoreStats {
+  items = items.filter((i) => i.branch === 0);
   const isFoe = foes(battle);
   const attacks = items.filter((i) => i.kind === "attack");
   const hit = blows(items, isFoe);
@@ -208,7 +278,7 @@ export function moreStats(battle: Battle, items: Item[]): MoreStats {
   for (const i of attacks) {
     if (!isFoe(i.actor) || !isArmy(i.target)) continue;
     bump(targeted, i.target);
-    if (!i.dealt) bump(clean, i.target);
+    if (i.dealt === 0) bump(clean, i.target);
     if (i.taken) bump(counters, i.target, i.taken);
   }
   const untouched = best(clean, 3);
@@ -217,11 +287,14 @@ export function moreStats(battle: Battle, items: Item[]): MoreStats {
   const blood = (i: Item | undefined) => (i ? { id: i.actor!, value: 1, turn: i.turn, target: i.target! } : null);
 
   const dealtBy = battle.units.filter((u) => (u.damage_dealt ?? 0) > 0);
-  const total = dealtBy.reduce((n, u) => n + (u.damage_dealt ?? 0), 0);
+  const total = armyTotals(battle).dealt;
   const top = [...dealtBy].sort((a, b) => (b.damage_dealt ?? 0) - (a.damage_dealt ?? 0))[0];
+  const rows = unitRows(battle, items);
+  const kills = new Map(rows.filter((r) => r.metrics.defeats !== null).map((r) => [r.id, r.metrics.defeats!]));
 
   return {
-    fights: attacks.length,
+    fights: armyTotals(battle).fights,
+    mvp: kills.size === rows.length ? best(kills) : null,
     biggestHit: hit.dealt,
     biggestTaken: hit.taken,
     closestCall: closestCall(battle),
@@ -233,26 +306,27 @@ export function moreStats(battle: Battle, items: Item[]): MoreStats {
     firstBlood: blood(defeats[0]),
     lastBlow: battle.active || defeats.length < 2 ? null : blood(defeats[defeats.length - 1]),
     bench: benchWarmer(battle, items),
-    carry: dealtBy.length >= 2 && top ? { id: armyId(top.key), value: (top.damage_dealt ?? 0) / total } : null,
+    carry: dealtBy.length >= 2 && top && total ? { id: armyId(top.key), value: (top.damage_dealt ?? 0) / total } : null,
     pulses: pulseStats(battle),
     perTurn: perTurn(items, isFoe, battle.turn),
     activity: activity(items, battle.turn),
     board: board(battle, isFoe),
-    units: unitRows(battle, items),
+    units: rows,
   };
 }
 
-function unitRows(battle: Battle, items: Item[]): UnitRow[] {
+export function unitRows(battle: Battle, items: Item[]): UnitRow[] {
   const lows = new Map<string, number>();
   for (const s of battle.map_steps ?? []) {
     for (const [id, [, , hp]] of Object.entries(s.units)) if (isArmy(id) && hp > 0 && hp < (lows.get(id) ?? Infinity)) lows.set(id, hp);
   }
   return battle.units
-    .filter((u) => !u.adjutant_of)
     .map((u) => {
       const id = armyId(u.key);
+      const metrics = battleUnitStats(battle, u, items);
       return {
         id,
+        metrics,
         dealt: u.damage_dealt ?? 0,
         taken: u.damage_taken ?? 0,
         healing: u.healing_given ?? 0,
@@ -261,8 +335,8 @@ function unitRows(battle: Battle, items: Item[]): UnitRow[] {
         weapons: u.weapon_uses,
         spells: u.spells_cast,
         items: u.item_uses,
-        defeats: u.defeats ?? 0,
-        fights: tally(items, id, { fights: u.combats, defeats: u.defeats }).fights,
+        defeats: metrics.defeats ?? 0,
+        fights: metrics.fights ?? 0,
         low: lows.get(id) ?? null,
         max: u.now.hp || u.start.hp,
       };

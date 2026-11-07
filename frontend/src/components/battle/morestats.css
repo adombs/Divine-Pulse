@@ -1,34 +1,40 @@
-/* More Stats: records and chart groups stay within the battle view on wide screens. */
-.battle-page .ms-part { min-height: 0; overflow: hidden; }
-.battle-page .ms-grid.auto { flex: 1 1 auto; display: grid; grid-template-columns: repeat(auto-fill, minmax(21rem, 1fr)); grid-auto-rows: minmax(0, 1fr); gap: 0.6rem 1rem; }
-.battle-page .ms-grid.auto.totals { grid-template-columns: minmax(0, 1fr) minmax(14rem, 0.42fr); grid-template-rows: minmax(0, 1fr); }
-.battle-page .ms-grid.auto.totals > .block { min-width: 0; min-height: 0; }
-.battle-page .ms-grid.auto.charts { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-template-rows: repeat(2, minmax(0, 1fr)); }
-.battle-page .ms-grid.auto.charts .ms-fill { overflow: auto; overflow-x: hidden; scrollbar-width: thin; }
-.battle-page .ms-grid.auto.charts .hbar-row, .battle-page .ms-grid.auto.charts .mirror-row { min-height: 1rem; }
-.battle-page .ms-grid.auto.charts .chart-legend { flex: none; flex-wrap: wrap; margin-bottom: 0.3rem; font-size: 0.72rem; }
-.battle-page .ms-record-carousel { height: 100%; min-width: 0; }
-.battle-page .ms-record-carousel .award-track, .battle-page .ms-record-carousel .award-grid { height: 100%; }
-.battle-page .ms-record-carousel .award-grid { gap: 0.5rem; }
-.battle-page .ms-record-column { flex: 0 0 min(16rem, 78%); min-width: 0; height: 100%; list-style: none; }
-.battle-page .ms-record-stack { display: grid; grid-template-rows: repeat(3, minmax(0, 1fr)); gap: 0.4rem; height: 100%; }
-.battle-page .ms-record-stack .record { min-height: 0; padding: 0.35rem 0.55rem; gap: 0.08rem; }
-.battle-page .ms-record-stack .record-title { font-size: 0.66rem; }
-.battle-page .ms-record-stack .record-value { font-size: 1.5rem; color: var(--ink); }
-.battle-page .compare-table tbody td:nth-child(2) { color: var(--ink); font-weight: 700; font-variant-numeric: tabular-nums; }
-.battle-page .compare-table tbody td:nth-child(3) { color: var(--ink-soft); font-variant-numeric: tabular-nums; }
-.battle-page .ms-record-stack .record-value small { font-size: 0.75rem; }
-.battle-page .ms-record-stack .record-who { font-size: 0.82rem; line-height: 1.1; }
-.battle-page .ms-group-tabs { flex: none; margin: -0.3rem 0 0.45rem; }
-
-@media (max-width: 1250px) {
-  .battle-page .more-stats { height: auto; }
-  .battle-page .ms-part { display: block; overflow: visible; }
-  .battle-page .ms-grid.auto.charts { grid-template-columns: repeat(auto-fit, minmax(min(100%, 21rem), 1fr)); grid-template-rows: none; grid-auto-rows: minmax(14rem, auto); }
-  .battle-page .ms-grid.auto.charts > .block { margin-bottom: 0.8rem; }
+/* More Stats (MoreStatsTab.tsx): the toolbar on top, the picked part filling the rest of the battle view. The view
+   itself never scrolls on desktop; a panel with more than fits scrolls inside itself. Records: records.css; Graphs:
+   graphs.css. */
+.battle-page .more-stats { display: flex; flex-direction: column; height: 100%; min-height: 0; }
+.battle-page .ms-toolbar {
+  flex: none; display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 0.4rem 1rem;
+  margin: 0 0 0.65rem; border-bottom: 1px solid var(--line);
 }
+.battle-page .ms-toolbar .sub-tabs { margin: 0; border-bottom: 0; }
+.battle-page .ms-toolbar .ms-topics { margin: 0 0 0.35rem; flex-wrap: nowrap; border-radius: 4px; overflow: hidden; }
+.battle-page .ms-toolbar .ms-topics button { padding: 0.15rem 0.75rem; font-size: 0.95rem; white-space: nowrap; }
+.battle-page .ms-toolbar [role="tab"]:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.battle-page .ms-part { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; overflow: hidden; }
 
-@media (max-width: 800px) {
-  .battle-page .ms-grid.auto.totals { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(14rem, 1fr) auto; }
-  .battle-page .ms-grid.auto.totals > .block:last-child { min-height: 10rem; }
+/* A panel: a quiet frame with its title, used by the standouts, the comparison and every chart. */
+.battle-page .ms-panel {
+  display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 0.55rem 0.75rem 0.65rem;
+  border: 1px solid var(--line); border-radius: 6px;
+  background: color-mix(in srgb, var(--row) 45%, transparent);
+}
+.battle-page .ms-panel-head { flex: none; display: flex; align-items: baseline; justify-content: space-between; gap: 0.3rem 1rem; flex-wrap: wrap; margin: 0 0 0.5rem; }
+.battle-page .ms-panel-head h3 { margin: 0; font: 600 1.12rem var(--display); color: var(--ink); letter-spacing: 0.01em; }
+.battle-page .ms-panel-hint { font: 0.8rem var(--ui); color: var(--ink-soft); }
+.battle-page .more-stats .muted { color: var(--ink-soft); }
+
+/* Medium widths: the battle page normally flows here, but More Stats still fits the window. */
+@media (min-width: 761px) and (max-width: 1250px) {
+  .battle-page.fit:has(> .battle-body.view-more) { height: 100%; }
+  .battle-body.view-more { overflow: hidden; }
+  .battle-page .ms-part { display: flex; }
+}
+/* Phones: the app still fits the screen while More Stats is shown; the part scrolls inside itself, one column. */
+@media (max-width: 760px) {
+  .app:has(.battle-body.view-more) { height: 100vh; height: 100dvh; }
+  .app:has(.battle-body.view-more) > .sheet { overflow: hidden; display: flex; flex-direction: column; }
+  .battle-page.fit:has(> .battle-body.view-more) { flex: 1 1 auto; height: auto; min-height: 0; }
+  .battle-body.view-more { overflow: hidden; }
+  .battle-page .ms-part { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .battle-page .ms-part > * { flex: none; }
 }

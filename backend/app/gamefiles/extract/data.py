@@ -48,6 +48,7 @@ CLASS, CLASS_DESCRIPTION, ITEM, ITEM_DESCRIPTION = 3453, 3554, 3656, 3856
 WEAPON, WEAPON_DESCRIPTION, EQUIPMENT = 3746, 4246, 4556
 ART, ART_DESCRIPTION, ABILITY, ABILITY_DESCRIPTION = 6014, 6314, 7236, 7536
 SPELL, SPELL_DESCRIPTION, BATTALION, BATTALION_DESCRIPTION = 7836, 8136, 9096, 9297
+GAMBIT, GAMBIT_DESCRIPTION = 6614, 6914
 FACTION, CREST_MAJOR, CREST_MINOR, GIFT = 9498, 9590, 9612, 10142  # 10147 in the NUL-split pool, 5 less by string index
 FACTIONS = 23
 CRESTS = 22
@@ -369,13 +370,70 @@ def abilities(rows: list[bytes], text: Text) -> list[dict]:
     return out
 
 
-def battalions(rows: list[bytes], text: Text) -> list[dict]:
-    """Battalion names, descriptions and endurance for reference pages."""
-    return [
-        {"id": n, "name": text(BATTALION + n), "description": text(BATTALION_DESCRIPTION + n),
-         "endurance": u16(row, 6)}
-        for n, row in enumerate(rows)
-    ]
+# Gambit areas. fixed_data s8 +0x0A is the area shape, which the game's area builder (main+0x41E4E0) turns into tiles
+# around the user and the target; the gambit panel's preview (main+0x5D3EE0) puts the target one tile ahead of the user
+# for the facing shapes, and centres shapes 1 and 5 on the user when s3 +0x04 is a support effect, else on the target.
+# Tiles are (dx, dy) from the user's tile, dy < 0 ahead. Shapes 4, 9-11 and 14 are not used by gambits and not mapped.
+SUPPORT_GAMBIT_EFFECTS = frozenset({1, 2, 4, 7, 8, 9, 11, 12, 14, 15, 17, 18})  # preview mask 0x2DB96, plus 0x12
+FACING_SHAPES = {
+    2: [(dx, -1) for dx in range(-2, 3)] + [(dx, -2) for dx in range(-1, 2)] + [(0, -3)],  # 5-3-1 triangle
+    3: [(0, -1), (0, -2)],  # the target and the tile behind it
+    6: [(0, -k) for k in range(1, 5)],
+    7: [(dx, -1) for dx in range(-1, 2)],
+    8: [(dx, dy) for dy in (-1, -2) for dx in range(-2, 3)],
+    12: [(dx, dy) for dy in (-1, -2) for dx in range(-1, 2)],
+    13: [(0, -k) for k in range(1, 4)],
+}
+RADIUS_SHAPES = {1: 1, 5: 2}  # the tiles within this many steps of the centre
+
+
+def gambit_area(shape: int, effect: int, min_range: int) -> dict | None:
+    """The tiles a gambit's area covers, the user at (0, 0) facing up, or None for a shape that isn't mapped.
+
+    A shape centred on the user leaves out the user's tile (the game doesn't list it); one centred on an enemy target
+    puts the target at the gambit's minimum range straight ahead, counts the target's tile and names it in "target".
+    """
+    if shape in FACING_SHAPES:
+        return {"cells": [list(cell) for cell in FACING_SHAPES[shape]], "direction": "forward"}
+    if shape not in RADIUS_SHAPES:
+        return None
+    radius = RADIUS_SHAPES[shape]
+    on_user = effect in SUPPORT_GAMBIT_EFFECTS
+    cy = 0 if on_user else -max(min_range, 1)
+    cells = [[dx, cy + dy] for dy in range(-radius, radius + 1) for dx in range(-radius, radius + 1)
+             if abs(dx) + abs(dy) <= radius and not (on_user and dx == dy == 0)]
+    return {"cells": cells} if on_user else {"cells": cells, "target": [0, cy]}
+
+
+def battalions(rows: list[bytes], text: Text, gambits: Sequence[bytes] = (),
+               targets: Sequence[bytes] = ()) -> list[dict]:
+    """Reference values from fixed_data sections 11, 3 and 8, indexed by their game IDs; gambit_area adds the area."""
+    # Row fields: https://github.com/three-houses-research-team/010-binary-templates/blob/master/ItemData.bt
+    # Growth is in tenths per level; the accumulated growth is rounded down, not each level's gain.
+    offsets = {"phys_atk": 10, "mag_atk": 8, "hit": 11, "crit": 12,
+               "avo": 13, "prt": 15, "rsl": 16, "cha": 36}
+    growth_offsets = {"phys_atk": 19, "mag_atk": 9, "hit": 20, "crit": 21,
+                      "avo": 22, "prt": 24, "rsl": 25}
+    result = []
+    for n, row in enumerate(rows):
+        record = {"id": n, "name": text(BATTALION + n), "description": text(BATTALION_DESCRIPTION + n),
+                  "endurance": u16(row, 6), "stats": {key: signed(row[at]) for key, at in offsets.items()}}
+        record["stats_by_level"] = [
+            {key: value + row[growth_offsets[key]] * (level - 1) // 10 if key in growth_offsets else value
+             for key, value in record["stats"].items()}
+            for level in range(1, 6)
+        ]
+        ident = row[39]
+        if ident < len(gambits) and ident < len(targets) and text(GAMBIT + ident):
+            attack, target = gambits[ident], targets[ident]
+            record["gambit"] = {"id": ident, "name": text(GAMBIT + ident),
+                                "description": text(GAMBIT_DESCRIPTION + ident), "uses": target[7],
+                                "might": attack[16], "hit": attack[17], "range": [attack[10], attack[7]]}
+            area = gambit_area(target[10], attack[4], attack[10])
+            if area:
+                record["gambit"]["area"] = area
+        result.append(record)
+    return result
 
 
 def ranks(rows: list[bytes]) -> list[dict]:
@@ -526,8 +584,16 @@ def extract(ctx: Context) -> None:
         write(ctx, "items", {"items": recs}, f"{src} section 6")
         recs = combat_arts(section(fixed, 7), text)
         write(ctx, "combat-arts", {"combat_arts": recs}, f"{src} section 7")
-        recs = battalions(section(fixed, 11), text)
-        write(ctx, "battalions", {"battalions": recs}, f"{src} section 11")
+        recs = battalions(section(fixed, 11), text, section(fixed, 3), section(fixed, 8))
+        for rec in recs:
+            icon = f"images/icons/battalions/{rec['id']}.png"
+            if icon in ctx.out.files:
+                rec["icon"] = icon
+            gambit = rec.get("gambit")
+            icon = gambit and f"images/icons/gambits/{gambit['id']}.png"
+            if icon and icon in ctx.out.files:
+                gambit["icon"] = icon
+        write(ctx, "battalions", {"battalions": recs}, f"{src} sections 3, 8, 11")
     if skill:
         recs = abilities(section(skill, 0), text)
         write(ctx, "abilities", {"abilities": recs}, "fixed_skill.bin section 0")

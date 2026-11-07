@@ -1,12 +1,16 @@
 /**
  * The records carousel (History's Records, the Battle page's records): cards in one row that scroll on their own,
  * without end, when they don't all fit; drag, the wheel, the arrows and the arrow keys move it. Each row is an `<li>`
- * holding one focusable element (the copy that closes the loop takes them out of the tab order).
+ * holding one focusable element (the copy that closes the loop takes them out of the tab order). The controls sit
+ * beside the cards, never over them, with a pause button for the motion; reduced motion never scrolls on its own.
  */
 import { ReactNode, useEffect, useLayoutEffect, useRef, useState } from "react";
+import { CONCEPT_ICON } from "../../icons/concepts";
+import { Icon } from "../Icon";
+import "./carousel.css";
 
-// Battle records stack several cards in one column; the spaces between them are not hover targets.
-const HOVER_TARGET = ".award-grid > li:not(.ms-record-column), .ms-record-stack > *, .award-arrow";
+// Hovering a card or the controls holds the carousel still.
+const HOVER_TARGET = ".award-grid > li, .award-controls";
 
 /** One complete copy beyond the visible records lets the last slide join seamlessly to the first. */
 export function Carousel({ rows, label = "records" }: { rows: ReactNode[]; label?: string }) {
@@ -21,6 +25,7 @@ export function Carousel({ rows, label = "records" }: { rows: ReactNode[]; label
   const [reduced, setReduced] = useState(() => window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   const [hovered, setHovered] = useState(false);
   const [focused, setFocused] = useState(false);
+  const [paused, setPaused] = useState(false);
   const render = () => {
     if (track.current) track.current.style.transform = `translateX(${-offset.current}px)`;
   };
@@ -32,7 +37,7 @@ export function Carousel({ rows, label = "records" }: { rows: ReactNode[]; label
     const card = target instanceof Element ? target.closest(HOVER_TARGET) : null;
     // Inert loop copies do not receive pointer events; test their card bounds instead.
     const copy = el && x !== undefined && y !== undefined && target instanceof Node && el.contains(target)
-      && Array.from(el.querySelectorAll(".award-copy > li:not(.ms-record-column), .award-copy .ms-record-stack > *")).some((item) => {
+      && Array.from(el.querySelectorAll(".award-copy > li")).some((item) => {
         const rect = item.getBoundingClientRect();
         return x >= rect.left && x < rect.right && y >= rect.top && y < rect.bottom;
       });
@@ -77,7 +82,7 @@ export function Carousel({ rows, label = "records" }: { rows: ReactNode[]; label
     render();
   }, [size.overflow, size.cycle]);
   useEffect(() => {
-    if (!size.overflow || !size.cycle || reduced) return;
+    if (!size.overflow || !size.cycle || reduced || paused) return;
     let frame = 0;
     const tick = (now: number) => {
       if (lastFrame.current !== null && !hovered && !focused && !drag.current) {
@@ -93,12 +98,12 @@ export function Carousel({ rows, label = "records" }: { rows: ReactNode[]; label
       cancelAnimationFrame(frame);
       lastFrame.current = null;
     };
-  }, [size.overflow, size.cycle, reduced, hovered, focused]);
+  }, [size.overflow, size.cycle, reduced, paused, hovered, focused]);
 
   const beginDrag = (event: React.PointerEvent<HTMLDivElement>) => {
     // Mouse clicks must not leave a focused card or arrow holding the animation paused.
     setFocused(false);
-    if (!size.overflow || event.button !== 0 || (event.target as HTMLElement).closest(".award-arrow")) return;
+    if (!size.overflow || event.button !== 0 || (event.target as HTMLElement).closest(".award-controls")) return;
     drag.current = { x: event.clientX, offset: offset.current, moved: false, pointerId: event.pointerId };
   };
   const dragMove = (event: React.PointerEvent<HTMLDivElement>) => {
@@ -149,7 +154,8 @@ export function Carousel({ rows, label = "records" }: { rows: ReactNode[]; label
   }, [size.overflow, size.cycle]);
 
   return (
-    <div className={`award-carousel ${size.overflow && !reduced ? "looping" : ""}`} ref={viewport}
+    <div className={`award-carousel${size.overflow ? " overflowing" : ""}${size.overflow && !reduced && !paused ? " looping" : ""}`} ref={viewport}
+      role="region" aria-roledescription="carousel" aria-label={label}
       onPointerOver={(event) => { if (event.pointerType !== "touch") hoverTarget(event.target, event.clientX, event.clientY); }}
       onPointerOut={(event) => { if (event.pointerType !== "touch") hoverTarget(event.relatedTarget, event.clientX, event.clientY); }}
       onPointerLeave={() => setHovered(false)}
@@ -160,13 +166,15 @@ export function Carousel({ rows, label = "records" }: { rows: ReactNode[]; label
         requestAnimationFrame(() => {
           if (!viewport.current || !list.current || document.activeElement !== target) return;
           const card = (target as HTMLElement).getBoundingClientRect();
-          const bounds = viewport.current.getBoundingClientRect();
+          const bounds = (viewport.current.querySelector(".award-window") ?? viewport.current).getBoundingClientRect();
           if (card.left < bounds.left + 32 || card.right > bounds.right - 32) {
             offset.current = (offset.current + card.left - bounds.left - 32 + size.cycle) % size.cycle;
             render();
           }
           // Browsers may also scroll the overflow container natively when a descendant receives focus.
           viewport.current.scrollLeft = 0;
+          const win = viewport.current.querySelector<HTMLElement>(".award-window");
+          if (win) win.scrollLeft = 0;
         });
       }}
       onBlurCapture={(event) => {
@@ -189,12 +197,28 @@ export function Carousel({ rows, label = "records" }: { rows: ReactNode[]; label
         if (event.key === "ArrowLeft") { event.preventDefault(); move(-size.stride); }
         if (event.key === "ArrowRight") { event.preventDefault(); move(size.stride); }
       }}>
-      {size.overflow && <button type="button" className="award-arrow prev" aria-label={`Previous ${label}`} onClick={() => move(-size.stride)}>‹</button>}
-      <div className="award-track" ref={track}>
-        <ul className="award-grid" ref={list}>{rows}</ul>
-        {size.overflow && <ul className="award-grid award-copy" aria-hidden="true" inert>{rows}</ul>}
+      <div className="award-window">
+        <div className="award-track" ref={track}>
+          <ul className="award-grid" ref={list}>{rows}</ul>
+          {size.overflow && <ul className="award-grid award-copy" aria-hidden="true" inert>{rows}</ul>}
+        </div>
       </div>
-      {size.overflow && <button type="button" className="award-arrow next" aria-label={`Next ${label}`} onClick={() => move(size.stride)}>›</button>}
+      {size.overflow && (
+        <div className="award-controls">
+          <button type="button" className="award-arrow prev" aria-label={`Previous ${label}`} title={`Previous ${label}`} onClick={() => move(-size.stride)}>
+            <Icon name={CONCEPT_ICON.prev} />
+          </button>
+          {!reduced && (
+            <button type="button" className="award-arrow pause" aria-pressed={paused} aria-label={paused ? `Resume scrolling ${label}` : `Pause scrolling ${label}`}
+              title={paused ? "Resume scrolling" : "Pause scrolling"} onClick={() => setPaused((p) => !p)}>
+              <Icon name={paused ? CONCEPT_ICON.play : CONCEPT_ICON.pause} />
+            </button>
+          )}
+          <button type="button" className="award-arrow next" aria-label={`Next ${label}`} title={`Next ${label}`} onClick={() => move(size.stride)}>
+            <Icon name={CONCEPT_ICON.next} />
+          </button>
+        </div>
+      )}
     </div>
   );
 }

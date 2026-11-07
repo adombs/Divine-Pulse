@@ -1,0 +1,52 @@
+/* One width owns the rail, banner and active-tab gradient. Children follow that
+   width during the transition instead of clipping an expanded-width surface. */
+@media (min-width: 761px) {
+  .app.nav-collapsed .sidebar[data-expanded] {
+    --sidebar-motion: 200ms;
+    --sidebar-ease: cubic-bezier(0.2, 0, 0, 1);
+    width: 3rem;
+    background: var(--room-1);
+    box-shadow: none;
+    transition: width var(--sidebar-motion) var(--sidebar-ease),
+      box-shadow var(--sidebar-motion) var(--sidebar-ease);
+  }
+
+  .app.nav-collapsed .sidebar[data-expanded="true"] {
+    width: 11.5rem;
+    box-shadow: 8px 0 24px rgb(0 0 0 / 0.45);
+  }
+
+  .app.nav-collapsed .sidebar[data-expanded] > :is(.side-tabs, .side-banner, .side-foot) {
+    width: 100%;
+    min-width: 0;
+    flex-shrink: 0;
+  }
+
+  .app.nav-collapsed .sidebar[data-expanded] .side-tab {
+    min-width: 0;
+    overflow: hidden;
+  }
+
+  /* Keep text's layout stable while its containing surface changes width. The
+     clipped label remains an accessible name; it is never visibility:hidden. */
+  .app.nav-collapsed .sidebar[data-expanded] :is(.side-label, .side-banner .banner-title, .status-text) {
+    flex-shrink: 0;
+    opacity: 0;
+    visibility: visible;
+    transition: opacity var(--sidebar-motion) var(--sidebar-ease);
+  }
+
+  .app.nav-collapsed .sidebar[data-expanded] .side-banner .banner-title { flex-basis: 7.35rem; }
+  .app.nav-collapsed .sidebar[data-expanded] .status-text { flex-basis: 8.5rem; }
+
+  .app.nav-collapsed .sidebar[data-expanded="true"] :is(.side-label, .side-banner .banner-title, .status-text) {
+    opacity: 1;
+  }
+}
+
+@media (min-width: 761px) and (prefers-reduced-motion: reduce) {
+  .app.nav-collapsed .sidebar[data-expanded],
+  .app.nav-collapsed .sidebar[data-expanded] :is(.side-label, .side-banner .banner-title, .status-text) {
+    transition: none;
+  }
+}

@@ -6,7 +6,7 @@ import json
 from functools import lru_cache
 from pathlib import Path
 
-from .game_assets import game_assets
+from .game_assets import GameAssetError, game_assets
 
 DATA = Path(__file__).resolve().parents[1] / "data"
 
@@ -14,13 +14,22 @@ DATA = Path(__file__).resolve().parents[1] / "data"
 def generation() -> tuple:
     assets = game_assets()
     manifest = assets.manifest
-    return (str(assets.root), assets._stamp, id(manifest), assets.language())
+    return (str(assets.root), assets._stamp, id(manifest), assets.language(), assets.data_stamp())
 
 
-def _rows(assets, filename: str, key: str) -> list[dict]:
-    source = assets.json(f"data/{filename}.json") or {}
-    rows = source.get(key, [])
-    return rows if isinstance(rows, list) else []
+def _rows(assets, filename: str, key: str, fields: tuple = ()) -> list[dict]:
+    rel = f"data/{filename}.json"
+    source = assets.json(rel)
+    if source is None:
+        return []
+    rows = source.get(key)
+    if not isinstance(rows, list) or any(
+        not isinstance(row, dict) or type(row.get("id")) is not int or row["id"] < 0
+        or any(field not in row for field in fields)
+        or ("name" in row and not isinstance(row["name"], str)) for row in rows
+    ):
+        raise GameAssetError(rel, f"invalid {key} rows")
+    return rows
 
 
 def _names_by_id(rows: list[dict], text: dict) -> dict[str, str]:
@@ -32,6 +41,18 @@ def _name_list(rows: list[dict], text: dict) -> list:
     result = [None] * (max((int(key) for key in values), default=-1) + 1)
     for key, value in values.items():
         result[int(key)] = value
+    return result
+
+
+def _battalion_stats(rows: list[dict]) -> list:
+    """Each battalion's modifiers at levels 1-5 by battalion ID (None where an older import has no progression)."""
+    result: list = [None] * (max((row["id"] for row in rows if isinstance(row.get("id"), int)), default=-1) + 1)
+    for row in rows:
+        levels = row.get("stats_by_level")
+        if isinstance(row.get("id"), int) and isinstance(levels, list) and len(levels) == 5 and all(
+            isinstance(level, dict) for level in levels
+        ):
+            result[row["id"]] = [{k: v for k, v in level.items() if isinstance(v, int)} for level in levels]
     return result
 
 
@@ -50,7 +71,7 @@ def _memory(_generation: tuple) -> dict:
         "spells": ("name", "skill", "max_range", "min_range",
                    "uses", "might", "hit", "crit", "weight", "flags", "raw"),
         "combat_arts": ("name",),
-        "ability_effects": ("raw",),
+        "ability_effects": ("name", "raw"),
     }
     for filename, key, target, category in (
         ("weapons", "weapons", "weapons", "weapon"),
@@ -58,12 +79,16 @@ def _memory(_generation: tuple) -> dict:
         ("combat-arts", "combat_arts", "combat_arts", "combat_art"),
         ("abilities", "abilities", "ability_effects", "ability"),
     ):
-        rows = _rows(assets, filename, key)
+        rows = _rows(assets, filename, key, fields[target])
         text = assets.text(category)
         result = {}
         for row in rows:
             ident = str(row["id"])
             item = {field: row[field] for field in fields[target]}
+            if ("raw" in item and not isinstance(item["raw"], str)) or any(
+                type(item[field]) is not int for field in fields[target] if field not in ("name", "raw")
+            ):
+                raise GameAssetError(f"data/{filename}.json", f"invalid {key} row {ident}")
             if "name" in item:
                 item["name"] = text.get(ident) or item["name"]
             result[ident] = item
@@ -73,12 +98,20 @@ def _memory(_generation: tuple) -> dict:
 
     for key, category in (("equipment", "equipment"), ("battalions", "battalion")):
         data[key] = _name_list(_rows(assets, key, key), assets.text(category))
+    data["battalion_stats"] = _battalion_stats(_rows(assets, "battalions", "battalions"))
+    # Gambit names by gambit ID: the game language's text, else the import's battalion rows.
+    gambits = {str(row["gambit"]["id"]): row["gambit"].get("name") for row in _rows(assets, "battalions", "battalions")
+               if isinstance(row.get("gambit"), dict) and isinstance(row["gambit"].get("id"), int)}
+    data["gambits"] = {**{k: v for k, v in gambits.items() if v}, **{k: v for k, v in assets.text("gambit").items() if v}}
     equipment_text = assets.text("equipment")
     if data["equipment"] and equipment_text:
         for index in range(len(data["equipment"]), max(map(int, equipment_text)) + 1):
             data["equipment"].append(equipment_text.get(str(index)))
     data["items"] = _names_by_id(_rows(assets, "items", "items"), assets.text("item"))
-    classes = _rows(assets, "classes", "classes")
+    classes = _rows(assets, "classes", "classes", ("name", "boosts", "mounted", "mastery_ability", "mastery_art", "abilities"))
+    if any(not isinstance(row["boosts"], dict) or not isinstance(row["mounted"], dict)
+           or not isinstance(row["abilities"], list) for row in classes):
+        raise GameAssetError("data/classes.json", "invalid class modifiers or abilities")
     class_names = assets.text("class")
     data["classes"] = {
         str(row["id"]): {
@@ -95,7 +128,9 @@ def _memory(_generation: tuple) -> dict:
         for row in classes
     }
 
-    characters = _rows(assets, "characters", "characters")
+    characters = _rows(assets, "characters", "characters", ("name",))
+    if any(row.get("student") is not None and not isinstance(row["student"], dict) for row in characters):
+        raise GameAssetError("data/characters.json", "invalid student metadata")
     given = assets.text("character_given")
     full = assets.text("character_full")
     all_names = assets.text("npc_and_generic_names")
@@ -134,6 +169,8 @@ def memory() -> dict:
 @lru_cache(maxsize=2)
 def _maps(_generation: tuple) -> dict:
     source = game_assets().json("data/maps.json")
+    if source is None:
+        return {}
     try:
         maps = source["maps"]
         if not isinstance(maps, dict) or not maps:
@@ -143,8 +180,8 @@ def _maps(_generation: tuple) -> dict:
             if not rows or not all(bytes.fromhex(row) for row in rows):
                 raise ValueError("invalid grid")
         return maps
-    except (KeyError, TypeError, ValueError, AttributeError):
-        return {}
+    except (KeyError, TypeError, ValueError, AttributeError) as error:
+        raise GameAssetError("data/maps.json", "invalid map grids") from error
 
 
 def maps() -> dict:
@@ -155,14 +192,16 @@ def maps() -> dict:
 def _terrain(_generation: tuple) -> list:
     kinds = json.loads((DATA / "terrain_kinds.json").read_text(encoding="utf-8"))
     source = game_assets().json("data/terrain.json")
+    if source is None:
+        return []
     try:
         rows = source["tiles"]
         names = game_assets().text("terrain")
         return [[names.get(str(i)) or rows[str(i)]["name"], kind, *(rows[str(i)][key] for key in
                  ("avo", "def", "res", "heal", "enter", "move_name", "wall_hp"))]
                 for i, kind in enumerate(kinds)]
-    except (KeyError, TypeError, ValueError):
-        return []
+    except (KeyError, TypeError, ValueError) as error:
+        raise GameAssetError("data/terrain.json", "invalid terrain tiles") from error
 
 
 def terrain() -> list:
@@ -174,8 +213,8 @@ def _scenario_names(_generation: tuple) -> tuple:
     try:
         text = game_assets().text("scenario_title")
         return tuple(text.get(str(i)) for i in range(max((int(key) for key in text), default=-1) + 1))
-    except (AttributeError, TypeError, ValueError):
-        return ()
+    except (AttributeError, TypeError, ValueError) as error:
+        raise GameAssetError(f"text/{game_assets().language()}.json", "invalid scenario_title IDs") from error
 
 
 def scenario_names() -> tuple:
@@ -184,11 +223,10 @@ def scenario_names() -> tuple:
 
 @lru_cache(maxsize=2)
 def _class_types(_generation: tuple) -> dict[int, dict]:
-    try:
-        rows = game_assets().json("data/classes.json")["classes"]
-        return {row["id"]: row["types"] for row in rows if isinstance(row["types"], dict)}
-    except (TypeError, KeyError):
-        return {}
+    rows = _rows(game_assets(), "classes", "classes", ("types",))
+    if any(not isinstance(row["types"], dict) for row in rows):
+        raise GameAssetError("data/classes.json", "invalid class types")
+    return {row["id"]: row["types"] for row in rows}
 
 
 def class_types() -> dict[int, dict]:

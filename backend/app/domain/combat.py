@@ -39,6 +39,13 @@ class BattleUnit:
     flags: int | None = None  # the raw flags byte (ACTED): acted, on the map, off the map, and bits not known yet
     equipped: int | None = None  # what it has equipped, as the game keeps it (fe3h._EQUIPPED); None: not read
     item_slot_0: int | None = None  # raw item ID at inventory slot zero, before empty slots are compacted
+    # The equipped battalion (fe3h.decode_battalion), yours and other units': ID, cumulative experience, endurance
+    # left and gambit uses left. None: no battalion, or not read.
+    battalion: int | None = None
+    battalion_exp: int | None = None
+    battalion_endurance: int | None = None
+    gambit_uses: int | None = None
+    rattled: bool | None = None  # hit by a gambit: no battalion benefits (fe3h.RATTLED); None: not read
 
     @property
     def max_hp(self) -> int:

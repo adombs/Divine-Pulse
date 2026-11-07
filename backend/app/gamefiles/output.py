@@ -14,9 +14,9 @@ from pathlib import Path
 from PIL import Image
 
 MANIFEST = "manifest.json"
-# Raised when an extractor's output changes in a way the app relies on (3: dining data and ingredient names), so an
+# Raised when an extractor's output changes in a way the app relies on, so an
 # older import is reported as needing a new one.
-FORMAT = 3  # meal recipes, preferences and localized ingredient names
+FORMAT = 4  # gambit areas, icons and native preview pieces
 
 
 def pixel_hash(image: Image.Image) -> str:

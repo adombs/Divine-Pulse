@@ -1,5 +1,5 @@
 import { SKILL_LABEL, type Aptitude, type SkillKey } from "../reference/types";
-import { useGameImageUrl } from "./GameImage";
+import { MissingGameAsset, useGameImageUrl } from "./GameImage";
 import { maskStyle } from "./gameImageSources";
 
 /** Every trainable skill uses a symbol cut from the game's UI atlas. */
@@ -29,6 +29,7 @@ export function SkillIcon({ skill, aptitude, title }: { skill: SkillKey; aptitud
   const tip = title ?? `${SKILL_LABEL[skill]}${tone ? `: ${tone.label}` : ""}`;
   const file = SKILL_FILE[skill];
   const url = useGameImageUrl(`images/icons/${file.startsWith("weapon-") ? `weapons/${file.slice(7)}` : `skills/${file.slice(6)}`}.png`);
+  if (!url) return <MissingGameAsset label={tip} />;
   return (
     <span className="skill-icon" style={{ color: colour }} title={tip} role="img" aria-label={tip}>
       <span className="skill-icon-mask" style={maskStyle(url)} />

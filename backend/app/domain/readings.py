@@ -24,6 +24,15 @@ class AbilityInfo:
     learned_arts: list[str] | None = None
     battalion: str | None = None
     skills: dict[SkillKey, SkillProgress] | None = None
+    battalion_id: int | None = None  # meaningful only alongside a named assignment
+    # Runtime state of a named assignment (None: not read): cumulative experience, endurance left, and gambit uses
+    # left (battle only).
+    battalion_exp: int | None = None
+    battalion_endurance: int | None = None
+    gambit_uses: int | None = None
+    # What the battalion adds to the Status page's values ({"cha": 5}); {} for nothing (no endurance left), None when
+    # it isn't known (no import progression). Already included in the reading's values.
+    battalion_bonus: dict[str, int] | None = None
 
 
 @dataclass

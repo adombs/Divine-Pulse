@@ -1,6 +1,7 @@
-import type { ReferenceData, SkillKey, Stats, ReferenceItem, Magic, Character } from "./types";
+import type { Battalion, BattalionStats, Gambit, GambitArea, ReferenceData, SkillKey, Stats, ReferenceItem, Magic, Character } from "./types";
 import type { SupportData, SupportRank } from "./supports";
 import structureData from "./structure.json" with { type: "json" };
+import { RequiredGameAssetError } from "../requiredAssets.ts";
 
 const SOURCES = [{ name: "your game files", url: "game-files" }, { name: "Fire Emblem Wiki (GFDL 1.3)", url: "https://fireemblemwiki.org" }];
 
@@ -226,12 +227,20 @@ function enrichReference(base: ReferenceData, files: Record<string, unknown>, te
       const minor = text(texts?.crest_minor_description?.[String(r.id)]);
       return { ...c, major_description: major || c.major_description, minor_description: minor || c.minor_description, effect: major || minor || c.effect };
     }),
-    battalions: rows(files.battalions, "battalions").length ? rows(files.battalions, "battalions").filter((r) => typeof r.name === "string" && r.name).map((r) => ({ name: r.name, description: description(r, "battalion_description"), endurance: number(r.endurance, 0) })) : base.battalions,
+    battalions: rows(files.battalions, "battalions").length ? rows(files.battalions, "battalions").map((r) => parseBattalion({
+      ...r,
+      name: text(texts?.battalion?.[String(r.id)], text(r.name)),
+      gambit: isBRow(r.gambit) ? {
+        ...r.gambit,
+        name: text(texts?.gambit?.[String(r.gambit.id)], text(r.gambit.name)),
+        description: text(texts?.gambit_description?.[String(r.gambit.id)], text(r.gambit.description)),
+      } : r.gambit,
+    }, description(r, "battalion_description"))).filter((b): b is Battalion => !!b) : base.battalions,
   };
 }
 
 const referenceFiles = ["characters", "classes", "abilities", "combat-arts", "spells", "weapons", "equipment", "items", "crests-by-person", "battalions"];
-const categories = ["ability_description", "combat_art_description", "spell_description", "weapon_description", "item_description", "equipment_description", "class_description", "crest_major_description", "crest_minor_description", "battalion_description", "ability", "combat_art", "spell", "weapon", "item", "equipment", "class", "character_given", "character_full", "crest_major", "crest_minor", "battalion"];
+const categories = ["ability_description", "combat_art_description", "spell_description", "weapon_description", "item_description", "equipment_description", "class_description", "crest_major_description", "crest_minor_description", "battalion_description", "gambit", "gambit_description", "ability", "combat_art", "spell", "weapon", "item", "equipment", "class", "character_given", "character_full", "crest_major", "crest_minor", "battalion"];
 export async function loadImportedReference(structure: Parameters<typeof buildReference>[2], wikiClasses: Parameters<typeof buildReference>[3]): Promise<ReferenceData> {
   const { gameAssetsAvailable, loadGameJson, loadGameText } = await import("../gameAssets");
   if (!gameAssetsAvailable()) return buildReference({}, {}, structure, wikiClasses);
@@ -240,6 +249,8 @@ export async function loadImportedReference(structure: Parameters<typeof buildRe
     await loadGameLanguage();
     const language = gameLanguage();
     const [files, texts] = await Promise.all([Promise.all(referenceFiles.map((name) => loadGameJson(`data/${name}.json`))), Promise.all(categories.map((name) => loadGameText(name, language)))]);
+    const missing = files.findIndex((file) => file === null);
+    if (missing >= 0) throw new RequiredGameAssetError(`data/${referenceFiles[missing]}.json`);
     const adapted = buildReference(Object.fromEntries(referenceFiles.map((name, i) => [name, files[i]])), Object.fromEntries(categories.map((name, i) => [name, texts[i]])), structure, wikiClasses);
     const translations = new Map<string, string>();
     const sources = Object.fromEntries(referenceFiles.map((name, i) => [name, files[i]]));
@@ -253,7 +264,10 @@ export async function loadImportedReference(structure: Parameters<typeof buildRe
     }
     const translate = (value: any): any => typeof value === "string" ? translations.get(value) ?? value : Array.isArray(value) ? value.map(translate) : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, translate(entry)])) : value;
     return translate(adapted) as ReferenceData;
-  } catch { return buildReference({}, {}, structure, wikiClasses); }
+  } catch (error) {
+    if (error instanceof RequiredGameAssetError) throw error;
+    throw new RequiredGameAssetError("data/reference", error instanceof Error ? error.message : "Reference data unreadable");
+  }
 }
 
 export function buildSupports(files: Record<string, unknown>, wiki: { a: string; b: string; avail: Partial<Record<SupportRank, string>>; notes: string[] }[], texts: Record<string, Record<string, string>> = {}, excludedPairs: number[][] = []): SupportData {
@@ -328,6 +342,79 @@ export async function loadImportedSupports(wiki: Parameters<typeof buildSupports
     await loadGameLanguage();
     const names = ["supports", "gifts", "characters", "meals"];
     const [values, characterGiven, gift, meal, ingredient] = await Promise.all([Promise.all(names.map((name) => loadGameJson(`data/${name}.json`))), loadGameText("character_given", gameLanguage()), loadGameText("gift", gameLanguage()), loadGameText("meal", gameLanguage()), loadGameText("ingredient", gameLanguage())]);
+    const missing = values.findIndex((value) => value === null);
+    if (missing >= 0) throw new RequiredGameAssetError(`data/${names[missing]}.json`);
     return buildSupports(Object.fromEntries(names.map((name, i) => [name, values[i]])), wiki, { character_given: characterGiven, gift, meal, ingredient }, excludedPairs);
-  } catch { return buildSupports({}, wiki); }
+  } catch (error) {
+    if (error instanceof RequiredGameAssetError) throw error;
+    throw new RequiredGameAssetError("data/supports", error instanceof Error ? error.message : "Support data unreadable");
+  }
+}
+
+/* Battalion rows (data/battalions.json). Older imports may omit icons, modifiers and gambits;
+   nothing is filled in that the import doesn't hold. */
+type BRow = Record<string, unknown>;
+// The modifiers in the panel's order (the same keys as BATTALION_STAT_KEYS in types.ts).
+const BATTALION_KEYS = ["phys_atk", "mag_atk", "hit", "crit", "avo", "prt", "rsl", "cha"] as const;
+
+const isBRow = (v: unknown): v is BRow => !!v && typeof v === "object" && !Array.isArray(v);
+const bNum = (v: unknown): number | undefined => (typeof v === "number" && Number.isFinite(v) ? v : undefined);
+const bStr = (v: unknown): string | undefined => (typeof v === "string" && v.trim() ? v : undefined);
+const bPair = (v: unknown): [number, number] | undefined =>
+  Array.isArray(v) && v.length === 2 && v.every((n) => typeof n === "number" && Number.isInteger(n)) ? [v[0], v[1]] : undefined;
+
+function bStats(v: unknown): BattalionStats | undefined {
+  if (!isBRow(v)) return undefined;
+  const out: BattalionStats = {};
+  for (const k of BATTALION_KEYS) {
+    const n = bNum(v[k]);
+    if (n !== undefined) out[k] = n;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+function bArea(v: unknown): GambitArea | undefined {
+  if (!isBRow(v) || !Array.isArray(v.cells)) return undefined;
+  const cells = v.cells.map(bPair).filter((c): c is [number, number] => !!c);
+  if (!cells.length) return undefined;
+  const origin = bPair(v.origin);
+  const target = bPair(v.target);
+  return { cells, ...(origin ? { origin } : {}), ...(target ? { target } : {}), ...(v.direction === "forward" ? { direction: "forward" as const } : {}) };
+}
+
+function bGambit(v: unknown): Gambit | undefined {
+  if (!isBRow(v)) return undefined;
+  const name = bStr(v.name);
+  if (!name) return undefined;
+  const r = bPair(v.range);
+  const a = bArea(v.area);
+  const out: Gambit = { name, description: bStr(v.description) ?? "" };
+  const id = bNum(v.id), icon = bStr(v.icon), uses = bNum(v.uses), might = bNum(v.might), hit = bNum(v.hit);
+  if (id !== undefined) out.id = id;
+  if (icon) out.icon = icon;
+  if (uses !== undefined) out.uses = uses;
+  if (might !== undefined) out.might = might;
+  if (hit !== undefined) out.hit = hit;
+  if (r) out.range = r;
+  if (a) out.area = a;
+  return out;
+}
+
+/** One import row as a Battalion, its description from the language's text when there is one. Null when unnamed. */
+export function parseBattalion(r: BRow, description: string): Battalion | null {
+  const name = bStr(r.name);
+  if (!name) return null;
+  const endurance = bNum(r.endurance);
+  if (endurance === undefined || endurance < 0) throw new RequiredGameAssetError("data/battalions.json", "Battalion endurance missing or invalid");
+  const out: Battalion = { name, description, endurance };
+  const id = bNum(r.id), icon = bStr(r.icon), base = bStats(r.stats), g = bGambit(r.gambit);
+  if (id !== undefined) out.id = id;
+  if (icon) out.icon = icon;
+  if (base) out.stats = base;
+  if (Array.isArray(r.stats_by_level)) {
+    const levels = r.stats_by_level.map(bStats);
+    if (levels.length && levels.every(Boolean)) out.stats_by_level = levels as BattalionStats[];
+  }
+  if (g) out.gambit = g;
+  return out;
 }

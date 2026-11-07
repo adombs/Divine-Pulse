@@ -48,6 +48,34 @@ def test_a_weapons_numbers_come_into_the_stats():
     assert combat_stats(f, None).atk == 22  # no weapon: the status screen's own
 
 
+def test_a_battalion_adds_its_modifiers_at_its_level_while_it_has_endurance():
+    plain = combat_stats(fighter(), fighter().arms[0])
+    # Test Wing Co. at level 2 (115 exp, shown as Exp 15): Phys Atk +2, Avo +2, Prt +0, Rsl +3, Cha +5.
+    f = Fighter.from_unit(replace(unit(), battalion=5, battalion_exp=115, battalion_endurance=51))
+    s = combat_stats(f, f.arms[0])
+    assert (s.atk - plain.atk, s.hit - plain.hit, s.avo - plain.avo, s.magic_avo - plain.magic_avo) == (2, 0, 2, 2)
+    assert (s.prt - plain.prt, s.rsl - plain.rsl, f.stats["cha"] - fighter().stats["cha"]) == (0, 3, 5)
+    # Level 5 (capped at 400): every level's growth.
+    top = Fighter.from_unit(replace(unit(), battalion=5, battalion_exp=400, battalion_endurance=1))
+    assert top.battalion == {"phys_atk": 4, "avo": 5, "prt": 2, "rsl": 5, "cha": 5}
+    # Spent endurance: none of it, though the battalion is still assigned.
+    spent = Fighter.from_unit(replace(unit(), battalion=5, battalion_exp=115, battalion_endurance=0))
+    assert combat_stats(spent, spent.arms[0]) == plain and spent.stats == fighter().stats
+    # Rattled: none of it either. An enemy's battalion counts like yours.
+    shaken = Fighter.from_unit(replace(unit(), battalion=5, battalion_exp=115, battalion_endurance=51, rattled=True))
+    assert combat_stats(shaken, shaken.arms[0]) == plain
+    foe = Fighter.from_unit(replace(unit(army=False), battalion=5, battalion_exp=115, battalion_endurance=51))
+    assert foe.battalion == {"phys_atk": 2, "avo": 2, "rsl": 3, "cha": 5}
+    # Unknown runtime or an import without the progression: nothing is guessed.
+    assert Fighter.from_unit(replace(unit(), battalion=5, battalion_exp=None, battalion_endurance=60)).battalion == {}
+    assert Fighter.from_unit(replace(unit(), battalion=4, battalion_exp=0, battalion_endurance=30)).battalion == {}
+    # A spell uses Mag Atk, which this battalion doesn't have.
+    mage = Fighter.from_unit(replace(unit(22, 14, items=(), spells=(FIRE,), uses=(10,)), equipped=EQUIPPED_SPELL + FIRE,
+                                     battalion=5, battalion_exp=0, battalion_endurance=60))
+    plain_mage = Fighter.from_unit(replace(unit(22, 14, items=(), spells=(FIRE,), uses=(10,)), equipped=EQUIPPED_SPELL + FIRE))
+    assert combat_stats(mage, mage.arms[0]).atk == combat_stats(plain_mage, plain_mage.arms[0]).atk
+
+
 def test_magic_uses_magic_and_resistance():
     mage = Fighter.from_unit(replace(unit(22, 14, items=(), spells=(FIRE,), uses=(10,)), equipped=EQUIPPED_SPELL + FIRE))
     foe = fighter(character=509, class_id=11, army=False)

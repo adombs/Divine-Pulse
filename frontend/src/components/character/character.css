@@ -1,0 +1,257 @@
+/* Character views (components/character): one look for the battle window, the Roster's card, the Archive's character
+   card and the run's stats window. The face is the game's round portrait medallion; turned over, the medallion shows
+   the unit's map sprite standing on a tile. Uses only the app's tokens from styles.css. */
+
+/* ---------- The window (CharacterPopup.tsx): the same size in every view and on every section. ---------- */
+.modal.character-popup {
+  --character-popup-w: min(52rem, calc(100vw - 2rem));
+  --character-popup-h: min(46rem, calc(100dvh - 2rem));
+  width: var(--character-popup-w);
+  height: var(--character-popup-h);
+  max-height: none;
+}
+.modal-backdrop:has(> .character-popup) { padding: 1rem; }
+.modal.character-popup > .modal-body {
+  display: flex; flex-direction: column; min-height: 0; overflow: hidden; padding: 0.6rem 1.1rem 0.7rem 0;
+}
+/* The card fills the window: its hero stays put, the picked section is the only part that scrolls. */
+.modal.character-popup > .modal-body > .unit-card.in-popup { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.modal.character-popup .unit-card.in-popup > .card-frame { flex: 1 1 auto; min-height: 0; }
+.modal.character-popup .unit-card.in-popup .card-main { min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+.modal.character-popup .unit-card.in-popup .card-main > :not(.card-pane) { flex: none; }
+.modal.character-popup .unit-card.in-popup .card-pane {
+  flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin;
+  scrollbar-color: var(--line) transparent; padding-right: 0.3rem;
+}
+.cv-popup-scope { display: inline-flex; flex: none; }
+.cv-banner-name { display: inline-flex; align-items: center; gap: 0.6rem; max-width: 100%; }
+.cv-banner-name .cv-scope { flex: none; color: var(--head-ink); border-color: rgb(255 255 255 / 0.3); background: rgb(0 0 0 / 0.14); text-shadow: none; }
+.character-card > .name-banner .banner-title { overflow: visible; white-space: normal; }
+.character-popup > .modal-head .banner-title { white-space: normal; }
+/* Keep the section's title bar on the same left edge as the character's name banner. */
+.character-card .card-pane > .sec-head { margin-left: 0; }
+.roster-page .character-card .card-pane { padding-left: 0; }
+.modal.character-popup .character-card .cv-hero-box { margin-inline: 1.1rem; }
+.modal.character-popup .character-card .card-pane { padding-left: 1.1rem; }
+.modal.character-popup .character-card .card-pane > .sec-head { margin-left: -1.1rem; }
+/* The window's header names the scope; its hero never repeats it. */
+.modal.character-popup .cv-hero-meta > .cv-scope { display: none; }
+.modal.character-popup .cv-hero-meta:not(:has(> :not(.cv-scope))) { display: none; }
+@media (max-width: 560px) {
+  .modal.character-popup { --character-popup-w: calc(100vw - 1rem); --character-popup-h: calc(100dvh - 1rem); }
+  .modal-backdrop:has(> .character-popup) { padding: 0.5rem; }
+  .modal.character-popup > .modal-body { padding: 0.5rem 0.7rem 0.6rem; }
+  /* A phone's header keeps the scope as its icon alone (the label stays for screen readers and the tooltip). */
+  .cv-popup-scope .cv-scope { padding: 0.2rem; gap: 0; font-size: 0; }
+  .cv-popup-scope .cv-scope .icon { font-size: 1rem; }
+}
+
+/* ---------- The hero: face, facts, scope. ---------- */
+.cv-hero {
+  --cv-face: 6.5rem;
+  display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "face facts";
+  column-gap: 1.1rem; row-gap: 0.55rem; align-items: center; margin: 0.25rem 0 0.55rem; min-width: 0;
+}
+.cv-hero.split {
+  grid-template-columns: auto minmax(0, 1fr) auto; grid-template-areas: "face facts sprite";
+}
+.cv-hero-face { grid-area: face; display: grid; place-items: center; }
+.cv-facts { grid-area: facts; display: grid; align-content: center; margin: 0; min-width: 0; }
+.cv-fact {
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: baseline; column-gap: 0.9rem;
+  padding: 0.22rem 0; border-bottom: 1px solid var(--line); min-width: 0;
+}
+.cv-fact dt { margin: 0; font: 600 1rem var(--display); color: var(--ink-soft); white-space: nowrap; }
+.cv-fact dd {
+  margin: 0; min-width: 0; font: 600 1.08rem var(--display); text-align: right; font-variant-numeric: lining-nums tabular-nums;
+  overflow-wrap: anywhere;
+}
+.cv-fact dd > .hp-bar, .cv-fact dd > :only-child:is(.segmented, .gender-toggle) { margin-left: auto; }
+.cv-hero-sprite { grid-area: sprite; }
+.cv-hero-meta {
+  grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 0.35rem 0.5rem; min-width: 0;
+  padding-bottom: 0.1rem;
+}
+
+/* A wide card (the Archive's): the facts in two columns, so the sections get the height. */
+.cv-hero-box { container-type: inline-size; min-width: 0; }
+.cv-information { grid-area: facts; perspective: 1000px; min-width: 0; }
+.cv-information:has(.cv-information-toggle) { cursor: pointer; }
+.cv-information-turn { display: grid; transform-style: preserve-3d; transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1); }
+.cv-information.is-flipped .cv-information-turn { transform: rotateY(180deg); }
+.cv-information .cv-info-side {
+  grid-area: 1 / 1; display: grid; grid-template-rows: 1fr auto; min-width: 0; gap: 0.35rem;
+  padding: 0.65rem 0.8rem 0.5rem; border: 1px solid var(--line); border-radius: 6px;
+  background: var(--paper-2); box-shadow: 0 2px 6px rgb(0 0 0 / 0.15);
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+}
+.cv-information .cv-info-back { transform: rotateY(180deg); }
+/* The face inside the card (Roster, Archive): portrait on the front, map sprite on the back. */
+.cv-hero.carded { grid-template-columns: minmax(0, 1fr); grid-template-areas: "facts"; }
+.cv-information .cv-info-side.with-face {
+  grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 1fr auto; grid-template-areas: "face facts" "face toggle";
+  column-gap: 0.9rem;
+}
+.cv-info-side.with-face > .cv-info-face { grid-area: face; display: grid; place-items: center; padding: 6px; }
+.cv-info-side.with-face > .cv-facts { grid-area: facts; }
+.cv-info-side.with-face > .cv-information-toggle { grid-area: toggle; }
+.cv-information .cv-facts { grid-area: auto; grid-template-columns: minmax(0, 1fr); }
+.character-card .card-main { overflow-x: hidden; }
+.cv-information-toggle {
+  display: flex; align-items: center; justify-content: center; gap: 0.35rem; margin: 0.15rem auto 0;
+  padding: 0.25rem 0.6rem; border: 1px solid var(--line); border-radius: 4px; background: var(--paper-2);
+  color: var(--ink); font: 600 0.9rem var(--display); cursor: pointer;
+}
+.cv-information-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+.cv-information-toggle:hover { border-color: var(--accent); }
+.cv-hero-box .crest-marks { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.3rem 0.5rem; }
+.cv-hero-box .crest-marks > span { display: inline-flex; align-items: center; gap: 0.2rem; }
+.cv-crest-fact { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.25rem 0.45rem; }
+@container (min-width: 34rem) {
+  .cv-hero.flip .cv-information:not(:has(.cv-information-toggle)) .cv-facts { grid-template-columns: repeat(2, minmax(0, 1fr)); column-gap: 1.4rem; }
+}
+/* A narrow card (the battle's Units tab): portrait and sprite side by side, the facts under them at full width. */
+@container (max-width: 30rem) {
+  .cv-hero.split {
+    --cv-face: 6.5rem;
+    grid-template-columns: 1fr 1fr; grid-template-areas: "face sprite" "facts facts" "meta meta"; justify-items: center;
+  }
+  .cv-hero.split .cv-information, .cv-hero.split .cv-hero-meta { width: 100%; }
+}
+
+/* What the view covers. */
+.cv-scope {
+  display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.12rem 0.55rem 0.12rem 0.45rem; border-radius: 999px;
+  font: 600 0.85rem var(--display); white-space: nowrap;
+  color: var(--ink); background: var(--row); border: 1px solid var(--row-border);
+}
+.cv-scope .icon { font-size: 0.95rem; color: var(--cv-scope-ink, var(--ink-soft)); }
+.cv-scope.battle { --cv-scope-ink: var(--red); }
+.cv-scope.run { --cv-scope-ink: var(--blue); }
+.cv-scope.stats { --cv-scope-ink: var(--accent); }
+.cv-scope.reference { --cv-scope-ink: var(--green); }
+
+/* The battalion badge. */
+.cv-battalion {
+  display: inline-flex; align-items: center; gap: 0.3rem; min-width: 0; max-width: 100%; padding: 0.12rem 0.5rem;
+  border-radius: 999px; border: 1px solid var(--row-border); background: var(--paper-2); font: 600 0.82rem var(--ui);
+}
+.cv-battalion .icon { flex: none; font-size: 0.95rem; color: var(--accent); }
+.cv-battalion.none { color: var(--ink-soft); font-weight: 500; background: none; border-style: dashed; }
+.cv-battalion.none .icon { color: var(--ink-soft); }
+.cv-battalion-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cv-battalion-end { flex: none; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.cv-battalion-detail { display: grid; gap: 0.4rem; }
+.cv-battalion-title { display: flex; align-items: center; flex-wrap: wrap; gap: 0.45rem; margin: 0; font: 600 1.1rem var(--display); }
+.cv-battalion-title .icon { color: var(--accent); }
+
+/* ---------- The face: the round medallion, and its flip to the sprite. ---------- */
+.cv-face {
+  position: relative; display: grid; place-items: center; width: var(--cv-face); height: var(--cv-face); flex: none;
+  padding: 0; border: 0; border-radius: 50%; background: none; color: inherit; font: inherit;
+}
+.cv-face :is(.portrait, .unit-face) { width: 100% !important; height: 100% !important; border: 0; }
+/* The medallion's frame, drawn around both sides. */
+.cv-face::before {
+  content: ""; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 1px var(--line), 0 0 0 5px var(--paper), 0 0 0 6px var(--line);
+}
+.cv-flip { cursor: pointer; perspective: 600px; -webkit-tap-highlight-color: transparent; }
+.cv-flip:focus-visible { outline: none; }
+.cv-flip:focus-visible::before { box-shadow: 0 0 0 1px var(--line), 0 0 0 4px var(--paper), 0 0 0 6px var(--accent); }
+.cv-flip-card {
+  position: relative; display: block; width: 100%; height: 100%; transform-style: preserve-3d;
+  transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.cv-flip-side {
+  position: absolute; inset: 0; display: grid; place-items: center; border-radius: 50%; overflow: hidden;
+  backface-visibility: hidden; -webkit-backface-visibility: hidden;
+  background: radial-gradient(circle, var(--paper) 60%, var(--bar-bg));
+}
+/* The back: the sprite standing on a map tile. */
+.cv-flip-side.back {
+  transform: rotateY(180deg);
+  background: transparent;
+}
+.cv-flip-side.back .cv-sprite { width: 82%; height: 82%; margin-top: -4%; }
+.cv-flip.turned .cv-flip-card { transform: rotateY(180deg); }
+@media (hover: hover) {
+  .cv-flip:not(.held):hover .cv-flip-card { transform: rotateY(180deg); }
+  .cv-flip.turned:not(.held):hover .cv-flip-card { transform: rotateY(180deg); }
+}
+/* A small turn mark, so it reads as something to press. */
+.cv-flip-hint {
+  position: absolute; right: -2px; bottom: -2px; z-index: 1; display: grid; place-items: center; width: 1.55rem; height: 1.55rem;
+  border-radius: 50%; background: var(--paper); color: var(--ink-soft); box-shadow: 0 0 0 1px var(--line), 0 2px 5px rgb(0 0 0 / 0.18);
+  font-size: 0.9rem; transition: color 0.15s, background-color 0.15s;
+}
+.cv-flip:is(:hover, :focus-visible) .cv-flip-hint, .cv-flip.turned .cv-flip-hint { color: var(--head-ink); background: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  /* No turning: the sides swap in place. */
+  .cv-flip { perspective: none; }
+  .cv-flip-card { transform: none !important; transition: none; }
+  .cv-flip-side { backface-visibility: visible; transition: none; }
+  .cv-flip-side.back { transform: none; opacity: 0; }
+  .cv-flip.turned .cv-flip-side.back { opacity: 1; }
+  .cv-flip.turned .cv-flip-side.front { opacity: 0; }
+}
+@media (prefers-reduced-motion: reduce) and (hover: hover) {
+  .cv-flip:not(.held):hover .cv-flip-side.back { opacity: 1; }
+  .cv-flip:not(.held):hover .cv-flip-side.front { opacity: 0; }
+}
+
+/* ---------- The battle window's split hero: a larger portrait, the facts, the sprite in a matching medallion. ---------- */
+.cv-hero.split { --cv-face: 7.5rem; }
+.cv-hero.split .cv-face .unit-face { border-radius: 50%; }
+.cv-hero.split .cv-face { background: radial-gradient(circle, var(--paper) 60%, var(--bar-bg)); overflow: visible; }
+.cv-hero.split .cv-face > :is(img, span) { border-radius: 50%; overflow: hidden; }
+/* The map sprite in a medallion like the portrait's (the battle window; the back of the Roster and Archive cards). */
+.cv-sprite-face { background: radial-gradient(circle, var(--paper) 60%, var(--bar-bg)); }
+.cv-sprite-disc { display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%; overflow: hidden; }
+.cv-sprite-disc .cv-sprite { width: 82%; height: 82%; margin-top: -4%; }
+.cv-sprite-face.empty { color: var(--ink-soft); font: 600 0.75rem var(--ui); text-align: center; padding: 0.4rem; }
+.cv-hero-box .cv-sprite { background: transparent; }
+@media (prefers-reduced-motion: reduce) {
+  .cv-information-turn, .cv-information.is-flipped .cv-information-turn { transform: none; transition: none; }
+  .cv-information .cv-info-side { transform: none; backface-visibility: visible; }
+  .cv-information .cv-info-side[aria-hidden="true"] { visibility: hidden; }
+}
+
+/* Narrow windows: the face and the sprite above the facts. */
+@media (max-width: 560px) {
+  .cv-hero { --cv-face: 5rem; column-gap: 0.8rem; }
+  .cv-hero.split {
+    --cv-face: 5.25rem;
+    grid-template-columns: 1fr 1fr; grid-template-areas: "face sprite" "facts facts" "meta meta"; justify-items: center;
+  }
+  .cv-hero.split .cv-facts { width: 100%; }
+}
+
+/* Text exposed to assistive technology alongside the character's visual facts. */
+.cv-sr {
+  position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; border: 0;
+}
+/* A general card's link to the run (the Archive's character card): what's run-specific, set apart and labelled. */
+.cv-run-strip { display: flex; flex-wrap: wrap; align-items: center; gap: 0.4rem 0.6rem; margin: 0.2rem 0 0.4rem; }
+
+/* ---------- Phones: no page-wide scrolling on the views this module owns. ----------
+   styles.css lets the app grow and the page scroll below 760px; for the Roster, the Archive and the battle's Units
+   tab and Overview (its unit list and log are this worker's) the app stays the screen's height and each view scrolls inside itself, under a header that stays put. Scoped by
+   :has() so other pages keep their own behaviour (Settings, History and More Stats bound themselves the same way in
+   their own CSS). */
+@media (max-width: 760px) {
+  /* (:has can't nest, so the Units tab is matched by its body.) */
+  .app:has(> .sheet > :is(.roster-page, .archive-page), .battle-body:is(.view-units, .view-overview)) { height: 100dvh; min-height: 0; }
+  .app > .sheet:has(> :is(.roster-page, .archive-page), .battle-body:is(.view-units, .view-overview)) {
+    min-height: 0; overflow: hidden; display: flex; flex-direction: column;
+  }
+  .sheet > :is(.roster-page, .archive-page) {
+    flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; scrollbar-width: thin;
+  }
+  .sheet > :is(.roster-page, .archive-page) > .page-header {
+    position: sticky; top: 0; z-index: 3; background: var(--paper); padding-bottom: 0.3rem;
+  }
+  .sheet > .battle-page:has(> .battle-body:is(.view-units, .view-overview)) { flex: 1 1 auto; min-height: 0; height: auto; display: flex; flex-direction: column; gap: 0; }
+  .sheet > .battle-page:has(> .battle-body:is(.view-units, .view-overview)) > :not(.battle-body) { flex: none; }
+  .sheet > .battle-page > .battle-body:is(.view-units, .view-overview) { flex: 1 1 auto; min-height: 0; overflow-y: auto; overflow-x: hidden; overscroll-behavior: contain; }
+}

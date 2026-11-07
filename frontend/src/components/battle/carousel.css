@@ -1,0 +1,26 @@
+/* The records carousel (Carousel.tsx): the cards in a window that fades at its edges, the controls beside it. */
+.award-carousel { display: grid; grid-template-columns: minmax(0, 1fr); align-items: stretch; gap: 0.5rem; overflow: visible; }
+.award-carousel.overflowing { grid-template-columns: minmax(0, 1fr) auto; }
+.award-carousel .award-window { position: relative; min-width: 0; overflow: hidden; }
+.award-carousel.overflowing .award-window {
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 1.4rem, #000 calc(100% - 1.4rem), transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 1.4rem, #000 calc(100% - 1.4rem), transparent);
+}
+.award-carousel .award-track { height: 100%; }
+.award-carousel .award-controls {
+  display: flex; align-items: center; align-self: center; gap: 0.15rem; padding: 0.15rem;
+  border: 1px solid var(--row-border); border-radius: 999px; background: var(--row);
+}
+/* The arrows were overlays in battle.css; here they are small round buttons in the cluster. */
+.award-carousel .award-controls .award-arrow {
+  position: static; display: grid; place-items: center; width: 1.85rem; height: 1.85rem; padding: 0;
+  border: 0; border-radius: 50%; background: none; color: var(--ink-soft); font: inherit; cursor: pointer;
+  transition: background-color 0.15s, color 0.15s;
+}
+.award-carousel .award-controls .award-arrow .icon { width: 1.05rem; height: 1.05rem; }
+.award-carousel .award-controls .award-arrow:hover { background: var(--row-hover); color: var(--ink); }
+.award-carousel .award-controls .award-arrow:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; color: var(--ink); }
+.award-carousel .award-controls .award-arrow[aria-pressed="true"] { color: var(--accent); }
+@media (prefers-reduced-motion: reduce) {
+  .award-carousel .award-controls .award-arrow { transition: none; }
+}

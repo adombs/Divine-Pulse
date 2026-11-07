@@ -6,6 +6,7 @@ import { CONCEPT_ICON } from "../icons/concepts";
 import { createContext, ReactNode, useCallback, useContext, useEffect, useLayoutEffect, useRef, useState } from "react";
 import { SubTabs } from "./common";
 import { CardBanner, SectionHead } from "./ui";
+import { ScopeTag, type CharacterScope } from "./character/CharacterHero";
 import { Accordion, Collapse, NoAccordion, useDisclosure, useInAccordion } from "./disclosure";
 import { Icon, IconName } from "./Icon";
 import { useNav } from "../nav";
@@ -125,7 +126,7 @@ const PANE_ICON: Record<string, IconName> = { "On the map": CONCEPT_ICON.positio
  * card (the profile, key numbers) always shows. `actions` are icon buttons at the top right, beside the name; `icon` replaces the banner's crest. In a
  * character popup the card leaves out its banner and its actions go into the window's header (the popup has both).
  */
-export function DetailCard({ title, label, actions, icon, children }: { title: ReactNode; label: string; actions?: ReactNode; icon?: ReactNode; children: ReactNode }) {
+export function DetailCard({ title, label, actions, icon, scope, children }: { title: ReactNode; label: string; actions?: ReactNode; icon?: ReactNode; scope?: CharacterScope; children: ReactNode }) {
   const popup = useInPopup();
   const [panes, setPanes] = useState<Pane[]>([]);
   const [picked, setPicked] = useState(lastPane);
@@ -147,8 +148,8 @@ export function DetailCard({ title, label, actions, icon, children }: { title: R
     if (!popup && window.matchMedia("(max-width: 1150px)").matches) ref.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }, [label, popup]);
   return (
-    <aside ref={ref} className={`unit-card ref-card${popup ? " in-popup" : ""}`} aria-label={label}>
-      {!popup && <CardBanner title={title} right={actions} icon={icon} />}
+    <aside ref={ref} className={`unit-card ref-card${popup ? " in-popup" : ""}${scope ? " character-card" : ""}`} aria-label={label}>
+      {!popup && <CardBanner title={scope ? <span className="cv-banner-name">{title}<ScopeTag scope={scope} /></span> : title} right={actions} icon={icon} />}
       {popup && actions && <PopupActions>{actions}</PopupActions>}
       <div className={`card-frame${panes.length ? " with-bar" : ""}`}>
         <PaneContext.Provider value={{ active, register }}>

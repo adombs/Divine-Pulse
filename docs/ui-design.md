@@ -3,6 +3,10 @@
 How the app's pages are put together, so new screens look and behave like the rest. The look itself (banners, cogs,
 paper, diamonds, styled after the in-game Status page) is separate; this is about structure.
 
+Follow any repository-local `AGENTS.md` instructions; that file is kept outside Git. Maintainer decisions take
+precedence over older design notes. The supported review targets are desktop **16:9 and 16:10** (1600×900 and 1600×1000). Do not spend
+implementation, testing, or screenshot work on phone/mobile views unless explicitly requested.
+
 ## Principles
 
 1. **Summary first, detail on demand.** Every page opens on what matters most (a few numbers, a list), and
@@ -27,11 +31,14 @@ paper, diamonds, styled after the in-game Status page) is separate; this is abou
    the ends); the replay's timeline is its taller variant with a notch per step.
 8. **Motion is quiet and quick** (0.15-0.3 s): views fade in, sections slide open, windows rise in. Reduced-motion
    settings turn it off.
+9. **Avoid explanatory clutter.** Do not add unsolicited subtitles, repeated counts, sorting hints, or permanent
+   footer legends. Unknown values keep their sentinel and accessible reason. In History statistics, character
+   sprites sit beside names, numeric columns are centered, and battle types reuse History's colours.
 
 ## Page anatomy
 
 ```
-PageHeader   title · one-line status (chips)                       actions
+PageHeader   title [essential status, when needed]                 actions
              [ Sub-tab ]  [ Sub-tab ]  [ Sub-tab ]                  (when the page has views)
 Tiles        a few key numbers (optional, always visible for the thing shown)
 Body         MasterDetail (list + DetailCard), a log, or sections
@@ -115,8 +122,33 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
 
 - **Roster:** header with the unit count and chips for what changes the view (in-battle filter, units to check,
   "Comparing as"); the run picker is the header's action. Table and unit card as before (`DetailCard`).
-- **Characters, Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
-  with a `DetailCard`.
+- **Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
+  with a `DetailCard`. The Archive's tabs: Characters, Crests, Battalions, Classes, Combat Arts, Abilities, Magic,
+  Weapons, Items (old `#/characters/...` links open its Characters and Crests tabs).
+
+## Character views
+
+One look for a character wherever one shows (components/character): the battle window and the Units tab, the
+Roster's card, the Archive's character card and the run's stats window.
+
+- **Scope, always said.** `ScopeTag`: *In this battle* (that battle only), *This run* (the Roster: the run's unit as
+  last read), *Whole run* (History: added up over finished battles), *General reference* (the Archive: the same in
+  every run). A character window says it in its header (its hero doesn't repeat it). The Archive is general only: no run
+  stats, gear or battalion on its cards, just a button to the Roster.
+- **The hero** (`CharacterHero`): the face, the key facts, the scope and the battalion badge. Roster and Archive use
+  `PortraitFlip`: the round portrait turns over to the map sprite while the pointer is on it, and stays turned on a
+  click, tap, Enter or Space; with reduced motion it swaps without turning. The battle window uses the split layout: a
+  larger portrait on the left, the sprite on a tile in its army's colour on the right, and HP, Level, Class, Status
+  between them (portrait and sprite side by side above the facts in a narrow card).
+- **The window** (`CharacterPopup`): one fixed size for every view and section (`--character-popup-w` / `-h` in
+  character.css); the hero stays put and only the picked section scrolls.
+- **Battalions** (`BattalionPanel`): laid out like the game's panel, battalion beside gambit, with the eight modifiers
+  (gains blue, losses red, an adjustment after an arrow), the gambit's uses, Mt, Hit and a little map of the tiles it
+  hits (the user's tile blue, facing up). Missing values show "—" with why; nothing is filled in.
+- **No page-wide scrolling, phones included.** On the Roster, the Archive and the battle's Overview and Units tab the
+  app stays the screen's height below 760px too (page-scoped `:has()` rules in character.css; Settings, History and
+  More Stats do the same in their own CSS); the header stays and the view scrolls inside. The Archive's tabs become one
+  row that scrolls sideways.
 - **Scan Log:** header with the session's count and chips for updates to check and those not saved; filter by outcome
   (All, Saved, To check, Not saved).
 - **Runs:** a new-run box and the runs as a `RowList`; selecting one shows its card: facts, Make active / Rename /

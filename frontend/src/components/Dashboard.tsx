@@ -1,4 +1,5 @@
 import { CONCEPT_ICON } from "../icons/concepts";
+import "./character/panels.css";
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Icon, IconButton } from "./Icon";
 import { api, LABELS, PortraitGender, RunSummary, STAT_KEYS, StatKey, Unit, VALUE_KEYS, ValueKey } from "../api";
@@ -11,7 +12,7 @@ import { crestLabel } from "../reference/crests";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "./PeopleFilters";
 import { FilterMenu, NoMatches, SearchBox, Segmented, compareValues, useSort } from "./common";
 import { AbilityLink, ArtLink, CharLink, ClassLink, CrestLink, ItemLink, SpellLink } from "./Links";
-import { AbilityIcon, ArtIcon, CrestIcon, ItemIcon } from "../reference/icons";
+import { AbilityIcon, ArtIcon, ItemIcon } from "../reference/icons";
 import { SkillIcon } from "./SkillIcon";
 import { SKILL_LABEL, type SkillKey } from "../reference/types";
 import { GearIcon } from "./battle/gameIcons";
@@ -30,6 +31,9 @@ import { ToastState } from "./Toasts";
 import { Portrait, StatTip, Switch, TypeButtons } from "./ui";
 import { useAffiliationIcon } from "./AffiliationIcon";
 import { DetailCard, EmptyState, MasterDetail, PageHeader, Section, StatusChip } from "./layout";
+import { CharacterHero } from "./character/CharacterHero";
+import { SpriteFace, unitSprite } from "./character/CharacterFace";
+import { BattalionPanel } from "./character/Battalion";
 import { tidyAbility } from "../appearance";
 import { plural } from "../format";
 
@@ -134,7 +138,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
   const houseOf = useMemo(() => new Map(ref?.characters.map((c) => [c.key, c.house] as const) ?? []), [ref]);
   const [nameWidth, setNameWidth] = useState(() => {
     const stored = Number(localStorage.getItem("divine-pulse-roster-name-width"));
-    return stored >= 140 && stored <= 420 ? stored : 200;
+    return stored >= 140 && stored <= 420 ? stored : 184;
   });
   const resizeStart = useRef<{ x: number; width: number } | null>(null);
   const [compare, setCompare] = useCompare();
@@ -279,7 +283,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
           </FilterMenu>
           {battleKeys.length > 0 && (
             <span className="battle-filter" title="Units in the battle in progress, read from game memory">
-              <Switch checked={battleOnly} onChange={onBattleOnly} label={`In battle · ${battleKeys.length}`} />
+              <span className="filter-label"><Icon name={CONCEPT_ICON.battle} /><Switch checked={battleOnly} onChange={onBattleOnly} label={`In battle · ${battleKeys.length}`} /></span>
             </span>
           )}
           {units.length > 0 && (
@@ -523,6 +527,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
   return (
     <DetailCard
       title={unit.name}
+      scope="run"
       icon={icon}
       label={`${unit.name} details`}
       actions={
@@ -532,32 +537,22 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
         </>
       }
     >
-      <div className="profile">
-        <span className="profile-portrait">
-          <Portrait unit={unit} part2={part2} size={104} />
-        </span>
-        <dl className="profile-rows">
-          <dt>Name</dt>
-          <dd>
-            <CharLink charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills on the Characters page">
-              {unit.full_name || unit.name}
-            </CharLink>
-          </dd>
-          <dt>Class</dt>
-          <dd>{unit.class_name ? <ClassLink name={unit.class_name} /> : "—"}</dd>
-          {unit.gender && (
-            <>
-              <dt>Gender</dt>
-              <dd title={unit.gender}>
-                <Icon name={unit.gender.toLowerCase().startsWith("f") ? CONCEPT_ICON.female : CONCEPT_ICON.male} />
-              </dd>
-            </>
-          )}
-          {isByleth(unit) && (
-            <>
-              <dt>Portrait</dt>
-              <dd>
+      <CharacterHero
+        key={unit.key}
+        name={unit.name}
+        layout="flip"
+        scope="run"
+        face={<span className="cv-face"><Portrait unit={unit} part2={part2} size={104} /></span>}
+        backFace={<SpriteFace sprite={unitSprite(unit)} name={unit.name} />}
+        facts={[
+          ["Name", <CharLink key="name" charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills in the Archive">{unit.full_name || unit.name}</CharLink>],
+          ["Class", unit.class_name ? <ClassLink key="class" name={unit.class_name} /> : "—"],
+          ["Crest", crests.length ? <span className="crest-marks">{crests.map((c) => <span key={`${c.name}-${c.major}`}><CrestLink name={c.name}>{crestLabel(c.name, c.major)}</CrestLink></span>)}</span> : "None"],
+        ]}
+        backFacts={[
+          ["Gender", isByleth(unit) ? (
                 <Segmented
+                  key="portrait"
                   size="mini"
                   label="Byleth's portrait"
                   value={unit.portrait_gender}
@@ -568,11 +563,12 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
                     ["female", "Female", "Always the female portrait"],
                   ]}
                 />
-              </dd>
-            </>
-          )}
-        </dl>
-      </div>
+          ) : unit.gender || character?.gender || "—"],
+          ["Affiliation", character?.house || "—"],
+          ["Birthday", character?.birthday || "—"],
+          ["Height", character?.height || "—"],
+        ]}
+      />
 
       <Section
         title="Stats"
@@ -585,6 +581,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
           </>
         }
       >
+        <div className="roster-stat-panel">
         {Object.keys(unit.skills ?? {}).length > 0 && (
           <div className="roster-skills" role="group" aria-label="Current skill ranks">
             {(Object.entries(unit.skills ?? {}) as [SkillKey, { rank: string; exp: number }][]).map(([skill, value]) => {
@@ -615,6 +612,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
         <div className="stat-grid">
           <div>{left.map(statRow)}</div>
           <div>{right.map(statRow)}</div>
+        </div>
         </div>
       </Section>
 
@@ -721,24 +719,8 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts, onDelete }: CardProp
         )}
       </Section>
 
-      <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={unit.battalion}>
-        {unit.battalion ? <p>{unit.battalion}</p> : <p className="muted">No battalion</p>}
-      </Section>
-
-      <Section title="Crest" icon={CONCEPT_ICON.crest}>
-        {crests.length > 0 ? (
-          <ul className="item-list">
-            {crests.map((c) => (
-              <li key={`${c.name}-${c.major}`}>
-                <span>
-                  <CrestIcon name={c.name} major={c.major} /> <CrestLink name={c.name}>{crestLabel(c.name, c.major)}</CrestLink>
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <p className="muted">No crest</p>
-        )}
+      <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={unit.battalion || (unit.battalion === "" ? "No battalion" : "Not read yet")}>
+        <BattalionPanel unit={unit} scope="run" />
       </Section>
 
       {unit.boosted_unexplained.length > 0 && (

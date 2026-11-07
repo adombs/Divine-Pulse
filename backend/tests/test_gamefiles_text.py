@@ -94,6 +94,12 @@ def test_equipment_description_is_extracted():
     assert names["equipment_description"]["6"] == "Relic effect"
 
 
+def test_gambit_text_is_indexed_by_gambit_id():
+    names = text._language([[], [], _table({6616: "Test tactic", 6916: "Test effect"})], list(range(1201)))
+    assert names["gambit"]["2"] == "Test tactic"
+    assert names["gambit_description"]["2"] == "Test effect"
+
+
 @pytest.mark.skipif(not os.environ.get("DIVINE_PULSE_GAME_DUMP"), reason="needs DIVINE_PULSE_GAME_DUMP (a 1.2.0 dump)")
 def test_text_family_on_a_real_dump(tmp_path: Path):
     from app.gamefiles import dump as dumps

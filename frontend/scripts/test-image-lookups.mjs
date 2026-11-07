@@ -16,7 +16,7 @@ async function moduleWithStubs(path, stubs, compile = stripTypeScriptTypes) {
 
 const compileTsx = (source) => ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.React } }).outputText;
 
-test("battle sprites fall back to portraits before badges or initials", async () => {
+test("battle artwork honors the selected representation and reports missing assets without substitutes", async () => {
   globalThis.fallbackFixture = {
     React,
     atlas: true,
@@ -47,6 +47,7 @@ test("battle sprites fall back to portraits before badges or initials", async ()
     const isObject = () => false;
     const PortraitImage = ({ bundled }) => React.createElement('img', { src: bundled });
     const GameImage = ({ imported }) => React.createElement('img', { src: imported });
+    const MissingGameAsset = ({ label }) => React.createElement('span', { 'data-asset-error': 'missing' }, label);
   `;
   const { Token } = await moduleWithStubs("../src/components/battle/Minimap.tsx", stubs, (source) => compileTsx(source + "\nexport { Token };"));
   const { UnitFace } = await moduleWithStubs("../src/components/battle/parts.tsx", stubs, compileTsx);
@@ -64,9 +65,10 @@ test("battle sprites fall back to portraits before badges or initials", async ()
   }));
   const face = () => renderToStaticMarkup(React.createElement(UnitFace, { id: "e:1", name: "Example" }));
   const f = globalThis.fallbackFixture;
-  assert.match(map(), /map-token enemy portrait/);
-  assert.match(map("sprites", true), /map-token enemy portrait/);
-  assert.match(face(), /example\.png/);
+  assert.match(map(), /data-asset-error="missing"/);
+  assert.match(map("sprites", true), /data-asset-error="missing"/);
+  assert.match(face(), /data-asset-error="missing"/);
+  assert.doesNotMatch(map(), /example\.png|weapon\.png|portrait|initial/);
   f.index.finished_classes = { 47: { f: 2 } };
   assert.match(map(), /map-token sprite/);
   assert.match(face(), /sprite\.png/);
@@ -84,15 +86,17 @@ test("battle sprites fall back to portraits before badges or initials", async ()
   assert.match(face(), /sprite\.png/);
   assert.match(renderToStaticMarkup(React.createElement(UnitFace, { id: "a:1", name: "Example" })), /example\.png/);
   f.atlas = false;
-  assert.match(map(), /map-token enemy portrait/);
+  assert.match(map(), /data-asset-error="missing"/);
   f.index = null;
   f.imported = "images/portraits/example.png";
   f.portrait = null;
-  assert.match(map(), /map-token enemy portrait/);
+  assert.match(map(), /data-asset-error="missing"/);
+  assert.match(face(), /data-asset-error="missing"/);
+  f.unitsLook = 'portraits';
   assert.match(face(), /images\/portraits\/example\.png/);
   f.imported = null;
-  assert.match(map(), /weapon\.png/);
-  assert.match(face(), /initial/);
+  assert.match(map(), /data-asset-error="missing"/);
+  assert.doesNotMatch(map(), /weapon\.png|initial/);
 });
 
 test("a combat art's icon follows its weapon, whatever the art costs", async () => {

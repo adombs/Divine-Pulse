@@ -20,6 +20,7 @@ const ICONS = {
   history: ["clock-counter-clockwise"],
   characters: ["identification-badge"],
   classes: ["shield-chevron"],
+  archive: ["books"],
   supports: ["hand-heart"],
   runs: ["flag-banner"],
   settings: ["gear-six"],
@@ -44,6 +45,7 @@ const ICONS = {
   camera: ["camera"],
   speed: ["hourglass"],
   hide: ["eye-slash"],
+  show: ["eye"],
   edit: ["pencil-simple"],
   delete: ["trash"],
   done: ["check-circle"],
@@ -91,6 +93,8 @@ const ICONS = {
   // Shared domain concepts (src/icons/concepts.ts).
   ability: ["star-four"],
   battalion: ["flag-banner-fold"],
+  // A portrait that turns over to show the map sprite
+  flip: ["arrows-left-right"],
   crest: ["seal"],
   growth: ["trend-up"],
   position: ["map-pin"],

@@ -2,25 +2,27 @@
  * The History page's body: the run in numbers, its battles (passed in), standout records, and each character over
  * every battle they were in.
  */
-import { CONCEPT_ICON } from "../../icons/concepts";
 import { ReactNode, useMemo } from "react";
 import type { Battle, Unit } from "../../api";
 import { compareValues, useSort } from "../common";
-import { DetailCard, Facts, ListRow, MasterDetail, RowList, Section, Tile, Tiles } from "../layout";
-import { CharLink, ClassLink } from "../Links";
+import { MasterDetail, Section } from "../layout";
 import { characterKeyOfUnit } from "../../portraits";
 import { useNav } from "../../nav";
 import { Portrait } from "../ui";
 import { useAffiliationIcon } from "../AffiliationIcon";
 import { CharacterPopup } from "../CharacterPopup";
+import { CharLink } from "../Links";
 import { clock, plural } from "../../format";
 import "./history.css";
-import { CombatTiles } from "./detail";
 import { BattleKindChip } from "./BattleList";
 import { Carousel } from "./Carousel";
 import { battleName } from "./scenarios";
-import { Gains, Num, UsageList } from "./parts";
+import { Num } from "./parts";
+import { RunCharacterCard } from "./RunCharacterCard";
+import { PortraitFlip, unitSprite } from "../character/CharacterFace";
 import { CharacterStats, characterStats, leader, RunStats, runStats, timelines } from "./stats";
+import { Icon } from "../Icon";
+import { CONCEPT_ICON } from "../../icons/concepts";
 
 type Col = "name" | "battles" | "fights" | "defeats" | "dealt" | "taken" | "healing" | "level_ups" | "left";
 
@@ -35,9 +37,10 @@ interface Props {
   onOpen: (id: string, key?: string) => void;
   /** The battle cards (their own Section), shown under the run's numbers. */
   battlesSection: ReactNode;
+  onStats: () => void;
 }
 
-export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, battlesSection }: Props) {
+export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, battlesSection, onStats }: Props) {
   const battles = useMemo(() => history ?? [], [history]);
   const items = useMemo(() => timelines(battles), [battles]);
   const characters = useMemo(() => characterStats(battles, items), [battles, items]);
@@ -48,14 +51,14 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
   const shownUnit = roster.find((u) => u.key === selected && characters.some((c) => c.key === u.key));
   const popupIcon = useAffiliationIcon(shownUnit ? characterKeyOfUnit(shownUnit) : null);
 
-  if (history === null) return <p className="muted">Loading…</p>;
-  if (!battles.length) return <div className="stats-tab">{battlesSection}</div>;
+  const heading = <span className="history-stats-heading">Characters<button type="button" className="btn small" onClick={onStats} aria-label="Run character statistics"><Icon name={CONCEPT_ICON.history} /> Stats</button></span>;
+  if (history === null || !battles.length) return <div className="stats-tab">{battlesSection}<Section title={heading}><p className="muted" role="status">{history === null ? "Loading characters…" : "No character statistics yet. Record a battle to see their contributions."}</p></Section></div>;
 
   const value = (c: CharacterStats, key: Col): number | string => {
     switch (key) {
       case "name": return c.name;
       case "battles": return c.battles;
-      case "fights": return c.fights;
+      case "fights": return c.fights ?? -1;
       case "defeats": return c.defeats ?? -1;
       case "dealt": return c.damage_dealt ?? -1;
       case "taken": return c.damage_taken ?? -1;
@@ -111,7 +114,7 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
                     </span>
                   </td>
                   <td className="num">{c.battles}</td>
-                  <td className="num">{c.fights}</td>
+                  <td className="num"><Num value={c.fights} /></td>
                   <td className="num">
                     <Num value={c.defeats} />
                   </td>
@@ -137,7 +140,7 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
 
   return (
     <div className="stats-tab">
-      {missing && <p className="notice">{missing} hasn't been in a finished battle this run yet.</p>}
+      {missing && <p className="notice">{missing} hasn't been in a recorded battle this run yet.</p>}
       <RunSummary run={run} battles={battles} onOpen={onOpen} />
       {battlesSection}
       <Records run={run} characters={characters} onOpen={onOpen} roster={portraitOf}
@@ -146,14 +149,26 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
       />
       {/* Fills the rest of the screen; the table and the card scroll in their own columns. */}
       <div className="stats-chars">
-        <Section title="Characters">
+        <Section title={heading}>
           <MasterDetail detail={null} wide>
             {list}
           </MasterDetail>
         </Section>
       </div>
-      <CharacterPopup open={!!current} onClose={() => nav.go({ page: "history", tab: "stats" }, { replace: true })} context="stats" title={current?.name ?? ""} icon={popupIcon}>
-        {current && <CharacterCard stats={current} roster={portraitOf.get(current.key)} part2={part2} onOpen={onOpen} />}
+      <CharacterPopup open={!!current} onClose={() => nav.go({ page: "history", tab: "stats" }, { replace: true })} context="stats" title={current ? <CharLink charKey={shownUnit ? characterKeyOfUnit(shownUnit) : null} title="Base stats, growths and skills">{shownUnit?.full_name || current.name}</CharLink> : ""} icon={popupIcon}>
+        {current && (() => {
+          const unit = portraitOf.get(current.key);
+          return (
+            <RunCharacterCard
+              stats={current}
+              face={<PortraitFlip portrait={unit ? <Portrait unit={unit} part2={part2} size={88} /> : <span className="award-initial">{current.name[0]}</span>} sprite={unit ? unitSprite(unit) : null} name={current.name} className={unit?.class_name} size={88} />}
+              className={unit?.class_name}
+              icon={popupIcon}
+              onOpen={onOpen}
+              onRoster={unit ? () => nav.go({ page: "roster", id: unit.key }) : undefined}
+            />
+          );
+        })()}
       </CharacterPopup>
     </div>
   );
@@ -295,106 +310,5 @@ function Records({
     <Section title="Records">
       <Carousel label="records" rows={rows} />
     </Section>
-  );
-}
-
-/** One character over the run: totals, growth, and each battle they were in. */
-function CharacterCard({ stats: c, roster, part2, onOpen }: { stats: CharacterStats; roster?: Unit; part2: boolean; onOpen: (id: string, key?: string) => void }) {
-  const level = c.first_level !== c.level ? `${c.first_level} → ${c.level}` : String(c.level);
-  const spent = [
-    c.weapon_uses ? plural(c.weapon_uses, "weapon attack") : "",
-    c.spells_cast ? plural(c.spells_cast, "spell") : "",
-    c.item_uses ? plural(c.item_uses, "item") : "",
-  ].filter(Boolean);
-  const nav = useNav();
-  const icon = useAffiliationIcon(roster ? characterKeyOfUnit(roster) : null);
-  return (
-    <DetailCard title={c.name} icon={icon} label={`${c.name} over this run's battles`}>
-      <div className="profile">
-        {roster && (
-          <span className="profile-portrait">
-            <Portrait unit={roster} part2={part2} size={88} />
-          </span>
-        )}
-        <Facts
-          rows={[
-            [
-              "Name",
-              <CharLink charKey={roster ? characterKeyOfUnit(roster) : null} title="Base stats, growths and skills on the Characters page">
-                {roster?.full_name || c.name}
-              </CharLink>,
-            ],
-            ["Class", c.class_name ? <ClassLink name={c.class_name} /> : "—"],
-            ["Level", level],
-            ["Battles", c.battles],
-            ["In battle", clock(c.seconds)],
-            ["Fell", c.left ? <span className="form-error">{plural(c.left, "time")}</span> : "never"],
-          ]}
-        />
-      </div>
-      <CombatTiles
-        fights={c.fights}
-        defeats={c.defeats}
-        dealt={c.damage_dealt}
-        taken={c.damage_taken}
-        extra={[
-          ["Healing", c.healing_given, c.healed ? `got ${c.healed} back` : "given"],
-          ["Moved", c.tiles_moved, "tiles"],
-          ["Top", c.mvp, "most kills in a battle"],
-        ]}
-      />
-      <Section title="Per Battle" icon={CONCEPT_ICON.battle}>
-        <Tiles>
-          <Tile label="Fights" value={avg(c.fights, c.battles)} />
-          <Tile label="Killed" value={c.defeats !== null ? avg(c.defeats, c.battles) : "—"} />
-          <Tile label="Dealt" value={c.damage_dealt !== null ? avg(c.damage_dealt, c.battles) : "—"} note="damage" />
-          <Tile label="Taken" value={c.damage_taken !== null ? avg(c.damage_taken, c.battles) : "—"} note="damage" />
-        </Tiles>
-      </Section>
-      <Section title="Growth in Battle" icon={CONCEPT_ICON.growth}>
-        <Gains gains={c.gains} />
-        <p className="muted small">
-          {plural(c.level_ups, "level-up")} · {plural(c.stat_points, "stat point")}
-        </p>
-      </Section>
-      <Section title="Supplies Used" icon={CONCEPT_ICON.item}>{spent.length ? <p>{spent.join(" · ")}</p> : <p className="muted">Nothing spent.</p>}</Section>
-      {c.usage.length > 0 && (
-        <Section title="Weapons & Arts Used" icon={CONCEPT_ICON.weapon}>
-          <UsageList usage={c.usage} />
-        </Section>
-      )}
-      <Section title="Battles" icon={CONCEPT_ICON.log}>
-        <RowList>
-          {c.appearances.map((a) => (
-            <ListRow
-              key={a.battle.id}
-              selected={false}
-              onClick={() => onOpen(a.battle.id, c.key)}
-              lead={<BattleKindChip battle={a.battle} />}
-              title={battleName(a.battle).title}
-              facts={
-                <>
-                  <span>{new Date(a.battle.started_at).toLocaleDateString()}</span>
-                  <span>Lv {a.unit.level_ups ? `${a.unit.start_level}→${a.unit.level}` : a.unit.level}</span>
-                  <span>{plural(a.fights, "fight")}</span>
-                  {a.defeats !== null && <span>{plural(a.defeats, "kill")}</span>}
-                  {a.unit.damage_dealt !== null && <span>{a.unit.damage_dealt} dealt</span>}
-                  {a.mvp && <span title="Most kills in the battle">top</span>}
-                  {!a.unit.on_map && <span className="form-error">fell</span>}
-                </>
-              }
-              open="Open"
-            />
-          ))}
-        </RowList>
-      </Section>
-      {roster && (
-        <div className="card-actions">
-          <button type="button" className="btn" onClick={() => nav.go({ page: "roster", id: roster.key })}>
-            Open in the Roster
-          </button>
-        </div>
-      )}
-    </DetailCard>
   );
 }
