@@ -106,7 +106,7 @@ function TabStrip<T extends string>({ label, value, options, onChange, className
 
 // Records
 
-const LEFT: [Left, string][] = [["standouts", "Awards"], ["share", "Fight Breakdown"]];
+const LEFT: [Left, string][] = [["standouts", "Records"], ["share", "Fight Breakdown"]];
 type Left = "standouts" | "share";
 
 function RecordsPart({ battle, seconds, stats, history }: View) {
@@ -254,11 +254,11 @@ function Standouts({ battle, stats: s }: { battle: Battle; stats: MoreStats }) {
   return (
     <section className="ms-panel ms-standouts" id="ms-standouts" aria-labelledby="ms-standouts-title">
       <header className="ms-panel-head">
-        <h3 id="ms-standouts-title">Awards</h3>
+        <h3 id="ms-standouts-title">Records</h3>
       </header>
-      {!shown.length ? <Empty>No awards recorded yet.</Empty> : (
+      {!shown.length ? <Empty>No records earned yet.</Empty> : (
         <div className="standout-carousel">
-          <Carousel label="award groups" rows={shown.map(([title, icon, cards]) => (
+          <Carousel label="record groups" rows={shown.map(([title, icon, cards]) => (
             <li key={title} className="standout-column">
               <div className="standout-stack" role="group" aria-label={title}>
                 <h4 className="standout-group"><Icon name={icon} />{title}<span className="standout-count">{cards.length}</span></h4>
