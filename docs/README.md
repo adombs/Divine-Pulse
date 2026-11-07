@@ -4,8 +4,10 @@ Start here based on what you need:
 
 - **Players:** install and use Divine Pulse in the [README](../README.md).
 - **Contributors:** set up a development environment and run checks in [the contributing guide](../.github/CONTRIBUTING.md).
+- **Coding agents:** follow any local `AGENTS.md` instructions and the [shared UI decisions](ui-design.md).
 - **Backend work:** follow the [backend architecture](BACKEND_ARCHITECTURE.md) and [HTTP API contract](api-contracts.md).
 - **Frontend work:** follow the [frontend boundaries](frontend-architecture.md) and [interface design](ui-design.md).
+- **Fallback behavior:** see the [fallback inventory and recommended dispositions](fallback-inventory.md).
 - **Game files from your own dump:** dump them with the [dumping guide](game-assets/dumping.md), extract and check
   them with the [importer guide](game-assets/README.md), and see [generated files](generated-assets.md).
 - **Maintainers preparing a release:** use the [release guide](releasing.md).

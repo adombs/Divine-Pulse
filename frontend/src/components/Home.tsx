@@ -8,9 +8,7 @@ import { api, BestUnit, RunSummary } from "../api";
 import { useNav } from "../nav";
 import { MAX_LEN, cleanText, runNameError } from "../validation";
 import { CONCEPT_ICON } from "../icons/concepts";
-import { faceUrl } from "../portraits";
 import { Icon } from "./Icon";
-import { PortraitImage } from "./GameImage";
 import { Modal } from "./Modal";
 import { RunIcon } from "./ui";
 import { SpriteIndex, UnitSprite, spriteLayers, useSprites } from "./battle/mapIcons";
@@ -185,11 +183,9 @@ function RunDetails({ run, sprites }: { run: RunSummary; sprites: SpriteIndex | 
 const ON_FOOT = [4, 13, 24, 24];
 const MOUNTED = [2, 6, 30, 30];
 
-/** The run's best unit: its map sprite, or its portrait when the sprite atlases have no sprite for it (a battle saved
- * before class IDs were kept). Nothing while the sprite index loads, or when neither exists. */
+/** The run's best unit uses its requested map sprite; missing art is explicit. */
 function BestUnitSprite({ unit, sprites }: { unit: BestUnit; sprites: SpriteIndex | null }) {
   const layers = sprites && spriteLayers(sprites, { classId: unit.class_id, female: unit.female, side: "player", character: unit.character, look: unit.look }, true);
-  const portrait = sprites && !layers && faceUrl({ character: unit.character, classId: unit.class_id, female: unit.female, name: unit.name, seed: unit.key }, false);
   // UnitSprite draws in tiles, a tile as wide as the cell, with the cell's bottom on the tile's.
   const frame = () => {
     const [w, h] = sprites!.cell;
@@ -203,7 +199,7 @@ function BestUnitSprite({ unit, sprites }: { unit: BestUnit; sprites: SpriteInde
           <UnitSprite index={sprites} layers={layers} side="player" />
         </svg>
       )}
-      {portrait && <PortraitImage bundled={portrait} fallback={null} alt="" draggable={false} />}
+      {(!sprites || !layers) && <span data-asset-error="missing" title="Map sprite unavailable; reimport game files.">Sprite unavailable</span>}
     </span>
   );
 }

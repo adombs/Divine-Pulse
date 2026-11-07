@@ -42,13 +42,16 @@ let cache: Promise<SupportData> | null = null;
 
 export function useSupports(): SupportData | null {
   const [data, setData] = useState<SupportData | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   useEffect(() => {
     let live = true;
     let generation = 0;
     const refresh = () => {
       const current = ++generation;
+      setError(null);
       cache = loadImportedSupports(wiki.supports, structure.excludedSupportPairs);
-      cache.then((d) => live && current === generation && setData(d));
+      cache.then((d) => live && current === generation && setData(d))
+        .catch((e: unknown) => { if (live && current === generation) setError(e instanceof Error ? e : new Error(String(e))); });
     };
     refresh();
     const unsubscribe = onGameAssetsChange(refresh);
@@ -59,6 +62,7 @@ export function useSupports(): SupportData | null {
       unsubscribeLanguage();
     };
   }, []);
+  if (error) throw error;
   return data;
 }
 

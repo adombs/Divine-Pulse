@@ -246,7 +246,6 @@ function CharacterCard({
         backFace={
           <SpriteFace
             sprite={characterSprite(portraitKeyName, c.start_class, isByleth ? bylethGender === "f" : c.gender === "Female")}
-            portrait={<KeyPortrait portraitKey={portraitKeyName} name={c.name} part2={part2} size={96} />}
             name={c.name}
           />
         }

@@ -8,7 +8,7 @@ import { armySprite, isObject, spriteOf } from "./map";
 import { clock, plural } from "../../format";
 import { AffiliationIcon } from "../AffiliationIcon";
 import { Icon } from "../Icon";
-import { GameImage, PortraitImage } from "../GameImage";
+import { GameImage, MissingGameAsset, PortraitImage } from "../GameImage";
 import { GearIcon, WeaponIcon } from "./gameIcons";
 import { ArtIcon } from "../../reference/icons";
 import { AbilityLink, ArtLink, ItemLink, SpellLink } from "../Links";
@@ -544,7 +544,7 @@ export function UnitFace({ id, name, size = "md", look }: { id: string; name: st
   const side = who?.army || id.startsWith("a:") ? "player" : who?.enemy && isObject(who.enemy) ? "object" : who?.enemy?.side === "ally" || who?.enemy?.side === "third" ? who.enemy.side : "enemy";
   const army = `team-${side}`;
   const sprite = want !== "sprites" || !sprites ? null : who?.unit ? armySprite(who.unit) : who?.enemy ? spriteOf(who.enemy) : null;
-  const layers = sprite && sprites ? ((spriteLayers(sprites, sprite, true) ?? spriteLayers(sprites, sprite, false))) : null;
+  const layers = sprite && sprites ? spriteLayers(sprites, sprite, sprite.character !== null) : null;
   if (layers && sprites && sprite) {
     return (
       <span className={`unit-face ${army} ${size} sprite`} aria-hidden>
@@ -554,16 +554,10 @@ export function UnitFace({ id, name, size = "md", look }: { id: string; name: st
       </span>
     );
   }
+  if (want === "sprites") return <MissingGameAsset label={`${name}'s map sprite`} className={`unit-face ${army} ${size}`} />;
   const imported = nav.importedFace?.(id);
-  const fallback = portrait ? <PortraitImage className={`unit-face ${army} ${size}`} bundled={portrait} fallback={<span className={`unit-face ${army} ${size} initial`} aria-hidden>{name.slice(0, 1)}</span>} alt="" draggable={false} /> : <span className={`unit-face ${army} ${size} initial`} aria-hidden>{name.slice(0, 1)}</span>;
-  if (imported) return <GameImage imported={imported} className={`unit-face ${army} ${size}`} fallback={fallback} alt="" draggable={false} />;
-  return portrait ? (
-    <PortraitImage className={`unit-face ${army} ${size}`} bundled={portrait} fallback={<span className={`unit-face ${army} ${size} initial`} aria-hidden>{name.slice(0, 1)}</span>} alt="" draggable={false} />
-  ) : (
-    <span className={`unit-face ${army} ${size} initial`} aria-hidden>
-      {name.slice(0, 1)}
-    </span>
-  );
+  if (imported) return <GameImage imported={imported} className={`unit-face ${army} ${size}`} alt={`${name}'s portrait`} draggable={false} />;
+  return <PortraitImage className={`unit-face ${army} ${size}`} bundled={portrait ?? null} alt={`${name}'s portrait`} draggable={false} />;
 }
 
 /** The key numbers as a row of small cards on the Overview.

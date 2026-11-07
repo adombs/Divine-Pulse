@@ -232,7 +232,7 @@ function BattleCard({
   return (
     <li className={`battle-card ${tone}`}>
       <div className="bc-thumb">
-        <Thumb battle={b} />
+        <Thumb battle={b} part2={part2} />
         {live && <span className="bc-live">Live</span>}
         {name.kind && <span className="bc-kind">{KIND_LABEL[name.kind]}</span>}
       </div>
@@ -286,7 +286,7 @@ function Stat({ label, value }: { label: string; value: number | string }) {
 }
 
 /** The map as the battle ended (or stands, when live); a crest when no position was read. */
-function Thumb({ battle }: { battle: Battle }) {
+function Thumb({ battle, part2 }: { battle: Battle; part2: boolean }) {
   const board = useMemo(() => (hasMap(battle) ? boardNow(battle) : null), [battle]);
   const zoom = useMemo(() => (board ? closeUp(board) : null), [board]);
   if (!board)
@@ -300,7 +300,7 @@ function Thumb({ battle }: { battle: Battle }) {
     );
   return (
     <div className="bc-map" aria-hidden inert>
-      <Minimap board={board} size="compact" label="" zoom={zoom} />
+      <Minimap board={board} size="compact" part2={part2} label="" zoom={zoom} />
     </div>
   );
 }

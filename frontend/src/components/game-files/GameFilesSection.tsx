@@ -75,6 +75,7 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
   return <>
     <SectionHead>Game files</SectionHead>
     <div className="game-files-layout">
+      {status?.error && <p className="field-hint error" role="alert">{status.error}</p>}
       {status?.available && <div className="game-files-card game-files-status">
         <strong>Game files are available</strong>
         <span className="hint">{[status.version, `${status.files ?? 0} files`, status.created && new Date(status.created).toLocaleString()].filter(Boolean).join(" \u00b7 ")}</span>

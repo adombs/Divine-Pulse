@@ -491,6 +491,7 @@ export interface GameAssetsJob {
 }
 export interface GameFilesStatus {
   available: boolean; version?: string | null; dlc?: string[];
+  error?: string;
   created?: string; files?: number; outdated?: boolean; last_dump?: string | null; job?: GameAssetsJob;
 }
 export interface GameFilesScan {
