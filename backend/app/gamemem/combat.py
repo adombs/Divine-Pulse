@@ -16,7 +16,7 @@ abilities are the innate slots of its row in "class_abilities" (class_innate()):
 Sword Crit +10 show on its status screen, its Defense +2 doesn't, and a Fighter's mastery Strength +2 isn't in
 Cyril's forecast.
 
-Not modelled (the forecast can differ by these, see docs/battle-page-plan.md):
+Not modelled (the forecast can differ by these, see the reader):
 - Linked allies ("linked attacks"): on the player phase, each ally that could attack the target from where it stands
   adds Hit and Avo to the attacker by support rank (fan wikis: +3 with no support if the pair can support at all,
   +5 C, +7 B, +10 A, +15 S; up to three allies, an adjutant as a fourth), and some bonded pairs +1-3 Atk. The tracker

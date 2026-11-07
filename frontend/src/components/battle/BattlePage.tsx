@@ -3,13 +3,14 @@
  * (`BattleView`), marked as a recording. The run's battles and their stats are on the History page.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
-import { useEffect, useMemo, useState } from "react";
+import { useContext, useEffect, useMemo, useState } from "react";
 import { api, Battle, Unit } from "../../api";
 import { PageHeader, StatusChip, Tab } from "../layout";
 import { useNav } from "../../nav";
 import { houseOfCharacter } from "../AffiliationIcon";
 import { Icon } from "../Icon";
 import { characterKeyOfName, characterKeyOfUnit, faceUrl, portraitUrl } from "../../portraits";
+import { PortraitPhaseContext } from "../../appearance";
 import { useReference } from "../../reference/types";
 import { armyId, enemies, enemyId, people, timeline } from "./model";
 import type { MapLook } from "./mapIcons";
@@ -115,24 +116,26 @@ export function BattleView(p: ViewProps) {
   const seconds = useElapsed(battle.started_at, battle.active, battle.seconds, battle.away_s ?? 0);
   const items = useMemo(() => timeline(battle), [battle]);
   const who = useMemo(() => people(battle), [battle]);
+  const automatic = useContext(PortraitPhaseContext) === "auto";
   const portraits = useMemo(() => {
     // Everyone, from the game's own IDs as of this reading: so a unit that turns up for the first time, changes class
     // or name (Tomas to Solon) or falls has the right face. Your roster's own pick (Byleth's) comes first.
     const out = new Map<string, string | null>();
     for (const u of battle.units) {
       const mine = p.roster.find((r) => r.key === u.key);
-      out.set(armyId(u.key), (mine && portraitUrl({ ...mine, look: u.look ?? mine.look }, p.part2)) || faceUrl({ character: u.character, classId: u.class_id, female: u.female, name: u.name, seed: u.key, look: u.look }, p.part2));
+      out.set(armyId(u.key), (mine && portraitUrl({ ...mine, look: u.look ?? mine.look }, p.part2, automatic)) || faceUrl({ character: u.character, classId: u.class_id, female: u.female, name: u.name, seed: u.key, look: u.look }, p.part2, automatic));
     }
     for (const [slot, e] of Object.entries(battle.enemy_stats ?? {})) {
-      out.set(enemyId(slot), faceUrl({ character: e.character, classId: e.class_id, female: e.female, name: e.name || e.label, seed: slot }, p.part2));
+      out.set(enemyId(slot), faceUrl({ character: e.character, classId: e.class_id, female: e.female, name: e.name || e.label, seed: slot }, p.part2, automatic));
     }
     return out;
-  }, [p.roster, p.part2, battle.units, battle.enemy_stats, showIdentities, showLaterPortraits]);
+  }, [p.roster, p.part2, automatic, battle.units, battle.enemy_stats, showIdentities, showLaterPortraits]);
   const importedFaces = useMemo(() => {
     const out = new Map<string, string>();
     for (const u of battle.units) {
       if (u.hp != null && u.now.hp > 0 && u.hp / u.now.hp < 0.25) {
-        const later = u.character === 0 || u.character === 1 ? u.look === "green" : p.part2 && showLaterPortraits;
+        const later = automatic && (u.character === 0 || u.character === 1) && u.look
+          ? u.look === "green" : p.part2 && showLaterPortraits;
         const face = expressionPaths(portraitData, u.character, later)[HURT_EXPRESSION];
         if (face) out.set(armyId(u.key), face);
       }
@@ -143,7 +146,7 @@ export function BattleView(p: ViewProps) {
       if (face) out.set(enemyId(slot), face);
     }
     return out;
-  }, [battle.units, battle.enemy_stats, portraitData, p.part2, showLaterPortraits]);
+  }, [battle.units, battle.enemy_stats, portraitData, p.part2, automatic, showLaterPortraits]);
   const ref = useReference();
   const houses = useMemo(() => {
     const out = new Map<string, string>();

@@ -58,18 +58,26 @@ def test_run_and_battle_export_import_round_trip(client):
     exported = client.get(f"/api/runs/{source_id}/export").json()
     assert exported["format"] == "divine-pulse-run" and exported["version"] == 1
     assert len(exported["battles"]) == 1
-    imported = client.post("/api/runs/import", json=exported)
+    assert client.post("/api/runs/import", json=exported).status_code == 409
+    imported = client.post("/api/runs/import", params={"name": "Azure Moon Copy"}, json=exported)
     assert imported.status_code == 200
     new_id = imported.json()["id"]
-    assert new_id != source_id and imported.json()["name"] == "Azure Moon (imported)"
+    assert new_id != source_id and imported.json()["name"] == "Azure Moon Copy"
     assert client.get(f"/api/runs/{new_id}/battles").json()[0]["id"] != "battle-one"
-    # Files with the former format name are rejected.
-    assert client.post("/api/runs/import", json={**exported, "format": "fe3h-tracker-run"}).status_code == 422
+    # Files with the former format name migrate on import.
+    assert client.post("/api/runs/import", params={"name": "Legacy copy"},
+                       json={**exported, "format": "fe3h-tracker-run"}).status_code == 200
 
     battle_file = client.get(f"/api/runs/{source_id}/battles/export").json()
     assert battle_file["format"] == "divine-pulse-battles"
-    assert client.post(f"/api/runs/{new_id}/battles/import", json=battle_file).json() == {"added": 0}
-    assert client.post(f"/api/runs/{source_id}/battles/import", json=battle_file).json() == {"added": 0}
+    assert client.post(f"/api/runs/{new_id}/battles/import", json=battle_file).json() == {"added": 1}
+    assert client.post(f"/api/runs/{source_id}/battles/import", json=battle_file).json() == {"added": 1}
+    copied = client.get(f"/api/runs/{source_id}/battles").json()
+    assert len({battle["id"] for battle in copied}) == 2
+    replaced = client.post("/api/runs/import?overwrite=true", json=exported)
+    assert replaced.status_code == 200 and replaced.json()["id"] == source_id
+    assert len(client.get(f"/api/runs/{source_id}/battles").json()) == 1
+
 
 
 def test_run_and_battle_import_reject_invalid_files(client):
@@ -86,7 +94,7 @@ def test_battalion_identity_and_battle_assignment_survive_public_updates_and_exp
     run_id = make_run(client, "Assignment test")
     client.app_state.store.put_unit(run_id, "aster", Unit(name="Aster", battalion="Current company", battalion_id=0,
                                                           battalion_exp=230, battalion_endurance=12))
-    response = client.put(f"/api/runs/{run_id}/units/aster/portrait", json={"gender": "female"})
+    response = client.put(f"/api/runs/{run_id}/units/aster/ebst", json={"offense": "magical"})
     assert response.status_code == 200
     assert response.json()["battalion_id"] == 0
     recorded = BattleUnitStats(key="aster", name="Aster", start_level=10, level=10, start=STATS, now=STATS,
@@ -97,7 +105,7 @@ def test_battalion_identity_and_battle_assignment_survive_public_updates_and_exp
     client.app_state.battles.add(Battle(id="assignment-battle", run_id=run_id,
                                      started_at=datetime(2026, 10, 14, tzinfo=timezone.utc), units=[recorded, older]))
     exported = client.get(f"/api/runs/{run_id}/export").json()
-    imported = client.post("/api/runs/import", json=exported)
+    imported = client.post("/api/runs/import", params={"name": "Assignment copy"}, json=exported)
     assert imported.status_code == 200
     new_id = imported.json()["id"]
     [unit] = client.get(f"/api/runs/{new_id}/units").json()
@@ -112,47 +120,27 @@ def test_battalion_identity_and_battle_assignment_survive_public_updates_and_exp
     assert (unknown["battalion_exp"], unknown["battalion_endurance"], unknown["gambit_uses"]) == (None, None, None)
 
 
-def test_undo_with_nothing_to_undo(client):
-    assert client.post("/api/scan/undo").json() is None
-    assert client.get("/api/scans").json() == []
+def test_units_are_not_editable_and_scan_history_is_unavailable(client):
+    run_id = make_run(client)
+    path = f"/api/runs/{run_id}/units/aster"
+    assert client.delete(path).status_code in {404, 405}
+    assert client.put(path + "/portrait", json={"gender": "female"}).status_code in {404, 405}
+    assert client.post("/api/scan/undo").status_code in {404, 405}
+    assert client.get("/api/scans").status_code == 404
 
 
-def test_portrait_gender_setting(client):
-    from app.domain.units import Unit
-
-    run_id = client.post("/api/runs", json={"name": "Run"}).json()["id"]
-    client.app_state.store.put_unit(run_id, "byleth", Unit(name="Byleth", source="memory"))
-    assert client.get(f"/api/runs/{run_id}/units").json()[0]["portrait_gender"] == "auto"
-    r = client.put(f"/api/runs/{run_id}/units/byleth/portrait", json={"gender": "female"})
-    assert r.status_code == 200 and r.json()["portrait_gender"] == "female"
-    assert client.put(f"/api/runs/{run_id}/units/byleth/portrait", json={"gender": "other"}).status_code == 422
-    assert client.put(f"/api/runs/{run_id}/units/nobody/portrait", json={"gender": "male"}).status_code == 404
+def test_recording_limit_is_validated(client):
+    assert client.get("/api/settings").json()["max_recordings"] == 3
+    for limit in (0, 1000):
+        response = client.put("/api/settings", json={"max_recordings": limit})
+        assert response.status_code == 200 and response.json()["max_recordings"] == limit
+    for invalid in (-1, 1001, 1.5):
+        assert client.put("/api/settings", json={"max_recordings": invalid}).status_code == 422
+    assert client.put("/api/settings", json={"auto_interval_s": 0.05}).status_code == 422
 
 
-def test_settings_are_validated(client):
-    body = {"auto_interval_s": client.get("/api/settings").json()["auto_interval_s"]}
-
-    def put(**changes):
-        return client.put("/api/settings", json={**body, **changes})
-
-    assert put().status_code == 200
-    assert put(auto_interval_s=0.05).status_code == 422
-    assert put(colour="red").status_code == 422
-
-
-def test_battle_switches_and_memory_check(client, monkeypatch):
+def test_memory_check_requires_eden(client, monkeypatch):
     from app.gamemem import fe3h
-
-    settings = client.get("/api/settings").json()
-    body = {"auto_interval_s": settings["auto_interval_s"]}
-    assert settings["battle_filter_auto"] is True
-    assert client.put("/api/settings", json={**body, "battle_filter_auto": False}).json()["battle_filter_auto"] is False
-    assert settings["battle_page_auto"] is True
-    assert client.put("/api/settings", json={**body, "battle_page_auto": False}).json()["battle_page_auto"] is False
-    assert settings["battle_alerts"] is True
-    assert client.put("/api/settings", json={**body, "battle_alerts": False}).json()["battle_alerts"] is False
-    assert settings["record_battles"] is True
-    assert client.put("/api/settings", json={**body, "record_battles": False}).json()["record_battles"] is False
 
     monkeypatch.setattr(fe3h, "running", lambda emulators: [])
     assert client.get("/api/memory/check").json() == {"ok": False, "message": "Eden isn't running."}
@@ -195,36 +183,24 @@ def test_the_app_shares_the_launchers_settings(tmp_path):
     store = SettingsStore(tmp_path / "settings.json")
     app = create_app(tmp_path, background=False, settings=store)
     assert app.state.settings is store
-    app.state.settings.update(auto_interval_s=2.0)
+    app.state.settings.update(max_recordings=8)
     store.update(window={"x": 1, "y": 2, "width": 900, "height": 700, "maximized": False})  # the window saving its position on quit
-    assert SettingsStore(tmp_path / "settings.json").get().auto_interval_s == 2.0
-
-
-def test_battle_settings_roundtrip(client):
-    current = client.get("/api/settings").json()
-    assert (current["battle_interval_s"], current["battle_estimate_fights"], current["pairing_check"], current["hide_history"]) == (0.1, True, False, False)
-    body = {"auto_interval_s": current["auto_interval_s"]}
-    r = client.put("/api/settings", json={**body, "battle_interval_s": 0.2, "battle_estimate_fights": False, "pairing_check": True})
-    assert r.status_code == 200, r.text
-    saved = r.json()
-    assert (saved["battle_interval_s"], saved["battle_estimate_fights"], saved["pairing_check"], saved["hide_history"]) == (0.2, False, True, False)
-    assert client.put("/api/settings", json={**body, "battle_interval_s": 0.05}).status_code == 422
+    assert SettingsStore(tmp_path / "settings.json").get().max_recordings == 8
 
 
 def test_window_mode_is_saved_and_applied_to_the_desktop_window(client):
-    body = {"auto_interval_s": client.get("/api/settings").json()["auto_interval_s"]}
     assert client.get("/api/settings").json()["window_mode"] == "windowed"
-    # Browser mode: no window to switch, the setting is just saved.
+    # The API can be tested without attaching a desktop window.
     assert client.get("/api/about").json()["desktop"] is False
-    assert client.put("/api/settings", json={**body, "window_mode": "fullscreen"}).json()["window_mode"] == "fullscreen"
-    assert client.put("/api/settings", json={**body, "window_mode": "exclusive"}).status_code == 422
+    assert client.put("/api/settings", json={"window_mode": "fullscreen"}).json()["window_mode"] == "fullscreen"
+    assert client.put("/api/settings", json={"window_mode": "exclusive"}).status_code == 422
 
     modes = []
     client.app_state.show_window = lambda: None
     client.app_state.set_window_mode = modes.append
     assert client.get("/api/about").json()["desktop"] is True
-    client.put("/api/settings", json={**body, "window_mode": "windowed"})
-    client.put("/api/settings", json={**body, "window_mode": "fullscreen"})
+    client.put("/api/settings", json={"window_mode": "windowed"})
+    client.put("/api/settings", json={"window_mode": "fullscreen"})
     assert modes == ["windowed", "fullscreen"]
 
 

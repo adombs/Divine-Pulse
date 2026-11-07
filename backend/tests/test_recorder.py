@@ -92,6 +92,17 @@ def test_recordings_under_the_old_extension_are_still_found_and_pruned(tmp_path)
     assert find_recordings(tmp_path) == [rec.path]
 
 
+def test_lowering_retention_keeps_the_active_recording_until_disabled(tmp_path):
+    rec = BattleRecorder(tmp_path)
+    for name in ("a", "b", "current"):
+        rec.start(name)
+    active = rec.path
+    rec.set_limit(1)
+    assert find_recordings(tmp_path) == [active]
+    rec.set_limit(0)
+    assert not rec.recording and find_recordings(tmp_path) == []
+
+
 def test_analysis_finds_the_planted_fields(tmp_path):
     frames = record(tmp_path)
     assert analysis.hp_candidates(frames)[0].offset == HP_AT

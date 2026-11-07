@@ -13,7 +13,7 @@ composition.py -------------------> constructs and connects the layers
 | Area | Owns | Must not own |
 | --- | --- | --- |
 | `app/domain/` | Units, runs, observations, change proposals, battle values, eBST setup and route rules | HTTP, files, process access, startup |
-| `app/application/` | Complete run/unit/settings operations, roster commits and Undo, battle lifecycle/timeline coordination, dependency protocols | FastAPI, concrete stores, memory connections, file I/O |
+| `app/application/` | Complete run/unit/settings operations, roster commits, battle lifecycle/timeline coordination, dependency protocols | FastAPI, concrete stores, memory connections, file I/O |
 | `app/infrastructure/` | JSON files, backup/recovery, resource paths, inventory/battle reference lookups, concrete runtime capabilities | HTTP handlers or response types |
 | `app/interface/` | HTTP routing, request/response conversion, expected error mapping, optional desktop callback adaptation | Direct emulator or store access |
 | `app/composition.py` | Construct stores/readers/operations and own their lifetime | Game calculations |
@@ -44,9 +44,9 @@ Do not invent numeric restrictions just because the current decoder reads a narr
 3. Domain handlers propose changes without writing files.
 4. `application/roster_tracking.py` applies the proposed batch through its repository capability.
 5. `RunStore.apply_units` performs one locked run update and one file replacement.
-6. Only after saving succeeds does the scanner mark the snapshot applied, create Undo, and announce success.
+6. Only after saving succeeds does the scanner mark the snapshot applied, and announce success.
 
-A failed commit remains retryable. Undo uses the same complete-update boundary and retains its Undo record if saving fails. The operation lock serializes scanner updates and Undo; store locks protect individual persistence operations. This does not claim an atomic transaction across run, settings, and battle files.
+A failed commit remains retryable. The operation lock serializes roster updates; store locks protect individual persistence operations. This does not claim an atomic transaction across run, settings, and battle files.
 
 Battle tracking receives a `BattleSupport` capability. Reference lookups, terrain lookup, fight estimation, and optional diagnostic writing are supplied by infrastructure. The tracker can operate on samples without opening an emulator connection.
 
@@ -58,7 +58,7 @@ Repositories expose `MissingRecord`; the existing `NotFound` name remains a comp
 
 `composition.build_runtime` shares the launcher's settings instance, builds concrete capabilities, and returns a typed runtime. FastAPI lifespan binds notifications, starts polling when enabled, and closes the runtime on exit. Stopping the reader joins its worker and closes its memory connection/recorder. Unexpected read errors wait for another polling interval instead of spinning.
 
-Data-directory precedence, portable installs, bundled frontend paths, loopback hosting, and desktop/browser/server modes remain unchanged. Optional desktop callbacks are attached after the HTTP server starts, so their adaptation stays at the interface boundary.
+Data-directory precedence, portable installs, bundled frontend paths, loopback hosting, and desktop window remain unchanged. Optional desktop callbacks are attached after the HTTP server starts, so their adaptation stays at the interface boundary.
 
 ## Saved data
 

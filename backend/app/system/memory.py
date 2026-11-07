@@ -15,7 +15,7 @@ class AccessDenied(OSError):
 class Region:
     base: int
     size: int
-    mapped: bool  # a file or shared-memory view (where yuzu-family emulators map the Switch's memory)
+    mapped: bool  # a file or shared-memory view (where Eden maps the Switch's memory)
 
 
 class ProcessMemory(Protocol):

@@ -3,7 +3,6 @@
  */
 import { useEffect, useState } from "react";
 import { onGameAssetsChange } from "../gameAssets";
-import { onGameLanguageChange } from "../gameLanguage";
 import { loadImportedReference } from "./gameData";
 import wiki from "./wiki/fe-wiki.json";
 import structure from "./structure.json";
@@ -245,11 +244,9 @@ export function useReference(): ReferenceData | null {
     };
     refresh();
     const unsubscribe = onGameAssetsChange(refresh);
-    const unsubscribeLanguage = onGameLanguageChange(refresh);
     return () => {
       live = false;
       unsubscribe();
-      unsubscribeLanguage();
     };
   }, []);
   if (error) throw error;

@@ -1,18 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { api, Battle, RunSummary } from "../api";
+import { api, ApiError, Battle, RunSummary } from "../api";
 import { ToastState } from "./Toasts";
 import { Modal } from "./Modal";
 import "./run-transfer.css";
 
 type Mode = "import" | "export";
 type WebviewApi = { save_export?: (filename: string, jsonContent: string) => Promise<boolean> };
-type SavePickerWindow = Window & { showSaveFilePicker?: (options: { suggestedName: string; types: { description: string; accept: Record<string, string[]> }[] }) => Promise<FileSystemFileHandle> };
 
 export function RunTransfer({ mode, runs, toasts, onClose }: { mode: Mode; runs: RunSummary[]; toasts: ToastState; onClose: () => void }) {
   const [kind, setKind] = useState<"run" | "battles" | null>(null);
   const [runId, setRunId] = useState(runs[0]?.id ?? "");
   const [battles, setBattles] = useState<Battle[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [conflict, setConflict] = useState<{ payload: unknown; message: string; name?: string } | null>(null);
+  const [newName, setNewName] = useState("");
   const [working, setWorking] = useState(false);
   const [loadingBattles, setLoadingBattles] = useState(false);
   const file = useRef<HTMLInputElement>(null);
@@ -25,20 +26,37 @@ export function RunTransfer({ mode, runs, toasts, onClose }: { mode: Mode; runs:
     api.battles(runId).then((value) => { if (current) { setBattles(value); setSelected(new Set(value.map((battle) => battle.id))); } }, (error: Error) => { if (current) toasts.push({ kind: "error", title: "Couldn't load battles", body: error.message }); }).finally(() => { if (current) setLoadingBattles(false); });
     return () => { current = false; };
   }, [kind, mode, runId]);
+  const importRun = async (payload: unknown, options?: { name?: string; overwrite?: boolean }) => {
+    try {
+      const imported = await api.importRun(payload, options);
+      toasts.push({ kind: "ok", title: 'Imported "' + imported.name + '"' });
+      onClose();
+    } catch (error) {
+      if (!(error instanceof ApiError) || error.status !== 409) throw error;
+      setConflict({ payload, message: error.message, name: options?.name });
+      setNewName("");
+    }
+  };
+  const resolveConflict = async (options: { name?: string; overwrite?: boolean }) => {
+    if (!conflict) return;
+    setWorking(true);
+    try { await importRun(conflict.payload, options); }
+    catch (error) { toasts.push({ kind: "error", title: "Couldn't import run", body: (error as Error).message }); }
+    finally { setWorking(false); }
+  };
   const readFile = async (selectedFile?: File) => {
     if (!selectedFile || !kind) return;
     setWorking(true);
     try {
-      const payload = JSON.parse(await selectedFile.text());
+      const payload: unknown = JSON.parse(await selectedFile.text());
       if (kind === "run") {
-        const imported = await api.importRun(payload);
-        toasts.push({ kind: "ok", title: `Imported "${imported.name}"` });
+        await importRun(payload);
       } else {
         const result = await api.importBattles(runId, payload);
-        toasts.push({ kind: "ok", title: `Imported ${result.added} battle${result.added === 1 ? "" : "s"}` });
+        toasts.push({ kind: "ok", title: "Imported " + result.added + " battle" + (result.added === 1 ? "" : "s") });
+        onClose();
       }
-      onClose();
-    } catch (error) { toasts.push({ kind: "error", title: `Couldn't import ${kind}`, body: (error as Error).message }); }
+    } catch (error) { toasts.push({ kind: "error", title: "Couldn't import " + kind, body: (error as Error).message }); }
     finally { setWorking(false); if (file.current) file.current.value = ""; }
   };
   const exportData = async () => {
@@ -47,18 +65,6 @@ export function RunTransfer({ mode, runs, toasts, onClose }: { mode: Mode; runs:
     setWorking(true);
     const filename = `${run.name.replace(/[^\w -]+/g, "").trim() || run.id} ${kind}.json`;
     const nativeApi = (window as Window & { pywebview?: { api?: WebviewApi } }).pywebview?.api;
-    const nativeSave = nativeApi?.save_export;
-    const picker = (window as SavePickerWindow).showSaveFilePicker;
-    let handle: FileSystemFileHandle | null = null;
-    // Invoke the picker in the click gesture, before any await can expire activation.
-    try {
-      if (nativeSave) { /* Native save dialog is opened after the export payload is ready. */ }
-      else if (picker) handle = await picker.call(window, { suggestedName: filename, types: [{ description: "JSON", accept: { "application/json": [".json"] } }] });
-    } catch (error) {
-      if ((error as DOMException).name !== "AbortError") toasts.push({ kind: "error", title: `Couldn't export ${kind}`, body: (error as Error).message });
-      setWorking(false);
-      return;
-    }
     try {
       let data: Record<string, unknown>;
       if (kind === "run") data = await api.exportRun(run.id);
@@ -67,15 +73,20 @@ export function RunTransfer({ mode, runs, toasts, onClose }: { mode: Mode; runs:
         data = { ...envelope, battles: (envelope.battles as Battle[]).filter((battle) => selected.has(battle.id)) };
       }
       const json = JSON.stringify(data, null, 2);
-      if (nativeSave) {
-        if (await nativeSave.call(nativeApi, filename, json)) onClose();
-      } else if (handle) {
-        const writable = await handle.createWritable(); await writable.write(new Blob([json], { type: "application/json" })); await writable.close(); onClose();
-      } else { download(new Blob([json], { type: "application/json" }), filename); onClose(); }
+      if (!nativeApi?.save_export) throw new Error("The desktop save dialog is unavailable.");
+      if (await nativeApi.save_export(filename, json)) onClose();
     } catch (error) { toasts.push({ kind: "error", title: `Couldn't export ${kind}`, body: (error as Error).message }); }
     finally { setWorking(false); }
   };
   const toggleBattle = (id: string) => setSelected((previous) => { const next = new Set(previous); next.has(id) ? next.delete(id) : next.add(id); return next; });
+  if (conflict) return <Modal open onClose={() => { if (!working) setConflict(null); }} title="Run name already exists" className="run-transfer-modal">
+    <p>{conflict.message}</p>
+    <p>Overwriting replaces the existing roster and battle history. Enter a different name to keep both runs.</p>
+    <label>New run name<input value={newName} maxLength={60} disabled={working} onChange={(event) => setNewName(event.target.value)} /></label>
+    <button type="button" className="btn primary" disabled={working || !newName.trim()} onClick={() => void resolveConflict({ name: newName.trim() })}>Import with new name</button>
+    <button type="button" className="btn danger" disabled={working} onClick={() => void resolveConflict({ name: conflict.name, overwrite: true })}>Overwrite existing run</button>
+    <button type="button" className="btn" disabled={working} onClick={() => setConflict(null)}>Back</button>
+  </Modal>;
   return <Modal open onClose={() => { if (!working) onClose(); }} title={`${mode === "import" ? "Import" : "Export"} ${kind === "run" ? "run" : kind === "battles" ? "battles" : "data"}`} className="run-transfer-modal">
     {!kind ? <div className="run-transfer-options"><button className="btn" onClick={() => setKind("run")}>Runs</button><button className="btn" onClick={() => setKind("battles")}>Battles</button></div> : <>
       {mode === "import" && kind === "run" ? <p>Choose a run JSON file to import.</p> : <label>Run<select disabled={working} value={runId} onChange={(e) => setRunId(e.target.value)}>{runs.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>}
@@ -86,4 +97,3 @@ export function RunTransfer({ mode, runs, toasts, onClose }: { mode: Mode; runs:
     <button className="btn" onClick={() => { if (!working) onClose(); }} disabled={working}>Cancel</button>
   </Modal>;
 }
-function download(blob: Blob, filename: string) { const url = URL.createObjectURL(blob); const a = document.createElement("a"); a.href = url; a.download = filename; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000); }

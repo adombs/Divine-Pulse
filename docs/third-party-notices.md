@@ -90,9 +90,8 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 | Pillow | MIT-CMU |
 | pywebview | BSD-3-Clause |
 | pythonnet, clr-loader | MIT |
-| pystray | LGPL-3.0 |
 | websockets, python-dotenv, click, colorama, idna, proxy_tools, pycparser (Uvicorn, pywebview and clr-loader dependencies) | BSD-3-Clause |
-| PyYAML, httptools, watchfiles, h11, anyio, six, setuptools | MIT |
+| PyYAML, httptools, watchfiles, h11, anyio, setuptools | MIT |
 | OpenTelemetry API (a FastAPI and Starlette dependency) | Apache-2.0 |
 | packaging (the Python package) | Apache-2.0 or BSD-2-Clause |
 | Microsoft WebView2 libraries (included with pywebview) | BSD-3-Clause |
@@ -103,6 +102,4 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 
 The Windows installer is built with [Inno Setup](https://jrsoftware.org/isinfo.php). The full license texts ship in
 the `Third-party licenses` folder beside the program; the texts the packages don't carry themselves are in
-`packaging/third-party-licenses/`. pystray (LGPL-3.0) is used unmodified and stored as compiled Python modules inside
-`Divine Pulse.exe`. To use a modified copy, change it in your build environment and rebuild from this source with
-`tools/build.py`.
+`packaging/third-party-licenses/`.

@@ -21,8 +21,7 @@ export function useEvents(handlers: EventHandlers): boolean {
     source.addEventListener("game_assets", gameAssets);
     const unsubscribe = subscribeToEvents(source, {
       hello: (data) => ref.current.hello?.(data),
-      scan: (data) => ref.current.scan?.(data),
-      scan_log: (data) => ref.current.scan_log?.(data),
+      roster_warning: (data) => ref.current.roster_warning?.(data),
       units_changed: (data) => ref.current.units_changed?.(data),
       runs_changed: (data) => ref.current.runs_changed?.(data),
       auto: (data) => ref.current.auto?.(data),

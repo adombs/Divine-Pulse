@@ -1,8 +1,4 @@
-"""The emulators the tracker can read FE3H from, and where each keeps the Switch's memory (docs/porting.md).
-
-Supporting another emulator is adding an entry to EMULATORS: its executable names on Windows and a memory layout
-that says where to look for the game inside the emulator's memory. The game side (fe3h.py) stays as it is.
-"""
+"""Locate the Windows Eden process and the game inside its fastmem mapping."""
 
 from __future__ import annotations
 
@@ -29,7 +25,7 @@ class MemoryLayout(Protocol):
 
 
 class Fastmem:
-    """yuzu and its forks with fastmem on: the Switch's memory is mapped into the emulator's own as shared views,
+    """Eden with fastmem on: the Switch's memory is mapped into the emulator's own as shared views,
     so a game address `a` is at host address `arena + a`. The emulator also keeps a 4 GiB block of the Switch's
     physical RAM, a second view of the same memory, which is skipped when searching."""
 
@@ -51,43 +47,23 @@ class Emulator:
     # Executable names (lower case) on Windows.
     executables: frozenset[str]
     layout: MemoryLayout
-    # Checked against the game by hand. Others share a tested one's code and layout but haven't been tried.
-    tested: bool = False
     # What the emulator needs for the tracker to find the game, shown when it isn't found.
     requirement: str = ""
 
 
-def _yuzu_family(name: str, exe: str, tested: bool = False) -> Emulator:
-    return Emulator(
-        name,
-        frozenset({f"{exe}.exe"}),
-        Fastmem(),
-        tested,
-        f"{name}'s fastmem setting must be on (it is by default)",
-    )
-
-
-EMULATORS: tuple[Emulator, ...] = (
-    _yuzu_family("Eden", "eden", tested=True),
-    _yuzu_family("yuzu", "yuzu"),
-    _yuzu_family("Citron", "citron"),
-    _yuzu_family("Sudachi", "sudachi"),
-    _yuzu_family("Suyu", "suyu"),
-    _yuzu_family("Torzu", "torzu"),
-)
+EMULATORS = (Emulator("Eden", frozenset({"eden.exe"}), Fastmem(), "Eden's fastmem setting must be on"),)
 
 
 def running(emulators: Iterable[Emulator] = EMULATORS) -> list[tuple[Emulator, int]]:
-    """The supported emulators running now, with their process IDs (tested ones first)."""
-    emulators = sorted(emulators, key=lambda e: not e.tested)
+    """Running Eden processes, in process ID order."""
     by_name = {exe: e for e in emulators for exe in e.executables}
     if not by_name:
         return []
     found = find_processes(set(by_name))
-    return sorted(((by_name[name], pid) for pid, name in found), key=lambda x: (not x[0].tested, x[1]))
+    return sorted(((by_name[name], pid) for pid, name in found), key=lambda x: x[1])
 
 
 def names(emulators: Iterable[Emulator] = EMULATORS) -> str:
-    """'Eden, yuzu, Citron, Sudachi, Suyu or Torzu'."""
+    """The supported emulator name."""
     listed = [e.name for e in emulators]
     return listed[0] if len(listed) == 1 else f"{', '.join(listed[:-1])} or {listed[-1]}"

@@ -1,5 +1,5 @@
 """Fan-out of server events to connected browsers (Server-Sent Events), plus in-process
-listeners (e.g. the tray menu).
+listeners.
 
 Events are published from worker threads and delivered on the asyncio loop.
 """

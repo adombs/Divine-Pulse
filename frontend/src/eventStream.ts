@@ -17,7 +17,7 @@ export function subscribeToEvents(
 ) {
   source.onopen = () => setConnected(true);
   source.onerror = () => setConnected(false);
-  const names = ["hello", "scan", "scan_log", "units_changed", "runs_changed", "auto", "battle"];
+  const names = ["hello", "roster_warning", "units_changed", "runs_changed", "auto", "battle"];
   const listeners = names.map((name) => {
     const listener: EventListener = (event) => {
       if (name === "hello") setConnected(true);

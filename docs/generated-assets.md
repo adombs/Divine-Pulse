@@ -1,7 +1,7 @@
 # Generated files
 
 The repository holds no game-derived data. What the program shows from the game is built on the player's PC by the
-importer (`backend/app/gamefiles`, see [game-assets/README.md](game-assets/README.md)) into a `game-assets/` folder
+importer (`backend/app/gamefiles`, used by the app's Game files screen) into a `game-assets/` folder
 that git ignores, and read from there by `backend/app/infrastructure/game_assets.py` and the frontend's
 `gameAssets.ts`.
 

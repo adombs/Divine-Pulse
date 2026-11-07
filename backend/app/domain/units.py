@@ -13,7 +13,6 @@ from .inventory import InventoryItem
 STAT_KEYS = ("str", "mag", "dex", "spd", "lck", "def", "res", "cha")
 VALUE_KEYS = ("hp", "mv", *STAT_KEYS)
 ValueKey = Literal["hp", "mv", "str", "mag", "dex", "spd", "lck", "def", "res", "cha"]
-PortraitGender = Literal["auto", "male", "female"]
 SkillKey = Literal[
     "sword", "lance", "axe", "bow", "brawling", "reason", "faith", "authority", "heavy_armor", "riding", "flying"
 ]
@@ -39,7 +38,6 @@ class SkillProgress(BaseModel):
 
 # Byleth's green-haired state is retained after chapter 10 (scenario 10). Chapter 11's Holy Tomb battle is already
 # after the Sothis merge. The game has two looks (persondata portraits 0/1 and 71/72; Part II reuses green).
-# docs/game-assets/byleth-looks.md.
 SOTHIS_SCENARIO = 10
 LAST_MAIN_SCENARIO = 37  # paralogues, auxiliary battles and Cindered Shadows come after
 
@@ -75,7 +73,7 @@ class Unit(BaseModel):
     battalion: str = ""
     # The battalion's ID in the import: distinguishes duplicate names and survives language changes.
     battalion_id: int | None = Field(default=None, ge=0, le=255)
-    # Its runtime state as last read (docs/battalions.md); None when not read (older runs, or no battalion):
+    # Its runtime state as last read; None when not read (older runs, or no battalion):
     # cumulative experience (level = exp // 100 + 1), endurance left, and gambit uses left during a battle (None
     # between battles, when the game has refilled them).
     battalion_exp: int | None = Field(default=None, ge=0, le=400)
@@ -88,7 +86,6 @@ class Unit(BaseModel):
     ebst_offense: EbstType = "auto"
     ebst_defense: EbstType = "auto"
     ebst_stats: list[OtherKey] = Field(default_factory=lambda: list(DEFAULT_OTHER_KEYS))
-    portrait_gender: PortraitGender = "auto"
     # Byleth's hair as the game has it now: "dark" or "green" (from the Sothis merge on); None until read from memory.
     look: Literal["dark", "green"] | None = None
 
@@ -103,7 +100,6 @@ class Unit(BaseModel):
 
 
 __all__ = [
-    "PortraitGender",
     "SkillKey",
     "SkillProgress",
     "SkillRank",

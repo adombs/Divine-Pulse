@@ -86,12 +86,12 @@ def test_poller_survives_failure_reporting(scanner, monkeypatch):
         scanner._jobs.put(None)
 
     monkeypatch.setattr(scanner, "_tick", tick)
-    monkeypatch.setattr(scanner, "_record", lambda *args: (_ for _ in ()).throw(RuntimeError("report failed")))
+    monkeypatch.setattr(scanner, "_publish_status", lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("report failed")))
     scanner._poll()
     assert len(calls) == 2
 
 
-def test_adds_the_whole_army_in_one_entry(scanner):
+def test_adds_the_whole_army_after_two_matching_reads(scanner):
     scanner._tick()  # first read: wait for a second one to agree
     assert units(scanner) == {}
     scanner._tick()
@@ -101,16 +101,7 @@ def test_adds_the_whole_army_in_one_entry(scanner):
     assert (leonie.displayed["mv"], leonie.displayed["dex"], leonie.accessory) == (8, 27, "March Ring")
     assert leonie.bonuses == {"str": 2, "hp": 5, "dex": 4, "mv": 1}
     assert leonie.source == "memory" and leonie.game_id == 25
-    [entry] = scanner.log_entries()
-    assert entry.is_new_unit and entry.can_undo and entry.screen == "Game memory"
-    assert entry.message.startswith("Added Byleth, Claude, Lorenz and 12 more")
     assert scanner.auto_status()["seeing"] == "15 units"
-
-
-def test_unchanged_game_logs_nothing(scanner):
-    for _ in range(5):
-        scanner._tick()
-    assert len(scanner.log_entries()) == 1
 
 
 def test_battalion_observation_survives_missing_import_and_clears_on_removal(scanner):
@@ -189,7 +180,6 @@ def test_battalion_only_identity_change_is_saved_even_with_duplicate_names(scann
     scanner._tick()
     saved = units(scanner)["hanneman"]
     assert saved.battalion == names[4] and saved.battalion_id == 3
-    assert scanner.log_entries()[0].can_undo
 
 
 def test_import_language_refreshes_unchanged_memory_and_keeps_missing_assignment(scanner, roster_import, monkeypatch):
@@ -265,7 +255,6 @@ def test_battalion_runtime_level_and_charm_follow_assignment_changes(scanner):
     assert (a.battalion, a.battalion_id, a.battalion_exp, a.battalion_endurance, a.gambit_uses) == ("Test Wing Co.", 5, 0, 60, None)
     assert a.displayed["cha"] == own_cha + 5 and a.bonuses["cha"] == 5 and "cha" in a.blue
     assert a.base()["cha"] == own_cha
-    assert not any("Cha" in w for e in scanner.log_entries() for w in e.warnings)
 
     # B: no progression in the import. The runtime is still read; its Charm isn't known, so none is added.
     b = set_battalion(scanner, 4, exp=230, endurance=12)
@@ -333,17 +322,20 @@ def test_a_change_is_applied_once_two_reads_agree(scanner):
     assert units(scanner)["lysithea"].displayed["mag"] == 26
     scanner._tick()
     assert units(scanner)["lysithea"].displayed["mag"] == 27
-    entry = scanner.log_entries()[0]
-    assert entry.message == "Updated Lysithea" and entry.unit_key == "lysithea"
 
 
-def test_undo_reverts_the_whole_poll(scanner):
+def test_a_partial_roster_is_not_applied_and_reports_a_warning(scanner, monkeypatch):
+    from dataclasses import replace
+
+    read = scanner.memory.read
+    monkeypatch.setattr(scanner.memory, "read", lambda: replace(read(), roster=bytes(10)))
+    warnings = []
+    scanner.events.add_listener(lambda event, data: warnings.append(data) if event == "roster_warning" else None)
     scanner._tick()
     scanner._tick()
-    scanner.undo()
+    scanner._tick()
     assert units(scanner) == {}
-    scanner._tick()  # the game hasn't changed: the undo sticks
-    assert units(scanner) == {}
+    assert warnings == [{"message": "The roster could not be read completely."}]
 
 
 def test_errors_show_in_the_status(scanner):
@@ -351,7 +343,6 @@ def test_errors_show_in_the_status(scanner):
     scanner._tick()
     status = scanner.auto_status()
     assert (status["state"], status["message"]) == ("error", "Eden isn't running.")
-    assert scanner.log_entries() == []
     scanner.memory.error = None
     scanner._tick()
     scanner._tick()
@@ -375,7 +366,6 @@ def test_existing_scanned_units_adopt_identity_without_changing_stats(scanner):
     scanner._reset()
     scanner._tick()
     scanner._tick()
-    assert len(scanner.log_entries()) == 2  # identity adoption is a persisted change.
     adopted = units(scanner)["claude"]
     assert adopted.game_id == before.game_id and adopted.source == "memory"
     assert adopted.displayed == before.displayed
@@ -512,6 +502,21 @@ def test_a_restart_mid_battle_resumes_it(scanner, tmp_path):
     assert [b.id for b in store.list(scanner.run_id)] == [before.id] and store.load_active(scanner.run_id) is None
 
 
+def test_app_shutdown_files_the_battle_as_completed(scanner, tmp_path):
+    from app.storage import BattleStore
+
+    scanner.battle_store = BattleStore(tmp_path / "battles")
+    scanner.memory.in_battle, scanner.memory.battle_key = (22,), "k1"
+    for _ in range(2):
+        scanner._tick()
+    battle_id = scanner.current_battle().id
+    scanner.stop()
+
+    [saved] = scanner.battle_store.list(scanner.run_id)
+    assert saved.id == battle_id and saved.ended_at is not None
+    assert scanner.battle_store.load_active(scanner.run_id) is None
+
+
 def test_a_battle_quit_with_a_bookmark_and_resumed_is_the_same_battle(scanner, tmp_path):
     from app.storage import BattleStore
 
@@ -578,26 +583,14 @@ def test_a_leftover_battle_is_filed_when_no_battle_is_on(scanner, tmp_path):
 
 
 def test_battles_are_read_on_their_own_interval(scanner):
-    scanner.settings.update(auto_interval_s=2.0, battle_interval_s=0.5)
-    assert scanner.tick_interval() == 2.0
+    assert scanner.tick_interval() == 1.0
     scanner.memory.battle_units = lambda: [FakePoolUnit(217, 16, 77)]
     scanner.memory.enemies = 1
     scanner.memory.in_battle = (19, 22)
     for _ in range(2):
         scanner._tick()
     assert scanner.current_battle() is not None
-    assert scanner.tick_interval() == 0.5  # faster while the battle is on
-
-
-def test_battle_switches_reach_the_tracker(scanner):
-    scanner.settings.update(battle_estimate_fights=False, pairing_check=True)
-    scanner.memory.battle_units = lambda: [FakePoolUnit(217, 16, 77)]
-    scanner.memory.enemies = 1
-    scanner.memory.in_battle = (19, 22)
-    for _ in range(2):
-        scanner._tick()
-    assert scanner._battles.estimate_fights is False
-    assert scanner._battles.check_dir is not None and scanner._battles.check_dir.name == "pairing-checks"
+    assert scanner.tick_interval() == 0.1  # faster while the battle is on
 
 
 def test_a_unit_of_yours_that_fell_is_not_an_enemy(scanner):

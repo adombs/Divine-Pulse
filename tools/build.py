@@ -7,7 +7,7 @@
 
 Run it with Python 3.12 or newer. It makes its own build environment (build/venv) with the pinned requirements, so the
 release never picks up anything installed by hand; --current-env builds with the running Python instead. Needs
-Node.js 22.12+ for the web UI. `tools/release.py --push` can upload a Windows build to a draft GitHub release.
+Node.js 22.12+ for the desktop UI. See the release guide for publishing a build.
 """
 
 from __future__ import annotations

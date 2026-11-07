@@ -10,7 +10,7 @@ default) into battle-recordings/ in the data folder. After playing a battle, run
 It prints ranked candidates for current HP, map position, the turn counter and Divine Pulse charges, and the
 records that went inactive (defeated units?). Confirm them against what happened in game. --apply writes only the
 fields with a clear winner into backend/app/data/battle_fields.json, and keeps fields already filled in unless
---force; restart the tracker to use them (docs/battle-page-plan.md, "Next steps").
+--force; restart the tracker to use them.
 """
 
 from __future__ import annotations

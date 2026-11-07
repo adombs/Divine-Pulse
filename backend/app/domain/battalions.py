@@ -1,6 +1,6 @@
 """Battalion level and modifier rules, shared by the memory reader, the run and the combat model.
 
-Sources (docs/battalions.md has the evidence):
+Sources:
 - A battalion has levels 1-5. The game keeps its cumulative experience (u16) and derives the level as
   experience / 100 + 1, with experience capped at 400 (FE3H 1.2.0; hashcade/feth-save-editor
   core/SaveBuffer.Battalions.cs). Seen live: 115 shows as level 2, Exp 15.

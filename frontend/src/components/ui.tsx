@@ -1,10 +1,11 @@
-import { ReactNode, useRef, useState } from "react";
+import { ReactNode, useContext, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { STAT_INFO } from "../statInfo";
 import { EBST_TYPES, EbstType } from "../ebst";
 import { AffiliationIcon } from "./AffiliationIcon";
 import type { RunRoute, Unit } from "../api";
 import { portraitUrl, portraitUrlForKey } from "../portraits";
+import { PortraitPhaseContext } from "../appearance";
 import { PortraitImage } from "./GameImage";
 import { bundledHouse } from "./gameImageSources";
 
@@ -106,12 +107,14 @@ export function TypeButtons({ label, value, onChange }: { label: string; value: 
 
 /** The unit's imported headshot; unavailable files show an explicit sentinel. */
 export function Portrait({ unit, part2, size = 36 }: { unit: Unit; part2: boolean; size?: number }) {
-  return <PortraitImg url={portraitUrl(unit, part2)} name={unit.name} size={size} />;
+  const automatic = useContext(PortraitPhaseContext) === "auto";
+  return <PortraitImg url={portraitUrl(unit, part2, automatic)} name={unit.name} size={size} />;
 }
 
 /** A headshot by portrait key ("edelgard", "byleth_f", …). */
 export function KeyPortrait({ portraitKey, name, part2, size = 36 }: { portraitKey: string; name: string; part2: boolean; size?: number }) {
-  return <PortraitImg url={portraitUrlForKey(portraitKey, part2)} name={name} size={size} />;
+  const automatic = useContext(PortraitPhaseContext) === "auto";
+  return <PortraitImg url={portraitUrlForKey(portraitKey, part2, undefined, automatic)} name={name} size={size} />;
 }
 
 function PortraitImg({ url, name, size }: { url: string | null; name: string; size: number }) {

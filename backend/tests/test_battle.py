@@ -188,7 +188,8 @@ def test_outlook_moves_the_right_way():
     stronger = outlook(battle(army_power=2000, enemy_power=1000, enemies_start=10, enemies_now=10))["chance"]
     progress = outlook(battle(army_power=1000, enemy_power=1000, enemies_start=10, enemies_now=3))["chance"]
     pulses = outlook(battle(army_power=1000, enemy_power=1000, enemies_start=10, enemies_now=10, divine_pulses=3))["chance"]
-    assert stronger > even and progress > even and pulses < even
+    assert stronger > even and progress > even
+    assert pulses == even
     hurt = battle(army_power=1000, enemy_power=1000, enemies_start=10, enemies_now=10)
     hurt.units[0].on_map = hurt.units[1].on_map = False
     assert outlook(hurt)["chance"] < even
@@ -202,7 +203,7 @@ def test_outlook_explains_itself():
     result = outlook(battle(army_power=400, enemy_power=1000, enemies_start=10, enemies_now=5, divine_pulses=1))  # 2.5x: a bit better than even
     by_label = {f["label"]: f for f in result["factors"]}
     assert by_label["Strength"]["points"] > 0 and by_label["Progress"]["points"] > 0
-    assert by_label["Divine Pulse"]["points"] < 0
+    assert "Divine Pulse" not in by_label
     assert "5 of 10" in by_label["Progress"]["detail"]
 
 
@@ -601,7 +602,8 @@ def test_fights_and_defeats_come_from_the_combat_counters_even_when_several_land
     assert battle.log == [] and byleth.damage_dealt is None
 
 
-def test_the_games_history_drives_the_log_and_stats():
+@pytest.mark.parametrize("skip_enemy_phase", [False, True], ids=["one-action-per-read", "enemy-phase-between-reads"])
+def test_the_games_history_drives_the_log_and_stats(skip_enemy_phase):
     from app.battle import STEP_ATTACK, HistoryStep, StepUnit
 
     def u(uid, hp, x, y):
@@ -631,7 +633,9 @@ def test_the_games_history_drives_the_log_and_stats():
         return BattleSample((me("byleth", 40, 2, 22), me("lysithea", 32, 1, 28)), (first, brigand(8, 30, 4, 9)), "k", turn, charges, tuple(steps[:n]))
 
     tracker = BattleTracker()
-    for n in range(1, len(steps) + 1):
+    # Action Skip can add the entire enemy phase and the next phase marker to one read.
+    reads = (1, 2, 3, 6, 7) if skip_enemy_phase else range(1, len(steps) + 1)
+    for n in reads:
         tracker.update(read(n), "run", at(n))
     battle = tracker.battle
     log = [e.text for e in battle.log]

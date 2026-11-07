@@ -1,21 +1,16 @@
 import json
 import pytest
 
-from app.domain.settings import Settings
 from app.infrastructure.game_assets import GameAssetError, GameAssets
 from app.infrastructure.settings import SettingsStore
 
 
-def test_language_persists_and_invalid_saved_value_falls_back(tmp_path):
+def test_old_language_preference_does_not_change_the_app_language(tmp_path):
     path = tmp_path / "settings.json"
+    path.write_text(json.dumps({"game_language": "GER", "record_battles": False}), encoding="utf-8")
     store = SettingsStore(path)
-    store.update(game_language="GER")
-    assert SettingsStore(path).get().game_language == "GER"
-    path.write_text(json.dumps({"game_language": "unknown", "battle_alerts": False}), encoding="utf-8")
-    loaded = SettingsStore(path).get()
-    assert loaded.game_language == "ENG_U"
-    assert loaded.battle_alerts is False
-    assert Settings(game_language="JP").game_language == "JP"
+    assert "game_language" not in store.get().model_dump()
+    assert store.get().max_recordings == 0
 
 
 def test_missing_selected_language_reports_its_path_without_substitution(tmp_path):

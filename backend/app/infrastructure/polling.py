@@ -2,7 +2,7 @@
 
 Every `auto_interval_s` (`battle_interval_s` during a battle) it reads the whole army from game memory
 (app/gamemem). A change is applied once two reads in a row agree, and each poll that changed anything is
-logged as one entry (one Undo). It also follows the battle in progress for the Battle page.
+saved atomically. It also follows the battle in progress for the Battle page.
 
 How a reading changes the data lives in app/handlers.py.
 """
@@ -10,14 +10,11 @@ How a reading changes the data lives in app/handlers.py.
 from __future__ import annotations
 
 import logging
-import os
 import queue
 import threading
 import time
-from collections import deque
 from functools import partial
 from datetime import timedelta
-from dataclasses import dataclass
 
 from ..domain.battle import (
     ArmySample,
@@ -32,45 +29,28 @@ from ..domain.battle import (
     side_of,
 )
 from ..bonuses import BonusTable
-from ..config import DATA_DIR, SettingsStore
+from ..config import SettingsStore
+from ..domain.settings import DEFAULT_BATTLE_INTERVAL, DEFAULT_ROSTER_INTERVAL
 from ..events import EventBus
 from .game_assets import game_assets
 from . import game_tables
 from ..gamemem.battle import FlagWatch
 from ..gamemem.combat import weapon_kind
-from ..gamemem.fe3h import EQUIPPED_WEAPON, GameMemory, GameMemoryError, Snapshot, decode_player_name, decode_roster
+from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_player_name, decode_roster
 from ..gamemem.recorder import BattleRecorder
 from ..gamemem.units import SCREEN_TITLE as MEMORY_TITLE
 from ..gamemem.units import GameData, to_reading, unit_name
 from ..inventory import EQUIPMENT, item_name
-from ..handlers import UnitChange, handle
+from ..handlers import handle
 from ..application.roster_tracking import RosterUpdates
 from ..application.battle_tracking import BattleTracker
 from .battle_support import DefaultBattleSupport
-from ..domain.scans import ScanLogEntry
-from ..domain.units import now, unit_key
+from ..domain.units import unit_key
 from ..storage import BattleStore, NotFound, RunStore
 
 log = logging.getLogger(__name__)
 
-# A log message lists this many unit names, then "and N more".
-MAX_NAMES_IN_MESSAGE = 4
-
-
 NEEDS_IMPORT = "Import your game files first"
-
-
-@dataclass
-class _UndoRecord:
-    log_id: int
-    run_id: str
-    changes: list[UnitChange]
-
-
-def _name_list(names: list[str]) -> str:
-    if len(names) <= MAX_NAMES_IN_MESSAGE:
-        return ", ".join(names)
-    return f"{', '.join(names[: MAX_NAMES_IN_MESSAGE - 1])} and {len(names) - MAX_NAMES_IN_MESSAGE + 1} more"
 
 
 def history_steps(entries: list, start: int | None, keys: dict[int, str], on_map: list) -> tuple[HistoryStep, ...]:
@@ -156,20 +136,12 @@ class Scanner:
         # (a sample is used once two reads in a row agree, like unit updates).
         self.battle_store = battles
         self.recorder = recorder
-        # The testing switches (Settings > Testing and research) can also be turned on for a run with environment
-        # variables: DIVINE_PULSE_PAIRING_CHECK=1, DIVINE_PULSE_HIDE_HISTORY=1 (docs/fight-pairing-testing.md).
         self._battles = BattleTracker(DefaultBattleSupport())
-        self._env_pairing_check = os.environ.get("DIVINE_PULSE_PAIRING_CHECK") == "1"
-        self._env_hide_history = os.environ.get("DIVINE_PULSE_HIDE_HISTORY") == "1"
         self._battle_sample: BattleSample | None = None
         self._flag_watch = FlagWatch()  # every unit's flags byte, read to read: unknown bits that change are logged
         self._battle_lock = threading.Lock()
         self._leftovers_checked: set[str] = set()  # runs checked for a battle that ended while the tracker was off
         self._jobs: queue.Queue[str | None] = queue.Queue()
-        self._log: deque[ScanLogEntry] = deque(maxlen=200)
-        self._next_id = 1
-        self._undo: _UndoRecord | None = None
-        self._lock = threading.Lock()
         self._thread: threading.Thread | None = None
         # Worker thread only: a snapshot seen once (applied when the next read agrees),
         # and the (run id, snapshot) last applied, so an unchanged game isn't processed again.
@@ -199,6 +171,12 @@ class Scanner:
             self._close_resources()
 
     def _close_resources(self) -> None:
+        try:
+            self._end_battle()
+        finally:
+            self._release_memory()
+
+    def _release_memory(self) -> None:
         close = getattr(self.memory, "close", None)
         if close is not None:
             close()
@@ -217,8 +195,7 @@ class Scanner:
         )
 
     def auto_status(self) -> dict:
-        s = self.settings.get()
-        return {"interval_s": s.auto_interval_s, "battle": list(self._battle), **self._status}
+        return {"battle": list(self._battle), **self._status}
 
     def current_battle(self) -> Battle | None:
         """A copy of the battle in progress in the active run (game memory only), or None."""
@@ -226,31 +203,6 @@ class Scanner:
         with self._battle_lock:
             battle = self._battles.battle
             return battle.model_copy(deep=True) if battle and run_id and battle.run_id == run_id else None
-
-    def log_entries(self) -> list[ScanLogEntry]:
-        with self._lock:
-            return list(reversed(self._log))
-
-    def undo(self) -> ScanLogEntry | None:
-        """Revert one completed update, leaving it retryable if saving fails."""
-        with self.roster_updates.lock:
-            return self._undo_latest()
-
-    def _undo_latest(self) -> ScanLogEntry | None:
-        """Revert the most recent applied memory update. Returns its log entry."""
-        with self._lock:
-            record = self._undo
-            if record is None:
-                return None
-        self.roster_updates.undo(record.run_id, record.changes)
-        with self._lock:
-            self._undo = None
-            entry = next((e for e in self._log if e.id == record.log_id), None)
-            if entry:
-                entry.can_undo = False
-        self.events.publish("units_changed", {"run_id": record.run_id})
-        self.events.publish("scan_log", None)
-        return entry
 
     # Worker loop
 
@@ -277,10 +229,9 @@ class Scanner:
                 else:
                     next_tick = time.monotonic()
                     self._reset()
-            except Exception as exc:  # never let the worker die
+            except Exception:  # never let the worker die
                 log.exception("Read failed")
                 try:
-                    self._record("error", f"Unexpected error: {exc}")
                     self._publish_status("error", MEMORY_TITLE, message="Lost contact with the game. Retrying…")
                 except Exception:
                     log.exception("Could not report read failure")
@@ -288,10 +239,7 @@ class Scanner:
 
     def tick_interval(self) -> float:
         """Seconds to the next read: the battle interval while a battle is in progress."""
-        s = self.settings.get()
-        if self._battles.active:
-            return s.battle_interval_s
-        return s.auto_interval_s
+        return DEFAULT_BATTLE_INTERVAL if self._battles.active else DEFAULT_ROSTER_INTERVAL
 
     def _publish_status(
         self, state: str, screen: str | None = None, seeing: str | None = None, message: str = "", force: bool = False
@@ -301,19 +249,14 @@ class Scanner:
             self._status = new
             self.events.publish("auto", self.auto_status())
 
-    def _record(self, status: str, message: str, **fields) -> ScanLogEntry:
-        with self._lock:
-            entry = ScanLogEntry(id=self._next_id, time=now(), status=status, message=message, **fields)
-            self._next_id += 1
-            self._log.append(entry)
-        self.events.publish("scan", entry.model_dump(mode="json"))
-        return entry
-
     def _reset(self) -> None:
         self._mem_pending, self._mem_applied = None, None
 
     def _tick(self) -> None:
-        if not self.settings.get().active_run_id:
+        settings = self.settings.get()
+        if self.recorder is not None:
+            self.recorder.set_limit(settings.max_recordings)
+        if not settings.active_run_id:
             if self._battles.active:
                 self._end_battle()  # battles belong to a run: none is followed without one
             self._publish_status("no_run", message="Create or select a run to start tracking.")
@@ -333,6 +276,8 @@ class Scanner:
         try:
             snapshot = self.memory.read()
         except GameMemoryError as exc:
+            if self._status["state"] == "watching":
+                self.events.publish("roster_warning", {"message": str(exc)})
             self._mem_pending = None
             self._battle = []
             self._end_battle()  # the game is gone, so is the battle
@@ -374,11 +319,10 @@ class Scanner:
     def feed_battle(self, sample: BattleSample, run_id: str) -> None:
         """Step the battle with one agreed sample: save it, file it when it ends, tell the page. Worker thread only
         (tools/demo_battle.py also feeds a scripted battle through it)."""
-        s = self.settings.get()
-        self._battles.estimate_fights = s.battle_estimate_fights
-        self._battles.check_dir = DATA_DIR / "pairing-checks" if (self._env_pairing_check or s.pairing_check) else None
         with self._battle_lock:
             changed, finished = self._battles.update(sample, run_id)
+        if finished and self.recorder is not None:
+            self.recorder.stop()
         self._save_battle(finished)
         if changed and self._battles.battle is not None and self.battle_store is not None:
             try:
@@ -438,12 +382,12 @@ class Scanner:
                 self.events.publish("battle", {"active": True})
 
     def _record_battle(self) -> None:
-        """Save raw battle memory for research while a battle is in progress (setting record_battles)."""
+        """Save raw battle memory while a battle is in progress."""
         recorder = self.recorder
         if recorder is None:
             return
         battle = self._battles.battle
-        if battle is None or not self.settings.get().record_battles:
+        if battle is None or not recorder.keep:
             if recorder.recording:
                 recorder.stop()
             return
@@ -634,9 +578,7 @@ class Scanner:
         self._log_flag_changes(pool, data, located.get("turn"))
         terrain_of = getattr(self.memory, "battle_terrain", None)
         on_this_map = terrain_of(on_map) if terrain_of and on_map else None
-        s = self.settings.get()
-        hide = self._env_hide_history or s.hide_history
-        history = None if hide else getattr(self.memory, "battle_history", None)
+        history = getattr(self.memory, "battle_history", None)
         read = history(pool) if history and pool else None
         steps = history_steps(*read, keys, pool) if read else ()
         return BattleSample(
@@ -710,7 +652,7 @@ class Scanner:
             self._apply_roster(snapshot)
 
     def _apply_roster(self, snapshot: Snapshot) -> None:
-        """Add or update every unit in the army. One log entry (and one Undo) for the lot."""
+        """Save complete observations and warn about unreadable units."""
         run_id = self.settings.get().active_run_id or ""
         try:
             run = self.store.get(run_id)
@@ -722,7 +664,14 @@ class Scanner:
 
         data = self._data()
         player_name = decode_player_name(snapshot.player_name)
-        roster = decode_roster(snapshot.roster)
+        if len(snapshot.roster) != ROSTER_SIZE:
+            self.events.publish("roster_warning", {"message": "The roster could not be read completely."})
+            self._mem_applied = (run_id, snapshot)
+            return
+        decoded = decode_roster(snapshot.roster)
+        roster = [unit for unit in decoded if unit.level and unit.raw["hp"]]
+        if len(roster) != len(decoded):
+            self.events.publish("roster_warning", {"message": "Some units could not be read and were not updated."})
 
         def readings():
             for unit in roster:
@@ -742,7 +691,7 @@ class Scanner:
 
         uses = dict(snapshot.gambit_uses)
         result = self.roster_updates.apply(run, readings())
-        changes, added, updated = result.changes, result.added, result.updated
+        changes = result.changes
         warnings, key_of = result.warnings, result.keys
         self._mem_applied = (run_id, snapshot)
         battle = [key_of[c] for c in snapshot.in_battle if c in key_of]
@@ -753,31 +702,11 @@ class Scanner:
         self._mem_seeing = seeing
         self._publish_status("watching", MEMORY_TITLE, seeing)
 
-        if not changes:
-            return
-        parts = []
-        if added:
-            parts.append(f"Added {_name_list(added)}")
-        if updated:
-            parts.append(f"{'updated' if added else 'Updated'} {_name_list(updated)}")
-        single = changes[0] if len(changes) == 1 else None
-        entry = self._record(
-            "warning" if warnings else "ok",
-            "; ".join(parts),
-            screen=MEMORY_TITLE,
-            run_id=run_id,
-            unit_key=single.key if single else None,
-            unit_name=(added + updated)[0] if single else None,
-            is_new_unit=bool(added),
-            warnings=warnings,
-            can_undo=True,
-        )
-        with self._lock:
-            for e in self._log:
-                if e.id != entry.id:
-                    e.can_undo = False
-            self._undo = _UndoRecord(entry.id, run_id, changes)
-        self.events.publish("units_changed", {"run_id": run_id, "unit_key": single.key if single else None})
+        if warnings:
+            self.events.publish("roster_warning", {"message": "\n".join(warnings)})
+        if changes:
+            single = changes[0] if len(changes) == 1 else None
+            self.events.publish("units_changed", {"run_id": run_id, "unit_key": single.key if single else None})
 
 
 def _stand_in(unit) -> bool:

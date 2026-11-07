@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api } from "./api";
-import type { AutoStatus, RunSummary, ScanEntry, Settings, Unit } from "./api";
+import type { AutoStatus, RunSummary, Settings, Unit } from "./api";
 import { createUnitsLoader, requestGate } from "./requestGate";
 import { createStartupController } from "./startup";
 import type { StartupState } from "./startup";
@@ -10,7 +10,6 @@ export function useBootstrap() {
   const [activeRunId, setActiveRunId] = useState<string | null>(null);
   const [loadedRunId, setLoadedRunId] = useState<string | null>(null);
   const [units, setUnits] = useState<Unit[]>([]);
-  const [scans, setScans] = useState<ScanEntry[]>([]);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [auto, setAuto] = useState<AutoStatus | null>(null);
   const [startup, setStartup] = useState<StartupState>({ loading: true, error: null });
@@ -26,7 +25,6 @@ export function useBootstrap() {
     setRuns(result.runs);
     setActiveRunId(result.active_run_id);
   }, []);
-  const loadScans = useCallback(async () => setScans(await api.scans()), []);
   const loadAuto = useCallback(async () => setAuto(await api.auto()), []);
 
   const loadUnits = useCallback(() => unitsLoader.current!.load(), []);
@@ -34,13 +32,12 @@ export function useBootstrap() {
   const startupLoader = useRef<ReturnType<typeof createStartupController> | null>(null);
   if (!startupLoader.current) {
     startupLoader.current = createStartupController(async () => {
-      const [runData, scanData, settingsData, autoData] = await Promise.all([
-        api.runs(), api.scans(), api.settings(), api.auto(),
+      const [runData, settingsData, autoData] = await Promise.all([
+        api.runs(), api.settings(), api.auto(),
       ]);
       return () => {
         setRuns(runData.runs);
         setActiveRunId(runData.active_run_id);
-        setScans(scanData);
         setSettings(settingsData);
         setAuto(autoData);
       };
@@ -65,8 +62,8 @@ export function useBootstrap() {
   const acceptAuto = useCallback((value: AutoStatus) => setAuto(value), []);
 
   return {
-    runs, activeRunId, loaded, units, scans, settings, auto, startup,
-    retryStartup, switchRun, loadRuns, loadUnits, loadScans, loadAuto,
+    runs, activeRunId, loaded, units, settings, auto, startup,
+    retryStartup, switchRun, loadRuns, loadUnits, loadAuto,
     acceptAuto, setSettings,
   };
 }

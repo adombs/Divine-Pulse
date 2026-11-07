@@ -1,23 +1,51 @@
-"""Setup's public launcher through real NSP orchestration, import and verification; synthetic I/O."""
+"""App NSP import and retention through the HTTP API with synthetic file inputs."""
 
 import json
 import os
-import runpy
 from pathlib import Path
 
 import pytest
+from fastapi.testclient import TestClient
 
-from app import __main__ as entry
+from app.main import create_app
+from app.infrastructure.game_assets import GameAssets
+
 from app.infrastructure import game_assets_import as importer
 from app.infrastructure import nsp_extractor, nsp_workspace
 from helpers.fake_import import fake_dump
-from test_game_assets_cli import configure
+from test_game_assets_api import wait_job
 from test_nsp_extractor import FakeExtractor
 
 
+def configure(tmp_path, monkeypatch):
+    from app.infrastructure import game_assets, paths
+
+    data = tmp_path / "data"
+    data.mkdir()
+    (data / "runs").mkdir()
+    (data / "battles").mkdir()
+    monkeypatch.setattr(paths, "DATA_DIR", data)
+    monkeypatch.setattr(paths, "PROJECT_ROOT", tmp_path)
+    monkeypatch.setattr(paths, "FROZEN", False)
+    monkeypatch.setattr(game_assets, "_shared", GameAssets(data / "game-assets"))
+    tool = tmp_path / "vendor" / "nstool" / "nstool.exe"
+    tool.parent.mkdir(parents=True)
+    tool.touch()
+    return data, tool
+
+
+def request_import(data, packages, keys, destination):
+    payload = {"nsps": [str(package) for package in packages], "keys": str(keys)}
+    if destination is not None:
+        payload["keep_dumps"] = str(destination)
+    with TestClient(create_app(data, background=False)) as client:
+        response = client.post("/api/game-assets/import-nsps", json=payload)
+        return response.status_code, wait_job(client) if response.status_code == 202 else response.json()
+
+
 @pytest.mark.parametrize("retained", [False, True])
-def test_packaged_launcher_retains_only_opted_in_verified_extraction(tmp_path, monkeypatch, retained):
-    data, _ = configure(tmp_path, monkeypatch)
+def test_app_retains_only_opted_in_verified_extraction(tmp_path, monkeypatch, retained):
+    data, tool_path = configure(tmp_path, monkeypatch)
     runner = FakeExtractor(tmp_path)
     packages = [runner.add("base game.nsp", 0x1000, 0x80), runner.add("update.nsp", 0x1800, 0x81, 2),
                 runner.add("dlc.nsp", 0x2001, 0x82)]
@@ -36,7 +64,7 @@ def test_packaged_launcher_retains_only_opted_in_verified_extraction(tmp_path, m
     runner.run = tool_io
 
     def extractor(tool, keys, output, log, cancelled):
-        assert tool == runner.tool and keys == runner.keys
+        assert tool == tool_path and keys == runner.keys
         runner.output = output
         return runner
 
@@ -48,18 +76,11 @@ def test_packaged_launcher_retains_only_opted_in_verified_extraction(tmp_path, m
     monkeypatch.setattr(nsp_extractor, "Extractor", extractor)
     monkeypatch.setattr(importer, "run", family_io)
     destination = tmp_path / "saved raw dump"
-    argv = ["Divine Pulse.exe", "--import-game-files", str(tmp_path), "--nstool", str(runner.tool),
-            "--keys", str(runner.keys)]
-    for package in packages:
-        argv += ["--nsp", str(package)]
-    if retained:
-        argv += ["--keep-dumps", str(destination)]
-    monkeypatch.setattr(entry.sys, "argv", argv)
-    launcher = Path(__file__).resolve().parents[2] / "packaging/launcher.py"
-    with pytest.raises(SystemExit) as result:
-        runpy.run_path(str(launcher), run_name="__main__")
-    assert result.value.code == 0
-    assert entry.check_game_files() == 0
+    verify = importer.verify.check
+    monkeypatch.setattr(importer.verify, "check", lambda root, **_: verify(root))
+    code, job = request_import(data, packages, runner.keys, destination if retained else None)
+    assert code == 202 and job["state"] == "done"
+    assert verify(data / "game-assets").ok
     assert runner.output.exists() is retained
     assert not runner.work.exists()
     if retained:
@@ -72,7 +93,8 @@ def test_packaged_launcher_retains_only_opted_in_verified_extraction(tmp_path, m
         assert not list(destination.rglob("*.tik"))
     assert all(p.is_file() and p.stat().st_size == 0 for p in packages)
     assert runner.keys.read_text() == "synthetic-private-key-sentinel"
-    assert "synthetic-private-key-sentinel" not in (data / "game-assets-import.log").read_text()
+    assert not (data / "game-assets-import.log").exists()
+    assert "log" not in job
 
 
 @pytest.mark.parametrize("retained", [False, True])
@@ -80,6 +102,8 @@ def test_packaged_launcher_retains_only_opted_in_verified_extraction(tmp_path, m
 def test_failed_import_cleans_only_owned_raw_workspace(tmp_path, monkeypatch, retained, stage):
     data, _ = configure(tmp_path, monkeypatch)
     source = tmp_path / "base.nsp"
+    keys = tmp_path / "prod.keys"
+    keys.touch()
     source.write_bytes(b"synthetic-package")
     unrelated = tmp_path / "keep.txt"
     unrelated.write_text("keep")
@@ -88,7 +112,7 @@ def test_failed_import_cleans_only_owned_raw_workspace(tmp_path, monkeypatch, re
     (old / "previous.txt").write_text("previous")
     workspaces = []
 
-    def extract(_inputs, _tool, _keys, output, _log):
+    def extract(_inputs, _tool, _keys, output, *, cancelled):
         workspaces.append(output)
         (output / "partial.txt").write_text("partial")
         if stage in ("extract", "cancel"):
@@ -107,14 +131,15 @@ def test_failed_import_cleans_only_owned_raw_workspace(tmp_path, monkeypatch, re
     monkeypatch.setattr(nsp_extractor, "extract_nsps", extract)
     monkeypatch.setattr(importer, "run", run)
     destination = tmp_path / "saved"
-    assert entry.import_game_files(str(source), "nstool.exe", "prod.keys",
-                                   keep_dumps=str(destination) if retained else "") == 1
+    code, job = request_import(data, [source], keys, destination if retained else None)
+    assert code == 202 and job["state"] == "failed" and "log" not in job
     assert not workspaces[0].exists()
     assert source.read_bytes() == b"synthetic-package"
     assert unrelated.read_text() == "keep"
     assert (old / "previous.txt").read_text() == "previous"
     assert not (data / "settings.json").exists()
-    error = (data / "game-assets-import.log").read_text()
+    assert not (data / "game-assets-import.log").exists()
+    error = job["error"]
     if stage == "verify":
         assert "Verification failed" in error
     elif stage == "import":
@@ -143,16 +168,42 @@ def test_invalid_destination_does_not_extract_or_change_existing_files(tmp_path,
             pytest.skip("Windows path rules")
         destination = tmp_path / ("CON" if kind == "reserved" else "bad:name")
     source = tmp_path / "base.nsp"
+    keys = tmp_path / "prod.keys"
+    keys.touch()
     source.touch()
-    monkeypatch.setattr(nsp_extractor, "extract_nsps", lambda *_: pytest.fail("must validate first"))
+    monkeypatch.setattr(nsp_extractor, "extract_nsps", lambda *_, **__: pytest.fail("must validate first"))
     before = sorted(str(p.relative_to(tmp_path)) for p in tmp_path.rglob("*"))
-    assert entry.import_game_files(str(source), "nstool.exe", "prod.keys", keep_dumps=str(destination)) == 1
+    assert request_import(data, [source], keys, destination)[0] == 400
     after = sorted(str(p.relative_to(tmp_path)) for p in tmp_path.rglob("*") if p.name != "game-assets-import.log")
     assert after == before
     if kind == "existing":
         assert (destination / "keep.txt").read_text() == "keep"
     if kind == "file":
         assert destination.read_text() == "keep"
+
+
+def test_app_shutdown_cancels_import_and_cleans_the_extraction(tmp_path, monkeypatch):
+    data, _ = configure(tmp_path, monkeypatch)
+    destination = tmp_path / "saved"
+    nsp, keys = tmp_path / "base.nsp", tmp_path / "prod.keys"
+    nsp.touch()
+    keys.touch()
+    workspaces = []
+
+    def extract(_inputs, _tool, _keys, output, *, cancelled):
+        workspaces.append(output)
+        (output / "partial").touch()
+        assert cancelled.wait(5)
+        raise InterruptedError("App closed")
+
+    monkeypatch.setattr(nsp_extractor, "extract_nsps", extract)
+    with TestClient(create_app(data, background=False)) as client:
+        response = client.post("/api/game-assets/import-nsps", json={"nsps": [str(nsp)], "keys": str(keys),
+                                                                    "keep_dumps": str(destination)})
+        assert response.status_code == 202
+    assert workspaces == [destination]
+    assert not destination.exists()
+    assert not (data / "game-assets").exists()
 
 
 def test_unwritable_parent_and_creation_race_preserve_unrelated_files(tmp_path, monkeypatch):
@@ -179,18 +230,13 @@ def test_unwritable_parent_and_creation_race_preserve_unrelated_files(tmp_path, 
     assert (destination / "racer.txt").read_text() == "unrelated"
 
 
-def test_interruption_cleans_owned_directory_and_extracted_input_is_never_moved(tmp_path, monkeypatch):
+def test_interruption_cleans_owned_directory(tmp_path):
     destination = tmp_path / "interrupted"
     with pytest.raises(KeyboardInterrupt):
         with nsp_workspace.extraction_workspace(destination):
             (destination / "partial").touch()
             raise KeyboardInterrupt
     assert not destination.exists()
-    _data, source = configure(tmp_path, monkeypatch)
-    before = {p.relative_to(source): p.read_bytes() for p in source.rglob("*") if p.is_file()}
-    assert entry.import_game_files(str(source), keep_dumps=str(destination)) == 1
-    assert not destination.exists()
-    assert before == {p.relative_to(source): p.read_bytes() for p in source.rglob("*") if p.is_file()}
 
 
 @pytest.mark.skipif(os.name != "nt", reason="Windows junctions")
@@ -209,11 +255,3 @@ def test_destination_below_junction_is_rejected_without_touching_target(tmp_path
         assert list(target.iterdir()) == [target / "keep.txt"]
     finally:
         link.rmdir()
-
-
-@pytest.mark.parametrize("trailing", [[], ["--nsp", "some.nsp"]])
-def test_missing_keep_destination_never_starts_application(monkeypatch, trailing):
-    monkeypatch.setattr(entry.sys, "argv", ["Divine Pulse.exe", "--import-game-files", "source", "--keep-dumps", *trailing])
-    with pytest.raises(SystemExit) as result:
-        entry.main()
-    assert result.value.code == 1

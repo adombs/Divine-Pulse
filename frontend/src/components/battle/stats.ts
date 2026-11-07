@@ -1,6 +1,6 @@
 /**
  * A run's battles added up: totals and records for the run, and each of your characters over every battle they
- * were in. Pure functions over recorded battles (including an explicitly supplied live snapshot), like model.ts.
+ * were in. Pure functions over recorded battles (using the standing timeline of completed battles), like model.ts.
  */
 import type { Battle, BattleUnit, Usage, ValueKey } from "../../api";
 import { battleUnitStats, Item, statGains, timeline, recordedSum } from "./model";
@@ -50,11 +50,12 @@ function add(a: number | null, b: number | null | undefined): number | null {
   return a === null || b === null || b === undefined ? null : a + b;
 }
 
-/** One snapshot per battle; the live snapshot replaces a stale saved copy. */
+/** One snapshot per completed battle. A resumed battle invalidates its stale saved copy. */
 export function runBattles(history: Battle[], live: Battle | null = null): Battle[] {
   const byId = new Map<string, Battle>();
-  for (const b of history) if (!byId.has(b.id)) byId.set(b.id, b);
-  if (live) byId.set(live.id, live);
+  const active = new Set(history.filter((b) => b.active).map((b) => b.id));
+  if (live) active.add(live.id);
+  for (const b of history) if (b.ended_at && !active.has(b.id) && !byId.has(b.id)) byId.set(b.id, b);
   return [...byId.values()].sort((a, b) => b.started_at.localeCompare(a.started_at));
 }
 

@@ -4,7 +4,7 @@ The React and TypeScript application is under `frontend/src/`.
 
 - `App.tsx` is the application shell: it coordinates the active run, app-wide data and events, navigation, and page
   selection. Keep feature presentation and feature-specific interactions in their page or feature components.
-- `useBootstrap` (`useBootstrap.ts`) loads server-backed runs, units, scans, settings, and auto status, and coordinates
+- `useBootstrap` (`useBootstrap.ts`) loads server-backed runs, units, settings, and auto status, and coordinates
   run switching. Its pure `startup.ts` controller handles retryable startup and ignores stale startup completions;
   `requestGate.ts` and the units loader prevent older requests from overwriting a newly selected run.
 - `useBattleSync` (`useBattleSync.ts`) owns live battle and history-recording state. Its pure `battleSync.ts`

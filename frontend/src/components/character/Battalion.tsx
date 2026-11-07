@@ -4,7 +4,7 @@
  * tiles it hits).
  *
  * The app shows only what it has: the player's import (data/battalions.json) and what's read from game memory (the
- * assignment, its experience and endurance, and gambit uses left in a battle; docs/battalions.md). The level and its
+ * assignment, its experience and endurance, and gambit uses left in a battle). The level and its
  * modifiers follow from the experience and the import. Anything missing shows "—" with the reason, never a made-up
  * value.
  */

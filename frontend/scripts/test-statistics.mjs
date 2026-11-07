@@ -53,12 +53,10 @@ function compareScope(b) {
   return { chars, run, share };
 }
 
-test("live and finished scopes agree across popup, Share, character and run totals", () => {
-  for (const active of [true, false]) {
-    const { run } = compareScope(battle({ active, units: [unit(), unit("beta", { damage_dealt: 4, combats: 3, defeats: 0, adjutant_of: "alpha" })] }));
+test("finished scopes agree across popup, Share, character and run totals", () => {
+    const { run } = compareScope(battle({ units: [unit(), unit("beta", { damage_dealt: 4, combats: 3, defeats: 0, adjutant_of: "alpha" })] }));
     assert.equal(run.fights, 5, "fight totals count unit participations, not attack rows");
     assert.equal(run.stat_points, 6, "positive non-movement stat gains only");
-  }
 });
 
 test("known battle counter wins even when log is larger or zero", () => {
@@ -102,12 +100,12 @@ test("log fallback resolves stable keys and unambiguous old labels, never duplic
   assert.equal(timeline(b)[0].target, "e:8", "explicit identity takes precedence");
 });
 
-test("live replaces stale history once and large histories retain complete totals", () => {
+test("a live battle excludes its stale history copy and large histories retain complete totals", () => {
   const old = battle({ units: [unit("alpha", { damage_dealt: 3 })] });
   const live = battle({ active: true, units: [unit("alpha", { damage_dealt: 25 })] });
   const list = runBattles([old, old], live);
-  assert.equal(list.length, 1);
-  assert.equal(runStats(list, characterStats(list)).damage_dealt, 25);
+  assert.deepEqual(list, []);
+  assert.deepEqual(characterStats([live]), []);
   const many = Array.from({ length: 1000 }, (_, n) => battle({ id: `b${n}` }));
   const chars = characterStats([...many, many[0]]);
   const total = runStats([...many, many[0]], chars);

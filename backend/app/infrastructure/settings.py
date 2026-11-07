@@ -10,7 +10,7 @@ from pathlib import Path
 
 from .json_files import atomic_write_text, preserve_original, read_with_backup
 from .paths import DATA_DIR
-from ..domain.settings import Settings, DEFAULT_BATTLE_INTERVAL, MIN_AUTO_INTERVAL, MAX_AUTO_INTERVAL, WindowMode
+from ..domain.settings import Settings
 
 log = logging.getLogger(__name__)
 
@@ -45,10 +45,16 @@ class SettingsStore:
         with self._lock:
             return self._settings.model_copy(deep=True)
 
+    def reset_installation(self, version: str, replace_import: bool, active_run_id: str | None) -> None:
+        """Start an installation with clean preferences and discard backups containing old source paths."""
+        with self._lock:
+            clean = Settings(installation_version=version, replace_import=replace_import, active_run_id=active_run_id)
+            atomic_write_text(self.path, clean.model_dump_json(indent=2))
+            self.path.with_suffix(self.path.suffix + ".bak").unlink(missing_ok=True)
+            self._settings = clean
+
     def update(self, **changes) -> Settings:
         with self._lock:
-            if changes.get("game_language") is None:
-                changes.pop("game_language", None)
             updated = Settings.model_validate({**self._settings.model_dump(), **changes})
             atomic_write_text(self.path, json.dumps(updated.model_dump(), indent=2), backup=True)
             self._settings = updated
@@ -58,8 +64,4 @@ class SettingsStore:
 __all__ = [
     "Settings",
     "SettingsStore",
-    "DEFAULT_BATTLE_INTERVAL",
-    "MIN_AUTO_INTERVAL",
-    "MAX_AUTO_INTERVAL",
-    "WindowMode",
 ]

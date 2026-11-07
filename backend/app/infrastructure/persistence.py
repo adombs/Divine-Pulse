@@ -254,15 +254,6 @@ class RunStore:
                 unit.ebst_stats = list(config.stats)
             self._save(run)
 
-    def delete_unit(self, run_id: str, key: str) -> None:
-        with self._lock:
-            run = self.get(run_id)
-            if key not in run.units:
-                raise NotFound(key)
-            del run.units[key]
-            self._save(run)
-
-
 class BattleStore:
     """Finished battles, one JSON list per run in data/battles/<run id>.json (newest last)."""
 
@@ -295,6 +286,20 @@ class BattleStore:
             self._write(path, battles)
         if self.on_change:
             self.on_change(battle.run_id, battle)
+
+    def extend(self, run_id: str, battles: list[Battle]) -> None:
+        with self._lock:
+            path = self._path(run_id)
+            existing = read_with_backup(path, decode_battles) if path.exists() else []
+            self._write(path, [*existing, *battles])
+        if self.on_change:
+            self.on_change(run_id)
+
+    def replace(self, run_id: str, battles: list[Battle]) -> None:
+        with self._lock:
+            self._write(self._path(run_id), battles)
+        if self.on_change:
+            self.on_change(run_id)
 
     def delete(self, run_id: str, battle_id: str) -> None:
         with self._lock:

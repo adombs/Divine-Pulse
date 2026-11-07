@@ -1,7 +1,9 @@
-import { useEffect, useState } from "react";
+import { createContext, useEffect, useState } from "react";
 import type { PortraitPhase } from "./portraits";
 import { useSpoilers } from "./spoilers";
 import { FACE_LOOKS, type MapLook, UNIT_LOOKS } from "./components/battle/mapIcons";
+
+export const PortraitPhaseContext = createContext<PortraitPhase>("auto");
 
 export interface FontOption {
   id: string;
@@ -180,7 +182,7 @@ export function applyAppearance(a: Appearance): void {
   root.style.setProperty("--font-scale", String(font.scale * size * BASE_SCALE));
 }
 
-/** Theme, font and text size: remembered per browser, applied to <html>. */
+/** Theme, font and text size are saved in the desktop window's profile. */
 export function useAppearance() {
   // Refresh pure portrait lookups throughout the app when a spoiler preference changes.
   useSpoilers();

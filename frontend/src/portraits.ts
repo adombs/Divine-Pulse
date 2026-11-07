@@ -148,7 +148,7 @@ export function isByleth(u: Unit): boolean {
 
 export function portraitKey(u: Unit): string | null {
   if (isByleth(u)) {
-    const female = u.portrait_gender === "auto" || !u.portrait_gender ? u.gender === "Female" : u.portrait_gender === "female";
+    const female = u.gender === "Female";
     return female ? "byleth_f" : "byleth_m";
   }
   return characterKeyOfName(u.name);
@@ -191,18 +191,18 @@ export function characterPortraitKey(key: string, units: Unit[] = []): string {
  * faces for Byleth: dark hair, and green hair from the Sothis merge on (Part II too), which is the `_2` file. */
 let runBylethGreen = false;
 
-export function portraitUrl(u: Unit, part2: boolean): string | null {
+export function portraitUrl(u: Unit, part2: boolean, automatic = true): string | null {
   const key = portraitKey(u);
-  if (key && isByleth(u) && u.look) return portraitUrlForKey(key, part2, u.look === "green");
-  return key ? portraitUrlForKey(key, part2) : null;
+  const green = isByleth(u) && u.look ? u.look === "green" : undefined;
+  return key ? portraitUrlForKey(key, part2, green, automatic) : null;
 }
 
 /** By portrait key ("edelgard", "byleth_f", …), for the reference pages. `green`: Byleth's green hair as the game has
  * it (not a spoiler: it's what the player's game shows), else the run's Byleth look, else the Part II setting. */
-export function portraitUrlForKey(key: string, part2: boolean, green?: boolean): string | null {
+export function portraitUrlForKey(key: string, part2: boolean, green?: boolean, automatic = true): string | null {
   const looks = LOOKS.get(key);
   if (!looks) return null;
-  if (key.startsWith("byleth") && (green !== undefined || runBylethGreen)) return bundledPortrait((green ?? runBylethGreen) && looks.part2 ? looks.part2 : looks.part1);
+  if (automatic && key.startsWith("byleth") && (green !== undefined || runBylethGreen)) return bundledPortrait((green ?? runBylethGreen) && looks.part2 ? looks.part2 : looks.part1);
   return bundledPortrait(part2 && spoilerShown("portraits") && looks.part2 ? looks.part2 : looks.part1);
 }
 
@@ -252,8 +252,8 @@ const NPC_CHILDHOOD = new Set([70, 71]);
 
 const hash = (s: string) => [...s].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7);
 
-function fileOf(entry: ManifestCharacter, f: Face, part2: boolean): string {
-  if ((f.character === 0 || f.character === 1) && f.look) return f.look === "green" ? entry.part2 ?? entry.part1 : entry.part1;
+function fileOf(entry: ManifestCharacter, f: Face, part2: boolean, automatic: boolean): string {
+  if (automatic && (f.character === 0 || f.character === 1) && f.look) return f.look === "green" ? entry.part2 ?? entry.part1 : entry.part1;
   const text = norm(f.name ?? "");
   const v = entry.variants ?? {};
   if (v.seiros && text.includes("seiros")) return v.seiros;
@@ -276,15 +276,15 @@ function classNamed(text: string): ManifestGeneric | undefined {
 /** A unit's face: its character's portrait (Part II once the story is there, other looks as it changes class or
  * name), else a generic one for its class and gender; null when there is none. Works for IDs not seen before. An
  * object (a breakable wall) has the battle map's icon for it, so it looks the same everywhere. */
-export function faceUrl(f: Face, part2: boolean): string | null {
+export function faceUrl(f: Face, part2: boolean, automatic = true): string | null {
   if (f.object || OBJECT_NAMES.has(f.name ?? "")) return objectIcon(f.name ?? "");
   const entry = f.character != null ? CHARACTERS[String(f.character)] : undefined;
   if (!entry) {
     // No character ID (a tracked unit, an ID not in the tables): a known character name still has its face.
     const key = NAME_KEY.get(norm(f.name ?? ""));
-    if (key && LOOKS.has(key)) return portraitUrlForKey(key, part2);
+    if (key && LOOKS.has(key)) return portraitUrlForKey(key, part2, undefined, automatic);
   }
-  if (entry) return bundledPortrait(fileOf(entry, f, part2));
+  if (entry) return bundledPortrait(fileOf(entry, f, part2, automatic));
   const text = norm(f.name ?? "");
   const named = NAMES[nameSlug(f.name ?? "")];
   const g =

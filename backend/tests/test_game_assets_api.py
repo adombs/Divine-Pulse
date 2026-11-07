@@ -35,7 +35,7 @@ def test_routes_and_manifest_allowlist(tmp_path, assets):
     (assets.root / "manifest.json").write_text(json.dumps({"files": {"file.json": {"sha256": "abc"}}}))
     with TestClient(create_app(tmp_path / "data", background=False)) as client:
         status = client.get("/api/game-assets/status").json()
-        assert status["available"] and status["job"]["state"] == "idle" and status["last_dump"] is None
+        assert status["available"] and status["job"]["state"] == "idle" and "last_dump" not in status
         response = client.get("/game-assets/file.json")
         assert response.status_code == 200
         assert response.headers["etag"] == '"abc"' and response.headers["cache-control"] == "no-cache"
@@ -73,7 +73,8 @@ def test_running_conflicts_and_failed_import_preserves_old(tmp_path, assets, mon
         job = wait_job(client)
         assert job["state"] == "failed" and job["error"] == "extract failed"
         assert (assets.root / "old.txt").read_text() == "old"
-        assert client.get("/api/game-assets/status").json()["last_dump"] == str(tmp_path)
+        assert "last_dump" not in client.get("/api/game-assets/status").json()
+        assert client.get("/api/game-assets/candidates").status_code == 404
 
 
 def test_successful_import_swaps_and_emits_status(tmp_path, assets, monkeypatch):
@@ -87,7 +88,7 @@ def test_successful_import_swaps_and_emits_status(tmp_path, assets, monkeypatch)
         return {"data": {"files": 1, "skipped": []}}
 
     monkeypatch.setattr(importer, "run", extract)
-    monkeypatch.setattr(importer.verify, "check", lambda _: importer.verify.Report())
+    monkeypatch.setattr(importer.verify, "check", lambda _, **kwargs: importer.verify.Report())
     app = create_app(tmp_path / "data", background=False)
     events = []
     finished = threading.Event()
@@ -114,7 +115,7 @@ def test_progress_waits_for_verification_and_replacement(tmp_path, assets, monke
     verifying, finish_verify = threading.Event(), threading.Event()
     replacing, finish_replace = threading.Event(), threading.Event()
 
-    def check(_):
+    def check(_, **kwargs):
         verifying.set()
         assert finish_verify.wait(10)
         return importer.verify.Report()
@@ -167,53 +168,6 @@ def test_real_import(tmp_path, assets):
         pytest.fail("real import timed out")
 
 
-def fake_base(folder, title=None):
-    romfs = folder / title / "romfs" if title else folder / "romfs"
-    (romfs / "patch0").mkdir(parents=True)
-    (romfs / "nx").mkdir()
-    (romfs / "DATA0.bin").write_bytes(b"0")
-    (romfs / "DATA1.bin").write_bytes(b"0")
-    return romfs
-
-
-def test_candidates_find_each_location_and_ignore_junk(tmp_path, assets, monkeypatch):
-    appdata, home = tmp_path / "appdata", tmp_path / "home"
-    eden = fake_base(appdata / "eden" / "dump", importer.dump.BASE_TITLE)
-    (appdata / "eden" / "dump" / "010055D009F79001" / "romfs").mkdir(parents=True)
-    (appdata / "eden" / "dump" / "010055D009F79001" / "romfs" / "DATA0.bin").write_bytes(b"0")
-    (appdata / "eden" / "dump" / "010055D009F79001" / "romfs" / "DATA1.bin").write_bytes(b"0")
-    ryu = fake_base(appdata / "Ryujinx" / "mods" / "contents", importer.dump.BASE_TITLE)
-    desk = fake_base(home / "Desktop" / "Fire Emblem Three Houses Dump")
-    down = fake_base(home / "Downloads" / "fe3h")
-    for junk in (appdata / "yuzu" / "dump" / "0100000000000000" / "romfs", home / "Documents" / "Taxes" / "x",
-                 home / "Desktop" / "romfs-empty" / "romfs", appdata / "suyu" / "dump"):
-        junk.mkdir(parents=True)
-    (home / "Documents" / "Taxes" / "x" / "DATA0.bin").write_bytes(b"0")
-    for i, romfs in enumerate((ryu, down, desk, eden)):
-        os.utime(romfs, (1000 + i, 1000 + i))
-    monkeypatch.setenv("APPDATA", str(appdata))
-    monkeypatch.setenv("USERPROFILE", str(home))
-    monkeypatch.setenv("HOME", str(home))
-    with TestClient(create_app(tmp_path / "data", background=False)) as client:
-        found = client.get("/api/game-assets/candidates").json()["candidates"]
-        paths = [item["romfs"] for item in found]
-        assert str(ryu) in paths and str(down) in paths and str(desk) in paths and str(eden) in paths
-        assert not any("yuzu" in p or "Taxes" in p or "romfs-empty" in p or "suyu" in p for p in paths)
-        assert paths == sorted(paths, key=lambda p: -os.stat(p).st_mtime)
-        assert next(i for i in found if i["romfs"] == str(eden))["dlc"] == ["cindered_shadows"]
-        assert all(set(i) >= {"path", "version", "dlc", "exefs", "supported"} for i in found)
-
-
-def test_candidates_last_dump_and_parent_and_dedupe(tmp_path):
-    parent = tmp_path / "dumps"
-    mine = fake_base(parent / "mine")
-    found = importer.candidates(str(parent / "mine"), env={})
-    assert [item["romfs"] for item in found] == [str(mine)]
-    found = importer.candidates(str(mine), env={})
-    assert [item["romfs"] for item in found] == [str(mine)]
-    assert importer.candidates(str(tmp_path / "missing"), env={}) == []
-
-
 def test_nsp_import_success_and_picker_routes(tmp_path, assets, monkeypatch):
     from app.infrastructure import nsp_extractor, paths
 
@@ -228,15 +182,15 @@ def test_nsp_import_success_and_picker_routes(tmp_path, assets, monkeypatch):
         file.touch()
     extraction = []
 
-    def extract(inputs, executable, key_path, output, log):
+    def extract(inputs, executable, key_path, output, *, cancelled):
         extraction.append(output)
         assert inputs == packages and executable == tool and key_path == keys
-        log("Extracted packages")
+        assert not cancelled.is_set()
 
     monkeypatch.setattr(nsp_extractor, "extract_nsps", extract)
     monkeypatch.setattr(importer.dump, "find", lambda _: fake_dump(tmp_path))
     monkeypatch.setattr(importer, "run", lambda ctx: {})
-    monkeypatch.setattr(importer.verify, "check", lambda _: importer.verify.Report())
+    monkeypatch.setattr(importer.verify, "check", lambda _, **kwargs: importer.verify.Report())
     app = create_app(tmp_path / "data", background=False)
     with TestClient(app) as client:
         assert client.post("/api/game-assets/pick-nsps").status_code == 501
@@ -263,7 +217,7 @@ def test_nsp_extraction_failure_preserves_existing_assets(tmp_path, assets, monk
     package, keys = tmp_path / "base.nsp", tmp_path / "prod.keys"
     package.touch()
     keys.touch()
-    def fail(*args):
+    def fail(*args, **kwargs):
         raise ValueError("bad keys")
     monkeypatch.setattr(nsp_extractor, "extract_nsps", fail)
     with TestClient(create_app(tmp_path / "data", background=False)) as client:

@@ -26,7 +26,7 @@ def test_run_endpoints_keep_statuses_and_event_side_effects(tmp_path):
         assert client.get("/api/runs").json()["runs"][0]["name"] == "Azure Moon"
 
         assert client.put("/api/runs/missing/ebst", json={"offense": "physical"}).status_code == 404
-        assert client.delete(f"/api/runs/{run_id}/units/nobody").status_code == 404
+        assert client.delete(f"/api/runs/{run_id}/units/nobody").status_code in {404, 405}
         assert client.get("/api/settings").status_code == 200
         assert client.get("/api/battle").json() == {"battle": None}
 
@@ -34,8 +34,8 @@ def test_run_endpoints_keep_statuses_and_event_side_effects(tmp_path):
 def test_settings_validation_and_desktop_browser_response_contract(tmp_path):
     with TestClient(create_app(tmp_path, background=False)) as client:
         settings = client.get("/api/settings").json()
-        body = {"auto_interval_s": settings["auto_interval_s"]}
-        assert client.put("/api/settings", json={**body, "auto_interval_s": 0.05}).status_code == 422
+        body = {"max_recordings": settings["max_recordings"]}
+        assert client.put("/api/settings", json={**body, "max_recordings": -1}).status_code == 422
         assert (
             client.put("/api/settings", json={**body, "window_mode": "fullscreen"}).json()["window_mode"]
             == "fullscreen"
@@ -59,8 +59,7 @@ def test_run_response_schemas_and_per_request_window_view(tmp_path):
         modes = []
         app.state.set_window_mode = modes.append
         assert client.get("/api/about").json()["desktop"] is False
-        settings = client.get("/api/settings").json()
-        client.put("/api/settings", json={"auto_interval_s": settings["auto_interval_s"], "window_mode": "fullscreen"})
+        client.put("/api/settings", json={"window_mode": "fullscreen"})
         assert modes == ["fullscreen"]
         assert app.state.runtime.operations.window is original
 
@@ -99,7 +98,7 @@ def test_unit_response_loads_legacy_saved_fields_and_emits_current_defaults(tmp_
         [unit] = client.get(f"/api/runs/{run_id}/units").json()
         assert unit["key"] == "byleth"
         assert unit["source"] == "manual"
-        assert unit["portrait_gender"] == "auto"
+        assert "portrait_gender" not in unit
         assert unit["ebst_effective"] == {"offense": "auto", "defense": "auto", "stats": ["hp", "spd"]}
         assert unit["combat_arts"] == []
         assert unit["skills"] == {}
@@ -114,15 +113,7 @@ def test_settings_response_values_match_the_frontend_fields(tmp_path):
         run_id = client.post("/api/runs", json={"name": "Azure Moon"}).json()["id"]
         settings = client.get("/api/settings").json()
         assert {
-            "battle_filter_auto",
-            "battle_page_auto",
-            "battle_alerts",
-            "record_battles",
-            "battle_interval_s",
-            "battle_estimate_fights",
-            "pairing_check",
-            "hide_history",
-            "auto_interval_s",
+            "max_recordings",
             "active_run_id",
             "port",
             "window_mode",
@@ -180,7 +171,7 @@ def test_event_publishers_and_sse_wire_message_keep_names_and_payloads(tmp_path)
         ]
 
         app.state.store.put_unit(run_id, "byleth", Unit(name="Byleth"))
-        client.put(f"/api/runs/{run_id}/units/byleth/portrait", json={"gender": "female"})
+        client.put(f"/api/runs/{run_id}/units/byleth/ebst", json={"offense": "magical"})
         assert published[-1] == ("units_changed", {"run_id": run_id})
 
         app.state.battles.add(
@@ -195,13 +186,10 @@ def test_event_publishers_and_sse_wire_message_keep_names_and_payloads(tmp_path)
         assert published[-1] == ("battle", {"active": False, "history": True})
 
         scanner = app.state.scanner
-        scan = scanner._record("ok", "Roster read", run_id=run_id, screen="Roster")
-        assert published[-1] == ("scan", scan.model_dump(mode="json"))
         scanner._publish_status("watching", MEMORY_TITLE, "Byleth", force=True)
         assert published[-1] == (
             "auto",
             {
-                "interval_s": 1.0,
                 "battle": [],
                 "state": "watching",
                 "screen": MEMORY_TITLE,

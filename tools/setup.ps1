@@ -41,4 +41,4 @@ $shortcut.Save()
 
 Write-Host ""
 Write-Host "Done. Launch 'Divine Pulse (source)' from your desktop." -ForegroundColor Green
-Write-Host "It runs in the system tray; right-click the tray icon to open the dashboard or quit."
+Write-Host "Closing the Divine Pulse window stops the app."

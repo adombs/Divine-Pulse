@@ -8,7 +8,6 @@ from app.application.operations import (
     BackendOperations,
     RunMissing,
     RunNameTaken,
-    UnitMissing,
 )
 from app.application.ports import MissingRecord
 from app.domain.ebst import EbstConfig
@@ -98,11 +97,11 @@ class MemorySettings:
 
 
 class MemorySettingsValue(SimpleNamespace):
-    def __init__(self, active_run_id=None, window_mode="windowed", auto_interval_s=1.0):
+    def __init__(self, active_run_id=None, window_mode="windowed", max_recordings=3):
         super().__init__(
             active_run_id=active_run_id,
             window_mode=window_mode,
-            auto_interval_s=auto_interval_s,
+            max_recordings=max_recordings,
         )
 
     def model_dump(self):
@@ -212,8 +211,6 @@ def test_unit_and_battle_missing_records_are_application_errors(operations):
     with pytest.raises(RunMissing):
         ops.list_units("missing")
     created = ops.create_run("Run")
-    with pytest.raises(UnitMissing):
-        ops.set_unit_portrait(created.id, "missing", "female")
     from app.application.operations import BattleMissing
 
     with pytest.raises(BattleMissing):
@@ -230,16 +227,14 @@ def test_failed_unit_save_does_not_publish_durable_success(operations):
 
     runs.put_unit = fail_save
     event_count = len(events.items)
-    with pytest.raises(OSError, match="disk full"):
-        ops.set_unit_portrait(created.id, "felix", "female")
     assert len(events.items) == event_count
 
 
 def test_setting_operation_returns_saved_values_and_data_folder_path(operations):
     ops, _, settings, _ = operations
-    result = ops.update_settings({"auto_interval_s": 2.0})
+    result = ops.update_settings({"max_recordings": 8})
 
-    assert result["auto_interval_s"] == 2.0
+    assert result["max_recordings"] == 8
     assert ops.about(desktop=False)["data_dir"] == str(ops.data_dir)
     assert ops.about(desktop=False)["desktop"] is False
     assert isinstance(ops.get_settings(), dict)

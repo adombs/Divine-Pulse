@@ -13,13 +13,13 @@ from .. import __version__
 from ..application.operations import (
     BattleMissing,
     OperationError,
+    RunInBattle,
     RunMissing,
     RunNameTaken,
     UnitMissing,
 )
-from .inputs import EbstIn, GameDumpIn, GameNspsIn, PortraitIn, RunName, SettingsIn
+from .inputs import EbstIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
 from ..domain.ebst import EbstConfig
-from ..domain.scans import ScanLogEntry
 from ..domain.runs import RunSummary
 from ..domain.runs import Run
 from ..domain.battle import Battle
@@ -34,11 +34,6 @@ router = APIRouter(prefix="/api")
 @router.get("/game-assets/status")
 def game_assets_status(request: Request) -> dict:
     return _state(request).game_import.status()
-
-
-@router.get("/game-assets/candidates")
-def game_assets_candidates(request: Request) -> dict:
-    return {"candidates": _state(request).game_import.candidates()}
 
 
 @router.post("/game-assets/scan")
@@ -62,7 +57,7 @@ def game_assets_import(body: GameDumpIn, request: Request) -> dict:
 @router.post("/game-assets/import-nsps", status_code=202)
 def game_assets_import_nsps(body: GameNspsIn, request: Request) -> dict:
     try:
-        return {"job": _state(request).game_import.start_nsps(body.nsps, body.keys)}
+        return {"job": _state(request).game_import.start_nsps(body.nsps, body.keys, body.keep_dumps)}
     except RuntimeError as exc:
         raise HTTPException(409, str(exc)) from exc
     except (OSError, ValueError) as exc:
@@ -73,7 +68,7 @@ def game_assets_import_nsps(body: GameNspsIn, request: Request) -> dict:
 def game_assets_pick_nsps(request: Request) -> dict:
     pick = getattr(request.app.state, "pick_game_nsps", None)
     if pick is None:
-        raise HTTPException(501, "No desktop window (running in browser mode).")
+        raise HTTPException(501, "No desktop window is available.")
     return {"paths": pick()}
 
 
@@ -81,7 +76,7 @@ def game_assets_pick_nsps(request: Request) -> dict:
 def game_assets_pick_keys(request: Request) -> dict:
     pick = getattr(request.app.state, "pick_game_keys", None)
     if pick is None:
-        raise HTTPException(501, "No desktop window (running in browser mode).")
+        raise HTTPException(501, "No desktop window is available.")
     return {"path": pick()}
 
 
@@ -97,7 +92,7 @@ def game_assets_verify(request: Request) -> dict:
 def game_assets_pick_folder(request: Request) -> dict:
     pick = getattr(request.app.state, "pick_game_dump", None)
     if pick is None:
-        raise HTTPException(501, "No desktop window (running in browser mode).")
+        raise HTTPException(501, "No desktop window is available.")
     return {"path": pick()}
 
 
@@ -116,6 +111,8 @@ def _state(request: Request) -> RuntimeView:
 def _raise_http(exc: OperationError) -> NoReturn:
     if isinstance(exc, RunNameTaken):
         raise HTTPException(409, str(exc)) from exc
+    if isinstance(exc, RunInBattle):
+        raise HTTPException(400, str(exc)) from exc
     if isinstance(exc, RunMissing):
         raise HTTPException(404, "Run not found.") from exc
     if isinstance(exc, UnitMissing):
@@ -189,37 +186,11 @@ def set_unit_ebst(run_id: str, key: str, body: EbstIn, request: Request) -> Unit
     return UnitOut.from_unit(key, unit)
 
 
-@router.put("/runs/{run_id}/units/{key}/portrait")
-def set_unit_portrait(run_id: str, key: str, body: PortraitIn, request: Request) -> UnitOut:
-    unit = _call(
-        _state(request).operations.set_unit_portrait,
-        run_id,
-        key,
-        body.gender,
-    )
-    return UnitOut.from_unit(key, unit)
-
-
-@router.delete("/runs/{run_id}/units/{key}")
-def delete_unit(run_id: str, key: str, request: Request) -> None:
-    _call(_state(request).operations.delete_unit, run_id, key)
-
-
-@router.post("/scan/undo")
-def undo_scan(request: Request) -> ScanLogEntry | None:
-    return _state(request).operations.undo_scan()
-
-
-@router.get("/scans")
-def scan_log(request: Request) -> list[ScanLogEntry]:
-    return _state(request).operations.scan_log()
-
-
 @router.post("/window/show")
 def show_window(request: Request) -> None:
     window = _state(request).operations.window
     if window is None:
-        raise HTTPException(404, "No desktop window (running in browser mode).")
+        raise HTTPException(404, "No desktop window is available.")
     try:
         window.show()
     except LookupError as exc:
@@ -231,7 +202,7 @@ def quit_app(request: Request, after_response: BackgroundTasks) -> dict:
     """Quit the app, once this response is sent. `pid`: the process to wait for, until its files are free."""
     quit_now = _state(request).quit_app
     if quit_now is None:
-        raise HTTPException(404, "Nothing to quit from (running as a server only).")
+        raise HTTPException(404, "No desktop window is available.")
     after_response.add_task(quit_now)
     return {"pid": os.getpid()}
 
@@ -243,7 +214,7 @@ def get_settings(request: Request):
 
 @router.put("/settings")
 def put_settings(body: SettingsIn, request: Request):
-    return _state(request).operations.update_settings(body.model_dump())
+    return _state(request).operations.update_settings(body.model_dump(exclude_none=True))
 
 
 @router.get("/auto")
@@ -271,8 +242,8 @@ def run_battles(run_id: str, request: Request) -> list[dict]:
 
 
 def _import_payload(body: dict, kind: str, fields: set[str]) -> None:
-    """Accept the current export format for this kind of data."""
-    formats = {f"divine-pulse-{kind}"}
+    """Accept supported current and legacy export names for this kind of data."""
+    formats = {f"divine-pulse-{kind}", f"fe3h-tracker-{kind}"}
     if set(body) != fields or body.get("format") not in formats or body.get("version") != 1:
         raise HTTPException(422, "Unsupported or invalid import file.")
 
@@ -283,16 +254,17 @@ def export_run(run_id: str, request: Request) -> dict:
 
 
 @router.post("/runs/import")
-def import_run(body: dict, request: Request) -> RunSummary:
+def import_run(body: dict, request: Request, name: str | None = None, overwrite: bool = False) -> RunSummary:
     _import_payload(body, "run", {"format", "version", "run", "battles"})
     try:
         source = Run.model_validate(body["run"])
+        import_name = RunName(name=source.name if name is None else name).name
         battles = [Battle.model_validate(item) for item in body["battles"]]
         if any(battle.run_id != source.id for battle in battles):
             raise ValueError("A battle belongs to a different run.")
     except (ValidationError, TypeError, ValueError, KeyError) as exc:
         raise HTTPException(422, f"Invalid run file: {exc}") from exc
-    return _state(request).operations.import_run(source, battles)
+    return _call(_state(request).operations.import_run, source, battles, import_name, overwrite)
 
 
 @router.get("/runs/{run_id}/battles/export")

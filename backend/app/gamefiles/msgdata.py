@@ -6,7 +6,7 @@
           then NUL-terminated UTF-8 strings
 
 Every language has the same string count per file, so one index rule works for all of them. Index rules for each
-kind of name or description are in docs/game-assets/text.md.
+kind of name or description are mapped by the extractors.
 """
 
 from __future__ import annotations
