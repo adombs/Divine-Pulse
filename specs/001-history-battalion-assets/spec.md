@@ -17,7 +17,7 @@ The player opens Character Stats or Battle Stats from History and can read the r
 
 ### User Story 2 - Understand a Battalion (Priority: P1)
 The player reads a Battalion's identity, endurance, modifiers and gambit in a deliberately composed detail view.
-**Independent Test**: Inspect general and recorded-unit panels at wide and narrow widths and enlarged text.
+**Independent Test**: Inspect general and recorded-unit panels at desktop 16:9 and 16:10 and enlarged text.
 **Acceptance Scenarios**:
 1. Modifier labels and values align without expansive bars or an arbitrary gulf between gambit numbers and its area.
 2. The native gambit preview keeps its verified affected cells, badge colour/direction and proportions.
@@ -38,7 +38,7 @@ The player sees the actual imported game asset or an explicit actionable missing
 2. The root ignore rule covers the whole folder including metadata, and no game content enters Git or release artifacts.
 
 ### Edge Cases
-No battles; active battle; incomplete older recording; unknown totals; many records; translated/long names; 375px width; 200% text; missing import; stale import; missing individual sprite; failed request; valid DLC absence; assets replaced during load.
+No battles; active battle; incomplete older recording; unknown totals; many records; translated/long names; desktop 16:9 and 16:10; enlarged text; missing import; stale import; missing individual sprite; failed request; valid DLC absence; assets replaced during load.
 
 ## Requirements
 ### Functional Requirements
@@ -50,8 +50,12 @@ No battles; active battle; incomplete older recording; unknown totals; many reco
 - FR-006: Ignore the relocated dump before moving it and verify inventory and Git exclusion afterward.
 - FR-007: Inventory all fallback mechanisms by category, location, purpose and recommendation; do not conflate loading or unknown-data sentinels with substitutes.
 - FR-008: Review the complete test suite, repair obsolete expectations and add behavior-level regressions for the changed contracts.
-- FR-009: Preserve keyboard access, focus, scroll containment and legibility in light/dark themes, narrow cards and enlarged text.
+- FR-009: Preserve keyboard access, focus, scroll containment and legibility in light/dark themes, desktop 16:9 and 16:10 and enlarged text. Do not work on phone views unless explicitly requested.
 - FR-010: Deliver reviewed commits and PRs into release/1.3.0; do not merge or publish without authorization.
+- FR-011: Omit comparison subtitles, repeated counts, sorting hints and footer legends in History statistics.
+  Keep unknown values accessible without explanatory footer clutter.
+- FR-012: Put native character sprites beside names, center numeric columns, and reuse History's battle-type colours.
+- FR-013: Label the reference Battalion's 1–5 selector Level and persist maintainer UI preferences in root AGENTS.md.
 
 ### Key Entities
 Recorded battle; run totals; character aggregate; award/record count; Battalion assignment/reference; imported image; missing-asset sentinel; local dump.

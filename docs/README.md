@@ -4,6 +4,7 @@ Start here based on what you need:
 
 - **Players:** install and use Divine Pulse in the [README](../README.md).
 - **Contributors:** set up a development environment and run checks in [the contributing guide](../.github/CONTRIBUTING.md).
+- **Coding agents:** load the [project instructions and persistent UI decisions](../AGENTS.md) before working.
 - **Backend work:** follow the [backend architecture](BACKEND_ARCHITECTURE.md) and [HTTP API contract](api-contracts.md).
 - **Frontend work:** follow the [frontend boundaries](frontend-architecture.md) and [interface design](ui-design.md).
 - **Fallback behavior:** see the [fallback inventory and recommended dispositions](fallback-inventory.md).

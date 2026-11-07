@@ -3,6 +3,10 @@
 How the app's pages are put together, so new screens look and behave like the rest. The look itself (banners, cogs,
 paper, diamonds, styled after the in-game Status page) is separate; this is about structure.
 
+Maintainer decisions are recorded in [the root project instructions](../AGENTS.md) and take precedence over older
+design notes. The supported review targets are desktop **16:9 and 16:10** (1600×900 and 1600×1000). Do not spend
+implementation, testing, or screenshot work on phone/mobile views unless explicitly requested.
+
 ## Principles
 
 1. **Summary first, detail on demand.** Every page opens on what matters most (a few numbers, a list), and
@@ -27,11 +31,14 @@ paper, diamonds, styled after the in-game Status page) is separate; this is abou
    the ends); the replay's timeline is its taller variant with a notch per step.
 8. **Motion is quiet and quick** (0.15-0.3 s): views fade in, sections slide open, windows rise in. Reduced-motion
    settings turn it off.
+9. **Avoid explanatory clutter.** Do not add unsolicited subtitles, repeated counts, sorting hints, or permanent
+   footer legends. Unknown values keep their sentinel and accessible reason. In History statistics, character
+   sprites sit beside names, numeric columns are centered, and battle types reuse History's colours.
 
 ## Page anatomy
 
 ```
-PageHeader   title · one-line status (chips)                       actions
+PageHeader   title [essential status, when needed]                 actions
              [ Sub-tab ]  [ Sub-tab ]  [ Sub-tab ]                  (when the page has views)
 Tiles        a few key numbers (optional, always visible for the thing shown)
 Body         MasterDetail (list + DetailCard), a log, or sections
