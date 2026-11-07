@@ -1,5 +1,3 @@
-import { Icon } from "./Icon";
-import { CONCEPT_ICON } from "../icons/concepts";
 import type { ReactNode } from "react";
 import { type ReferenceData, useReference } from "../reference/types";
 import { useSpoiler } from "../spoilers";
@@ -40,20 +38,20 @@ export function houseOfCharacter(ref: ReferenceData | null | undefined, key: str
 /** The game's banner for a unit's affiliation; an unknown one falls back to the neutral shield. */
 export type AffiliationSide = "player" | "enemy" | "ally" | "third" | "object";
 
-/** Known factions without a dedicated identified emblem use a native army pennant, never an unrelated house. */
-export function affiliationBanner(house?: string | null, side: AffiliationSide = "enemy"): string {
-  if (!house || house === "Other") return BANNER.Other;
-  return factionBanners.get(house) ?? BANNER[house] ?? `army-${side === "object" ? "enemy" : side}`;
+/** No unrelated army pennant substitutes for an unidentified faction emblem. */
+export function affiliationBanner(house?: string | null, _side: AffiliationSide = "enemy"): string | null {
+  if (!house) return null;
+  return factionBanners.get(house) ?? BANNER[house] ?? null;
 }
 
 export function AffiliationIcon({ house, side, bare = false }: { house?: string | null; side?: AffiliationSide; bare?: boolean }) {
   const [showCrests] = useSpoiler("crests");
-  const src = bundledHouse(affiliationBanner(house === "Professor" && !showCrests ? "Other" : house, side));
-  const imported = src;
-  if (bare) return <GameImage className="affiliation-icon" imported={imported} alt={house || "Other"} title={house || "Other"} draggable={false} fallback={<Icon name={CONCEPT_ICON.affiliation} className="affiliation-icon" title={house || "Other"} />} />;
+  const banner = affiliationBanner(house === "Professor" && !showCrests ? "Other" : house, side);
+  const imported = banner ? bundledHouse(banner) : null;
+  if (bare) return <GameImage className="affiliation-icon" imported={imported} alt={house || "Affiliation"} title={house || "Other"} draggable={false} />;
   return (
     <span className="crest house" role="img" aria-label={house || "Other"} title={house || undefined}>
-      <GameImage imported={imported} alt="" draggable={false} fallback={<Icon name={CONCEPT_ICON.affiliation} />} />
+      <GameImage imported={imported} alt={house || "Affiliation"} draggable={false} />
     </span>
   );
 }

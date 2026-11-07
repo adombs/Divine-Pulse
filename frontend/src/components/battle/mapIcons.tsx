@@ -13,7 +13,6 @@ import { ICON_PATHS } from "../iconPaths";
 import { spoilerShown } from "../../spoilers";
 import { ICON } from "./model";
 import { MapImage, useGameImageUrl } from "../GameImage";
-import { CRYSTAL_ITEM_ICON } from "./unitAppearance";
 import { loadGameJson, onGameAssetsChange } from "../../gameAssets";
 import { bundledGameImage } from "../gameImageSources";
 
@@ -35,11 +34,9 @@ export const gameImage = (name: string) => bundledGameImage(`${name}.png`);
  * fists. */
 export function WeaponGlyph({ kind, cx, cy, size }: { kind?: string | null; cx: number; cy: number; size: number }) {
   const glyph = useGameImageUrl(miniWeapon(kind));
-  const crystal = useGameImageUrl(kind === "crest-stone" ? CRYSTAL_ITEM_ICON : "");
-  return glyph || crystal
-    ? <image className="map-glyph" href={glyph || crystal} x={cx - size / 2} y={cy - size / 2} width={size} height={size} />
-    : kind === "crest-stone" ? null
-    : <svg x={cx - size / 2} y={cy - size / 2} width={size} height={size} viewBox="0 0 256 256" fill="white" dangerouslySetInnerHTML={{ __html: ICON_PATHS[CONCEPT_ICON.weapon].duotone ?? "" }} />;
+  return glyph
+    ? <image className="map-glyph" href={glyph} x={cx - size / 2} y={cy - size / 2} width={size} height={size} />
+    : <text x={cx} y={cy} className="game-asset-map-missing" data-asset-error="missing"><title>Weapon glyph unavailable; reimport game files.</title>Image unavailable</text>;
 }
 
 /** The battle minimap's own pieces (mini-*.png, from the game's minimap atlas): its weapon glyphs, terrain tiles,
@@ -181,9 +178,9 @@ export function spriteLayers(index: SpriteIndex, s: Sprite, named: boolean): Lay
   if (named) {
     if (s.character === null) return null;
     const key = String(s.character);
-    const own = look?.characters[key] ?? index.characters[s.character];
+    const own = s.look ? look?.characters[key] : index.characters[s.character];
     if ((s.classId === 0 || s.classId === 1) && own !== undefined) return { row: own, head: null, mounted: false };
-    const head = look?.heads[key] ?? index.heads.characters[s.character];
+    const head = s.look ? look?.heads[key] : index.heads.characters[s.character];
     return body === undefined || head === undefined ? null : { row: body, head, mounted: index.mounted.includes(body) };
   }
   return body === undefined ? null : { row: body, head: s.female ? index.heads.f : index.heads.m, mounted: index.mounted.includes(body) };
@@ -192,7 +189,8 @@ export function spriteLayers(index: SpriteIndex, s: Sprite, named: boolean): Lay
 /** A unit's sprite standing on the tile at (0, 0) to (1, 1): as wide as the tile, its feet on the tile's bottom edge. */
 export function UnitSprite({ index, layers, side }: { index: SpriteIndex; layers: Layers; side: Side }) {
   const [w, h] = index.cell;
-  const col = Math.max(0, index.armies.indexOf(side));
+  const col = index.armies.indexOf(side);
+  if (col < 0) return <text className="game-asset-map-missing" data-asset-error="missing">Army sprite unavailable</text>;
   const top = 1 - h / w;
   const [hw, hh] = index.head_cell;
   const [hx, hy] = layers.mounted ? index.mounted_head_at : index.head_at;

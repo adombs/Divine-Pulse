@@ -232,13 +232,16 @@ export function loadReference(): Promise<ReferenceData> {
 
 export function useReference(): ReferenceData | null {
   const [data, setData] = useState<ReferenceData | null>(null);
+  const [error, setError] = useState<Error | null>(null);
   useEffect(() => {
     let live = true;
     let generation = 0;
     const refresh = () => {
       const current = ++generation;
       cache = null;
-      loadReference().then((d) => live && current === generation && setData(d));
+      setError(null);
+      loadReference().then((d) => live && current === generation && setData(d))
+        .catch((e: unknown) => { if (live && current === generation) setError(e instanceof Error ? e : new Error(String(e))); });
     };
     refresh();
     const unsubscribe = onGameAssetsChange(refresh);
@@ -249,5 +252,6 @@ export function useReference(): ReferenceData | null {
       unsubscribeLanguage();
     };
   }, []);
+  if (error) throw error;
   return data;
 }

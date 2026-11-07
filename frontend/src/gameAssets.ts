@@ -1,6 +1,7 @@
 // Assets extracted from the user's own game dump, served by the backend under /game-assets/ (see
-// docs/game-assets/README.md and docs/api-contracts.md "Game assets"). Everything here falls back quietly: with no
-// import, or a missing file, callers get null and keep using the app's bundled files.
+// docs/game-assets/README.md and docs/api-contracts.md "Game assets"). Missing content is an explicit sentinel,
+// also reported to the application's game-file alert. It never selects substitute art.
+import { assertAssetPath, clearAssetIssues, reportAssetIssue, RequiredGameAssetError } from "./requiredAssets.ts";
 
 export interface GameAssetsStatus {
   available: boolean;
@@ -28,8 +29,9 @@ export function loadGameAssetsStatus(refresh = false): Promise<GameAssetsStatus>
       const next = loaded && typeof loaded.available === "boolean" ? loaded : { available: false };
       const changed = next.available !== status.available || next.created !== status.created;
       status = next;
-      if (changed) {
+      if (changed || refresh) {
         jsonCache.clear();
+        clearAssetIssues();
         listeners.forEach((listener) => listener(status));
       }
       return status;
@@ -45,12 +47,8 @@ export function onGameAssetsChange(listener: (status: GameAssetsStatus) => void)
 
 /** URL of an extracted file by its path in the output folder, e.g. "images/icons/abilities/12.png". */
 export function gameAssetUrl(rel: string): string {
+  assertAssetPath(rel);
   return `/game-assets/${rel.split("/").map(encodeURIComponent).join("/")}`;
-}
-
-/** The extracted file's URL when assets are imported, otherwise the bundled fallback (or null). */
-export function preferGameAsset(rel: string | null | undefined, fallback: string | null = null): string | null {
-  return rel && status.available ? gameAssetUrl(rel) : fallback;
 }
 
 /** An extracted JSON file (cached until the assets change), or null when absent or unreadable. */
@@ -59,15 +57,27 @@ export function loadGameJson<T>(rel: string): Promise<T | null> {
   let request = jsonCache.get(rel);
   if (!request) {
     request = fetch(gameAssetUrl(rel))
-      .then((response) => (response.ok ? response.json() : null))
-      .catch(() => null);
+      .then(async (response) => {
+        if (!response.ok) { reportAssetIssue(rel, response.status === 404 ? "missing" : "unreadable"); return null; }
+        const value: unknown = await response.json();
+        if (!value || typeof value !== "object" || Array.isArray(value)) { reportAssetIssue(rel, "unreadable"); return null; }
+        return value;
+      })
+      .catch(() => { reportAssetIssue(rel, "unreadable"); return null; });
     jsonCache.set(rel, request);
   }
   return request as Promise<T | null>;
 }
 
-/** One category of names or descriptions from text/<language>.json, keyed by game id; {} when absent. */
+/** One required category keyed by game id; {} only before import or for a valid empty category. */
 export async function loadGameText(category: string, language = "ENG_U"): Promise<Record<string, string>> {
   const text = await loadGameJson<{ categories?: Record<string, Record<string, string>> }>(`text/${language}.json`);
-  return text?.categories?.[category] ?? {};
+  if (!text && status.available) throw new RequiredGameAssetError(`text/${language}.json`);
+  if (!text) return {};
+  const values = text.categories?.[category];
+  if (!values || typeof values !== "object" || Array.isArray(values)
+    || Object.entries(values).some(([key, value]) => !/^\d+$/.test(key) || typeof value !== "string")) {
+    throw new RequiredGameAssetError(`text/${language}.json`, `Missing or invalid text category ${category}`);
+  }
+  return values;
 }

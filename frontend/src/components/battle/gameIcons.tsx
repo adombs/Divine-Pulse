@@ -8,9 +8,8 @@ import "./battle.css";
 import { artIconUrl, itemIconUrl, RefIcon, spellIconUrl } from "../../reference/icons";
 import { Icon } from "../Icon";
 import { WEAPON_LABEL } from "./mapIcons";
-import { useGameImageUrl } from "../GameImage";
+import { MissingGameAsset, useGameImageUrl } from "../GameImage";
 import { maskStyle } from "../gameImageSources";
-import { CRYSTAL_ITEM_ICON } from "./unitAppearance";
 
 const SOLID = new Set(["sword", "lance", "axe", "bow", "gauntlets", "reason", "faith"]);
 
@@ -21,8 +20,7 @@ export function WeaponIcon({ kind, label }: { kind?: string | null; label?: stri
   const tip = label ?? (k ? WEAPON_LABEL[k] : "Fists");
   const imported = SOLID.has(k ?? "gauntlets") ? `images/icons/weapons/${k ?? "gauntlets"}.png` : `images/map/minimap-pieces/weapon-${k}.png`;
   const url = useGameImageUrl(imported);
-  const crystal = useGameImageUrl(k === "crest-stone" ? CRYSTAL_ITEM_ICON : "");
-  return url || crystal ? <span className="game-icon weapon" role="img" aria-label={tip} title={tip} style={maskStyle(url || crystal)} /> : null;
+  return url ? <span className="game-icon weapon" role="img" aria-label={tip} title={tip} style={maskStyle(url)} /> : <MissingGameAsset path={imported} label={tip} />;
 }
 
 const KIND_LABEL = { weapon: "Weapon", spell: "Spell", art: "Combat art", item: "Item", equipment: "Equipment", other: "Item", rally: "Rally", gambit: "Gambit" } as const;
@@ -34,16 +32,17 @@ export function GearIcon({ kind, weapon, name }: { kind: keyof typeof KIND_LABEL
   const tip = `${KIND_LABEL[kind]}${inferred && WEAPON_LABEL[inferred] ? ` · ${WEAPON_LABEL[inferred]}` : ""}`;
   const own = kind === "weapon" || kind === "equipment" || kind === "item" || kind === "other" ? itemIconUrl(name) : null;
   if (own) return <span className="game-icon" title={tip}><RefIcon src={own} className="gear" /></span>;
-  if (kind === "weapon") return <WeaponIcon kind={inferred} label={name} />;
+  if (kind === "weapon") return <MissingGameAsset label={`${name} icon`} />;
   if (kind === "spell") {
     const src = spellIconUrl(name);
-    return src ? <span className="game-icon" title={tip}><RefIcon src={src} className="gear" /></span> : <Icon name={CONCEPT_ICON.spell} title={tip} />;
+    return src ? <span className="game-icon" title={tip}><RefIcon src={src} className="gear" /></span> : <MissingGameAsset label={`${name} icon`} />;
   }
   if (kind === "art") {
     const src = artIconUrl(name);
-    return src ? <span className="game-icon" title={tip}><RefIcon src={src} className="gear" /></span> : <Icon name={CONCEPT_ICON.art} title={tip} />;
+    return src ? <span className="game-icon" title={tip}><RefIcon src={src} className="gear" /></span> : <MissingGameAsset label={`${name} icon`} />;
   }
-  return <Icon name={kind === "equipment" ? CONCEPT_ICON.equipment : kind === "rally" ? CONCEPT_ICON.rally : kind === "gambit" ? CONCEPT_ICON.battalion : CONCEPT_ICON.item} title={tip} />;
+  if (kind === "rally" || kind === "gambit") return <Icon name={kind === "rally" ? CONCEPT_ICON.rally : CONCEPT_ICON.battalion} title={tip} />;
+  return <MissingGameAsset label={`${name} icon`} />;
 }
 
 /** A saved inventory can lack its category; recover it from the game's weapon naming where it is unambiguous. */

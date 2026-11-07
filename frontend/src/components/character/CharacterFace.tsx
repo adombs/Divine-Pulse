@@ -11,6 +11,7 @@ import { useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { Icon } from "../Icon";
+import { MissingGameAsset } from "../GameImage";
 import { spriteLayers, UnitSprite, useSprites } from "../battle/mapIcons";
 import type { Sprite } from "../battle/mapIcons";
 import type { Unit } from "../../api";
@@ -22,13 +23,12 @@ import "./character.css";
 const ON_FOOT = [4, 13, 24, 24] as const;
 const MOUNTED = [2, 6, 30, 30] as const;
 
-/** A unit's map sprite cropped to the figure, `size` pixels square (or the box's size when omitted). Null while
- * the atlas loads, or when it has no sprite for this class and character. */
+/** A unit's map sprite cropped to the figure, with an explicit sentinel while its required art is unavailable. */
 export function SpriteFigure({ sprite, size, label }: { sprite: Sprite | null; size?: number; label?: string }) {
   const sprites = useSprites();
-  if (!sprites || !sprite) return null;
-  const layers = spriteLayers(sprites, sprite, true) ?? spriteLayers(sprites, sprite, false);
-  if (!layers) return null;
+  if (!sprites || !sprite) return <MissingGameAsset label={label || "Map sprite"} />;
+  const layers = spriteLayers(sprites, sprite, sprite.character !== null);
+  if (!layers) return <MissingGameAsset label={label || "Map sprite"} />;
   const [w, h] = sprites.cell;
   const [x, y, fw, fh] = layers.mounted ? MOUNTED : ON_FOOT;
   // UnitSprite draws in tiles, a tile as wide as the cell, with the cell's bottom on the tile's.
@@ -43,13 +43,11 @@ export function SpriteFigure({ sprite, size, label }: { sprite: Sprite | null; s
 /** Whether the sprite atlas can draw this sprite (to decide whether a portrait can flip at all). */
 export function useHasSprite(sprite: Sprite | null): boolean {
   const sprites = useSprites();
-  return !!(sprites && sprite && (spriteLayers(sprites, sprite, true) ?? spriteLayers(sprites, sprite, false)));
+  return !!(sprites && sprite && spriteLayers(sprites, sprite, sprite.character !== null));
 }
 
-/** The map sprite in a round medallion like the portrait's. Use the portrait when the player's import cannot draw this sprite. */
-export function SpriteFace({ sprite, portrait, name }: { sprite: Sprite | null; portrait: ReactNode; name: string }) {
-  const has = useHasSprite(sprite);
-  if (!has) return <span className="cv-face">{portrait}</span>;
+/** The requested map sprite in a round medallion; never replace a missing sprite with a portrait. */
+export function SpriteFace({ sprite, name }: { sprite: Sprite | null; name: string }) {
   return (
     <span className="cv-face cv-sprite-face">
       <span className="cv-sprite-disc"><SpriteFigure sprite={sprite} label={`${name}'s map sprite`} /></span>

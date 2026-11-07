@@ -1,4 +1,5 @@
 import { loadGameAssetsStatus, onGameAssetsChange } from "./gameAssets";
+import { reportAssetIssue } from "./requiredAssets.ts";
 
 export const languages = {
   JP: "日本語", ENG_E: "English (UK)", ENG_U: "English (US)", GER: "Deutsch",
@@ -25,7 +26,18 @@ export async function loadGameLanguage() {
   ]);
   available = (status.languages ?? []).filter(valid);
   const saved = response?.game_language;
-  current = valid(saved) && available.includes(saved) ? saved : available.includes("ENG_U") ? "ENG_U" : available[0] ?? "ENG_U";
+  if (!response) {
+    reportAssetIssue("settings/game_language", "unreadable");
+    return;
+  }
+  // A first-run default is allowed. An explicit selection is never silently replaced by another language.
+  if (valid(saved)) {
+    current = saved;
+    if (status.available && !available.includes(saved)) reportAssetIssue(`text/${saved}.json`, "missing");
+  } else {
+    current = available.includes("ENG_U") ? "ENG_U" : available[0] ?? "ENG_U";
+    if (status.available && !available.length) reportAssetIssue("text/(no imported languages)", "missing");
+  }
   if (current !== previous || available.join(",") !== previousAvailable) notify();
 }
 

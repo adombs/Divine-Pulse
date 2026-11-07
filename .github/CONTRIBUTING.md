@@ -45,7 +45,8 @@ it. Players import their own dump, and the only images in the repository are the
 `tools/release.py`) fails when a tracked file looks like game content. Test data is synthetic: made-up names and
 rows.
 
-Your own import lives in `game-assets/` at the repository root, which git ignores (import it with the app's Game
+Your own dump may live in the ignored `game-dump/` directory at the repository root. Your import lives in
+`game-assets/`, which git also ignores (import it with the app's Game
 files page or `python -m app.gamefiles extract "<dump folder>"` from `backend/`; see
 [the importer guide](../docs/game-assets/README.md)).
 
@@ -60,7 +61,7 @@ Public checks need no game files. Three environment variables enable more tests;
 | `DIVINE_PULSE_CAPTURES` | memory captures taken from your own game |
 
 `DIVINE_PULSE_DATA_DIR` moves the data folder, which keeps experiments away from your real runs. Keep captures and
-imports outside the repository.
+imports in the ignored directories above or outside the repository.
 
 ## Naming
 

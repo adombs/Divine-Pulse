@@ -20,6 +20,7 @@ frontend/dist/
 /game-assets/
 
 # Game dumps, console keys and files read from them
+/game-dump/
 romfs/
 exefs/
 DATA0.bin

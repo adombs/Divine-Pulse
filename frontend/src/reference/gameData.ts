@@ -1,6 +1,7 @@
 import type { Battalion, BattalionStats, Gambit, GambitArea, ReferenceData, SkillKey, Stats, ReferenceItem, Magic, Character } from "./types";
 import type { SupportData, SupportRank } from "./supports";
 import structureData from "./structure.json" with { type: "json" };
+import { RequiredGameAssetError } from "../requiredAssets.ts";
 
 const SOURCES = [{ name: "your game files", url: "game-files" }, { name: "Fire Emblem Wiki (GFDL 1.3)", url: "https://fireemblemwiki.org" }];
 
@@ -248,6 +249,8 @@ export async function loadImportedReference(structure: Parameters<typeof buildRe
     await loadGameLanguage();
     const language = gameLanguage();
     const [files, texts] = await Promise.all([Promise.all(referenceFiles.map((name) => loadGameJson(`data/${name}.json`))), Promise.all(categories.map((name) => loadGameText(name, language)))]);
+    const missing = files.findIndex((file) => file === null);
+    if (missing >= 0) throw new RequiredGameAssetError(`data/${referenceFiles[missing]}.json`);
     const adapted = buildReference(Object.fromEntries(referenceFiles.map((name, i) => [name, files[i]])), Object.fromEntries(categories.map((name, i) => [name, texts[i]])), structure, wikiClasses);
     const translations = new Map<string, string>();
     const sources = Object.fromEntries(referenceFiles.map((name, i) => [name, files[i]]));
@@ -261,7 +264,10 @@ export async function loadImportedReference(structure: Parameters<typeof buildRe
     }
     const translate = (value: any): any => typeof value === "string" ? translations.get(value) ?? value : Array.isArray(value) ? value.map(translate) : value && typeof value === "object" ? Object.fromEntries(Object.entries(value).map(([key, entry]) => [key, translate(entry)])) : value;
     return translate(adapted) as ReferenceData;
-  } catch { return buildReference({}, {}, structure, wikiClasses); }
+  } catch (error) {
+    if (error instanceof RequiredGameAssetError) throw error;
+    throw new RequiredGameAssetError("data/reference", error instanceof Error ? error.message : "Reference data unreadable");
+  }
 }
 
 export function buildSupports(files: Record<string, unknown>, wiki: { a: string; b: string; avail: Partial<Record<SupportRank, string>>; notes: string[] }[], texts: Record<string, Record<string, string>> = {}, excludedPairs: number[][] = []): SupportData {
@@ -336,8 +342,13 @@ export async function loadImportedSupports(wiki: Parameters<typeof buildSupports
     await loadGameLanguage();
     const names = ["supports", "gifts", "characters", "meals"];
     const [values, characterGiven, gift, meal, ingredient] = await Promise.all([Promise.all(names.map((name) => loadGameJson(`data/${name}.json`))), loadGameText("character_given", gameLanguage()), loadGameText("gift", gameLanguage()), loadGameText("meal", gameLanguage()), loadGameText("ingredient", gameLanguage())]);
+    const missing = values.findIndex((value) => value === null);
+    if (missing >= 0) throw new RequiredGameAssetError(`data/${names[missing]}.json`);
     return buildSupports(Object.fromEntries(names.map((name, i) => [name, values[i]])), wiki, { character_given: characterGiven, gift, meal, ingredient }, excludedPairs);
-  } catch { return buildSupports({}, wiki); }
+  } catch (error) {
+    if (error instanceof RequiredGameAssetError) throw error;
+    throw new RequiredGameAssetError("data/supports", error instanceof Error ? error.message : "Support data unreadable");
+  }
 }
 
 /* Battalion rows (data/battalions.json). Older imports may omit icons, modifiers and gambits;
@@ -393,7 +404,9 @@ function bGambit(v: unknown): Gambit | undefined {
 export function parseBattalion(r: BRow, description: string): Battalion | null {
   const name = bStr(r.name);
   if (!name) return null;
-  const out: Battalion = { name, description, endurance: bNum(r.endurance) ?? 0 };
+  const endurance = bNum(r.endurance);
+  if (endurance === undefined || endurance < 0) throw new RequiredGameAssetError("data/battalions.json", "Battalion endurance missing or invalid");
+  const out: Battalion = { name, description, endurance };
   const id = bNum(r.id), icon = bStr(r.icon), base = bStats(r.stats), g = bGambit(r.gambit);
   if (id !== undefined) out.id = id;
   if (icon) out.icon = icon;

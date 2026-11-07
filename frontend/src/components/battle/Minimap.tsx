@@ -5,7 +5,7 @@
  * (fists for the unarmed), as Settings > Appearance says (`mapLook`). Units that fell or left the map
  * aren't drawn: in a replay they fade away.
  * When the map's terrain is known it's drawn as the game's minimap draws it: the game's own minimap of the map when
- * there is one (map.gameMinimap), else its tiles laid on its grid by terrain (map.minimapTile), with its icons for
+ * there is one (map.gameMinimap); an unavailable native image stays explicit, with the game's icons for
  * chests, doors, levers and seals, Crest Stones, traps, breakable walls and warp tiles; hovering a tile names it. A unit's HP shows as a thin bar just under its tile (not a breakable wall's). A replay step being
  * animated (`animation`, replay.tsx) plays in stages: the move, then the attack (the attacker lunges, the attack's
  * badge pops in between the two) or heal (a green pulse on whoever is healed), then the fades. A step shown sums up as
@@ -18,6 +18,7 @@ import { CONCEPT_ICON } from "../../icons/concepts";
 import "../character/panels.css";
 import { MapImage, useGameImageUrl } from "../GameImage";
 import { loadGameJson, onGameAssetsChange } from "../../gameAssets";
+import { faceUrl } from "../../portraits";
 import { flushSync } from "react-dom";
 import { KeyboardEvent, memo, PointerEvent as ReactPointerEvent, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Collapse } from "../disclosure";
@@ -45,6 +46,8 @@ interface Props {
   onPick?: (id: string) => void;
   /** "compact" in cards (no HP bars, smaller), "full" on the Map tab. */
   size?: "compact" | "full";
+  /** Story phase for standalone thumbnails, which resolve faces directly from each recorded identity. */
+  part2?: boolean;
   label: string;
   /** Zoomed in: the part of the map in view, in tiles (none: the whole map). */
   zoom?: Zoom | null;
@@ -170,7 +173,7 @@ function stage(board: Board, animation: StepAnimation | null | undefined, keep: 
   return { drawn, effects };
 }
 
-export function Minimap({ board, selected, focus, action, animation, onPick, size = "full", label, zoom, cursor, onWheelAt, onDrag }: Props) {
+export function Minimap({ board, selected, focus, action, animation, onPick, size = "full", part2 = false, label, zoom, cursor, onWheelAt, onDrag }: Props) {
   const uid = useId().replace(/:/g, "");
   const svg = useRef<SVGSVGElement>(null);
   const drag = useRef<{ x: number; y: number; moved: boolean; id: number } | null>(null);
@@ -235,7 +238,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
     d.y = e.clientY;
   };
   const { w, h, pieces, terrain, tiles } = board;
-  // The game's own minimap of this map (the terrain painted as the game does), else its tiles laid on the grid here.
+  // The game's own minimap; missing native artwork remains an explicit unavailable state.
   const index = useMinimapIndex();
   const candidate = gameMinimap(board.mapId, index);
   const ownUrl = useGameImageUrl(candidate?.imported ?? "");
@@ -296,14 +299,8 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
         {/* The minimap's grid cell and its tiles, one per tile (a tile a little inside its cell, so the grid shows
             between them as in the game's minimaps). */}
         <pattern id={`${uid}-grid`} width={1} height={1} patternUnits="userSpaceOnUse">
-          <path d="M 1 0 H 0 V 1" fill="none" stroke="currentColor" strokeOpacity={0.22} strokeWidth={0.04} />
           <MapImage href={miniImage("grid")} width={1} height={1} preserveAspectRatio="none" />
         </pattern>
-        {MINIMAP_TILES.map(({ tile: name }) => (
-          <pattern key={name} id={`${uid}-${name}`} width={1} height={1} patternUnits="userSpaceOnUse">
-            <MapImage href={miniImage(`tile-${name}`)} x={TILE_GAP} y={TILE_GAP} width={1 - 2 * TILE_GAP} height={1 - 2 * TILE_GAP} preserveAspectRatio="none" />
-          </pattern>
-        ))}
       </defs>
       <g className="map-zoom" style={zoom ? { transform: `translate(${-zoom.x0}px, ${-zoom.y0}px)` } : undefined}>
       <rect className="map-ground" x={0} y={0} width={w} height={h} />
@@ -320,15 +317,14 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
           preserveAspectRatio="none"
         />
       ) : (
-        <rect className="map-grid" x={0} y={0} width={w} height={h} fill={`url(#${uid}-grid)`} />
+        <text x={0} y={0.5} className="game-asset-map-missing" data-asset-error="missing">{terrain ? "Map image unavailable; reimport game files" : "Terrain not recorded"}</text>
       )}
       {terrain && (
         <g className="map-terrain" shapeRendering="crispEdges">
           {runs.map((r) => {
             const t = tiles[String(r.id)];
-            const tile = own ? null : minimapTile(r.id, t, index);
             return (
-              <rect key={`${r.x},${r.y}`} className="map-tile" x={r.x} y={r.y} width={r.w} height={1} fill={tile ? `url(#${uid}-${tile})` : "transparent"}>
+              <rect key={`${r.x},${r.y}`} className="map-tile" x={r.x} y={r.y} width={r.w} height={1} fill="transparent">
                 {size === "full" && <title>{t ? describeTile(t) : `Terrain ${r.id}`}</title>}
               </rect>
             );
@@ -361,7 +357,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
           opacity={d.opacity}
           hp={d.hp}
           tile={tileAt(board, d.piece.x, d.piece.y)}
-          portrait={portraitOf?.(d.piece.id) ?? null}
+          portrait={portraitOf ? portraitOf(d.piece.id) : faceUrl({ ...d.piece.sprite, name: d.piece.name, seed: d.piece.id }, part2)}
           importedFace={nav?.importedFace?.(d.piece.id) ?? null}
           sprites={sprites}
           look={look}
@@ -500,13 +496,12 @@ const Token = memo(function Token({
   const army = p.sprite.side;
   const named = p.army || p.sprite.character !== null;
   const want = p.army ? look.mine : look.others;
-  // Try the character's sprite, then its generic class sprite, then its portrait. Weapon badges are the last resort
-  // unless explicitly selected in Appearance.
-  const layers = p.object || want !== "sprites" || !sprites ? null : ((named ? spriteLayers(sprites, p.sprite, true) : null) ?? spriteLayers(sprites, p.sprite, false));
+  // The player's selected representation is required. Missing sprites never become portraits or weapon badges.
+  const layers = p.object || want !== "sprites" || !sprites ? null : spriteLayers(sprites, p.sprite, named);
   const importedFaceUrl = useGameImageUrl(importedFace ?? "");
   const spriteUrl = useGameImageUrl("images/map/class-sprites.png");
   const hasSprite = !!(sprites && layers && spriteUrl);
-  const face = !p.object && want !== "badges" && !hasSprite ? (importedFaceUrl || portrait) : null;
+  const face = !p.object && want === "portraits" ? (importedFace ? importedFaceUrl : portrait) : null;
   // The HP bar just under the unit's tile, as wide as its badge.
   const bar = face ? { x: PORTRAIT.x, w: PORTRAIT.w } : { x: BADGE.x, w: BADGE.size };
   return (
@@ -532,11 +527,12 @@ const Token = memo(function Token({
         <g className="map-token sprite">
           <UnitSprite index={sprites} layers={layers} side={army} />
         </g>
+      ) : want === "sprites" || (want === "portraits" && !face) ? (
+        <g className="map-token unavailable" data-asset-error="missing"><title>{`${p.name}'s ${want === "sprites" ? "map sprite" : "portrait"} unavailable; reimport game files.`}</title><text x={0} y={0.5} className="game-asset-map-missing">Image unavailable</text></g>
       ) : face ? (
         // A portrait: a rounded badge, a dark shade of the army's colour in a ring of it.
         <g className={`map-token ${army} portrait`}>
           <rect className="map-badge" x={PORTRAIT.x} y={PORTRAIT.y} width={PORTRAIT.w} height={PORTRAIT.h} rx={PORTRAIT.r} />
-          <text x={0.5} y={0.63} textAnchor="middle" fontSize={0.48} fontWeight="bold" fill="white">{p.name.trim().charAt(0).toUpperCase()}</text>
           <MapImage
             href={portrait ?? ""}
             imported={importedFace}
@@ -583,8 +579,6 @@ const PORTRAIT_EDGE = 0.06;
 const HP_Y = 1.01;
 const HP_H = 0.11;
 const HP_IN = 0.025;
-/** How far a minimap tile sits inside its grid cell (as in the game's minimaps: 2 px of 24 round it). */
-const TILE_GAP = 1 / 24;
 
 
 /** Four rounded corners just around a tile: the unit picked (the app's accent) or one acting in the replay step (the

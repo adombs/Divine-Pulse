@@ -3,7 +3,7 @@ import { readFile } from "node:fs/promises";
 import { stripTypeScriptTypes } from "./strip-types.mjs";
 import { test } from "node:test";
 
-test("language defaults, falls back, and notifies on switching without downloading text", async () => {
+test("an unavailable selected language is reported instead of replaced, and switching remains available", async () => {
   let saved = "JP";
   const requests = [];
   globalThis.fetch = async (url, options) => {
@@ -14,10 +14,13 @@ test("language defaults, falls back, and notifies on switching without downloadi
   };
   const source = await readFile(new URL("../src/gameLanguage.ts", import.meta.url), "utf8");
   const assetUrl = new URL("../src/gameAssets.ts", import.meta.url).href;
-  const language = await import(`data:text/javascript,${encodeURIComponent(stripTypeScriptTypes(source.replace('"./gameAssets"', JSON.stringify(assetUrl))))}`);
+  const requiredUrl = new URL("../src/requiredAssets.ts", import.meta.url).href;
+  const language = await import(`data:text/javascript,${encodeURIComponent(stripTypeScriptTypes(source.replace('"./gameAssets"', JSON.stringify(assetUrl)).replace('"./requiredAssets.ts"', JSON.stringify(requiredUrl))))}`);
   assert.equal(language.gameLanguage(), "ENG_U");
   await language.loadGameLanguage();
-  assert.equal(language.gameLanguage(), "ENG_U");
+  assert.equal(language.gameLanguage(), "JP");
+  const { assetIssues } = await import(requiredUrl);
+  assert.ok(assetIssues().some((issue) => issue.path === 'text/JP.json'));
   let notifications = 0;
   const unsubscribe = language.onGameLanguageChange(() => notifications++);
   await language.setGameLanguage("GER");

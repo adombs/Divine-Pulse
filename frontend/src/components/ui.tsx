@@ -104,7 +104,7 @@ export function TypeButtons({ label, value, onChange }: { label: string; value: 
   );
 }
 
-/** The unit's headshot, or its initial in a circle when there's no portrait for it. */
+/** The unit's imported headshot; unavailable files show an explicit sentinel. */
 export function Portrait({ unit, part2, size = 36 }: { unit: Unit; part2: boolean; size?: number }) {
   return <PortraitImg url={portraitUrl(unit, part2)} name={unit.name} size={size} />;
 }
@@ -115,12 +115,7 @@ export function KeyPortrait({ portraitKey, name, part2, size = 36 }: { portraitK
 }
 
 function PortraitImg({ url, name, size }: { url: string | null; name: string; size: number }) {
-  const fallback = (
-    <span className="portrait placeholder" style={{ width: size, height: size, fontSize: size * 0.45 }} aria-hidden>
-      {name.slice(0, 1)}
-    </span>
-  );
-  return <PortraitImage className="portrait" bundled={url} fallback={fallback} alt="" width={size} height={size} loading="lazy" draggable={false} />;
+  return <PortraitImage className="portrait" bundled={url} alt={`${name}'s portrait`} width={size} height={size} loading="lazy" draggable={false} />;
 }
 
 /**

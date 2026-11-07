@@ -84,7 +84,7 @@ function BattalionIcon({ entry, size = "md", gambit = false }: { entry?: { icon?
   );
   // In the small badge, no icon at all rather than an empty frame.
   if (!entry?.icon) return size === "sm" ? null : missing;
-  return <GameImage imported={entry.icon} className={`bp-icon ${size}`} alt="" draggable={false} fallback={size === "sm" ? null : missing} />;
+  return <GameImage imported={entry.icon} className={`bp-icon ${size}`} alt="" draggable={false} />;
 }
 
 const signed = (n: number) => (n > 0 ? `+${n}` : n < 0 ? `−${-n}` : "+0");
