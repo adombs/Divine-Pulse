@@ -498,12 +498,13 @@ const Token = memo(function Token({
   const army = p.sprite.side;
   const named = p.army || p.sprite.character !== null;
   const want = p.army ? look.mine : look.others;
-  // The player's selected representation is required. Missing sprites never become portraits or weapon badges.
+  // A unit with no map sprite shows its portrait instead, on the map only; with no portrait either it shows "?".
   const layers = p.object || want !== "sprites" || !sprites ? null : spriteLayers(sprites, p.sprite, named);
   const importedFaceUrl = useGameImageUrl(importedFace ?? "");
   const spriteUrl = useGameImageUrl("images/map/class-sprites.png");
   const hasSprite = !!(sprites && layers && spriteUrl);
-  const face = !p.object && want === "portraits" ? (importedFace ? importedFaceUrl : portrait) : null;
+  const wantsFace = want === "portraits" || (want === "sprites" && !hasSprite);
+  const face = !p.object && wantsFace ? (importedFace ? importedFaceUrl : portrait) : null;
   // The HP bar just under the unit's tile, as wide as its badge.
   const bar = face ? { x: PORTRAIT.x, w: PORTRAIT.w } : { x: BADGE.x, w: BADGE.size };
   return (
@@ -529,8 +530,8 @@ const Token = memo(function Token({
         <g className="map-token sprite">
           <UnitSprite index={sprites} layers={layers} side={army} />
         </g>
-      ) : want === "sprites" || (want === "portraits" && !face) ? (
-        <g className="map-token unavailable" data-asset-error="missing"><title>{`${p.name}'s ${want === "sprites" ? "map sprite" : "portrait"} unavailable; reimport game files.`}</title><text x={0} y={0.5} className="game-asset-map-missing">Image unavailable</text></g>
+      ) : want !== "badges" && !face ? (
+        <g className="map-token unavailable" data-asset-error="missing"><title>{`${p.name}'s ${want === "sprites" ? "map sprite or portrait" : "portrait"} unavailable; reimport game files.`}</title><text x={0.5} y={0.5} className="game-asset-map-missing">?</text></g>
       ) : face ? (
         // A portrait: a rounded badge, a dark shade of the army's colour in a ring of it.
         <g className={`map-token ${army} portrait`}>

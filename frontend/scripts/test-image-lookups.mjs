@@ -16,7 +16,7 @@ async function moduleWithStubs(path, stubs, compile = stripTypeScriptTypes) {
 
 const compileTsx = (source) => ts.transpileModule(source, { compilerOptions: { target: ts.ScriptTarget.ESNext, module: ts.ModuleKind.ESNext, jsx: ts.JsxEmit.React } }).outputText;
 
-test("battle artwork honors the selected representation and reports missing assets without substitutes", async () => {
+test("a unit with no map sprite shows its portrait on the map, and \"?\" when no art exists", async () => {
   globalThis.fallbackFixture = {
     React,
     atlas: true,
@@ -65,10 +65,14 @@ test("battle artwork honors the selected representation and reports missing asse
   }));
   const face = () => renderToStaticMarkup(React.createElement(UnitFace, { id: "e:1", name: "Example" }));
   const f = globalThis.fallbackFixture;
-  assert.match(map(), /data-asset-error="missing"/);
-  assert.match(map("sprites", true), /data-asset-error="missing"/);
+  // On the map a unit with no sprite shows its portrait; lists and the "?" stay explicit about the missing sprite.
+  assert.match(map(), /map-token enemy portrait/);
+  assert.match(map("sprites", true), /map-token enemy portrait/);
   assert.match(face(), /data-asset-error="missing"/);
-  assert.doesNotMatch(map(), /example\.png|weapon\.png|portrait|initial/);
+  assert.doesNotMatch(map(), /weapon\.png|initial/);
+  f.portrait = null;
+  assert.match(map(), /data-asset-error="missing"[^]*>\?</);
+  f.portrait = "portrait-key:example.png";
   f.index.finished_classes = { 47: { f: 2 } };
   assert.match(map(), /map-token sprite/);
   assert.match(face(), /sprite\.png/);
@@ -86,16 +90,16 @@ test("battle artwork honors the selected representation and reports missing asse
   assert.match(face(), /sprite\.png/);
   assert.match(renderToStaticMarkup(React.createElement(UnitFace, { id: "a:1", name: "Example" })), /example\.png/);
   f.atlas = false;
-  assert.match(map(), /data-asset-error="missing"/);
+  assert.match(map(), /map-token enemy portrait/);
   f.index = null;
   f.imported = "images/portraits/example.png";
   f.portrait = null;
-  assert.match(map(), /data-asset-error="missing"/);
+  assert.match(map(), /map-token enemy portrait/);
   assert.match(face(), /data-asset-error="missing"/);
   f.unitsLook = 'portraits';
   assert.match(face(), /images\/portraits\/example\.png/);
   f.imported = null;
-  assert.match(map(), /data-asset-error="missing"/);
+  assert.match(map(), /data-asset-error="missing"[^]*>\?</);
   assert.doesNotMatch(map(), /weapon\.png|initial/);
 });
 
@@ -223,4 +227,21 @@ test("factions pick banners and scenario enemies by ID, in any language", async 
   assert.equal(factions.factionOf(9), "Underground Residents");
   assert.equal(battleWeapon({ weapon: "gauntlets", inventory: [{ id: 213, kind: "weapon", uses: 100 }] }), "crest-stone");
   indexCrystalWeapons([]);
+});
+
+test("a unit with no known affiliation gets its army's banner", async () => {
+  globalThis.bannerFixture = { factionBanners: new Map() };
+  const mod = await moduleWithStubs("../src/components/AffiliationIcon.tsx", "const factionBanners = globalThis.bannerFixture.factionBanners;", compileTsx);
+  assert.equal(mod.affiliationBanner(null, "enemy"), "army-enemy");
+  assert.equal(mod.affiliationBanner(undefined, "ally"), "army-ally");
+  assert.equal(mod.affiliationBanner(undefined, "third"), "army-third");
+  assert.equal(mod.affiliationBanner(undefined, "player"), "army-player");
+  assert.equal(mod.affiliationBanner("Black Eagles", "enemy"), "black-eagles");
+  assert.equal(mod.affiliationBanner("Other", "enemy"), "army-enemy");
+  assert.equal(mod.affiliationBanner("Other", "ally"), "army-ally");
+  assert.equal(mod.affiliationBanner("Other", "third"), "army-third");
+  assert.equal(mod.affiliationBanner("Other"), "other");
+  assert.equal(mod.affiliationBanner("Flame Emperor Army", "enemy"), "army-enemy");
+  assert.equal(mod.affiliationBanner(undefined, "object"), null);
+  assert.equal(mod.affiliationBanner(undefined), null);
 });

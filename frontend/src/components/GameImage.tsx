@@ -7,7 +7,7 @@ import "./required-assets.css";
 /** An explicit missing-asset sentinel. It is deliberately text, never substitute game artwork. */
 export function MissingGameAsset({ path, label = "Game image", className = "" }: { path?: string | null; label?: string; className?: string }) {
   return <span className={`game-asset-missing ${className}`.trim()} role="img" aria-label={`${label} unavailable`}
-    data-asset-error="missing" title={`${label} unavailable${path ? `: ${path}` : ""}. Reimport your game files in Settings → Game files.`}>Image unavailable</span>;
+    data-asset-error="missing" title={`${label} unavailable${path ? `: ${path}` : ""}. Reimport your game files in Settings → Game files.`}>?</span>;
 }
 
 /** Only the requested imported image; missing paths and failed loads stay explicit. */
@@ -69,7 +69,7 @@ export function MapImage({ href, imported: direct, ...props }: SVGProps<SVGImage
   const imported = direct ?? (portrait || (source.startsWith("images/portraits/") ? source : null) || importedMapImage(source) || "");
   const url = useGameImageUrl(imported);
   if (url) return <image {...props} href={url} />;
-  return <text x={props.x ?? 0} y={props.y ?? 0} className="game-asset-map-missing" data-asset-error="missing" aria-label="Game image unavailable"><title>{`Game image unavailable: ${direct || source || "unresolved path"}. Reimport game files.`}</title>Image unavailable</text>;
+  return <text x={props.x ?? 0} y={props.y ?? 0} className="game-asset-map-missing" data-asset-error="missing" aria-label="Game image unavailable"><title>{`Game image unavailable: ${direct || source || "unresolved path"}. Reimport game files.`}</title>?</text>;
 }
 
 /** Resolve a portrait by its bundled file name through the extracted index, refreshing after an import. */
