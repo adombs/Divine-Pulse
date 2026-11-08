@@ -9,6 +9,7 @@ import pytest
 from app.battle import STEP_ATTACK, ArmySample, Battle, BattleSample, BattleTracker, BattleUnitStats, EnemySample, EnemyStats, HistoryStep, StepUnit, power
 from app.gamemem import battle as pool
 from app.gamemem.fe3h import BATTLE_MARKER, BATTLE_MARKER_TO_COPY
+from app.domain.battle import LogEntry
 from app.domain.outlook import outlook
 from app.storage import BattleStore, NotFound
 
@@ -230,6 +231,42 @@ def test_outlook_weighs_units_at_risk_by_whether_losing_them_loses_the_battle():
     b = battle(army_power=1000, enemy_power=1000, enemies_start=10, enemies_now=10, units=[BattleUnitStats(key="byleth", name="Byleth", start_level=10, level=10, start=STATS, now=STATS, hp=8, x=0, y=0)])
     b.enemy_stats = {1: EnemyStats(slot=1, label="Bandit 1", x=20, y=20)}
     assert outlook(b)["at_risk"] == []
+
+
+def _turn(phase, *, acted=0, enemy_acted=(), leader_hp=30, ones=4):
+    """Byleth and `ones` others in a row, three bandits within reach of Byleth; `acted` of the army have acted."""
+    units = [BattleUnitStats(key="byleth", name="Byleth", start_level=10, level=10, start=STATS, now=STATS, hp=leader_hp, x=5, y=5)]
+    units += [BattleUnitStats(key=f"u{i}", name=f"U{i}", start_level=10, level=10, start=STATS, now=STATS, hp=15, x=6 + i, y=5) for i in range(ones)]
+    for i, u in enumerate(units):
+        u.acted = i < acted
+    b = battle(army_power=1000, enemy_power=1000, enemies_start=10, enemies_now=10, units=units, turn=3)
+    b.enemy_stats = {s: EnemyStats(slot=s, label=f"Bandit {s}", x=5 + s, y=8, weapon="sword") for s in (1, 2, 3)}
+    b.log = [LogEntry(t=1, turn=3, kind="phase", text="phase", phase=phase)]
+    b.log += [LogEntry(t=2, turn=3, kind="attack", text="hit", phase=1, actor_id=s) for s in enemy_acted]
+    return outlook(b)
+
+
+def test_byleth_exposed_at_the_start_of_the_enemy_phase_is_really_bad():
+    start = _turn(1, leader_hp=8)  # a quarter of his HP, three bandits in reach, none has moved yet
+    assert start["at_risk"][0]["key"] == "byleth"
+    assert start["chance"] < 0.25
+    assert any("enemy phase: 3 units still to act" in f["detail"] for f in start["factors"] if f["label"] == "Defeat risk")
+    assert _turn(1)["at_risk"][0]["near"] == 3 and _turn(1)["chance"] < _turn(1, enemy_acted=["e:1", "e:2", "e:3"])["chance"]  # a crowd around him even at full HP
+
+
+def test_the_outlook_falls_across_the_player_phase_as_units_end_exposed():
+    chances = [_turn(0, acted=n, leader_hp=15)["chance"] for n in range(6)]
+    assert chances == sorted(chances, reverse=True) and chances[0] > chances[-1] + 0.1
+    assert _turn(0, acted=0, leader_hp=15)["at_risk"][0]["pending"] is True
+    assert _turn(0, acted=1, leader_hp=15)["at_risk"][0]["pending"] is False  # Byleth has acted: he stays where he is
+    # The same position at the start of the enemy phase weighs in full.
+    assert _turn(1, leader_hp=15)["chance"] <= chances[-1]
+
+
+def test_the_outlook_recovers_across_the_enemy_phase_when_exposed_units_survive():
+    chances = [_turn(1, enemy_acted=[f"e:{s}" for s in range(1, n + 1)], leader_hp=15)["chance"] for n in range(4)]
+    assert chances == sorted(chances) and chances[-1] > chances[0] + 0.1
+    assert _turn(1, enemy_acted=["e:1", "e:2", "e:3"], leader_hp=15)["at_risk"] == []
 
 
 def test_a_unit_boxed_in_by_others_is_out_of_melee_reach():

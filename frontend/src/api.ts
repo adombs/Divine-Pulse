@@ -359,6 +359,12 @@ export interface AtRisk {
   level: "danger" | "exposed";
   /** Losing it loses the battle. */
   critical: boolean;
+  /** Player phase: it hasn't acted, so it can still step out of reach (its risk counts for less). */
+  pending?: boolean;
+  /** The phase in progress: 0 player, 1 enemy, null when unknown. */
+  phase?: number | null;
+  /** Enemy phase: the share of the reach on it at the phase's start that is still to act (1 = all of it). */
+  left?: number;
 }
 
 export interface Outlook {

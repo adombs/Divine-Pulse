@@ -42,6 +42,13 @@ CROWD = 3  # exposed whatever its HP with this many in reach
 RISK_WEIGHT = {(True, "danger"): 4.0, (True, "exposed"): 1.8, (False, "danger"): 0.7, (False, "exposed"): 0.3}
 RISK_CAP = 2.0  # the most units that aren't critical can take off together
 
+# Where the turn stands changes how much exposure costs. On the player phase a unit that has acted is stuck where it
+# stands, so its risk counts in full; one still to act can step back, so it counts for PENDING of it. The more units
+# have acted, the more of the army is committed and the lower the outlook goes. On the enemy phase only the units that
+# haven't acted yet can still strike (the risk is recomputed from them alone), so the outlook climbs back as they pass
+# up the chance to hit what was left exposed. At the start of the enemy phase every unit weighs in full.
+PENDING = 0.35
+
 LOW, HIGH = 0.03, 0.97
 
 
@@ -64,12 +71,28 @@ def _costs(battle: Battle) -> tuple[int, int, dict[tuple[int, int], int] | None]
     return max((len(r) for r in battle.terrain), default=0), len(battle.terrain), costs
 
 
-def _threats(battle: Battle) -> dict[tuple[int, int], int] | None:
-    """How many other units can reach each tile with an attack this enemy phase (None: positions not read)."""
+def turn_phase(battle: Battle) -> tuple[int | None, set[str]]:
+    """(phase of the turn in progress: 0 player, 1 enemy, None when unknown, the other units ("e:<slot>") that have
+    already acted this enemy phase), from the action log."""
+    phase, spent = None, set()
+    for entry in battle.log:
+        if entry.turn is not None and battle.turn is not None and entry.turn < battle.turn:
+            continue
+        if entry.kind == "phase":
+            phase, spent = entry.phase, set()
+        elif phase == 1 and entry.phase == 1 and entry.actor_id and entry.actor_id.startswith("e:"):
+            spent.add(entry.actor_id)
+    return phase, spent
+
+
+def _threats(battle: Battle, spent: set[str] | None = None) -> dict[tuple[int, int], int] | None:
+    """How many other units can reach each tile with an attack this enemy phase (None: positions not read). Units in
+    `spent` have already acted this phase and don't count."""
+    spent = spent or set()
     others = [
         e
         for e in battle.enemy_stats.values()
-        if e.on_map and e.x is not None and e.y is not None and (e.hp is None or e.hp > 0)
+        if e.on_map and e.x is not None and e.y is not None and (e.hp is None or e.hp > 0) and f"e:{e.slot}" not in spent
     ]
     if not others:
         return None
@@ -115,7 +138,11 @@ def at_risk(battle: Battle) -> list[dict]:
     """Army units on the map that could fall: {"key", "name", "hp", "max_hp", "near", "level", "critical"}, most at
     risk first. `level` is "danger" or "exposed"; `near` is how many other units are in reach (None: positions not
     read, judged by HP alone)."""
-    threats = _threats(battle)
+    phase, spent = turn_phase(battle)
+    threats = _threats(battle, spent)
+    if threats is None and spent and any(e.on_map for e in battle.enemy_stats.values()):
+        threats = {}  # every unit on the map has acted: nothing is left to strike
+    full = _threats(battle) if spent else threats  # reach as the phase began, to see how much of it is left
     out = []
     for u in battle.units:
         max_hp = u.now.get("hp", 0)
@@ -124,6 +151,8 @@ def at_risk(battle: Battle) -> list[dict]:
         share = u.hp / max_hp
         near = threats.get((u.x, u.y), 0) if u.x is not None and u.y is not None and threats is not None else None
         threatened = near is None or near > 0
+        began = full.get((u.x, u.y), 0) if full is not None and u.x is not None and u.y is not None else 0
+        left = 1.0 if not spent or not began or near is None else min(1.0, near / began)
         if threatened and share <= DANGER_HP:
             level = "danger"
         elif (threatened and share <= EXPOSED_HP) or (near or 0) >= CROWD:
@@ -139,14 +168,36 @@ def at_risk(battle: Battle) -> list[dict]:
                 "near": near,
                 "level": level,
                 "critical": u.key in CRITICAL,
+                "pending": phase == 0 and u.acted is False,  # can still move out of reach
+                "phase": phase,
+                "left": round(left, 2),  # enemy phase: share of the reach on it at the phase's start still to act
             }
         )
     return sorted(out, key=lambda r: (not r["critical"], r["level"] != "danger", r["hp"] / r["max_hp"]))
 
 
+def _weight(r: dict) -> float:
+    """How much of its risk counts now: a unit that can still step back counts for PENDING of it."""
+    return (PENDING if r["pending"] else 1.0) * r["left"]
+
+
 def _risk_text(r: dict) -> str:
     near = "" if r["near"] is None else f", {r['near']} in reach"
-    return f"{r['name']} {r['hp']}/{r['max_hp']} HP{near}"
+    wait = ", can still move" if r["pending"] else ""
+    return f"{r['name']} {r['hp']}/{r['max_hp']} HP{near}{wait}"
+
+
+def _timing(battle: Battle) -> str:
+    """Where the turn stands, for the risk factors' explanation."""
+    phase, spent = turn_phase(battle)
+    if phase == 0:
+        known = [u for u in battle.units if u.on_map and u.acted is not None]
+        if known:
+            return f" (player phase: {sum(1 for u in known if u.acted)} of {len(known)} units have acted)"
+    elif phase == 1:
+        left = sum(1 for e in battle.enemy_stats.values() if e.on_map and f"e:{e.slot}" not in spent)
+        return f" (enemy phase: {left} units still to act)"
+    return ""
 
 
 def factors(battle: Battle) -> list[tuple[str, float, str]]:
@@ -191,14 +242,18 @@ def factors(battle: Battle) -> list[tuple[str, float, str]]:
     risks = at_risk(battle)
     leaders = [r for r in risks if r["critical"]]
     if leaders:
-        score = sum(RISK_WEIGHT[True, r["level"]] for r in leaders)
+        score = sum(RISK_WEIGHT[True, r["level"]] * _weight(r) for r in leaders)
         out.append(
-            ("Defeat risk", -score, f"Losing them loses the battle: {'; '.join(_risk_text(r) for r in leaders)}")
+            (
+                "Defeat risk",
+                -score,
+                f"Losing them loses the battle: {'; '.join(_risk_text(r) for r in leaders)}{_timing(battle)}",
+            )
         )
     rest = [r for r in risks if not r["critical"]]
     if rest:
-        score = min(RISK_CAP, sum(RISK_WEIGHT[False, r["level"]] for r in rest))
-        out.append(("At risk", -score, "; ".join(_risk_text(r) for r in rest)))
+        score = min(RISK_CAP, sum(RISK_WEIGHT[False, r["level"]] * _weight(r) for r in rest))
+        out.append(("At risk", -score, "; ".join(_risk_text(r) for r in rest) + _timing(battle)))
     if deployed and lost:
         out.append(("Losses", -LOSS_WEIGHT * lost / deployed, f"{lost} of {deployed} units no longer on the map"))
     if battle.level_ups:
