@@ -654,6 +654,22 @@ def test_other_units_carry_their_class_gender_army_and_character_for_the_map(sca
     assert stats[4].name == "Seteth"
 
 
+def test_a_units_allegiance_follows_the_game_record_through_a_battle(scanner):
+    # The record's faction ID is read on every poll, so a reveal that changes it (Chapter 11) shows at once; a read
+    # without it leaves the last one.
+    from dataclasses import replace
+
+    unit = FakePoolUnit(509, 5, 11)
+    scanner.memory.in_battle = (22,)
+    for allegiance in (15, 6, None):
+        scanner.memory.battle_units = lambda a=allegiance: [replace(unit, team=1, slot=1, allegiance=a)]
+        for _ in range(2):
+            scanner._tick()
+        shown = scanner.current_battle().enemy_stats[1].allegiance
+        assert shown == (allegiance if allegiance is not None else 6)
+    assert scanner.current_battle().model_dump(mode="json")["enemy_stats"]["1"]["allegiance"] == 6
+
+
 def test_other_units_are_named_from_the_game_data(roster_import):
     from app.gamemem.units import GameData
     from app.infrastructure.polling import _other_name

@@ -7,21 +7,19 @@ import { useContext, useEffect, useMemo, useState } from "react";
 import { api, Battle, Unit } from "../../api";
 import { PageHeader, StatusChip, Tab } from "../layout";
 import { useNav } from "../../nav";
-import { houseOfCharacter } from "../AffiliationIcon";
 import { Icon } from "../Icon";
-import { characterKeyOfName, characterKeyOfUnit, faceUrl, portraitUrl } from "../../portraits";
+import { faceUrl, portraitUrl } from "../../portraits";
 import { PortraitPhaseContext } from "../../appearance";
-import { useReference } from "../../reference/types";
 import { armyId, enemies, enemyId, people, timeline } from "./model";
 import type { MapLook } from "./mapIcons";
 import { MoreStatsTab } from "./MoreStatsTab";
 import { OverviewTab } from "./OverviewTab";
 import { BattleNav, BattleNavContext, CopySummary, useElapsed } from "./parts";
-import { battleName, KIND_LABEL } from "./scenarios";
+import { battleName, KIND_LABEL, routeOf } from "./scenarios";
 import { UnitsTab } from "./UnitsTab";
 import { UnitPopup } from "./UnitPopup";
 import { isObject } from "./map";
-import { factionOf } from "./factions";
+import { chosenFaction, factionOf } from "./factions";
 import { useSpoiler } from "../../spoilers";
 import { expressionPaths, HURT_EXPRESSION, personFor, usePortraitData } from "../../persons";
 
@@ -147,19 +145,13 @@ export function BattleView(p: ViewProps) {
     }
     return out;
   }, [battle.units, battle.enemy_stats, portraitData, p.part2, automatic, showLaterPortraits]);
-  const ref = useReference();
   const houses = useMemo(() => {
     const out = new Map<string, string>();
-    const set = (id: string, key: string | null) => {
-      const house = houseOfCharacter(ref, key);
-      if (house) out.set(id, house);
-    };
-    for (const r of p.roster) set(armyId(r.key), characterKeyOfUnit(r));
-    // Named characters not in the roster (Jeralt fighting beside you) have their house too.
+    const set = (id: string, house: string | undefined) => { if (house) out.set(id, house); };
     for (const u of battle.units) {
-      const id = armyId(u.key);
-      if (!out.has(id)) set(id, characterKeyOfName(u.name));
-      out.set(id, factionOf(u.character, battle.scenario, "player", out.get(id)));
+      // The game's record names each unit's faction. Byleth's is the Church whatever house the run chose, so theirs is that house's.
+      const byleth = u.character === 0 || u.character === 1;
+      set(armyId(u.key), (byleth && chosenFaction(battle.route ?? routeOf(battle))) || factionOf(u.allegiance, u.character));
     }
     for (const [slot, e] of Object.entries(battle.enemy_stats ?? {})) {
       const id = enemyId(slot);
@@ -168,11 +160,10 @@ export function BattleView(p: ViewProps) {
         out.set(id, /flame emperor/i.test(e.name || e.label) ? "Flame Emperor Army" : "Affiliation hidden");
         continue;
       }
-      if (e.name) set(id, characterKeyOfName(e.name));
-      out.set(id, factionOf(e.character, battle.scenario, e.side ?? "enemy", out.get(id)));
+      set(id, factionOf(e.allegiance, e.character));
     }
     return out;
-  }, [p.roster, ref, battle.units, battle.enemy_stats, battle.scenario, showIdentities]);
+  }, [battle, showIdentities]);
   const configs = useMemo(() => new Map(p.roster.map((u) => [u.key, u.ebst_effective])), [p.roster]);
   const nav: BattleNav = {
     people: who,
