@@ -64,7 +64,25 @@ FIRST_SPRITE, LAST_SPRITE, BODY_SLOT = 100, 177, 309  # sprite ids 100-177: slot
 MOUNTED = (116, 117, 135, 136, 137, 138, 139, 150, 151, 152, 155, 156, 157, 158, 159, 160, 161, 162)
 MOUNT_SLOT = 1395
 GENERIC_HEADS = {"m": 1348, "f": 1360}
-CHARACTER_HEAD, CHARACTERS = 1021, 35
+# Finished character sprites, by character ID. Byleth to Seteth (0-26) take four slots each (an army colour per slot) at
+# 4 x ID. Flayn (27) to Jeralt (35) take eight (two looks) from slot 112, the slots before it being unused; Rhea (36)
+# and Sothis (37) follow with four each. Only 0-34 have a head of their own (slot 1021 + ID): Jeralt, Rhea and Sothis
+# are finished sprites with the head in them. Matched pixel for pixel against the sprites fedatamine.com shows.
+CHARACTER_HEAD, CHARACTERS, HEADED_CHARACTERS = 1021, 38, 35
+FIRST_EIGHT_SLOT_CHARACTER, EIGHT_SLOT_START = 27, 112
+LAST_EIGHT_SLOT_CHARACTER = 35
+RHEA_SLOT = EIGHT_SLOT_START + 8 * (LAST_EIGHT_SLOT_CHARACTER - FIRST_EIGHT_SLOT_CHARACTER + 1)  # 184; Sothis is 188
+
+
+def character_slot(character: int) -> int:
+    """First map sprite slot (the player's colour) of a character's finished sprite."""
+    if character < FIRST_EIGHT_SLOT_CHARACTER:
+        return 4 * character
+    if character <= LAST_EIGHT_SLOT_CHARACTER:
+        return EIGHT_SLOT_START + 8 * (character - FIRST_EIGHT_SLOT_CHARACTER)
+    return RHEA_SLOT + 4 * (character - LAST_EIGHT_SLOT_CHARACTER - 1)
+
+
 # Byleth's green-haired look (after the Sothis merge): finished sprite slot (+ colour) and head slot, by character ID
 # (0 male, 1 female). Matched pixel for pixel: the head is the one drawn inside the finished sprite.
 GREEN_BYLETH = {0: (233, 1368), 1: (249, 1369)}
@@ -220,12 +238,12 @@ def class_sprites(ctx: Context) -> None:
     characters: dict[str, int] = {}
     for character in range(CHARACTERS):
         characters[str(character)] = len(cells)
-        cells.append([cell(part(4 * character + c)) for _, c in ARMIES])
+        cells.append([cell(part(character_slot(character) + c)) for _, c in ARMIES])
     for cls, donors in GENERIC_BODIES.items():
         for gender, character in donors.items():
             classes.setdefault(str(cls), {})[gender] = len(cells)
             head = part(CHARACTER_HEAD + character)
-            cells.append([cell(headless(part(4 * character + c), head)) for _, c in ARMIES])
+            cells.append([cell(headless(part(character_slot(character) + c), head)) for _, c in ARMIES])
     finished: dict[str, dict[str, int]] = {}
     for cls, genders in FINISHED_CLASSES.items():
         for gender, slot in genders.items():
@@ -241,7 +259,7 @@ def class_sprites(ctx: Context) -> None:
         for c, image in enumerate(row):
             atlas.alpha_composite(image, (c * w, r * h))
 
-    head_slots = [GENERIC_HEADS["m"], GENERIC_HEADS["f"], *(CHARACTER_HEAD + c for c in range(CHARACTERS))]
+    head_slots = [GENERIC_HEADS["m"], GENERIC_HEADS["f"], *(CHARACTER_HEAD + c for c in range(HEADED_CHARACTERS))]
     green_heads = {}
     for character, (_, head_slot) in GREEN_BYLETH.items():
         green_heads[str(character)] = len(head_slots)
@@ -265,7 +283,7 @@ def class_sprites(ctx: Context) -> None:
             "head_cell": [HEAD_SIZE, HEAD_SIZE],
             "head_at": [HEAD_X, SPRITE_TOP + HEAD_Y],
             "mounted_head_at": [HEAD_X, SPRITE_TOP + MOUNTED_HEAD_Y],
-            "heads": {"m": 0, "f": 1, "characters": {str(c): 2 + c for c in range(CHARACTERS)}, "rows": len(head_slots)},
+            "heads": {"m": 0, "f": 1, "characters": {str(c): 2 + c for c in range(HEADED_CHARACTERS)}, "rows": len(head_slots)},
             # Looks of a character that changes with the story: Byleth's green hair, by character ID.
             "looks": {"green": {"characters": green_rows, "heads": green_heads}},
         },
