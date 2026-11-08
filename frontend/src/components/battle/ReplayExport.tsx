@@ -39,7 +39,12 @@ type Orientation = "landscape" | "portrait";
 /** The video's frame in CSS pixels; it is drawn at a resolution's scale times that (1.5: 1920 × 1080). */
 const STAGE: Record<Orientation, [number, number]> = { landscape: [1280, 720], portrait: [720, 1280] };
 /** The resolutions offered, by their short side, and the scale each draws the frame at. */
-const RESOLUTIONS: [number, string, number][] = [[720, "720p", 1], [1080, "1080p", 1.5], [1440, "1440p", 2], [2160, "4K", 3]];
+const RESOLUTIONS: [number, string, number][] = [
+  [720, "720p HD", 1],
+  [1080, "1080p Full HD", 1.5],
+  [1440, "1440p Quad HD", 2],
+  [2160, "4K Ultra HD", 3],
+];
 const QUALITIES: [VideoQuality, string][] = [["standard", "Standard (smaller file)"], ["high", "High"], ["best", "Best (bigger file)"]];
 const VOLUMES = [0, 0.25, 0.5, 0.75, 1];
 /** The last step stays on screen this long at the end of the video (ms). */
@@ -565,7 +570,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
           <fieldset className="export-group" disabled={working}>
             <legend>Video</legend>
             <div className="export-pairs">
-              <label>
+              <label className="wide">
                 Resolution
                 <select value={options.resolution} onChange={(e) => setOption("resolution", Number(e.target.value))}>
                   {RESOLUTIONS.map(([r, label]) => <option key={r} value={r}>{label}</option>)}
@@ -584,7 +589,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
                   {QUALITIES.map(([q, label]) => <option key={q} value={q}>{label}</option>)}
                 </select>
               </label>
-              <label>
+              <label className="wide">
                 Theme
                 <select value={options.theme} onChange={(e) => setOption("theme", e.target.value as ExportTheme)}>
                   {THEME_OPTIONS.map(([t, label]) => <option key={t} value={t}>{label}</option>)}

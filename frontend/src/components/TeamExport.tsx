@@ -28,7 +28,12 @@ import { StepSlider } from "./Slider";
 /** Each image's width on the page (CSS pixels); it is saved at its chosen size (SIZES) times that. */
 const WIDTH = 1500;
 /** The image sizes offered: how many times the preview's size each image is saved at. */
-const SIZES: [number, string][] = [[1, "Small (1×)"], [1.5, "Medium (1.5×)"], [2, "Large (2×)"], [3, "Extra large (3×)"]];
+const SIZES: [number, string][] = [
+  [1, "Small: for chats and messages"],
+  [1.5, "Medium: for most uses"],
+  [2, "Large: for big screens"],
+  [3, "Extra large: for printing"],
+];
 const IMAGE_OPTIONS_KEY = "divine-pulse-export-team";
 
 /** The images' own options, remembered between exports: their size and theme, and which of the two to save. */
@@ -150,6 +155,20 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
   });
   const loadouts = useRef<HTMLDivElement>(null);
   const stats = useRef<HTMLDivElement>(null);
+  // Each image's size on the page (its saved size is that times the chosen size), kept up to date as it changes.
+  const [sizes, setSizes] = useState<{ overview: [number, number]; stats: [number, number] }>({ overview: [0, 0], stats: [0, 0] });
+  useEffect(() => {
+    const measure = () => setSizes({
+      overview: [loadouts.current?.offsetWidth ?? 0, loadouts.current?.offsetHeight ?? 0],
+      stats: [stats.current?.offsetWidth ?? 0, stats.current?.offsetHeight ?? 0],
+    });
+    const observer = new ResizeObserver(measure);
+    if (loadouts.current) observer.observe(loadouts.current);
+    if (stats.current) observer.observe(stats.current);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+  const pixels = ([w, h]: [number, number]) => `${Math.round(w * options.size).toLocaleString()} × ${Math.round(h * options.size).toLocaleString()} px`;
   const [status, setStatus] = useState<ExportStatus>({ kind: "idle" });
   const working = status.kind === "working";
   const base = safeFilename(run.name);
@@ -247,13 +266,19 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
               </label>
             </div>
             <div className="export-pairs">
-              <label>
+              <label className="wide">
                 Size
                 <select value={options.size} onChange={(e) => setOption("size", Number(e.target.value))}>
                   {SIZES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
                 </select>
               </label>
-              <label>
+              {(options.loadouts || options.stats) && (
+                <p className="export-sizes wide">
+                  {options.loadouts && <span>Overview <b>{pixels(sizes.overview)}</b></span>}
+                  {options.stats && <span>Run statistics <b>{pixels(sizes.stats)}</b></span>}
+                </p>
+              )}
+              <label className="wide">
                 Theme
                 <select value={options.theme} onChange={(e) => setOption("theme", e.target.value as ExportTheme)}>
                   {THEME_OPTIONS.map(([t, label]) => <option key={t} value={t}>{label}</option>)}

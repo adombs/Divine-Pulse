@@ -30,3 +30,7 @@
 .export-group .step-slider:has(> .field-label) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.15rem 0.5rem; }
 .export-group .step-slider > .field-label { grid-column: 1 / -1; margin: 0; font: 0.85rem var(--ui); color: var(--ink-soft); }
 .export-group .step-slider .notched { width: 100%; }
+.export-pairs .wide { grid-column: 1 / -1; }
+.export-sizes { display: grid; gap: 0.1rem; margin: 0; font-size: 0.85rem; color: var(--ink-soft); }
+.export-sizes span { display: flex; justify-content: space-between; gap: 0.5rem; }
+.export-sizes b { color: var(--ink); font: 600 0.85rem var(--nums); font-variant-numeric: tabular-nums; }
