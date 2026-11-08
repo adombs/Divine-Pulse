@@ -203,7 +203,7 @@ test("battle places resolve imported text and unmapped scenarios stay empty", as
   assert.ok(scenarios.battleName(battle(86)).place);
 });
 
-test("factions pick banners and scenario enemies by ID, in any language", async () => {
+test("factions pick banners and names by ID, in any language", async () => {
   globalThis.indexCrystalWeaponsFixture = indexCrystalWeapons;
   globalThis.factionFixture = {
     factions: { characters: [{ id: 7, allegiance: 1 }, { id: 8, allegiance: 15 }, { id: 9, allegiance: 23 }], factions: [{ id: 1, name: "Empire" }, { id: 11, name: "Rogues" }, { id: 15, name: "Independents" }] },
@@ -220,11 +220,15 @@ test("factions pick banners and scenario enemies by ID, in any language", async 
     const factionBanners = globalThis.factionFixture.banners;
   `);
   await factions.loadBattleIndexes();
-  assert.equal(factions.factionOf(7), "Kaiserreich");
+  // The record's faction ID names the affiliation, with no scenario guessing; a character's own allegiance only stands in for a record without one.
+  assert.equal(factions.factionOf(1), "Kaiserreich");
   assert.equal(globalThis.factionFixture.banners.get("Kaiserreich"), "black-eagles");
-  assert.equal(factions.factionOf(8, 0), "Schurken");
-  assert.equal(factions.factionOf(8), "Unabhängige");
-  assert.equal(factions.factionOf(9), "Underground Residents");
+  assert.equal(factions.factionOf(null, 7), "Kaiserreich");
+  assert.equal(factions.factionOf(15, 8), "Unabhängige");
+  assert.equal(factions.factionOf(11, 8), "Schurken");
+  assert.equal(factions.factionOf(23), "Underground Residents");
+  assert.equal(factions.factionOf(null, 999), undefined);
+  assert.equal(factions.chosenFaction("vw"), undefined);
   assert.equal(battleWeapon({ weapon: "gauntlets", inventory: [{ id: 213, kind: "weapon", uses: 100 }] }), "crest-stone");
   indexCrystalWeapons([]);
 });

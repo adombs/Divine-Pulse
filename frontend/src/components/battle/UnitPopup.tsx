@@ -20,7 +20,7 @@ import { armySprite, isObject, spriteOf } from "./map";
 import { Portrait } from "../ui";
 import { CombatTiles, FightsAndActions } from "./detail";
 import { useSpoiler } from "../../spoilers";
-import { crestsOf, factionOf } from "./factions";
+import { crestsOf } from "./factions";
 import { crestLabel } from "../../reference/crests";
 import { MapSection } from "./Minimap";
 import { alertsFor, armyId, enemies, enemyId, Item, LOW_WEAPON, statGains, tally } from "./model";
@@ -138,7 +138,7 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
         ]}
         backFacts={[
           ["Gender", roster?.gender || character?.gender || "—"],
-          ["Affiliation", battleNav.house?.(id) || factionOf(u.character, battle.scenario, "player")],
+          ["Affiliation", battleNav.house?.(id) || "—"],
           ["Birthday", character?.birthday || "—"],
           ["Height", character?.height || "—"],
         ]}
