@@ -159,7 +159,7 @@ class GameAssets:
         if manifest is None:
             return ()
         language = self.language()
-        key = id(manifest), language
+        key = self._stamp, language  # (not id(manifest): a freed manifest's id can be given to its replacement)
         now = time.monotonic()
         checked = self._data_stamp
         if checked is not None and checked[1] == key and now - checked[0] < DATA_STAMP_TTL_S:
