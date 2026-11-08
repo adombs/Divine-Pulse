@@ -63,6 +63,15 @@ def test_client_host_allowed(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def table_files_always_checked(monkeypatch):
+    """The app trusts the table files' modification times for a second (a read of the game looks tables up hundreds
+    of times); tests change a file and expect the change to be seen at once. tests/test_tick_cost.py turns it back on."""
+    from app.infrastructure import game_assets
+
+    monkeypatch.setattr(game_assets, "DATA_STAMP_TTL_S", 0.0)
+
+
+@pytest.fixture(autouse=True)
 def game_files_imported(monkeypatch):
     """The memory reader only reads once game files are imported. Tests don't depend on whether the machine running them
     has an import: they read as if it had (tests of the no-import case patch this back)."""

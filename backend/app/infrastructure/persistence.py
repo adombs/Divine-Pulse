@@ -118,6 +118,12 @@ class RunStore:
 
     # Runs
 
+    def revision(self, run_id: str) -> tuple | None:
+        """Changes whenever the run does, and costs nothing (get() copies the run); None until the run is loaded."""
+        with self._lock:
+            run = self._cache.get(run_id)
+            return None if run is None else (run.updated_at, len(self._route_evidence.get(run_id, ())))
+
     def get(self, run_id: str) -> Run:
         with self._lock:
             if run_id not in self._cache:

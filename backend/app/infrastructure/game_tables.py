@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import threading
+from collections.abc import Iterator
+from contextlib import contextmanager
 from functools import lru_cache
 from pathlib import Path
 
@@ -11,10 +14,34 @@ from .game_assets import GameAssetError, game_assets
 DATA = Path(__file__).resolve().parents[1] / "data"
 
 
+_pin = threading.local()
+
+
 def generation() -> tuple:
+    """What the loaded tables are made from (import, language, files). Every table lookup asks for it."""
+    pinned = getattr(_pin, "generation", None)
+    return pinned if pinned is not None else _generation()
+
+
+def _generation() -> tuple:
     assets = game_assets()
     manifest = assets.manifest
     return (str(assets.root), assets._stamp, id(manifest), assets.language(), assets.data_stamp())
+
+
+@contextmanager
+def pinned() -> Iterator[None]:
+    """Look the generation up once for everything this thread does inside the block. A read of the game makes
+    hundreds of table lookups, and each one would check the import's manifest on disk again; an import that finishes
+    meanwhile is picked up by the next block. Blocks nest (the outer one counts)."""
+    if getattr(_pin, "generation", None) is not None:
+        yield
+        return
+    _pin.generation = _generation()
+    try:
+        yield
+    finally:
+        _pin.generation = None
 
 
 def _rows(assets, filename: str, key: str, fields: tuple = ()) -> list[dict]:
