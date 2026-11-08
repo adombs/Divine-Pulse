@@ -1,6 +1,6 @@
 /**
  * Export Team (the Roster page's header, beside Back): two images of the units picked (all of them unless some are
- * left out), previewed as they will be saved. Loadouts: each unit's stats, BST, equipment, spells, combat arts,
+ * left out), previewed as they will be saved. Overview: each unit's stats, BST, equipment, spells, combat arts,
  * abilities and battalion as last read. Run statistics: each unit's combat and growth over the run's finished battles
  * (History's Character Stats, `buildRunLedger`) and its three most telling records.
  *
@@ -21,12 +21,38 @@ import { buildRunLedger, type LedgerRow } from "./battle/runStatsLedger";
 import { ExportActions, type ExportStatus } from "./ExportActions";
 import { Icon } from "./Icon";
 import { Modal } from "./Modal";
-import { CardBanner, Portrait } from "./ui";
+import { CardBanner, Portrait, RunIcon } from "./ui";
+import { THEME_OPTIONS, themeClass, useExportThemes, type ExportTheme } from "../exporting/theme";
 import { StepSlider } from "./Slider";
 
-/** Each image's width on the page (CSS pixels); it is saved at SCALE times that. */
+/** Each image's width on the page (CSS pixels); it is saved at its chosen size (SIZES) times that. */
 const WIDTH = 1500;
-const SCALE = 1.5;
+/** The image sizes offered: how many times the preview's size each image is saved at. */
+const SIZES: [number, string][] = [[1, "Small (1×)"], [1.5, "Medium (1.5×)"], [2, "Large (2×)"], [3, "Extra large (3×)"]];
+const IMAGE_OPTIONS_KEY = "divine-pulse-export-team";
+
+/** The images' own options, remembered between exports: their size and theme, and which of the two to save. */
+interface ImageOptions {
+  size: number;
+  theme: ExportTheme;
+  loadouts: boolean;
+  stats: boolean;
+}
+const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, theme: "app", loadouts: true, stats: true };
+
+function loadImageOptions(): ImageOptions {
+  try {
+    const saved = JSON.parse(localStorage.getItem(IMAGE_OPTIONS_KEY) ?? "{}") as Partial<ImageOptions>;
+    return {
+      size: SIZES.some(([k]) => k === saved.size) ? saved.size! : DEFAULT_IMAGE_OPTIONS.size,
+      theme: THEME_OPTIONS.some(([t]) => t === saved.theme) ? saved.theme! : DEFAULT_IMAGE_OPTIONS.theme,
+      loadouts: saved.loadouts !== false,
+      stats: saved.stats !== false,
+    };
+  } catch {
+    return DEFAULT_IMAGE_OPTIONS;
+  }
+}
 
 /** How many units the loadouts put side by side (the choices). */
 const PER_ROW = [1, 2, 3, 4, 5, 6];
@@ -111,26 +137,37 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
     if (by !== "custom") setPlaced(orderUnits(units, by, ledger?.characters ?? []));
   };
 
+  useExportThemes();
+  const [options, setOptionsState] = useState<ImageOptions>(loadImageOptions);
+  const setOption = <K extends keyof ImageOptions>(key: K, value: ImageOptions[K]) => setOptionsState((o) => {
+    const next = { ...o, [key]: value };
+    try {
+      localStorage.setItem(IMAGE_OPTIONS_KEY, JSON.stringify(next));
+    } catch {
+      // Not kept; fine.
+    }
+    return next;
+  });
   const loadouts = useRef<HTMLDivElement>(null);
   const stats = useRef<HTMLDivElement>(null);
   const [status, setStatus] = useState<ExportStatus>({ kind: "idle" });
   const working = status.kind === "working";
   const base = safeFilename(run.name);
 
+  const wanted = [
+    ...(options.loadouts ? [{ el: loadouts, name: `${base} team overview.png` }] : []),
+    ...(options.stats ? [{ el: stats, name: `${base} team run stats.png` }] : []),
+  ];
   const exportImages = async () => {
-    const parts = [loadouts.current, stats.current];
-    if (parts.some((p) => !p)) return;
-    setStatus({ kind: "working", done: 0, total: 2, label: "Making the images" });
+    if (!wanted.length || wanted.some((w) => !w.el.current)) return;
+    setStatus({ kind: "working", done: 0, total: wanted.length, label: "Making the images" });
     try {
-      const blobs: Blob[] = [];
-      for (const part of parts) {
-        blobs.push(await elementPng(part!, SCALE));
-        setStatus({ kind: "working", done: blobs.length, total: 2, label: "Making the images" });
+      const files: { name: string; blob: Blob }[] = [];
+      for (const w of wanted) {
+        files.push({ name: w.name, blob: await elementPng(w.el.current!, options.size) });
+        setStatus({ kind: "working", done: files.length, total: wanted.length, label: "Making the images" });
       }
-      const saved = await saveFiles("png", [
-        { name: `${base} team loadouts.png`, blob: blobs[0] },
-        { name: `${base} team run stats.png`, blob: blobs[1] },
-      ]);
+      const saved = await saveFiles("png", files);
       setStatus(saved ? { kind: "saved", where: saved } : { kind: "idle" });
     } catch (error) {
       setStatus({ kind: "error", message: (error as Error).message || "The images couldn't be made." });
@@ -142,9 +179,9 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
       <div className="team-export">
         <div className="team-export-preview" aria-label="Preview">
           <figure className="team-export-figure">
-            <figcaption>Loadouts</figcaption>
+            <figcaption>Overview</figcaption>
             <FitWidth>
-              <TeamSheet ref={loadouts} run={run} units={chosen} title="Team Loadouts" className="team-sheet-loadouts">
+              <TeamSheet ref={loadouts} run={run} units={chosen} title="Team Overview" className="team-sheet-loadouts" theme={options.theme}>
                 <div className="team-rows">
                   {rows.map((row, r) => (
                     <div key={r} className="team-row">
@@ -158,7 +195,7 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
           <figure className="team-export-figure">
             <figcaption>Run statistics</figcaption>
             <FitWidth width={WIDTH}>
-              <TeamSheet ref={stats} run={run} units={chosen} title="Team Run Statistics" note={ledger ? plural(ledger.battles.length, "finished battle") : undefined}>
+              <TeamSheet ref={stats} run={run} units={chosen} title="Team Run Statistics" theme={options.theme} note={ledger ? plural(ledger.battles.length, "finished battle") : undefined}>
                 {ledger ? <StatsTable units={chosen} rows={ledger.rows} totals={ledger.totals.records} part2={part2} />
                   : <p className="muted">{loadError ?? "Reading the run's battles…"}</p>}
               </TeamSheet>
@@ -167,7 +204,7 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
         </div>
         <aside className="export-side" aria-label="Team options">
           <fieldset className="export-group team-layout" disabled={working}>
-            <legend>Loadouts</legend>
+            <legend>Overview</legend>
             <StepSlider
               label="Units per row"
               stops={PER_ROW.length}
@@ -197,11 +234,38 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
             </label>
             <UnitSlots slots={slots} byKey={byKey} left={left} part2={part2} columns={perRow} onToggle={toggle} onPlace={(next) => { setPlaced(next); setOrderBy("custom"); }} />
           </fieldset>
+          <fieldset className="export-group" disabled={working}>
+            <legend>Images</legend>
+            <div className="team-images">
+              <label>
+                <input type="checkbox" checked={options.loadouts} onChange={(e) => setOption("loadouts", e.target.checked)} />
+                Overview
+              </label>
+              <label>
+                <input type="checkbox" checked={options.stats} onChange={(e) => setOption("stats", e.target.checked)} />
+                Run statistics
+              </label>
+            </div>
+            <div className="export-pairs">
+              <label>
+                Size
+                <select value={options.size} onChange={(e) => setOption("size", Number(e.target.value))}>
+                  {SIZES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
+                </select>
+              </label>
+              <label>
+                Theme
+                <select value={options.theme} onChange={(e) => setOption("theme", e.target.value as ExportTheme)}>
+                  {THEME_OPTIONS.map(([t, label]) => <option key={t} value={t}>{label}</option>)}
+                </select>
+              </label>
+            </div>
+          </fieldset>
           <ExportActions
-            facts={[plural(chosen.length, "unit"), "2 PNG images"]}
+            facts={[plural(chosen.length, "unit"), wanted.length ? plural(wanted.length, "PNG image") : "No images picked"]}
             status={status}
-            action="Export images…"
-            disabled={!chosen.length || !ledger}
+            action={wanted.length === 1 ? "Export image…" : "Export images…"}
+            disabled={!chosen.length || !wanted.length || (options.stats && !ledger)}
             onExport={() => void exportImages()}
           />
         </aside>
@@ -369,18 +433,21 @@ function FitWidth({ width, children }: { width?: number; children: ReactNode }) 
 }
 
 /** One image: the run's banner with the date and the credit, then its body. */
-function TeamSheet({ run, units, title, note, className, children, ref }: { run: RunSummary; units: Unit[]; title: string; note?: string; className?: string; children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
+function TeamSheet({ run, units, title, note, className, theme, children, ref }: { run: RunSummary; units: Unit[]; title: string; note?: string; className?: string; theme: ExportTheme; children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
   const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   return (
-    <div ref={ref} className={`team-sheet${className ? ` ${className}` : ""}`}>
-      <header className="team-sheet-title">
-        <CardBanner title={`${run.name} · ${title}`} />
-        <div className="team-sheet-meta">
-          <span>{[plural(units.length, "unit"), note, date].filter(Boolean).join(" · ")}</span>
-          <span className="team-sheet-credit">Divine Pulse <span>· by Adombs</span></span>
-        </div>
-      </header>
-      {children}
+    // The picture is taken of the outer box: it carries the image's theme, so the sheet inside is drawn in it.
+    <div ref={ref} className={`team-sheet-theme ${themeClass(theme)}`}>
+      <div className={`team-sheet${className ? ` ${className}` : ""}`}>
+        <header className="team-sheet-title">
+          <CardBanner title={`${run.name} · ${title}`} icon={<RunIcon route={run.route} />} />
+          <div className="team-sheet-meta">
+            <span>{[plural(units.length, "unit"), note, date].filter(Boolean).join(" · ")}</span>
+            <span className="team-sheet-credit">Divine Pulse <span>· by Adombs</span></span>
+          </div>
+        </header>
+        {children}
+      </div>
     </div>
   );
 }

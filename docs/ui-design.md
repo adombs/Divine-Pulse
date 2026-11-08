@@ -77,7 +77,9 @@ fills the sheet: the header stays put and the view below fits the screen (the Ov
   cards instead; elsewhere they're small cards under the header). Actions: Copy Summary, Export Video; for a recording Live Battle
   (while one runs) and Delete. Export Video (battle/ReplayExport.tsx) opens a window with the video's frame previewed
   as it plays (title strip with the "by Adombs" credit, the map with its turn banner and no legend, the log as a
-  list up to the step shown) and options down the right: orientation, turns, speed, camera, zoom. The map takes all
+  list up to the step shown) and options down the right: orientation, turns, speed, camera, zoom, music (the battle
+  themes imported with the game files, the battle's own first) and the video's resolution, frame rate, quality and theme;
+  the export button stays at the foot of the options. The map takes all
   the room its view needs and the log the rest; zoomed in, the camera's view widens to fill that room. Tabs: **Overview · Units · More Stats**.
 - **Overview:** three columns. The map (as big as it fits, with the replay timeline under it), the Units
   (UnitStatus.tsx: everyone on the board but objects, filterable by team, as at the replay's step; HP, and warnings
@@ -123,8 +125,8 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
 
 - **Roster:** header with the unit count and chips for what changes the view (in-battle filter, units to check,
   "Comparing as"); the run picker is the header's action. Table and unit card as before (`DetailCard`). Export Team (TeamExport.tsx), left
-  of Back, previews the two images it saves (loadouts with BST, never eBST, as rows of cards as tall as the unit's
-  portrait and stats, the rest flowing into columns beside them, units per row set beside the preview; run statistics) and the units to include, in slots laid out as many side by side as the loadouts (an empty row more at the
+  of Back, previews the two images it saves (an overview of each unit with BST, never eBST, as rows of cards as tall as the unit's
+  portrait and stats, the rest flowing into columns beside them, units per row set beside the preview; run statistics) and the units to include, in slots laid out as many side by side as the overview (an empty row more at the
   end); a six-dot handle drags a unit to another slot, empty or not (they swap), and empty slots leave rows short. An Order menu above
   them lays every unit out by BST, deployments, joining (first battle) or name; dragging makes it Custom.
 - **Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`

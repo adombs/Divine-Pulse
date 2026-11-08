@@ -4,7 +4,7 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { useContext, useEffect, useMemo, useState } from "react";
-import { api, Battle, Unit } from "../../api";
+import { api, Battle, RunRoute, Unit } from "../../api";
 import { PageHeader, StatusChip, Tab } from "../layout";
 import { useNav } from "../../nav";
 import { houseOfCharacter } from "../AffiliationIcon";
@@ -43,9 +43,11 @@ interface Props {
   onReplaySpeed: (speed: number) => void;
   onDeleteRecording: () => void;
   at?: string | null;
+  /** The run's route, for its emblem on exports. */
+  route?: RunRoute | null;
 }
 
-export function BattlePage({ battle, recording, runId, version, units, part2, mapLook, replaySpeed, onReplaySpeed, onDeleteRecording, at }: Props) {
+export function BattlePage({ battle, recording, runId, version, units, part2, mapLook, replaySpeed, onReplaySpeed, onDeleteRecording, at, route }: Props) {
   // The run's battles, for More stats' comparison.
   const [history, setHistory] = useState<Battle[]>([]);
   useEffect(() => {
@@ -70,7 +72,7 @@ export function BattlePage({ battle, recording, runId, version, units, part2, ma
       </section>
     );
   }
-  return <><BattleView key={shown.id} battle={shown} live={battle} history={history} roster={units} part2={part2} mapLook={mapLook} replaySpeed={replaySpeed} onReplaySpeed={onReplaySpeed} at={at} recording={battle ? undefined : { onDelete: onDeleteRecording }} /></>;
+  return <><BattleView key={shown.id} battle={shown} live={battle} history={history} roster={units} part2={part2} mapLook={mapLook} replaySpeed={replaySpeed} onReplaySpeed={onReplaySpeed} at={at} route={route} recording={battle ? undefined : { onDelete: onDeleteRecording }} /></>;
 }
 
 interface ViewProps {
@@ -85,6 +87,8 @@ interface ViewProps {
   onReplaySpeed: (speed: number) => void;
   /** A unit to open the battle at ("Units" with it selected). */
   at?: string | null;
+  /** The run's route, for its emblem on exports. */
+  route?: RunRoute | null;
   /** Set when this is a selected past battle: delete it. */
   recording?: { onDelete: () => void };
 }
@@ -215,7 +219,7 @@ export function BattleView(p: ViewProps) {
                   Live Battle
                 </button>
               )}
-              <ReplayExportButton battle={battle} />
+              <ReplayExportButton battle={battle} route={p.route} />
               <CopySummary battle={battle} seconds={seconds} />
               {recording && (
                 <button type="button" className="btn small danger" onClick={recording.onDelete} title="Delete this battle from the history">

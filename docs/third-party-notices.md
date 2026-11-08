@@ -28,6 +28,10 @@ The battle replay export writes its MP4 files with [Mediabunny](https://github.c
 
 ## Fire Emblem Wiki text
 
+The battle themes' titles in `backend/app/gamefiles/extract/music.py` are the official soundtrack's, as listed on the
+Fire Emblem Wiki ([Fire Emblem: Three Houses Original Soundtrack](https://fireemblemwiki.org/wiki/Fire_Emblem:_Three_Houses_Original_Soundtrack)),
+GNU Free Documentation License 1.3. The music itself is read from the player's own game files at import.
+
 `frontend/src/reference/wiki/fe-wiki.json` holds class-change restrictions and support availability and notes, by Fire
 Emblem Wiki contributors. Sources: [Class change](https://fireemblemwiki.org/wiki/Class_change)
 ([history](https://fireemblemwiki.org/w/index.php?title=Class_change&action=history)) and

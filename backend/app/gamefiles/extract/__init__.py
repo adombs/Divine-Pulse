@@ -9,6 +9,7 @@ Output layout (relative to the output folder):
     images/icons/      abilities/, crests/, items/, items-native/                                   exe_tables
     images/icons/      combat-arts/, magic/, weapons/, skills/; images/houses/     icons
     images/map/        class sprites, map heads, minimaps/, minimap-pieces/; data/maps.json, terrain map
+    audio/bgm/         the map themes' Rain and Thunder versions (Ogg Opus); data/music.json            music
 """
 
 from __future__ import annotations
@@ -25,7 +26,7 @@ from ..nso import Executable
 from ..output import Output
 
 # Stable family order for extraction progress and per-family manifest summaries.
-FAMILIES = ("exe_tables", "text", "data", "portraits", "icons", "map")
+FAMILIES = ("exe_tables", "text", "data", "portraits", "icons", "map", "music")
 ENGLISH = msgdata.LANGUAGES.index("ENG_U")
 
 

@@ -34,9 +34,9 @@ const REWIND_OUT_MS = 520;
 const REWIND_SPEED = 2;
 
 /** The replay speeds Settings offers. */
-export const REPLAY_SPEEDS = [0.25, 0.5, 1, 2, 4] as const;
+export const REPLAY_SPEEDS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3.5, 4] as const;
 
-/** The same five speed stops on the map and in Settings. */
+/** The same speed stops on the map, in Settings and in the video export. */
 export function ReplaySpeedSlider({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   const stop = REPLAY_SPEEDS.reduce((best, speed, i) => Math.abs(speed - value) < Math.abs(REPLAY_SPEEDS[best] - value) ? i : best, 0);
   return (

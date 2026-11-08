@@ -16,7 +16,7 @@ from PIL import Image
 MANIFEST = "manifest.json"
 # Raised when an extractor's output changes in a way the app relies on, so an
 # older import is reported as needing a new one.
-FORMAT = 4  # gambit areas, icons and native preview pieces
+FORMAT = 5  # the map themes' music (audio/bgm, data/music.json)
 
 
 def pixel_hash(image: Image.Image) -> str:
@@ -63,6 +63,12 @@ class Output:
         raw = json_bytes(data)
         path.write_bytes(raw)
         self.files[rel] = {"kind": "json", "bytes": len(raw), "sha256": hashlib.sha256(raw).hexdigest(), "source": source}
+
+    def binary(self, rel: str, data: bytes, *, kind: str, source: str) -> None:
+        """Save other bytes as they are (the music's Ogg files)."""
+        path = self._path(rel)
+        path.write_bytes(data)
+        self.files[rel] = {"kind": kind, "bytes": len(data), "sha256": hashlib.sha256(data).hexdigest(), "source": source}
 
     def write_manifest(self, *, dump: dict, families: dict[str, dict]) -> Path:
         manifest = {

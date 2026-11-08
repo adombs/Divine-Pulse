@@ -59,3 +59,8 @@
   mask-image: linear-gradient(180deg, transparent, #000 56px);
 }
 .replay-stage-rows .log-list { flex: none; }
+
+/* The frame's theme box (the video's own theme, or the app's): exactly the frame's size. */
+.replay-stage-theme { width: 100%; height: 100%; }
+.export-theme-dark .replay-stage { background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper); }
+.export-theme-light .replay-stage { background: radial-gradient(ellipse at 20% 0%, rgb(255 255 255 / 0.18), transparent 60%), var(--paper); }

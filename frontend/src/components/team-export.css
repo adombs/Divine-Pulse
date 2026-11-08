@@ -130,3 +130,11 @@
 /* Ordering every unit at once, above the slots. */
 .team-order-by { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--ink-soft); }
 .team-order-by select { width: 100%; }
+
+/* Which images to save, and each image's theme box (exactly the sheet's size). */
+.team-images { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; }
+.team-images label { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.92rem; cursor: pointer; }
+.team-images input { margin: 0; accent-color: var(--accent); }
+.team-sheet-theme { width: max-content; min-width: 100%; }
+.export-theme-dark .team-sheet { background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper); }
+.export-theme-light .team-sheet { background: radial-gradient(ellipse at 20% 0%, rgb(255 255 255 / 0.18), transparent 60%), var(--paper); }
