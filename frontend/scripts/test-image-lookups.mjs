@@ -228,7 +228,6 @@ test("factions pick banners and names by ID, in any language", async () => {
   assert.equal(factions.factionOf(11, 8), "Schurken");
   assert.equal(factions.factionOf(23), "Underground Residents");
   assert.equal(factions.factionOf(null, 999), undefined);
-  assert.equal(factions.chosenFaction("vw"), undefined);
   assert.equal(battleWeapon({ weapon: "gauntlets", inventory: [{ id: 213, kind: "weapon", uses: 100 }] }), "crest-stone");
   indexCrystalWeapons([]);
 });

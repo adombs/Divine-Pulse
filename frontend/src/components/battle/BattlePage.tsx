@@ -15,12 +15,12 @@ import type { MapLook } from "./mapIcons";
 import { MoreStatsTab } from "./MoreStatsTab";
 import { OverviewTab } from "./OverviewTab";
 import { BattleNav, BattleNavContext, CopySummary, useElapsed } from "./parts";
-import { battleName, KIND_LABEL, routeOf } from "./scenarios";
+import { battleName, KIND_LABEL } from "./scenarios";
 import { UnitsTab } from "./UnitsTab";
 import { ReplayExportButton } from "./ReplayExport";
 import { UnitPopup } from "./UnitPopup";
 import { isObject } from "./map";
-import { chosenFaction, factionOf } from "./factions";
+import { factionOf } from "./factions";
 import { useSpoiler } from "../../spoilers";
 import { expressionPaths, HURT_EXPRESSION, personFor, usePortraitData } from "../../persons";
 
@@ -162,9 +162,8 @@ export function BattleView(p: ViewProps) {
     const out = new Map<string, string>();
     const set = (id: string, house: string | undefined) => { if (house) out.set(id, house); };
     for (const u of battle.units) {
-      // The game's record names each unit's faction. Byleth's is the Church whatever house the run chose, so theirs is that house's.
-      const byleth = u.character === 0 || u.character === 1;
-      set(armyId(u.key), (byleth && chosenFaction(battle.route ?? routeOf(battle))) || factionOf(u.allegiance, u.character));
+      // The game's record names each unit's faction, Byleth's included (the Church, whatever house the run chose).
+      set(armyId(u.key), factionOf(u.allegiance, u.character));
     }
     for (const [slot, e] of Object.entries(battle.enemy_stats ?? {})) {
       const id = enemyId(slot);

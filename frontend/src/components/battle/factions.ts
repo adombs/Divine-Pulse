@@ -37,9 +37,3 @@ export function factionOf(allegiance: number | null | undefined, character?: num
   const id = allegiance ?? (character == null ? undefined : CHARACTERS[String(character)]);
   return id === undefined ? undefined : FACTIONS[String(id)];
 }
-
-/** The faction of the house a run chose, for Byleth: the game's record gives them the Church whichever house they joined. */
-const HOUSE_FACTION: Record<string, number> = { "black-eagles": 1, cf: 1, "blue-lions": 2, am: 2, "golden-deer": 3, vw: 3, ss: 0 };
-export function chosenFaction(route: string | null | undefined): string | undefined {
-  return route && route in HOUSE_FACTION ? FACTIONS[String(HOUSE_FACTION[route])] : undefined;
-}
