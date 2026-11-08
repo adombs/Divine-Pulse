@@ -1,6 +1,6 @@
 /**
  * Export Team (the Roster page's header, beside Back): two images of the units picked (all of them unless some are
- * left out), previewed as they will be saved. Overview: each unit's stats, BST, equipment, spells, combat arts,
+ * left out), previewed as they will be saved. Overview: each unit's portrait and map sprite, stats, BST, equipment, spells, combat arts,
  * abilities and battalion as last read. Run statistics: each unit's combat and growth over the run's finished battles
  * (History's Character Stats, `buildRunLedger`) and its three most telling records.
  *
@@ -17,6 +17,7 @@ import { AbilityIcon, ArtIcon, ItemIcon } from "../reference/icons";
 import { elementPng } from "../exporting/snapshot";
 import { safeFilename, saveFiles } from "../exporting/save";
 import { GearIcon } from "./battle/gameIcons";
+import { SpriteFigure, unitSprite, useHasSprite } from "./character/CharacterFace";
 import { AWARDS } from "./battle/moreStats";
 import { buildRunLedger, type LedgerRow } from "./battle/runStatsLedger";
 import { ExportActions, type ExportStatus } from "./ExportActions";
@@ -546,6 +547,19 @@ export function packColumns(heights: number[], titles: boolean[], room: number):
   return columns;
 }
 
+/** The unit's map sprite in its class, a small medallion on the corner of its portrait; nothing when the game's sprites
+ * aren't imported or none fits (an exported image should never carry a "missing" mark). */
+function CardSprite({ unit }: { unit: Unit }) {
+  const sprite = useMemo(() => unitSprite(unit), [unit]);
+  const has = useHasSprite(sprite);
+  if (!has) return null;
+  return (
+    <span className="team-card-sprite" role="img" aria-label={`${unit.name}'s map sprite${unit.class_name ? ` as a ${unit.class_name}` : ""}`}>
+      <SpriteFigure sprite={sprite} />
+    </span>
+  );
+}
+
 /** A unit's loadout: who it is, its stats and BST, then what it carries and knows in columns beside that, no taller
  * than it, so every card is the same height. */
 function LoadoutCard({ unit, part2 }: { unit: Unit; part2: boolean }) {
@@ -557,7 +571,10 @@ function LoadoutCard({ unit, part2 }: { unit: Unit; part2: boolean }) {
     node: (
       <div className="team-card-top">
         <header className="team-card-head">
-          <Portrait unit={unit} part2={part2} size={64} />
+          <span className="team-card-face">
+            <Portrait unit={unit} part2={part2} size={64} />
+            <CardSprite unit={unit} />
+          </span>
           <div className="team-card-name">
             <b>{unit.name}<FellMark unit={unit} /></b>
             <span>{unit.class_name || "—"}</span>

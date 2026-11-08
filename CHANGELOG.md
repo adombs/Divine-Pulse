@@ -16,6 +16,7 @@
 - Take each unit's affiliation in a battle straight from the game's memory, under the game's own faction name, and update it during the battle if it changes (a reveal, as in the Holy Tomb). Byleth's is the house the run chose.
 - Keep units that died (Classic mode) on the Roster, greyed out with a fallen mark in a Fallen group below the living. Who is dead comes from the game itself (the "Is Dead" flag on each unit's roster record), so a restarted battle, a Divine Pulse or Casual mode leaves a unit alive; the battle recordings only supply where it fell. Its card says where it fell and opens that battle with the replay at the step it fell; Mark as Dead / Mark as Alive on the card fixes a wrong call. A Status filter (Alive / Dead) joins the shared people filters, and History's statistics, the Archive's "in run" marks and the battle's Units tab show the dead too.
 - Handle units that died (Classic mode) in Export Team: an "Include fallen units" switch above the unit list (on to begin with, remembered) puts them in both images greyed with the fell mark by their name, or leaves them out of both; the run statistics follow the overview, and the unit list greys them too.
+- Put each unit's map sprite in the Export Team overview: a small medallion in its class on the corner of the unit's portrait (left out when the game's sprites aren't imported).
 
 ## 1.3.1 (2026-11-07)
 
