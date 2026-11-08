@@ -41,11 +41,13 @@ interface Props {
   onReplaySpeed: (speed: number) => void;
   onDeleteRecording: () => void;
   at?: string | null;
+  /** A unit whose fall the Overview's replay opens at. */
+  fell?: string | null;
   /** The run's route, for its emblem on exports. */
   route?: RunRoute | null;
 }
 
-export function BattlePage({ battle, recording, runId, version, units, part2, mapLook, replaySpeed, onReplaySpeed, onDeleteRecording, at, route }: Props) {
+export function BattlePage({ battle, recording, runId, version, units, part2, mapLook, replaySpeed, onReplaySpeed, onDeleteRecording, at, fell, route }: Props) {
   // The run's battles, for More stats' comparison.
   const [history, setHistory] = useState<Battle[]>([]);
   useEffect(() => {
@@ -70,7 +72,7 @@ export function BattlePage({ battle, recording, runId, version, units, part2, ma
       </section>
     );
   }
-  return <><BattleView key={shown.id} battle={shown} live={battle} history={history} roster={units} part2={part2} mapLook={mapLook} replaySpeed={replaySpeed} onReplaySpeed={onReplaySpeed} at={at} route={route} recording={battle ? undefined : { onDelete: onDeleteRecording }} /></>;
+  return <><BattleView key={shown.id} battle={shown} live={battle} history={history} roster={units} part2={part2} mapLook={mapLook} replaySpeed={replaySpeed} onReplaySpeed={onReplaySpeed} at={at} fell={fell} route={route} recording={battle ? undefined : { onDelete: onDeleteRecording }} /></>;
 }
 
 interface ViewProps {
@@ -85,6 +87,8 @@ interface ViewProps {
   onReplaySpeed: (speed: number) => void;
   /** A unit to open the battle at ("Units" with it selected). */
   at?: string | null;
+  /** A unit to open the Overview's replay at the fall of. */
+  fell?: string | null;
   /** The run's route, for its emblem on exports. */
   route?: RunRoute | null;
   /** Set when this is a selected past battle: delete it. */
@@ -93,7 +97,7 @@ interface ViewProps {
 
 /** One battle's views, live or a selected recording. Key it by the battle's id. */
 export function BattleView(p: ViewProps) {
-  const { at = null, recording } = p;
+  const { at = null, fell = null, recording } = p;
   const portraitData = usePortraitData();
   const battle = useMemo(() => ({ ...p.battle, enemy_stats: Object.fromEntries(Object.entries(p.battle.enemy_stats ?? {}).map(([slot, enemy]) => {
     const personId = (enemy as typeof enemy & { person_id?: number | null }).person_id;
@@ -103,7 +107,7 @@ export function BattleView(p: ViewProps) {
   const [showIdentities] = useSpoiler("identities");
   const [showLaterPortraits] = useSpoiler("portraits");
   const go = useNav().go;
-  const [view, setView] = useState<View>(at ? "units" : "overview");
+  const [view, setView] = useState<View>(at && !fell ? "units" : "overview");
   // The unit open in the character popup ("a:<key>" / "e:<slot>"), from anywhere on the page, and the one whose card
   // is beside the Units table (units opened there show in that card).
   const [unit, setUnit] = useState<string | null>(null);
@@ -115,6 +119,10 @@ export function BattleView(p: ViewProps) {
     setPicked(armyId(at));
     setView("units");
   }, [at]);
+  // Opened again at a unit's fall (a link from the Roster).
+  useEffect(() => {
+    if (fell) setView("overview");
+  }, [fell]);
 
   const seconds = useElapsed(battle.started_at, battle.active, battle.seconds, battle.away_s ?? 0);
   const items = useMemo(() => timeline(battle), [battle]);
@@ -224,7 +232,7 @@ export function BattleView(p: ViewProps) {
           onTab={setView}
         />
         <div key={view} className={`battle-body view-${view} view-enter`}>
-          {view === "overview" && <OverviewTab battle={battle} items={items} seconds={seconds} />}
+          {view === "overview" && <OverviewTab battle={battle} items={items} seconds={seconds} fell={fell} />}
           {view === "units" && <UnitsTab battle={battle} items={items} selected={picked} onSelect={setPicked} roster={p.roster} part2={p.part2} />}
           {view === "more" && <MoreStatsTab battle={battle} items={items} seconds={seconds} history={p.history} />}
         </div>

@@ -28,6 +28,16 @@ address the request came in on, and (for `/api`, `/game-assets` and any non-GET 
 another site. Programs that send none of those headers pass on `Host` alone. Add tests to
 `backend/tests/test_api_security.py` when changing this.
 
+## Units
+
+Each unit in `GET /api/runs/{run_id}/units` carries `death`: null while alive, else `{battle_id, battle_name, scenario,
+turn, step, t, by, manual, at}`, where it fell (the battle's "fell" log entry) and whether the user marked it dead by hand
+(`battle_id` and the rest null when no fall of it was recorded). `marked_alive` is true when the user said the unit is
+alive although the game marks it dead. Runs saved before these fields load with `death` null and `marked_alive` false. `PUT /api/runs/{run_id}/units/{key}/dead`
+`{dead}` marks a unit dead (linked to its latest fall that stood, if any) or alive, and answers with the unit; 404 for an
+unknown run or unit. The tracker takes deaths from the game's "Is Dead" roster flag, as `backend/app/domain/deaths.py`
+describes.
+
 ## Battle
 
 Battle `enemy_stats` entries include `person_id`, the person-data row for named and generic units, or null when unavailable. Older saved battles without the field load with null.

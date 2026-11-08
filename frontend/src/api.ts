@@ -77,6 +77,28 @@ export interface Unit {
   /** Current skill progress from game memory, when its roster fields are known. */
   skills?: Partial<Record<SkillKey, { rank: string; exp: number }>>;
   updated_at: string;
+  /** Dead (Classic mode): the battle and step of its log where it fell. null/absent while alive. */
+  death?: Death | null;
+  /** The user said it's alive although the game marks it dead. */
+  marked_alive?: boolean;
+}
+
+/** Where a unit died (the game's own "Is Dead" flag, or marked by hand): all empty but `manual` when no fall of it was
+ * recorded. */
+export interface Death {
+  battle_id: string | null;
+  /** The battle's map name when it happened. */
+  battle_name: string;
+  scenario: number | null;
+  turn: number | null;
+  /** The "fell" log entry's history position and time (seconds since the battle started). */
+  step: number | null;
+  t: number | null;
+  /** Who caused it, if known. */
+  by: string | null;
+  /** Marked dead by the user. */
+  manual: boolean;
+  at: string;
 }
 
 export interface Settings {
@@ -504,6 +526,8 @@ export const api = {
   setRunEbst: (runId: string, body: EbstConfig) => request<EbstConfig>("PUT", `/runs/${enc(runId)}/ebst`, body),
   setUnitEbst: (runId: string, key: string, body: Partial<EbstConfig>) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/ebst`, body),
+  setUnitDead: (runId: string, key: string, dead: boolean) =>
+    request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/dead`, { dead }),
   gameFilesStatus: () => request<GameFilesStatus>("GET", "/game-assets/status"),
   scanGameFiles: (dump: string) => request<GameFilesScan>("POST", "/game-assets/scan", { dump }),
   importGameFiles: (dump: string) => request<{ job: GameAssetsJob }>("POST", "/game-assets/import", { dump }),

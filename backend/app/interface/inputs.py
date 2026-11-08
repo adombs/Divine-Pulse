@@ -45,6 +45,12 @@ class RunName(Body):
     name: _text(60, what="Run name")  # type: ignore[valid-type]
 
 
+class DeadIn(Body):
+    """Mark a unit dead or alive by hand."""
+
+    dead: bool
+
+
 class EbstIn(Body):
     """Change a unit's eBST setup. Fields left out keep their current value."""
 

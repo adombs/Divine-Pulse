@@ -18,6 +18,7 @@ import { battleWeapon } from "./unitAppearance";
 import { HouseMark, Num, UnitFace, useBattleNav } from "./parts";
 import { enemyStatus, UnitDetail } from "./UnitPopup";
 import { HpBar } from "./HpBar";
+import { deathText } from "../../deaths";
 
 type Col = "name" | "level" | "hp" | "status" | "fights" | "dealt" | "taken" | "healing" | "defeats";
 type State = "alive" | "defeated" | "left";
@@ -74,6 +75,8 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
   const [query, setQuery] = useState("");
   const { sort, header } = useSort<Col>({ key: "status", dir: 1 }, ["name", "status"]);
 
+  // Your units that died for good in this battle (the run's Roster has their death).
+  const diedHere = (key: string) => roster.find((r) => r.key === key && r.death?.battle_id === battle.id);
   const all: Row[] = [
     ...battle.units.map((u) => {
       const t = tally(items, armyId(u.key), { fights: u.combats, defeats: u.defeats });
@@ -88,7 +91,9 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
         max: u.now.hp,
         onMap: u.on_map,
         team: "player" as Team,
-        flags: armyFlags(u, battle.active ? risks.get(u.key) : undefined, u.adjutant_of ? nameOf(battle, u.adjutant_of) : undefined),
+        flags: diedHere(u.key)
+          ? [{ icon: CONCEPT_ICON.dead, title: `Died here: ${deathText(diedHere(u.key)!)}`, tone: "bad" as const }]
+          : armyFlags(u, battle.active ? risks.get(u.key) : undefined, u.adjutant_of ? nameOf(battle, u.adjutant_of) : undefined),
         fights: t.fights,
         defeats: t.defeats,
         dealt: u.damage_dealt,

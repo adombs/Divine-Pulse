@@ -23,6 +23,7 @@ import { PortraitFlip, unitSprite } from "../character/CharacterFace";
 import { CharacterStats, characterStats, leader, RunStats, runStats, timelines } from "./stats";
 import { Icon } from "../Icon";
 import { CONCEPT_ICON } from "../../icons/concepts";
+import { deathText } from "../../deaths";
 
 type Col = "name" | "battles" | "fights" | "defeats" | "dealt" | "taken" | "healing" | "level_ups" | "left";
 
@@ -96,7 +97,7 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
               return (
                 <tr
                   key={c.key}
-                  className={current?.key === c.key ? "selected" : ""}
+                  className={`${current?.key === c.key ? "selected" : ""}${unit?.death ? " fallen" : ""}`}
                   onClick={() => pick(c.key)}
                   onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), pick(c.key))}
                   tabIndex={0}
@@ -106,7 +107,14 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
                     <span className="who">
                       {unit ? <Portrait unit={unit} part2={part2} size={34} /> : null}
                       <span className="who-text">
-                        <span className="who-name">{c.name}</span>
+                        <span className="who-name">
+                          {c.name}
+                          {unit?.death && (
+                            <span className="fallen-mark" title={deathText(unit)} aria-label={deathText(unit)} role="img">
+                              <Icon name={CONCEPT_ICON.dead} />
+                            </span>
+                          )}
+                        </span>
                         <span className="who-class">
                           {c.class_name} · Lv {c.level}
                         </span>

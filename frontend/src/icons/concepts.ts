@@ -6,7 +6,7 @@
  */
 import type { IconName } from "../components/Icon";
 
-type SharedConcept = "weapon" | "actions" | "affiliation" | "lostItem" | "finalBlow" | "add" | "levelUp";
+type SharedConcept = "weapon" | "actions" | "affiliation" | "lostItem" | "finalBlow" | "add" | "levelUp" | "alive" | "dead";
 
 export const CONCEPT_ICON = {
   // Pages.
@@ -115,4 +115,7 @@ export const CONCEPT_ICON = {
   lostItem: "item",
   finalBlow: "defeat",
   add: "statUp",
+  // A run's unit alive or dead (Classic mode): dead is the log's "fell".
+  alive: "ending",
+  dead: "fell",
 } as const satisfies Record<IconName | SharedConcept, IconName>;

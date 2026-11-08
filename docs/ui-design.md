@@ -129,6 +129,13 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
   portrait and stats, the rest flowing into columns beside them, units per row set beside the preview; run statistics) and the units to include, in slots laid out as many side by side as the overview (an empty row more at the
   end); a six-dot handle drags a unit to another slot, empty or not (they swap), and empty slots leave rows short. An Order menu above
   them lays every unit out by BST, deployments, joining (first battle) or name; dragging makes it Custom.
+  Dead units are greyed in that list with the fell mark; an "Include fallen units" checkbox above it (only when someone is dead; on by
+  default, remembered) puts them in both images greyed with the mark by their name, or leaves them out of both (the statistics follow the
+  overview, and their Team totals count whoever is shown).
+  Dead units (Classic mode) stay in the table, greyed with the log's fell mark, in a Fallen group below the living whatever the sort;
+  their card's Status fact says where they fell and opens that battle with the replay at that step
+  (`#/battle/<id>?fell=<unit key>`), and the banner's Mark as Dead / Mark as Alive button overrides the game's flag.
+  The shared people filters' Status (Alive / Dead) only counts people in the active run.
 - **Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
   with a `DetailCard`. The Archive's tabs: Characters, Crests, Battalions, Classes, Combat Arts, Abilities, Magic,
   Weapons, Items (old `#/characters/...` links open its Characters and Crests tabs).

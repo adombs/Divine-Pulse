@@ -1,6 +1,6 @@
 import { CONCEPT_ICON } from "../icons/concepts";
 import "./character/panels.css";
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
 import { Icon, IconButton } from "./Icon";
 import { api, LABELS, RunSummary, STAT_KEYS, StatKey, Unit, VALUE_KEYS, ValueKey } from "../api";
 import { characterKeyOfUnit } from "../portraits";
@@ -37,6 +37,7 @@ import { BattalionPanel } from "./character/Battalion";
 import { tidyAbility } from "../appearance";
 import { TeamExportButton } from "./TeamExport";
 import { plural } from "../format";
+import { deathText } from "../deaths";
 
 type SortKey = "name" | "ebst" | ValueKey;
 type Mode = "base" | "displayed";
@@ -135,7 +136,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
   const ref = useReference();
   // Affiliation uses the shared people filters (current run is implied here).
   const [people] = usePeopleFilters();
-  const [peopleCount, clearPeople] = usePeopleFilterCount(["affiliation"]);
+  const [peopleCount, clearPeople] = usePeopleFilterCount(["affiliation", "status"]);
   const houseOf = useMemo(() => new Map(ref?.characters.map((c) => [c.key, c.house] as const) ?? []), [ref]);
   const [nameWidth, setNameWidth] = useState(() => {
     const stored = Number(localStorage.getItem("divine-pulse-roster-name-width"));
@@ -167,12 +168,15 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
       if (battleOnly && !battleSet.has(u.key)) return false;
       if (!searchMatches(filter, u.name, u.full_name, u.class_name)) return false;
       const key = characterKeyOfUnit(u);
-      // Units the reference doesn't know (no portrait) only drop out for an affiliation filter.
-      if (!key || !houseOf.has(key)) return !people.affiliations.length;
-      return passes({ ...people, routes: [] }, { key, house: houseOf.get(key)!, inRun: true }, { ignoreRun: true });
+      const dead = !!u.death;
+      // Units the reference doesn't know (no portrait) only drop out for an affiliation or status filter.
+      if (!key || !houseOf.has(key)) return !people.affiliations.length && passes({ ...people, routes: [] }, { key: "", house: "", inRun: true, dead }, { ignoreRun: true });
+      return passes({ ...people, routes: [] }, { key, house: houseOf.get(key)!, inRun: true, dead }, { ignoreRun: true });
     });
+    // The dead go last, in their own group, whatever the sort.
     return list.sort((a, b) => {
-      return compareValues(valueOf(a, sort.key, mode, lens), valueOf(b, sort.key, mode, lens)) * sort.dir || a.name.localeCompare(b.name);
+      return Number(!!a.death) - Number(!!b.death)
+        || compareValues(valueOf(a, sort.key, mode, lens), valueOf(b, sort.key, mode, lens)) * sort.dir || a.name.localeCompare(b.name);
     });
   }, [units, sort, mode, filter, lens, people, houseOf, battleOnly, battleSet]);
 
@@ -269,8 +273,8 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
         <div className="toolbar">
           <span className="toolbar-count">{plural(sorted.length, "Unit")}</span>
           <SearchBox placeholder="Search name or class" value={filter} onChange={setFilter} />
-          <FilterMenu count={peopleCount} onClear={clearPeople} chips={<PeopleFilterChips fields={["affiliation"]} />}>
-            <PeopleFilterFields fields={["affiliation"]} />
+          <FilterMenu count={peopleCount} onClear={clearPeople} chips={<PeopleFilterChips fields={["affiliation", "status"]} />}>
+            <PeopleFilterFields fields={["affiliation", "status"]} />
           </FilterMenu>
           {battleKeys.length > 0 && (
             <span className="battle-filter" title="Units in the battle in progress, read from game memory">
@@ -320,14 +324,20 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
                 </tr>
               </thead>
               <tbody>
-                {sorted.map((u) => {
+                {sorted.map((u, i) => {
                   const result = resultFor(u, mode, lens);
                   const cfg = cfgFor(u, lens);
                   const suffix = lens ? ` (compared as ${lens.name})` : "";
+                  const firstDead = !!u.death && !sorted[i - 1]?.death;
                   return (
+                    <Fragment key={u.key}>
+                    {firstDead && (
+                      <tr className="fallen-divider">
+                        <th colSpan={NUMERIC_COLS.length + 1} scope="rowgroup"><span><Icon name={CONCEPT_ICON.dead} />Fallen</span></th>
+                      </tr>
+                    )}
                     <tr
-                      key={u.key}
-                      className={`${current?.key === u.key ? "selected" : ""} ${flashKey === u.key ? "flash" : ""}`}
+                      className={`${current?.key === u.key ? "selected" : ""} ${flashKey === u.key ? "flash" : ""} ${u.death ? "fallen" : ""}`}
                       onClick={() => show(u.key)}
                       tabIndex={0}
                       onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && (e.preventDefault(), show(u.key))}
@@ -339,6 +349,11 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
                           <div className="who-text">
                             <span className="who-name">
                               {u.name}
+                              {u.death && (
+                                <span className="fallen-mark" title={deathText(u)} aria-label={deathText(u)} role="img">
+                                  <Icon name={CONCEPT_ICON.dead} />
+                                </span>
+                              )}
                               {u.boosted_unexplained.length > 0 && (
                                 <span className="badge warn" title="Some values need checking. Open the unit to see which.">
                                   !
@@ -377,6 +392,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
                         );
                       })}
                     </tr>
+                    </Fragment>
                   );
                 })}
               </tbody>
@@ -401,6 +417,25 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
 
 const needsCheck = (u: Unit) => u.boosted_unexplained.length > 0;
 
+/** A dead unit's status: where it fell, a link to that step of the battle's replay. */
+function DeathLink({ unit }: { unit: Unit }) {
+  const nav = useNav();
+  const d = unit.death;
+  if (!d) return null;
+  const label = <><Icon name={CONCEPT_ICON.dead} />Fell{d.battle_name ? ` · ${d.battle_name}` : ""}{d.turn != null ? `, turn ${d.turn}` : ""}</>;
+  if (!d.battle_id) return <span className="death-status" title={deathText(unit)}>{label}<span className="muted">{d.manual ? "(marked by hand)" : "(no recorded battle)"}</span></span>;
+  return (
+    <button
+      type="button"
+      className="ref-link death-status"
+      title={`${deathText(unit)}. Open the battle at that step.`}
+      onClick={() => nav.go({ page: "battle", id: d.battle_id!, fell: unit.key })}
+    >
+      {label}
+    </button>
+  );
+}
+
 /** A compact version of the in-game Status page for one unit. */
 interface CardProps {
   unit: Unit;
@@ -419,6 +454,14 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
   const own = computeEbst(values, cfg);
   const nav = useNav();
   const ref = useReference();
+
+  const setDead = async (dead: boolean) => {
+    try {
+      await api.setUnitDead(runId, unit.key, dead);
+    } catch (e) {
+      toasts.push({ kind: "error", title: dead ? "Couldn't mark the unit dead" : "Couldn't mark the unit alive", body: (e as Error).message });
+    }
+  };
 
   const setEbst = async (body: Partial<EbstConfig>) => {
     try {
@@ -515,6 +558,11 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
       actions={
         <>
           <IconButton icon={CONCEPT_ICON.history} label="Battle Stats" onClick={() => nav.go({ page: "history", tab: "stats", id: unit.key })} />
+          <IconButton
+            icon={unit.death ? CONCEPT_ICON.alive : CONCEPT_ICON.dead}
+            label={unit.death ? "Mark as Alive" : "Mark as Dead"}
+            onClick={() => setDead(!unit.death)}
+          />
         </>
       }
     >
@@ -523,12 +571,13 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
         name={unit.name}
         layout="flip"
         scope="run"
-        face={<span className="cv-face"><Portrait unit={unit} part2={part2} size={104} /></span>}
+        face={<span className={`cv-face${unit.death ? " fallen" : ""}`}><Portrait unit={unit} part2={part2} size={104} /></span>}
         backFace={<SpriteFace sprite={unitSprite(unit)} name={unit.name} />}
         facts={[
           ["Name", <CharLink key="name" charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills in the Archive">{unit.full_name || unit.name}</CharLink>],
           ["Class", unit.class_name ? <ClassLink key="class" name={unit.class_name} /> : "—"],
           ["Crest", crests.length ? <span className="crest-marks">{crests.map((c) => <span key={`${c.name}-${c.major}`}><CrestLink name={c.name}>{crestLabel(c.name, c.major)}</CrestLink></span>)}</span> : "None"],
+          ...(unit.death ? [["Status", <DeathLink key="status" unit={unit} />] as [string, ReactNode]] : []),
         ]}
         backFacts={[
           ["Gender", unit.gender || character?.gender || "—"],

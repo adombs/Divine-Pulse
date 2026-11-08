@@ -12,6 +12,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { api, LABELS, type Battle, type RunSummary, type Unit, type ValueKey } from "../api";
 import { tidyAbility } from "../appearance";
 import { plural } from "../format";
+import { deathText } from "../deaths";
 import { AbilityIcon, ArtIcon, ItemIcon } from "../reference/icons";
 import { elementPng } from "../exporting/snapshot";
 import { safeFilename, saveFiles } from "../exporting/save";
@@ -42,8 +43,10 @@ interface ImageOptions {
   theme: ExportTheme;
   loadouts: boolean;
   stats: boolean;
+  /** Whether units that died (Classic mode) are in the images: greyed, with the fell mark. */
+  fallen: boolean;
 }
-const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, theme: "app", loadouts: true, stats: true };
+const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, theme: "app", loadouts: true, stats: true, fallen: true };
 
 function loadImageOptions(): ImageOptions {
   try {
@@ -53,6 +56,7 @@ function loadImageOptions(): ImageOptions {
       theme: THEME_OPTIONS.some(([t]) => t === saved.theme) ? saved.theme! : DEFAULT_IMAGE_OPTIONS.theme,
       loadouts: saved.loadouts !== false,
       stats: saved.stats !== false,
+      fallen: saved.fallen !== false,
     };
   } catch {
     return DEFAULT_IMAGE_OPTIONS;
@@ -107,14 +111,22 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
       // Not kept; fine.
     }
   }, [perRow]);
+  useExportThemes();
+  const [options, setOptionsState] = useState<ImageOptions>(loadImageOptions);
+  const setOption = <K extends keyof ImageOptions>(key: K, value: ImageOptions[K]) => setOptionsState((o) => {
+    const next = { ...o, [key]: value };
+    try {
+      localStorage.setItem(IMAGE_OPTIONS_KEY, JSON.stringify(next));
+    } catch {
+      // Not kept; fine.
+    }
+    return next;
+  });
   const slots = layoutSlots(placed, units.map((u) => u.key), perRow);
   // The images: each row of slots with the units it includes (rows left with none drop out), and those units in order.
-  const rows: Unit[][] = [];
-  for (let i = 0; i < slots.length; i += perRow) {
-    const row = slots.slice(i, i + perRow).filter((k): k is string => k !== null && !left.has(k)).map((k) => byKey.get(k)!);
-    if (row.length) rows.push(row);
-  }
+  const rows = pickRows(slots, byKey, left, perRow, options.fallen);
   const chosen = rows.flat();
+  const fallenCount = units.filter((u) => u.death).length;
   const toggle = (key: string) => setLeft((s) => {
     const next = new Set(s);
     if (next.has(key)) next.delete(key);
@@ -142,17 +154,6 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
     if (by !== "custom") setPlaced(orderUnits(units, by, ledger?.characters ?? []));
   };
 
-  useExportThemes();
-  const [options, setOptionsState] = useState<ImageOptions>(loadImageOptions);
-  const setOption = <K extends keyof ImageOptions>(key: K, value: ImageOptions[K]) => setOptionsState((o) => {
-    const next = { ...o, [key]: value };
-    try {
-      localStorage.setItem(IMAGE_OPTIONS_KEY, JSON.stringify(next));
-    } catch {
-      // Not kept; fine.
-    }
-    return next;
-  });
   const loadouts = useRef<HTMLDivElement>(null);
   const stats = useRef<HTMLDivElement>(null);
   // Each image's size on the page (its saved size is that times the chosen size), kept up to date as it changes.
@@ -251,7 +252,14 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
                 ))}
               </select>
             </label>
-            <UnitSlots slots={slots} byKey={byKey} left={left} part2={part2} columns={perRow} onToggle={toggle} onPlace={(next) => { setPlaced(next); setOrderBy("custom"); }} />
+            {fallenCount > 0 && (
+              <label className="team-include-fallen">
+                <input type="checkbox" checked={options.fallen} onChange={(e) => setOption("fallen", e.target.checked)} />
+                Include fallen units
+                <small>{fallenCount}</small>
+              </label>
+            )}
+            <UnitSlots slots={slots} byKey={byKey} left={left} includeFallen={options.fallen} part2={part2} columns={perRow} onToggle={toggle} onPlace={(next) => { setPlaced(next); setOrderBy("custom"); }} />
           </fieldset>
           <fieldset className="export-group" disabled={working}>
             <legend>Images</legend>
@@ -332,6 +340,31 @@ export function orderUnits(units: Unit[], by: Exclude<OrderBy, "custom">, charac
 }
 
 /**
+ * The images' rows: each row of slots with the units it includes (rows left with none drop out). A unit is left out
+ * when unticked, or when it died (`death`) and the fallen are not included.
+ */
+export function pickRows(slots: (string | null)[], byKey: Map<string, Unit>, left: Set<string>, perRow: number, includeFallen: boolean): Unit[][] {
+  const rows: Unit[][] = [];
+  for (let i = 0; i < slots.length; i += perRow) {
+    const row = slots.slice(i, i + perRow)
+      .map((k) => (k === null ? undefined : byKey.get(k)))
+      .filter((u): u is Unit => !!u && !left.has(u.key) && (includeFallen || !u.death));
+    if (row.length) rows.push(row);
+  }
+  return rows;
+}
+
+/** The mark by a fallen unit's name in the images and the unit list: the app's dead icon, with where it fell. */
+function FellMark({ unit }: { unit: Unit }) {
+  if (!unit.death) return null;
+  return (
+    <span className="team-fell-mark" title={deathText(unit)} role="img" aria-label={deathText(unit)}>
+      <Icon name={CONCEPT_ICON.dead} />
+    </span>
+  );
+}
+
+/**
  * The slots, as shown: `placed` with units it no longer has emptied, units it doesn't have yet put in its first empty
  * slots (or after the last), the empty slots at the end let go, then one empty row more to move units into.
  */
@@ -361,10 +394,11 @@ export function moveSlot(slots: (string | null)[], from: number, to: number): (s
  * handle (six dots) to drag it to another slot, empty or not (they swap). Alt and an arrow key move the focused one
  * to the next slot that way.
  */
-function UnitSlots({ slots, byKey, left, part2, columns, onToggle, onPlace }: {
+function UnitSlots({ slots, byKey, left, includeFallen, part2, columns, onToggle, onPlace }: {
   slots: (string | null)[];
   byKey: Map<string, Unit>;
   left: Set<string>;
+  includeFallen: boolean;
   part2: boolean;
   columns: number;
   onToggle: (key: string) => void;
@@ -399,7 +433,7 @@ function UnitSlots({ slots, byKey, left, part2, columns, onToggle, onPlace }: {
         const classes = [drag?.from === i ? "dragging" : "", drag && drag.over === i && drag.from !== i ? "over" : ""];
         if (!u) return <li key={`empty-${i}`} className={["empty", ...classes].join(" ")} aria-label={`Empty slot ${i + 1}`} />;
         return (
-          <li key={u.key} data-key={u.key} className={[left.has(u.key) ? "" : "on", ...classes].join(" ")}>
+          <li key={u.key} data-key={u.key} className={[left.has(u.key) ? "" : "on", u.death ? "fallen" : "", u.death && !includeFallen ? "omitted" : "", ...classes].join(" ")}>
             <span
               className="team-order-handle"
               role="button"
@@ -424,9 +458,10 @@ function UnitSlots({ slots, byKey, left, part2, columns, onToggle, onPlace }: {
               <Icon name={CONCEPT_ICON.drag} />
             </span>
             <label title={u.name}>
-              <input type="checkbox" checked={!left.has(u.key)} onChange={() => onToggle(u.key)} />
+              <input type="checkbox" checked={!left.has(u.key) && (includeFallen || !u.death)} disabled={!includeFallen && !!u.death} onChange={() => onToggle(u.key)} />
               <Portrait unit={u} part2={part2} size={24} />
               <span className="team-order-name">{u.name}</span>
+              <FellMark unit={u} />
             </label>
           </li>
         );
@@ -524,7 +559,7 @@ function LoadoutCard({ unit, part2 }: { unit: Unit; part2: boolean }) {
         <header className="team-card-head">
           <Portrait unit={unit} part2={part2} size={64} />
           <div className="team-card-name">
-            <b>{unit.name}</b>
+            <b>{unit.name}<FellMark unit={unit} /></b>
             <span>{unit.class_name || "—"}</span>
           </div>
           <span className="team-card-bst" title="Base stat total: the base stats added up, without bonuses">
@@ -591,7 +626,7 @@ function LoadoutCard({ unit, part2 }: { unit: Unit; part2: boolean }) {
   }); // every render: cheap, and settles after one pass since a piece's height doesn't depend on its column
   const shown = columns.flat().length === pieces.length ? columns : whole;
   return (
-    <article ref={card} className="team-card" style={{ padding: CARD_PAD, gap: CARD_GAP }}>
+    <article ref={card} className={`team-card${unit.death ? " fallen" : ""}`} style={{ padding: CARD_PAD, gap: CARD_GAP }}>
       {shown.map((column, c) => (
         <div key={c} className="team-card-col" style={{ width: CARD_COLUMN, gap: PIECE_GAP }}>
           {column.map((i) => (
@@ -655,12 +690,12 @@ function StatsTable({ units, rows, totals, part2 }: { units: Unit[]; rows: Ledge
           const row = byKey.get(u.key);
           const top = topRecords(row, totals);
           return (
-            <tr key={u.key} className={row ? "" : "unrecorded"}>
+            <tr key={u.key} className={[row ? "" : "unrecorded", u.death ? "fallen" : ""].filter(Boolean).join(" ")}>
               <th scope="row" className="team-stats-unit">
                 <span>
                   <Portrait unit={u} part2={part2} size={32} />
                   <span>
-                    <b>{u.name}</b>
+                    <b>{u.name}<FellMark unit={u} /></b>
                     <small>{u.class_name}</small>
                   </span>
                 </span>

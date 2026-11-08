@@ -18,14 +18,19 @@ export const AFFILIATIONS = [
   "Other",
 ] as const;
 
+export type LifeStatus = "alive" | "dead";
+export const LIFE_STATUSES: LifeStatus[] = ["alive", "dead"];
+
 export interface PeopleFilters {
   affiliations: string[];
   /** Only units in the active run. */
   runOnly: boolean;
   routes: RouteId[];
+  /** Alive or dead in the active run (people not in it are neither). */
+  status: LifeStatus[];
 }
 
-export const NO_FILTERS: PeopleFilters = { affiliations: [], runOnly: false, routes: [] };
+export const NO_FILTERS: PeopleFilters = { affiliations: [], runOnly: false, routes: [], status: [] };
 
 /**
  * Routes a character can be fielded on in Part II (Characters page key). From the recruitment notes: the
@@ -52,8 +57,9 @@ export function routesOf(key: string): RouteId[] {
 }
 
 /** Whether a person passes the filters. `key` is the Characters page key (lowercase name, "byleth"). */
-export function passes(f: PeopleFilters, p: { key: string; house: string; inRun: boolean }, opts: { ignoreRun?: boolean } = {}): boolean {
+export function passes(f: PeopleFilters, p: { key: string; house: string; inRun: boolean; dead?: boolean }, opts: { ignoreRun?: boolean } = {}): boolean {
   if (f.affiliations.length && !f.affiliations.includes(p.house)) return false;
+  if (f.status.length && (!p.inRun || !f.status.includes(p.dead ? "dead" : "alive"))) return false;
   if (f.runOnly && !opts.ignoreRun && !p.inRun) return false;
   if (f.routes.length && !routesOf(p.key).some((r) => f.routes.includes(r))) return false;
   return true;
@@ -78,7 +84,8 @@ export function usePeopleFiltersState(loadedRun = false): [PeopleFilters, (f: Pe
     try {
       const raw = localStorage.getItem(STORE);
       const stored = raw ? JSON.parse(raw) as Partial<PeopleFilters> : {};
-      return { ...NO_FILTERS, ...stored, runOnly: false };
+      const status = Array.isArray(stored.status) ? stored.status.filter((s) => LIFE_STATUSES.includes(s)) : [];
+      return { ...NO_FILTERS, ...stored, status, runOnly: false };
     } catch {
       return NO_FILTERS;
     }

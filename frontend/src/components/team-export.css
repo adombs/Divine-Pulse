@@ -138,3 +138,15 @@
 .team-sheet-theme { width: max-content; min-width: 100%; }
 .export-theme-dark .team-sheet { background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper); }
 .export-theme-light .team-sheet { background: radial-gradient(ellipse at 20% 0%, rgb(255 255 255 / 0.18), transparent 60%), var(--paper); }
+
+/* Units that died (Classic mode): greyed like the Roster's, with the fell mark by the name. */
+.team-fell-mark { margin-left: 0.35rem; color: var(--red); font-size: 0.85em; vertical-align: -0.06em; font-weight: 400; }
+.team-card.fallen .portrait, .team-stats tr.fallen .portrait, .team-order li.fallen .portrait { filter: grayscale(1); }
+.team-card.fallen { filter: saturate(0.35); }
+.team-card.fallen .team-card-name b, .team-card.fallen .team-card-bst, .team-stats tr.fallen td { color: var(--ink-soft); }
+.team-stats tr.fallen .team-stats-unit b { color: var(--ink-soft); }
+.team-order li.fallen .team-order-name { color: var(--ink-soft); }
+.team-order li.omitted label { opacity: 0.55; cursor: default; }
+.team-include-fallen { display: flex; align-items: center; gap: 0.4rem; font-size: 0.92rem; cursor: pointer; }
+.team-include-fallen input { margin: 0; accent-color: var(--accent); }
+.team-include-fallen small { margin-left: auto; color: var(--ink-soft); font-variant-numeric: tabular-nums; }

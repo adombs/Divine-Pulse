@@ -36,7 +36,7 @@ from .game_assets import game_assets
 from . import game_tables
 from ..gamemem.battle import FlagWatch
 from ..gamemem.combat import weapon_kind
-from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_player_name, decode_roster
+from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_dead, decode_player_name, decode_roster
 from ..gamemem.readers import emulators_for
 from ..gamemem.recorder import BattleRecorder
 from ..gamemem.units import SCREEN_TITLE as MEMORY_TITLE
@@ -46,6 +46,8 @@ from ..handlers import handle
 from ..application.roster_tracking import RosterUpdates
 from ..application.battle_tracking import BattleTracker
 from .battle_support import DefaultBattleSupport
+from ..domain import deaths
+from ..domain.changes import UnitChange
 from ..domain.units import unit_key
 from ..storage import BattleStore, NotFound, RunStore
 
@@ -442,6 +444,10 @@ class Scanner:
             self.battle_store.clear_active(battle.run_id)
         except Exception:
             log.exception("Could not save the battle")
+            return
+        # Read the roster again now the battle is filed, even if it hasn't changed: a unit that died in it can now be
+        # linked to where it fell (see _detect_deaths).
+        self._mem_applied = None
 
     def _sample_battle(self, snapshot: Snapshot, run_id: str) -> BattleSample:
         """The army units in the battle (on-screen values) and the other units on the map."""
@@ -719,6 +725,11 @@ class Scanner:
 
         uses = dict(snapshot.gambit_uses)
         result = self.roster_updates.apply(run, readings())
+        if decoded and not snapshot.in_battle and not self._battles.active:
+            # A complete read of the roster between battles: the game marks who died.
+            result.changes.extend(
+                self._detect_deaths(run, {unit.character for unit in decoded}, set(decode_dead(snapshot.roster)))
+            )
         changes = result.changes
         warnings, key_of = result.warnings, result.keys
         self._mem_applied = (run_id, snapshot)
@@ -735,6 +746,30 @@ class Scanner:
         if changes:
             single = changes[0] if len(changes) == 1 else None
             self.events.publish("units_changed", {"run_id": run_id, "unit_key": single.key if single else None})
+
+
+    def _detect_deaths(self, run, present: set[int], dead: set[int]) -> list[UnitChange]:
+        """Mark the units the game marks dead as dead, and units back in the army alive as alive (domain/deaths.py).
+        The battles (for where they fell) are only loaded when a unit has newly died."""
+        battles = None
+        if deaths.newly_dead(run.units, dead) and self.battle_store is not None:
+            battles = self.battle_store.list(run.id)
+        changed = deaths.detect(run.units, present, dead, battles)
+        if not changed:
+            return []
+        out = [UnitChange(key, run.units[key], unit) for key, unit in changed.items()]
+        try:
+            self.store.apply_units(run.id, changed)
+        except Exception:
+            log.exception("Could not save the units' deaths")
+            return []
+        run.units.update(changed)
+        for key, unit in changed.items():
+            if unit.death is not None:
+                log.info("%s is dead (the game says so); fell in battle %s", key, unit.death.battle_id)
+            else:
+                log.info("%s is back in the army: alive", key)
+        return out
 
 
 def _stand_in(unit) -> bool:

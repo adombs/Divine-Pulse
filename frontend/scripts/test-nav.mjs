@@ -29,3 +29,11 @@ test("the Archive's cards are general only: no run stats, gear, abilities or bat
 test("malformed percent escapes safely fall back to Home", () => {
   assert.deepEqual(fromHash("#/battle/%E0%A4%A"), { page: "home" });
 });
+
+test("a battle link can open the replay at a unit's fall, alongside q", () => {
+  const route = { page: "battle", id: "20261106-174856", q: undefined, fell: "raphael" };
+  assert.equal(toHash(route), "#/battle/20261106-174856?fell=raphael");
+  assert.deepEqual(fromHash(toHash(route)), route);
+  assert.equal(toHash({ page: "battle", id: "b", q: "a key", fell: "b key" }), "#/battle/b?q=a%20key&fell=b%20key");
+  assert.deepEqual(fromHash("#/battle/b"), { page: "battle", id: "b", q: undefined });
+});
