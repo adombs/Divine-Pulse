@@ -157,7 +157,8 @@ function stage(board: Board, animation: StepAnimation | null | undefined, keep: 
       y += (dy / length) * reach;
     }
     const fell = p.down && !q.down;
-    drawn.push({ piece: p, x, y, opacity: fell ? 1 - fade : 1, hp: landed ? p.hp : q.hp });
+    const revived = q.down && !p.down; // played backwards, a unit that fell gets up again
+    drawn.push({ piece: p, x, y, opacity: fell ? 1 - fade : revived ? fade : 1, hp: landed ? p.hp : q.hp });
   }
   for (const q of before.pieces) {
     if (!q.down && !now.has(q.id)) drawn.push({ piece: q, x: q.x, y: q.y, opacity: 1 - fade, hp: q.hp }); // left the map
@@ -852,6 +853,11 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
           />
         ) : (
           <p className="muted small">No positions were read for this battle.</p>
+        )}
+        {replay.rewind && (
+          <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.6 + 0.4 * replay.rewind.badge})` }} aria-hidden>
+            <Icon name={CONCEPT_ICON.pulse} />
+          </div>
         )}
         {hasMap(battle) && <MapKey board={board} replay={replay.steps.length > 0} place="overview" />}
         {hasMap(battle) && <ReplayBanner replay={replay} />}

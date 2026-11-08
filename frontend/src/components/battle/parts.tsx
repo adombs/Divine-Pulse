@@ -67,12 +67,12 @@ const PHASE_CLASS = ["player", "enemy", "other", "other"];
 
 /** One line of the log: time, the icon of what happened (tinted by its kind), and what happened, with names that open
  * the unit's card and the numbers as chips. Phase starts are thin banners in their army's colour. */
-export function ItemRow({ item, current, future, onSelect }: { item: Item; current?: boolean; future?: boolean; onSelect?: (item: Item) => void }) {
+export function ItemRow({ item, current, future, undone = item.branch > 0, onSelect }: { item: Item; current?: boolean; future?: boolean; undone?: boolean; onSelect?: (item: Item) => void }) {
   const phase = item.heading && item.phase !== null ? PHASE_CLASS[item.phase] ?? "" : "";
-  const pick = onSelect && !item.heading && (item.step !== null || !!item.steps?.length);
+  const pick = onSelect && !item.heading && (item.beat !== undefined ? item.beat !== null || !!item.beats?.length : item.step !== null || !!item.steps?.length);
   return (
     <li
-      className={`log-row cat-${item.category} kind-${item.kind} ${item.heading ? `heading ${phase}` : ""} ${item.branch ? "undone" : ""} ${current ? "current" : ""} ${future ? "future" : ""} ${pick ? "pickable" : ""}`}
+      className={`log-row cat-${item.category} kind-${item.kind} ${item.heading ? `heading ${phase}` : ""} ${undone ? "undone" : ""} ${current ? "current" : ""} ${future ? "future" : ""} ${pick ? "pickable" : ""}`}
       aria-current={current || undefined}
       onClick={pick ? () => onSelect(item) : undefined}
       onKeyDown={pick ? (e) => e.target === e.currentTarget && (e.key === "Enter" || e.key === " ") && (e.preventDefault(), onSelect(item)) : undefined}
@@ -85,7 +85,12 @@ export function ItemRow({ item, current, future, onSelect }: { item: Item; curre
       </span>
       <span className="log-text">
         <ItemText item={item} />
-        {item.branch > 0 && (
+        {item.defeated && (
+          <span className="log-defeat" title="A unit went down">
+            <Icon name={CONCEPT_ICON.defeat} />
+          </span>
+        )}
+        {undone && (
           <span className="undone-badge" title="Turned back by Divine Pulse: this no longer stands">
             undone
           </span>
@@ -351,15 +356,20 @@ export function ItemList({
   }, [current]);
   if (!items.length) return <p className="muted">{empty}</p>;
   const shown = mergeHits(items);
-  const first = (i: Item) => i.steps?.[0] ?? i.step;
+  // The chronology (chronicle.ts) is by replay beat, and a row is undone once the replay is at or past the Divine Pulse
+  // that turned it back; any other list is by position in the game's history.
+  const first = (i: Item) => (i.beat !== undefined ? i.beats?.[0] ?? i.beat : i.steps?.[0] ?? i.step);
+  const isCurrent = (i: Item) => current != null && (i.beat !== undefined ? i.beat === current || !!i.beats?.includes(current) : i.step === current || !!i.steps?.includes(current));
+  const isUndone = (i: Item) => (i.beat === undefined ? i.branch > 0 : i.undoneBy != null && (current == null || (i.undoneAt != null && current >= i.undoneAt)));
   return (
     <ol className="log-list" ref={list}>
       {shown.map((i) => (
         <ItemRow
           key={i.key}
           item={i}
-          current={current != null && (i.step === current || !!i.steps?.includes(current))}
-          future={current != null && first(i) !== null && first(i)! > current}
+          current={isCurrent(i)}
+          future={current != null && first(i) != null && first(i)! > current}
+          undone={isUndone(i)}
           onSelect={onSelect}
         />
       ))}
@@ -459,10 +469,10 @@ export function OutlookCard({ outlook, trend, seconds, events, at }: { outlook: 
       </div>
       <TrendChart trend={trend} seconds={seconds} events={events} at={at} />
       {outlook.factors.length > 0 && (
-        <details className="hint-fold">
-          <summary>
+        <div className="outlook-why">
+          <span className="outlook-why-label" tabIndex={0}>
             <Icon name={CONCEPT_ICON.info} /> Why {pct}%?
-          </summary>
+          </span>
           <ul className="outlook-factors">
             {outlook.factors.map((f) => (
               <li key={f.label}>
@@ -474,7 +484,7 @@ export function OutlookCard({ outlook, trend, seconds, events, at }: { outlook: 
               </li>
             ))}
           </ul>
-        </details>
+        </div>
       )}
     </div>
   );

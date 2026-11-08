@@ -1199,6 +1199,15 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .outlook.good .outlook-bar > span { background: var(--green); }
 .outlook.bad .outlook-bar > span { background: var(--red); }
 .outlook-factors { margin: 0.3rem 0 0.4rem; padding-left: 1.1rem; display: grid; gap: 0.15rem; }
+/* "Why N%?": reveals on hover or keyboard focus only (no click toggle); the list floats so nothing shifts. */
+.outlook-why { position: relative; font-size: 0.92rem; color: var(--ink-soft); }
+.overview-cards .outlook-why { font-size: 0.85rem; }
+.outlook-why-label { display: block; width: fit-content; cursor: default; text-decoration: underline dotted; text-underline-offset: 3px; }
+.outlook-why-label .icon { margin-right: 0.15rem; }
+.outlook-why:hover .outlook-why-label, .outlook-why:focus-within .outlook-why-label { color: var(--ink); }
+.outlook-why > .outlook-factors { position: absolute; left: 0; bottom: 100%; z-index: 20; width: max-content; max-width: min(28rem, 80vw); margin: 0 0 0.2rem; padding: 0.4rem 0.7rem 0.4rem 1.6rem; background: var(--paper); color: var(--ink); border: 1px solid var(--row-border); box-shadow: 0 4px 14px var(--shadow, rgba(0,0,0,0.25)); opacity: 0; visibility: hidden; transition: opacity 0.12s ease, visibility 0.12s; }
+.outlook-why:hover > .outlook-factors, .outlook-why:focus-within > .outlook-factors { opacity: 1; visibility: visible; }
+@media (prefers-reduced-motion: reduce) { .outlook-why > .outlook-factors { transition: none; } }
 .gain-chip { font: 600 0.88rem var(--ui); padding: 0 0.35rem; color: var(--green); border: 1px solid currentColor; white-space: nowrap; }
 .gain-chip.down { color: var(--red); }
 .supply-chip { font: 600 0.85rem var(--ui); padding: 0 0.35rem; color: var(--ink-soft); border: 1px solid var(--line); white-space: nowrap; }

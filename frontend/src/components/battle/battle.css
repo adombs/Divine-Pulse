@@ -54,7 +54,7 @@
 .battle-page .overview-cards .outlook > .outlook-head { grid-area: head; flex-wrap: nowrap; }
 .battle-page .overview-cards .outlook > .outlook-head .muted { display: none; }
 .battle-page .overview-cards .outlook > .outlook-bar { grid-area: bar; margin: 0.2rem 0; }
-.battle-page .overview-cards .outlook > .hint-fold { grid-area: why; }
+.battle-page .overview-cards .outlook > .hint-fold, .battle-page .overview-cards .outlook > .outlook-why { grid-area: why; }
 .battle-page .overview-cards .outlook > .trend { grid-area: chart; margin: 0; }
 .battle-page .overview-cards .outlook > .trend svg { height: 44px; }
 .battle-page .overview-cards .outlook > .trend figcaption { display: none; }

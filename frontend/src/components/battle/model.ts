@@ -121,6 +121,17 @@ export interface Item {
   /** A double hit shown as one row (see mergeHits): every hit's numbers, and the positions of all of them. */
   hits?: { dealt: number | null; taken: number | null }[];
   steps?: number[];
+  /** The one chronology (chronicle.ts) only. The replay beat this happened at (null: none to show it at; absent: the
+   * item is not from the chronology), and every beat of a merged double hit. */
+  beat?: number | null;
+  beats?: number[];
+  /** Which Divine Pulse (0 for the first) turned this back, and the beat that use is (null: not on the replay). */
+  undoneBy?: number | null;
+  undoneAt?: number | null;
+  /** The row of a Divine Pulse use: which one (0 for the first). */
+  pulse?: number;
+  /** Its target was defeated in the same step (the "defeated" row it replaces is not shown). */
+  defeated?: boolean;
 }
 
 /** Hits in a row by the same unit on the same target (a double attack, the game logs each) as one row with a pill for
@@ -135,6 +146,8 @@ export function mergeHits(items: Item[]): Item[] {
     ) {
       last.hits = [...(last.hits ?? [{ dealt: last.dealt, taken: last.taken }]), { dealt: item.dealt, taken: item.taken }];
       last.steps = [...(last.steps ?? (last.step !== null ? [last.step] : [])), ...(item.step !== null ? [item.step] : [])];
+      if (item.beat !== undefined) last.beats = [...(last.beats ?? (last.beat != null ? [last.beat] : [])), ...(item.beat != null ? [item.beat] : [])];
+      last.defeated ||= item.defeated;
       continue;
     }
     out.push({ ...item });
@@ -170,21 +183,6 @@ export function timeline(battle: Battle, view: TimelineView = 0): Item[] {
   parts.push(before(battle.log, battle.events, chain[0], 0));
   chain.forEach((b, i) => parts.push(before(b.log, b.events, chain[i + 1], b.id)));
   return withTurns(parts.flat());
-}
-
-/** The timeline as it stood after `n` Divine Pulse uses (0: the original one), up to the use that turned it back: one
- * straight line from the start of the battle, ending with that Divine Pulse. n = the number of uses: the one that stands. */
-export function pulseTimeline(battle: Battle, n: number): Item[] {
-  const undone = [...(battle.branches ?? [])].sort((a, b) => a.at - b.at)[n];
-  if (!undone) return timeline(battle, 0);
-  const items = timeline(battle, undone.id).map((i) => ({ ...i, branch: 0 }));
-  const last = items[items.length - 1];
-  items.push({
-    key: `pulse${undone.id}`, t: undone.at, turn: last?.turn ?? undone.turn, phase: null, kind: "pulse", category: "turn",
-    text: `Divine Pulse ${n + 1}: turned back time${undone.turn !== null ? ` to turn ${undone.turn}` : ""}.`, heading: false,
-    actor: null, target: null, dealt: null, taken: null, restored: null, confidence: null, branch: 0, step: null,
-  });
-  return items;
 }
 
 /** The branches as a tree, depth first. */
@@ -253,7 +251,7 @@ function turnNumber(text: string): number | null {
 }
 
 /** One timeline's items, oldest first: the game's log and the tracker's events (level-ups, Divine Pulses...). */
-function build(battle: Battle, entries: LogEntry[], tracked: BattleEvent[], branch: number): Item[] {
+export function build(battle: Battle, entries: LogEntry[], tracked: BattleEvent[], branch: number): Item[] {
   const legacyId = (value: string | null, actor = false): string | null => {
     if (!value) return null;
     if (battle.units.some((u) => u.key === value)) return armyId(value);
@@ -333,8 +331,12 @@ function build(battle: Battle, entries: LogEntry[], tracked: BattleEvent[], bran
 /** "Turned back time to turn 2 with Divine Pulse: 5 actions undone." */
 function pulseText(battle: Battle, e: LogEntry): string {
   const undone = (battle.branches ?? []).find((b) => b.fork === e.step && Math.abs(b.at - e.t) < 1);
-  if (!undone) return e.text;
-  const actions = undone.log.filter((x) => x.kind !== "phase" && x.kind !== "pulse").length;
+  return undone ? pulseSummary(undone) : e.text;
+}
+
+/** "Turned back time to turn 2 with Divine Pulse: 5 actions undone." (a defeat is part of the action that caused it). */
+export function pulseSummary(undone: Branch): string {
+  const actions = undone.log.filter((x) => x.kind !== "phase" && x.kind !== "pulse" && x.kind !== "defeat" && x.kind !== "fell").length;
   return `Turned back time${undone.turn !== null ? ` to turn ${undone.turn}` : ""} with Divine Pulse: ${actions} action${actions === 1 ? "" : "s"} undone.`;
 }
 
