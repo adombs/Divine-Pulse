@@ -4,6 +4,7 @@
 
 - Read the game from FE3H Recomp (the native Windows recompilation of Three Houses) as well as Eden: choose where under Settings > General > Game. Eden stays the default; nothing else about tracking changes.
 - Link more of the battle log, in the list and the tree: gambits open their battalion in the Archive, and the units in the "Battle started", level-up, joined, left and stat-gain lines open their cards.
+- Declutter the log's tree view: a dot you point at shows its log row once (in the card that grows out of it, not also on the tree), and the rest of the open path's rows fade back while the card is open.
 
 ## 1.3.1 (2026-11-07)
 
