@@ -9,7 +9,7 @@ import { isMysteryCrest } from "../reference/crests";
 import { useNav } from "../nav";
 import { useReference } from "../reference/types";
 import { useSpoiler } from "../spoilers";
-import { isStoryClass, matchNames } from "../reference/links";
+import { gambitOwner, isStoryClass, matchNames } from "../reference/links";
 import { RefLink } from "./common";
 
 /** A character by Characters page key ("edelgard", "byleth"). Renders plain text when there's no key. */
@@ -100,6 +100,20 @@ export function BattalionLink({ name, children }: { name: string; children?: Rea
   if (!known) return <>{children ?? name}</>;
   return (
     <RefLink onClick={() => nav.go({ page: "archive", tab: "battalions", id: known })} title={`Open ${known} in the Archive`}>
+      {children ?? name}
+    </RefLink>
+  );
+}
+
+/** A battalion gambit by name, linked to the battalion that has it in the Archive's Battalions tab (`battalion`: the
+ * one the unit is known to have, since several share a gambit). Plain text when no imported battalion has it. */
+export function GambitLink({ name, battalion, children }: { name: string; battalion?: string | null; children?: ReactNode }) {
+  const nav = useNav();
+  const ref = useReference();
+  const owner = ref?.battalions?.length ? gambitOwner(ref.battalions, name, battalion) : null;
+  if (!owner) return <>{children ?? name}</>;
+  return (
+    <RefLink onClick={() => nav.go({ page: "archive", tab: "battalions", id: owner })} title={`Open ${owner} in the Archive`}>
       {children ?? name}
     </RefLink>
   );
