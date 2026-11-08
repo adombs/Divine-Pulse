@@ -178,6 +178,8 @@ export interface BattleUnit {
   character?: number | null;
   /** Byleth's hair in this battle: "green" after the Sothis merge. */
   look?: "dark" | "green" | null;
+  /** The faction ID on its battle record, as the game has it now (null or absent: not read). */
+  allegiance?: number | null;
   female?: boolean;
   damage_taken: number | null;
   /** HP the unit got back. */
@@ -321,6 +323,8 @@ export interface EnemyStats {
   /** "object": not a unit but a thing with HP of its own (a breakable wall). */
   side?: "enemy" | "ally" | "third" | "object";
   character?: number | null;
+  /** The faction ID on its battle record, as the game has it now (null or absent: not read). */
+  allegiance?: number | null;
 }
 
 /** Where units stood after one step of the game's history: only the units the step changed (everyone on the first). */

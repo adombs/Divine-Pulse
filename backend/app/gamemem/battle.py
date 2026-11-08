@@ -118,6 +118,11 @@ POOL_INDEX = 0xF0
 # (the game's history keeps it as this + 1). Seen live (Oil and Water): 0 on every army unit, 1 on every bandit.
 TEAM = 0xF1
 ATTACHED_TO = 0x100
+# The allegiance of the unit's character (u8, an ID of data/factions.json: 0 Church of Seiros, 1 Adrestian Empire, 3
+# Leicester Alliance, 9 Thieves, 11 Rogues, 18 Bandits...), the same value as the persondata table. Checked in
+# 3 recordings of a Verdant Wind run (16 characters): every unit's byte matched its persondata allegiance and none
+# changed during a battle. Byleth's is 0 (the Church) whatever house the run chose.
+ALLEGIANCE = 0x109
 SPELL_USES = 0x94
 SPELL_SLOTS = 12  # seen live: a 12th slot (+0x9E) dropped when Lysithea cast
 # The spell in each of those slots (u8 spell ID, as in data/spells.json; NO_SPELL = empty). Seen: Lysithea's
@@ -170,7 +175,7 @@ def decode_record(data: bytes, offset: int, army_ids: set[int], located: BattleF
         abilities=abilities, spells=spell_ids,
         acted=bool(flags & ACTED_BIT) if flags is not None else None,
         off_map=off_map,
-        pool_index=at(POOL_INDEX), attached_to=at(ATTACHED_TO), team=at(TEAM), flags=flags,
+        pool_index=at(POOL_INDEX), attached_to=at(ATTACHED_TO), team=at(TEAM), allegiance=at(ALLEGIANCE), flags=flags,
         equipped=struct.unpack_from("<H", data, offset + _EQUIPPED)[0],
         item_slot_0=pairs[0] if pairs[0] != 0xFFFF else None,
         battalion=battalion, battalion_exp=battalion_exp, battalion_endurance=battalion_endurance,

@@ -7,6 +7,8 @@
 - Declutter the log's tree view: a dot you point at shows its log row once (in the card that grows out of it, not also on the tree), and the rest of the open path's rows fade back while the card is open.
 - Make tracking much faster and more responsive: a read of the game during a battle took about two seconds and now takes a few milliseconds, so the battle page follows the game as it happens.
 - Find a new battle's units without waiting: the tracker checks where they were last time first, and only searches the game's memory in the background.
+- Put the portrait on the battle Units tab's character card: flipping the card turns the portrait over to the map sprite, as on the Roster.
+- Take each unit's affiliation in a battle straight from the game's memory, under the game's own faction name, and update it during the battle if it changes (a reveal, as in the Holy Tomb). Byleth's is the house the run chose.
 - Keep units that died (Classic mode) on the Roster, greyed out with a fallen mark in a Fallen group below the living. Who is dead comes from the game itself (the "Is Dead" flag on each unit's roster record), so a restarted battle, a Divine Pulse or Casual mode leaves a unit alive; the battle recordings only supply where it fell. Its card says where it fell and opens that battle with the replay at the step it fell; Mark as Dead / Mark as Alive on the card fixes a wrong call. A Status filter (Alive / Dead) joins the shared people filters, and History's statistics, the Archive's "in run" marks and the battle's Units tab show the dead too.
 
 ## 1.3.1 (2026-11-07)

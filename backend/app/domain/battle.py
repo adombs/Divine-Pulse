@@ -96,6 +96,8 @@ class BattleUnitStats(BaseModel):
     character: int | None = None
     female: bool = False
     look: str | None = None  # Byleth's hair in this battle ("dark" or "green"), by the battle's scenario
+    # The faction ID on its battle record, as the game keeps it (gamemem.battle.ALLEGIANCE; None = not read, or an older file).
+    allegiance: int | None = Field(default=None, ge=0, le=255)
     weapon: str = ""  # what it fights with (combat.weapon_kind), for its map badge
     # Level-ups seen only as stat gains of +1 each (a level-up's), before the level itself went up (see
     # BattleTracker._grow).
@@ -222,6 +224,7 @@ class EnemyStats(BaseModel):
     side: Side = "enemy"
     character: int | None = None
     person_id: int | None = None  # persondata row, including generic enemies
+    allegiance: int | None = Field(default=None, ge=0, le=255)  # as BattleUnitStats.allegiance
     inventory: list[InventoryItem] = Field(default_factory=list)  # as BattleUnitStats.inventory
     accessory: str | None = None
     usage: list[Usage] | None = None  # standing history, including enemy attacks and counterattacks
@@ -388,6 +391,7 @@ class ArmySample:
     accessory: str | None = None
     equipped_accessory_id: int | None = None
     look: str | None = None  # retained roster look for auxiliary/paralogue scenarios
+    allegiance: int | None = None  # as for BattleUnitStats
     battalion: str | None = None  # the assignment ("" none, None unknown), as for BattleUnitStats
     battalion_id: int | None = None
     battalion_exp: int | None = None  # as for BattleUnitStats
@@ -415,6 +419,7 @@ class EnemySample:
     side: Side = "enemy"
     character: int | None = None
     person_id: int | None = None
+    allegiance: int | None = None  # as for BattleUnitStats
     items: tuple[tuple[int, int], ...] = ()  # as ArmySample
     spells: tuple[int, ...] = ()
     spell_ids: tuple[int | None, ...] = ()

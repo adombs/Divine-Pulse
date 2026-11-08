@@ -42,6 +42,8 @@ describes.
 
 Battle `enemy_stats` entries include `person_id`, the person-data row for named and generic units, or null when unavailable. Older saved battles without the field load with null.
 
+Battle `units` and `enemy_stats` entries include `allegiance`, the faction ID on the unit's battle record (`data/factions.json`), read on every poll so a reveal that changes it shows during the battle; null when not read. Older saved battles without the field load with null.
+
 ## Game assets (imported from the user's dump)
 
 Assets extracted by `app.gamefiles` live in `GAME_ASSETS_DIR` (`infrastructure/paths.py`: `DIVINE_PULSE_GAME_ASSETS`,

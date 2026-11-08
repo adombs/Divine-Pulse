@@ -36,6 +36,7 @@ class BattleUnit:
     pool_index: int | None = None  # its index in the pool (POOL_INDEX)
     attached_to: int | None = None  # pool index of the unit an adjutant is attached to (only meaningful off the map)
     team: int | None = None  # TEAM: 0 the player's side, 1 enemy, 2 / 3 other armies
+    allegiance: int | None = None  # ALLEGIANCE: the faction ID the game keeps on the record (data/factions.json)
     flags: int | None = None  # the raw flags byte (ACTED): acted, on the map, off the map, and bits not known yet
     equipped: int | None = None  # what it has equipped, as the game keeps it (fe3h._EQUIPPED); None: not read
     item_slot_0: int | None = None  # raw item ID at inventory slot zero, before empty slots are compacted
