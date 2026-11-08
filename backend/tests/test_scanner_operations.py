@@ -101,7 +101,7 @@ def test_a_unit_the_game_marks_dead_is_marked_dead(reader, tmp_path):
     from datetime import datetime, timezone
 
     from app.domain.battle import Battle, BattleUnitStats, LogEntry
-    from app.domain.units import Death, Unit
+    from app.domain.units import Death
     from app.gamemem import fe3h
     from app.storage import BattleStore
 
