@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Make tracking much faster and more responsive: a read of the game during a battle took about two seconds and now takes a few milliseconds, so the battle page follows the game as it happens.
+
 ## 1.3.1 (2026-11-07)
 
 - On the battle map, show a unit's portrait when it has no map sprite, and a "?" when it has neither; missing images elsewhere also show "?".

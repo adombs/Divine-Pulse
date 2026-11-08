@@ -138,6 +138,7 @@ class Scanner:
         self.recorder = recorder
         self._battles = BattleTracker(DefaultBattleSupport())
         self._battle_sample: BattleSample | None = None
+        self._sample_made: tuple[tuple, BattleSample] | None = None  # the last battle sample and what it was made from
         self._flag_watch = FlagWatch()  # every unit's flags byte, read to read: unknown bits that change are logged
         self._battle_lock = threading.Lock()
         self._leftovers_checked: set[str] = set()  # runs checked for a battle that ended while the tracker was off
@@ -267,7 +268,8 @@ class Scanner:
             self._end_battle()
             self._publish_status("error", MEMORY_TITLE, message=NEEDS_IMPORT)
             return
-        self._memory_tick()
+        with game_tables.pinned():  # one read of the game makes hundreds of table lookups: check the tables once
+            self._memory_tick()
 
     # Game memory
 
@@ -434,14 +436,30 @@ class Scanner:
             self._flag_watch.reset()
             return BattleSample(())
         data = self._data()
+        battle_units = getattr(self.memory, "battle_units", None)
+        pool = battle_units() if battle_units else []
+        globals_ = getattr(self.memory, "battle_globals", None)
+        located = globals_() if globals_ else {}
+        self._log_flag_changes(pool, data, located.get("turn"))
+        history = getattr(self.memory, "battle_history", None)
+        read = history(pool) if history and pool else None
+        # Everything the sample is made of. Between two reads nothing in the game usually changed (most are
+        # between actions), and then the sample is the one just made: working it out again is most of a read's cost.
+        revision = self.store.revision(run_id)
+        key = (snapshot, tuple(pool), located, read, id(data), revision)
+        if revision is not None and self._sample_made is not None and self._sample_made[0] == key:
+            return self._sample_made[1]
+        sample = self._build_sample(snapshot, run_id, data, pool, located, read)
+        self._sample_made = (key, sample)
+        return sample
+
+    def _build_sample(self, snapshot: Snapshot, run_id: str, data: GameData, pool: list, located: dict, read) -> BattleSample:
         try:
             run = self.store.get(run_id)
             units = run.units
         except NotFound:
             units = {}
         player_name = decode_player_name(snapshot.player_name)
-        battle_units = getattr(self.memory, "battle_units", None)
-        pool = battle_units() if battle_units else []
         # Units in the pool that aren't on the map: adjutants, and reinforcements still to come.
         on_map = [u for u in pool if not u.off_map and not _stand_in(u)]
         records = {u.character: u for u in on_map if u.army}
@@ -573,13 +591,8 @@ class Scanner:
                     other.item_slot_0,
                 )
             )
-        globals_ = getattr(self.memory, "battle_globals", None)
-        located = globals_() if globals_ else {}
-        self._log_flag_changes(pool, data, located.get("turn"))
         terrain_of = getattr(self.memory, "battle_terrain", None)
         on_this_map = terrain_of(on_map) if terrain_of and on_map else None
-        history = getattr(self.memory, "battle_history", None)
-        read = history(pool) if history and pool else None
         steps = history_steps(*read, keys, pool) if read else ()
         return BattleSample(
             tuple(sorted(army, key=lambda a: a.key)),
