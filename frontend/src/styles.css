@@ -1132,7 +1132,8 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 /* Its width comes from the page, never from the tree inside (whose size follows the width). */
 .timelines-wrap { min-width: 0; max-width: 100%; contain: inline-size; }
 .tl-toolbar { margin-bottom: 0.4rem; }
-.timelines { cursor: grab; user-select: none; touch-action: none; overflow: auto; height: 70vh; border: 1px solid var(--row-border); background: var(--paper-2); }
+.timelines { cursor: grab; user-select: none; touch-action: none; overflow: auto; scrollbar-width: none; height: 70vh; border: 1px solid var(--row-border); background: var(--paper-2); }
+.timelines::-webkit-scrollbar { display: none; }
 .timelines.dragging { cursor: grabbing; }
 .timelines-canvas { position: relative; }
 .timelines-canvas svg { position: absolute; inset: 0; }
