@@ -32,7 +32,7 @@ export function Crest() {
 }
 
 /** Banner for the observed route (or Part I house); unknown runs retain the tracker crest. */
-const RUN_HOUSE: Record<RunRoute, string> = {
+export const RUN_HOUSE: Record<RunRoute, string> = {
   "black-eagles": "Black Eagles", "blue-lions": "Blue Lions", "golden-deer": "Golden Deer",
   cf: "Black Eagles", ss: "Church of Seiros", am: "Blue Lions", vw: "Golden Deer",
 };

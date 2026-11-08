@@ -565,6 +565,7 @@ class Scanner:
                     battalion_endurance=ability.battalion_endurance,
                     gambit_uses=ability.gambit_uses,
                     rattled=record.rattled if record else None,
+                    allegiance=record.allegiance if record else None,
                 )
             )
         enemies = []
@@ -597,11 +598,12 @@ class Scanner:
                     side_of(other.team, name),
                     character,
                     other.character,
-                    other.items,
-                    other.spell_uses,
-                    other.spells,
-                    other.equipped == EQUIPPED_WEAPON,
-                    other.item_slot_0,
+                    allegiance=other.allegiance,
+                    items=other.items,
+                    spells=other.spell_uses,
+                    spell_ids=other.spells,
+                    equipped_weapon=other.equipped == EQUIPPED_WEAPON,
+                    equipped_item_id=other.item_slot_0,
                 )
             )
         terrain_of = getattr(self.memory, "battle_terrain", None)

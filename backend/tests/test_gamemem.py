@@ -501,3 +501,11 @@ def test_only_byleth_gets_a_look(data, bonuses):
     assert to_reading(byleth, data, bonuses, scenario=3).look == "dark"
     assert to_reading(byleth, data, bonuses).look is None
     assert to_reading(claude, data, bonuses, scenario=12).look is None
+
+
+def test_a_battle_record_carries_its_allegiance():
+    from app.gamemem.battle import ALLEGIANCE, RECORD_SIZE, decode_record
+
+    record = bytearray(RECORD_SIZE)
+    record[ALLEGIANCE] = 18  # Bandits
+    assert decode_record(bytes(record), 0, set()).allegiance == 18
