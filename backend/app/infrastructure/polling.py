@@ -37,6 +37,7 @@ from . import game_tables
 from ..gamemem.battle import FlagWatch
 from ..gamemem.combat import weapon_kind
 from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_player_name, decode_roster
+from ..gamemem.readers import emulators_for
 from ..gamemem.recorder import BattleRecorder
 from ..gamemem.units import SCREEN_TITLE as MEMORY_TITLE
 from ..gamemem.units import GameData, to_reading, unit_name
@@ -129,7 +130,8 @@ class Scanner:
         self.events = events
         self.bonuses = bonuses
         self.roster_updates = RosterUpdates(store, partial(handle, bonuses=bonuses))
-        self.memory = memory or GameMemory()
+        self._reader = settings.get().memory_reader
+        self.memory = memory or GameMemory(emulators_for(self._reader))
         self._game_data: GameData | None = None
         self._game_generation: tuple | None = None
         # Battle in progress (game memory only): the tracker, finished battles' store, and the last sample seen
@@ -252,8 +254,19 @@ class Scanner:
     def _reset(self) -> None:
         self._mem_pending, self._mem_applied = None, None
 
+    def _use_reader(self, reader: str) -> None:
+        """Look for the game in another program (Settings > Game) from the next read on."""
+        if reader == self._reader:
+            return
+        self._reader = reader
+        if isinstance(self.memory, GameMemory):
+            self.memory.emulators = emulators_for(reader)
+            self.memory.close()  # connects again, to the other program, on the next read
+        self._reset()
+
     def _tick(self) -> None:
         settings = self.settings.get()
+        self._use_reader(settings.memory_reader)
         if self.recorder is not None:
             self.recorder.set_limit(settings.max_recordings)
         if not settings.active_run_id:

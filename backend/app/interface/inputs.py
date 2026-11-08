@@ -11,7 +11,7 @@ from typing import Annotated
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..domain.text import clean_text
-from ..domain.settings import WindowMode
+from ..domain.settings import MemoryReader, WindowMode
 from ..domain.ebst import OTHER_KEYS, EbstType, ordered_others
 
 
@@ -72,6 +72,7 @@ class EbstIn(Body):
 class SettingsIn(Body):
     max_recordings: int | None = Field(None, ge=0, le=1000)
     window_mode: WindowMode | None = None
+    memory_reader: MemoryReader | None = None
 
 
 def describe_errors(errors: list[dict]) -> str:
