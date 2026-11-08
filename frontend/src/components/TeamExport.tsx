@@ -46,8 +46,16 @@ interface ImageOptions {
   stats: boolean;
   /** Whether units that died (Classic mode) are in the images: greyed, with the fell mark. */
   fallen: boolean;
+  /** How a unit's face is drawn: its portrait, its map sprite, or the portrait with the sprite on its corner. */
+  face: ExportFace;
 }
-const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, theme: "app", loadouts: true, stats: true, fallen: true };
+type ExportFace = "portrait" | "sprite" | "both";
+const FACES: [ExportFace, string][] = [
+  ["both", "Portrait and sprite"],
+  ["portrait", "Portrait"],
+  ["sprite", "Sprite"],
+];
+const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, theme: "app", loadouts: true, stats: true, fallen: true, face: "both" };
 
 function loadImageOptions(): ImageOptions {
   try {
@@ -58,6 +66,7 @@ function loadImageOptions(): ImageOptions {
       loadouts: saved.loadouts !== false,
       stats: saved.stats !== false,
       fallen: saved.fallen !== false,
+      face: FACES.some(([f]) => f === saved.face) ? saved.face! : DEFAULT_IMAGE_OPTIONS.face,
     };
   } catch {
     return DEFAULT_IMAGE_OPTIONS;
@@ -206,7 +215,7 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
                 <div className="team-rows">
                   {rows.map((row, r) => (
                     <div key={r} className="team-row">
-                      {row.map((u) => <LoadoutCard key={u.key} unit={u} part2={part2} />)}
+                      {row.map((u) => <LoadoutCard key={u.key} unit={u} part2={part2} face={options.face} />)}
                     </div>
                   ))}
                 </div>
@@ -217,7 +226,7 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
             <figcaption>Run statistics</figcaption>
             <FitWidth width={WIDTH}>
               <TeamSheet ref={stats} run={run} units={chosen} title="Team Run Statistics" theme={options.theme} note={ledger ? plural(ledger.battles.length, "finished battle") : undefined}>
-                {ledger ? <StatsTable units={chosen} rows={ledger.rows} totals={ledger.totals.records} part2={part2} />
+                {ledger ? <StatsTable units={chosen} rows={ledger.rows} totals={ledger.totals.records} part2={part2} face={options.face} />
                   : <p className="muted">{loadError ?? "Reading the run's battles…"}</p>}
               </TeamSheet>
             </FitWidth>
@@ -287,6 +296,12 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
                   {options.stats && <span>Run statistics <b>{pixels(sizes.stats)}</b></span>}
                 </p>
               )}
+              <label className="wide">
+                Faces
+                <select value={options.face} onChange={(e) => setOption("face", e.target.value as ExportFace)}>
+                  {FACES.map(([f, label]) => <option key={f} value={f}>{label}</option>)}
+                </select>
+              </label>
               <label className="wide">
                 Theme
                 <select value={options.theme} onChange={(e) => setOption("theme", e.target.value as ExportTheme)}>
@@ -547,22 +562,33 @@ export function packColumns(heights: number[], titles: boolean[], room: number):
   return columns;
 }
 
-/** The unit's map sprite in its class, a small medallion on the corner of its portrait; nothing when the game's sprites
- * aren't imported or none fits (an exported image should never carry a "missing" mark). */
-function CardSprite({ unit }: { unit: Unit }) {
+/**
+ * A unit's face in an image: its portrait, its map sprite in its class (in a disc like the portrait's), or the portrait
+ * with the sprite as a medallion on its corner. A unit with no sprite (the game's sprites aren't imported, or none
+ * fits) keeps its portrait: an exported image should never carry a "missing" mark.
+ */
+function UnitFaceImage({ unit, part2, size, face }: { unit: Unit; part2: boolean; size: number; face: ExportFace }) {
   const sprite = useMemo(() => unitSprite(unit), [unit]);
   const has = useHasSprite(sprite);
-  if (!has) return null;
-  return (
-    <span className="team-card-sprite" role="img" aria-label={`${unit.name}'s map sprite${unit.class_name ? ` as a ${unit.class_name}` : ""}`}>
+  const label = `${unit.name}'s map sprite${unit.class_name ? ` as a ${unit.class_name}` : ""}`;
+  const disc = (corner: boolean) => (
+    <span className={`team-face-sprite${corner ? " corner" : ""}`} style={{ "--face": `${size}px` } as React.CSSProperties} role="img" aria-label={label}>
       <SpriteFigure sprite={sprite} />
+    </span>
+  );
+  if (!has || face === "portrait") return <Portrait unit={unit} part2={part2} size={size} />;
+  if (face === "sprite") return disc(false);
+  return (
+    <span className="team-face">
+      <Portrait unit={unit} part2={part2} size={size} />
+      {disc(true)}
     </span>
   );
 }
 
 /** A unit's loadout: who it is, its stats and BST, then what it carries and knows in columns beside that, no taller
  * than it, so every card is the same height. */
-function LoadoutCard({ unit, part2 }: { unit: Unit; part2: boolean }) {
+function LoadoutCard({ unit, part2, face }: { unit: Unit; part2: boolean; face: ExportFace }) {
   const carried = (unit.inventory ?? []).filter((it) => it.kind !== "spell");
   const spells = (unit.inventory ?? []).filter((it) => it.kind === "spell");
   const abilities = [unit.personal_ability, ...unit.abilities].filter(Boolean).map(tidyAbility);
@@ -571,10 +597,7 @@ function LoadoutCard({ unit, part2 }: { unit: Unit; part2: boolean }) {
     node: (
       <div className="team-card-top">
         <header className="team-card-head">
-          <span className="team-card-face">
-            <Portrait unit={unit} part2={part2} size={64} />
-            <CardSprite unit={unit} />
-          </span>
+          <UnitFaceImage unit={unit} part2={part2} size={64} face={face} />
           <div className="team-card-name">
             <b>{unit.name}<FellMark unit={unit} /></b>
             <span>{unit.class_name || "—"}</span>
@@ -680,7 +703,7 @@ export function topRecords(row: LedgerRow | undefined, totals: (number | null)[]
 const cell = (v: number | null | undefined) => (v === null || v === undefined ? "—" : Math.round(v).toLocaleString());
 
 /** The picked units' run statistics, one row each, with the team's totals. */
-function StatsTable({ units, rows, totals, part2 }: { units: Unit[]; rows: LedgerRow[]; totals: (number | null)[]; part2: boolean }) {
+function StatsTable({ units, rows, totals, part2, face }: { units: Unit[]; rows: LedgerRow[]; totals: (number | null)[]; part2: boolean; face: ExportFace }) {
   const byKey = new Map(rows.map((r) => [r.id, r]));
   const sum = (part: "combat" | "growth", i: number) => {
     const values = units.map((u) => byKey.get(u.key)?.values[part][i]);
@@ -710,7 +733,7 @@ function StatsTable({ units, rows, totals, part2 }: { units: Unit[]; rows: Ledge
             <tr key={u.key} className={[row ? "" : "unrecorded", u.death ? "fallen" : ""].filter(Boolean).join(" ")}>
               <th scope="row" className="team-stats-unit">
                 <span>
-                  <Portrait unit={u} part2={part2} size={32} />
+                  <UnitFaceImage unit={u} part2={part2} size={32} face={face} />
                   <span>
                     <b>{u.name}<FellMark unit={u} /></b>
                     <small>{u.class_name}</small>
