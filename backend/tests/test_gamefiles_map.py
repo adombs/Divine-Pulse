@@ -36,6 +36,15 @@ def test_decode_grid_rejects_other_data():
     assert maps.decode_grid(grid({(0, 0): maps.TERRAIN_IDS})) is None  # not a terrain id
 
 
+def test_character_sprite_slots():
+    # Checked against the sprites fedatamine.com shows for each character: Seteth is 4 slots at 4 x ID; Flayn to
+    # Jeralt have two looks of four from slot 112; Rhea and Sothis follow with one look each.
+    slots = {0: 0, 1: 4, 2: 8, 25: 100, 26: 104, 27: 112, 28: 120, 33: 160, 34: 168, 35: 176, 36: 184, 37: 188}
+    assert {c: maps.character_slot(c) for c in slots} == slots
+    assert maps.character_slot(maps.CHARACTERS - 1) == 188
+    assert maps.HEADED_CHARACTERS == 35  # Jeralt, Rhea and Sothis have no head slot of their own
+
+
 def test_hex_rows():
     assert maps.hex_rows([[0, 10, 255], [1, 2, 3]]) == ["000aff", "010203"]
 
@@ -219,3 +228,18 @@ def test_map_family_on_a_real_dump(tmp_path):
         with Image.open(tmp_path / "images/map/minimap-pieces" / f"{name}.png") as image:
             assert image.tobytes() == atlas.crop(box).tobytes(), name
     assert {"images/map/class-sprites.png", "images/map/map-heads.png", "data/class-sprites.json"} <= set(files)
+    sprites = json.loads((tmp_path / "data/class-sprites.json").read_text("utf-8"))
+    assert set(sprites["characters"]) == {str(c) for c in range(maps.CHARACTERS)}
+    assert set(sprites["heads"]["characters"]) == {str(c) for c in range(maps.HEADED_CHARACTERS)}
+    # Each character's finished sprite is the one at its slot, whatever order the rows are in.
+    rows = json.loads((tmp_path / "data/class-sprites.json").read_text("utf-8"))
+    atlas_h = rows["cell"][1]
+    slots = maps.rects.map_sprites(ctx.main)
+    textures = [maps.g1t.texture(ctx.base.read(maps.SPRITES), n) for n in range(4)]
+    with Image.open(tmp_path / "images/map/class-sprites.png") as atlas:
+        for character in (28, 34, 35, 36, 37):
+            rect = slots[maps.character_slot(character)]
+            expected = textures[rect.texture].crop(rect.box)
+            row = sprites["characters"][str(character)]
+            cell = atlas.crop((0, row * atlas_h + maps.SPRITE_TOP, maps.SPRITE_SIZE, row * atlas_h + atlas_h))
+            assert cell.tobytes() == expected.tobytes(), character

@@ -95,6 +95,7 @@ function classLayers(index: SpriteIndex, classId: number, charId: number | undef
     return own === undefined ? null : { row: own, head: null, mounted: false };
   }
   const head = charId === undefined ? undefined : index.heads.characters[charId];
+  if (head === undefined && own !== undefined) return { row: own, head: null, mounted: false }; // no head apart from the sprite
   return { row: body, head: head ?? (female ? index.heads.f : index.heads.m), mounted: index.mounted.includes(body) };
 }
 

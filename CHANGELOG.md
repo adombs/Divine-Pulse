@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Add map sprites for Jeralt, Rhea and Sothis, and draw the right ones for Flayn, Hanneman, Manuela, Gilbert, Alois, Catherine, Shamir and Cyril (their finished sprites were read from the previous character's slots); re-import your game files once to add them.
 - Export a battle's replay as an MP4 video (Export Video, beside Copy Summary): a window previews the video, with the map, the turn in its corner and the log as a list beside it (landscape, 1920 × 1080) or under it (portrait, 1080 × 1920), and sets the turns it covers, its own replay speed, camera and zoom, a battle theme to play under it (the battle's own to begin with; grouped by where they play, with a volume and a button to listen first), and the video's resolution (720p to 4K), frame rate (30 or 60), quality and theme. Scrubbing the preview pauses it. The video is made in the app, carries the run's emblem in its title, and is saved where you choose.
 - Import the 20 battle themes (their calm Rain versions only) with your game files, and which one each battle plays from the game's own data; re-import your game files once to add them.
 - Add 0.75×, 1.5×, 2.5× and 3.5× replay speeds.
