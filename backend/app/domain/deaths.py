@@ -1,14 +1,11 @@
 """Units that died in a run (Classic mode's permadeath).
 
-A unit falling in a battle isn't enough to call it dead: the battle can be restarted, a Divine Pulse can undo it, and in
-Casual mode the unit is back after the battle. So a unit is dead when both hold:
+The game says who is dead: the "Is Dead" bit of each roster slot's flags (gamemem/fe3h.py DEAD). The battle recordings
+only say where it happened, for the link to that step of the replay: the unit's fall in the timeline that still stands
+(the battle's own log, not a Divine Pulse branch) of the latest finished battle it took part in.
 
-- it fell in the timeline that still stands (the battle's own log, not a Divine Pulse branch) of the latest finished
-  battle it took part in, and did nothing after falling;
-- a complete read of the army outside a battle, after that battle, no longer has it.
-
-A unit that turns up in the army again is alive again (a reload from before the battle). What the user decides by hand
-(Unit.death with manual set, or Unit.death_dismissed) wins over both.
+The user can overrule the game by hand: Unit.death with manual set (dead), or Unit.marked_alive (alive while the game
+calls it dead; forgotten once the game reads it alive again).
 """
 
 from __future__ import annotations
@@ -78,44 +75,51 @@ def latest_fall(key: str, battles: Iterable[Battle]) -> Death | None:
     return None
 
 
-def missing_units(units: Mapping[str, Unit], present: Collection[int]) -> list[str]:
-    """Run units read from game memory before that the army doesn't have now, and that could be newly dead."""
+def newly_dead(units: Mapping[str, Unit], dead: Collection[int]) -> list[str]:
+    """Run units the game marks dead that the run doesn't have as dead yet (and the user hasn't said are alive)."""
     return [
         key
         for key, unit in units.items()
-        if unit.game_id is not None and unit.game_id not in present and unit.death is None
+        if unit.game_id is not None and unit.game_id in dead and unit.death is None and not unit.marked_alive
     ]
 
 
-def detect(units: Mapping[str, Unit], present: Collection[int], battles: Iterable[Battle] | None) -> dict[str, Unit]:
-    """Changed units after a complete read of the army outside a battle (`present`: the character IDs in it).
+def fall_of(key: str, battles: Iterable[Battle]) -> Death | None:
+    """Where the unit fell: in the latest finished battle it took part in, else its latest fall that stood anywhere."""
+    battles = list(battles)
+    return last_battle_fall(key, battles) or latest_fall(key, battles)
 
-    `battles` is only needed when some unit is missing (see missing_units); pass None to skip loading them."""
+
+def detect(
+    units: Mapping[str, Unit], present: Collection[int], dead: Collection[int], battles: Iterable[Battle] | None
+) -> dict[str, Unit]:
+    """Changed units after a complete read of the roster outside a battle: `present` the character IDs in the army,
+    `dead` those whose slot has the game's "Is Dead" bit. `battles` is only needed for newly_dead units (where they
+    fell); with None they're marked dead with no battle to link to."""
     changed: dict[str, Unit] = {}
     for key, unit in units.items():
-        if unit.game_id is None:
+        if unit.game_id is None or unit.game_id in dead or unit.game_id not in present:
             continue
-        if unit.game_id in present:
-            if unit.death is not None and not unit.death.manual:
-                changed[key] = unit.model_copy(update={"death": None})
-            continue
-    missing = missing_units(units, present)
-    if missing and battles is not None:
-        battles = list(battles)
-        for key in missing:
-            unit = units[key]
-            fall = last_battle_fall(key, battles)
-            if fall is None or fall.battle_id == unit.death_dismissed:
-                continue
-            changed[key] = unit.model_copy(update={"death": fall})
+        # In the army and not dead in the game's eyes: alive (a reload from before the death, say).
+        update = {}
+        if unit.death is not None and not unit.death.manual:
+            update["death"] = None
+        if unit.marked_alive:
+            update["marked_alive"] = False
+        if update:
+            changed[key] = unit.model_copy(update=update)
+    fresh = newly_dead(units, dead)
+    if fresh:
+        battles = list(battles or [])
+        for key in fresh:
+            changed[key] = units[key].model_copy(update={"death": fall_of(key, battles) or Death()})
     return changed
 
 
 def mark(key: str, unit: Unit, dead: bool, battles: Iterable[Battle]) -> Unit:
-    """The user says the unit is dead (linked to its latest fall, if any) or alive (that fall is ignored from now on)."""
-    fall = unit.death or latest_fall(key, list(battles))
+    """The user says the unit is dead (linked to where it fell, if anywhere) or alive (whatever the game says)."""
     if dead:
+        fall = unit.death or fall_of(key, battles)
         death = (fall or Death()).model_copy(update={"manual": True})
-        return unit.model_copy(update={"death": death, "death_dismissed": None})
-    dismissed = fall.battle_id if fall is not None and fall.battle_id else unit.death_dismissed
-    return unit.model_copy(update={"death": None, "death_dismissed": dismissed})
+        return unit.model_copy(update={"death": death, "marked_alive": False})
+    return unit.model_copy(update={"death": None, "marked_alive": True})

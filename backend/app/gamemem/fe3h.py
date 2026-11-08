@@ -111,7 +111,11 @@ _VICTORIES = 0x28
 # top of its inventory, 0xFFFF if it has nothing to fight with.
 _EQUIPPED = 0x2E
 EQUIPPED_WEAPON = 1
+# The slot's flags (u32 at _FLAGS), as hashcade/feth-save-editor's enmCharacterFlags names them: bit 0 "Is Available"
+# and bit 1 "Has Joined" (IN_ARMY: both set on every unit in the army), bit 3 "Is Dead". The dead bit isn't confirmed
+# live yet: no permadeath has been read with it.
 IN_ARMY = 0x03
+DEAD = 0x08
 
 # Battle copies have the slot layout (up to the flags) and sit this far after this marker.
 BATTLE_MARKER = b"\x04\x03\x00\x00\x00\x00\x00\x00\x00"
@@ -186,6 +190,17 @@ def decode_roster(data: bytes) -> list[RosterUnit]:
             )
         )
     return units
+
+
+def decode_dead(data: bytes) -> tuple[int, ...]:
+    """Character IDs of the slots the game marks dead (Classic mode), whether or not they still count as in the army."""
+    dead = []
+    for i in range(min(SLOTS, len(data) // SLOT_SIZE)):
+        s = data[i * SLOT_SIZE : (i + 1) * SLOT_SIZE]
+        character = struct.unpack_from("<H", s, _CHARACTER)[0]
+        if character != EMPTY_SLOT and struct.unpack_from("<I", s, _FLAGS)[0] & DEAD:
+            dead.append(character)
+    return tuple(dead)
 
 
 def decode_battalion(record: bytes, owned: bool = True) -> tuple[int | None, int | None, int | None]:

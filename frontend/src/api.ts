@@ -79,11 +79,12 @@ export interface Unit {
   updated_at: string;
   /** Dead (Classic mode): the battle and step of its log where it fell. null/absent while alive. */
   death?: Death | null;
-  /** A battle whose fall the user said the unit survived. */
-  death_dismissed?: string | null;
+  /** The user said it's alive although the game marks it dead. */
+  marked_alive?: boolean;
 }
 
-/** Where a unit died: all empty but `manual` when the user marked it dead and no fall of it was recorded. */
+/** Where a unit died (the game's own "Is Dead" flag, or marked by hand): all empty but `manual` when no fall of it was
+ * recorded. */
 export interface Death {
   battle_id: string | null;
   /** The battle's map name when it happened. */

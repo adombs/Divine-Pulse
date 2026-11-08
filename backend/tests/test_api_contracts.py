@@ -248,7 +248,7 @@ def test_marking_a_unit_dead_or_alive(tmp_path):
             "forest", "Battle in the Forest", 4, 12.5, True)
 
         alive = client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": False}).json()
-        assert alive["death"] is None and alive["death_dismissed"] == "forest"
+        assert alive["death"] is None and alive["marked_alive"] is True
 
         assert client.put(f"/api/runs/{run_id}/units/nobody/dead", json={"dead": True}).status_code == 404
         assert client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": "maybe"}).status_code == 422

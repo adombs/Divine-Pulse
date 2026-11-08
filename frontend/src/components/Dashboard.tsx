@@ -421,7 +421,7 @@ function DeathLink({ unit }: { unit: Unit }) {
   const d = unit.death;
   if (!d) return null;
   const label = <><Icon name={CONCEPT_ICON.dead} />Fell{d.battle_name ? ` · ${d.battle_name}` : ""}{d.turn != null ? `, turn ${d.turn}` : ""}</>;
-  if (!d.battle_id) return <span className="death-status">{label}<span className="muted">(marked by hand)</span></span>;
+  if (!d.battle_id) return <span className="death-status" title={deathText(unit)}>{label}<span className="muted">{d.manual ? "(marked by hand)" : "(no recorded battle)"}</span></span>;
   return (
     <button
       type="button"

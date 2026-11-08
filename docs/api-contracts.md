@@ -32,10 +32,11 @@ another site. Programs that send none of those headers pass on `Host` alone. Add
 
 Each unit in `GET /api/runs/{run_id}/units` carries `death`: null while alive, else `{battle_id, battle_name, scenario,
 turn, step, t, by, manual, at}`, where it fell (the battle's "fell" log entry) and whether the user marked it dead by hand
-(`battle_id` and the rest null when no fall of it was recorded). `death_dismissed` is a battle whose fall the user said
-the unit survived. Runs saved before these fields load with both null. `PUT /api/runs/{run_id}/units/{key}/dead`
+(`battle_id` and the rest null when no fall of it was recorded). `marked_alive` is true when the user said the unit is
+alive although the game marks it dead. Runs saved before these fields load with `death` null and `marked_alive` false. `PUT /api/runs/{run_id}/units/{key}/dead`
 `{dead}` marks a unit dead (linked to its latest fall that stood, if any) or alive, and answers with the unit; 404 for an
-unknown run or unit. The tracker decides deaths by itself as `backend/app/domain/deaths.py` describes.
+unknown run or unit. The tracker takes deaths from the game's "Is Dead" roster flag, as `backend/app/domain/deaths.py`
+describes.
 
 ## Battle
 

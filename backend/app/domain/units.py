@@ -53,8 +53,8 @@ def byleth_look(scenario: int | None, in_battle: bool = False) -> Literal["dark"
 
 
 class Death(BaseModel):
-    """Where a unit died (domain/deaths.py): the battle and the step of its log where it fell. All empty when the user
-    marked it dead and no fall of it was recorded."""
+    """Where a unit died (domain/deaths.py): the battle and the step of its log where it fell. All empty when no fall of
+    it was recorded (the game marks it dead, or the user did, but no recording has it falling)."""
 
     battle_id: str | None = None
     battle_name: str = ""  # the battle's map name when it happened
@@ -103,10 +103,11 @@ class Unit(BaseModel):
     ebst_stats: list[OtherKey] = Field(default_factory=lambda: list(DEFAULT_OTHER_KEYS))
     # Byleth's hair as the game has it now: "dark" or "green" (from the Sothis merge on); None until read from memory.
     look: Literal["dark", "green"] | None = None
-    # Dead (Classic mode): where it fell. None while alive. Older runs load with None.
+    # Dead (Classic mode, from the game's own flag, or marked by hand): where it fell. None while alive. Older runs load
+    # with None.
     death: Death | None = None
-    # A battle whose fall the user said the unit survived ("Mark as alive"): not taken as its death again.
-    death_dismissed: str | None = None
+    # The user said it's alive although the game marks it dead ("Mark as Alive"). Cleared once the game reads it alive.
+    marked_alive: bool = False
 
     def ebst_config(self) -> EbstConfig:
         return EbstConfig(offense=self.ebst_offense, defense=self.ebst_defense, stats=ordered_others(self.ebst_stats))
