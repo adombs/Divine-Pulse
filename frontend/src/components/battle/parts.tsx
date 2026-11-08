@@ -11,7 +11,8 @@ import { Icon } from "../Icon";
 import { GameImage, MissingGameAsset, PortraitImage } from "../GameImage";
 import { GearIcon, WeaponIcon } from "./gameIcons";
 import { ArtIcon } from "../../reference/icons";
-import { AbilityLink, ArtLink, ItemLink, SpellLink } from "../Links";
+import { AbilityLink, ArtLink, GambitLink, ItemLink, SpellLink } from "../Links";
+import { nameParts } from "../../reference/links";
 import { battleSummary, hpShare, ICON, Item, mergeHits, STAT_LABEL, STAT_ORDER, TEXT, Who } from "./model";
 
 /** Opening a unit's card from anywhere on the page (names in the log, opponents, highlights). */
@@ -212,6 +213,10 @@ function ItemText({ item }: { item: Item }) {
       </>
     );
   }
+  if (item.kind === "gambit" && item.actor) {
+    // "Marianne used Stride on Raphael": the gambit opens the battalion that has it, in the Archive.
+    return <GambitText item={item} />;
+  }
   if (item.kind === "item" && item.actor) {
     return (
       <>
@@ -245,7 +250,80 @@ function ItemText({ item }: { item: Item }) {
       </>
     );
   }
+  if (item.kind === "start") return <span><StartText text={item.text} /></span>;
+  if ((item.kind === "level_up" || item.kind === "stat_up" || item.kind === "joined" || item.kind === "left") && item.actor) {
+    return <span><UnitText item={item} /></span>;
+  }
   return <span className={item.heading ? "log-heading-text" : undefined}>{item.text}</span>;
+}
+
+/** A gambit's row: who used it, the gambit (a link to its battalion), on whom, and the damage or HP it gave. */
+function GambitText({ item }: { item: Item }) {
+  const who = useBattleNav().people.get(item.actor ?? "");
+  const battalion = who?.unit?.battalion;
+  return (
+    <>
+      <WhoLink id={item.actor} />
+      {item.detail ? (
+        <>
+          <Verb>used</Verb>
+          <span className="log-detail">
+            <GambitLink name={item.detail} battalion={battalion} />
+          </span>
+          {item.target && <Verb>on</Verb>}
+        </>
+      ) : (
+        <Verb>used a gambit</Verb>
+      )}
+      {item.target && <WhoLink id={item.target} />}
+      {((item.dealt ?? 0) > 0 || (item.restored ?? 0) > 0) && (
+        <span className="fight-numbers">
+          {(item.dealt ?? 0) > 0 && (
+            <NumChip who={item.actor} icon={CONCEPT_ICON.attack} title="Damage Dealt">
+              {item.dealt}
+            </NumChip>
+          )}
+          {(item.restored ?? 0) > 0 && (
+            <NumChip who={item.actor} icon={CONCEPT_ICON.heal} title="HP restored">
+              +{item.restored} HP
+            </NumChip>
+          )}
+        </span>
+      )}
+    </>
+  );
+}
+
+/** What a tracker event says about a unit ("Cyril joined the battle", "Byleth reached level 25 (HP +1)"), with the
+ * unit's name opening its card. */
+function UnitText({ item }: { item: Item }) {
+  const who = useBattleNav().people.get(item.actor ?? "");
+  if (!who || !item.text.startsWith(who.name)) return <>{item.text}</>;
+  return (
+    <>
+      <WhoLink id={item.actor} />
+      {item.text.slice(who.name.length)}
+    </>
+  );
+}
+
+/** "Battle started with 12 units (Byleth, Claude, ...); 20 other units on the map": each of your units opens its card. */
+function StartText({ text }: { text: string }) {
+  const people = useBattleNav().people;
+  const open = text.indexOf("(");
+  const close = text.lastIndexOf(")");
+  if (open < 0 || close < open) return <>{text}</>;
+  const ids = new Map<string, string>();
+  for (const who of people.values()) if (who.army && !ids.has(who.name)) ids.set(who.name, who.id);
+  return (
+    <>
+      {text.slice(0, open + 1)}
+      {nameParts(text.slice(open + 1, close), [...ids.keys()]).map((part, n) => (
+        <Fragment key={n}>{part.name ? <WhoLink id={ids.get(part.name) ?? null} fallback={part.text} /> : part.text}</Fragment>
+      ))}
+      {text.slice(close)}
+    </>
+  );
 }
 
 /** A list of log rows in action order. */

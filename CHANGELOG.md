@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Link more of the battle log, in the list and the tree: gambits open their battalion in the Archive, and the units in the "Battle started", level-up, joined, left and stat-gain lines open their cards.
+
 ## 1.3.1 (2026-11-07)
 
 - On the battle map, show a unit's portrait when it has no map sprite, and a "?" when it has neither; missing images elsewhere also show "?".
