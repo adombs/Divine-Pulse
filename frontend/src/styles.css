@@ -1983,3 +1983,19 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .inventory-name:has(.equip-mark-wrap) { display: flex; align-items: center; gap: 0.35rem; overflow: visible; }
 .inventory-name:has(.equip-mark-wrap) > .ref-link { min-width: 0; }
 .item-list li > span:has(> .equip-mark-wrap) { display: flex; align-items: center; gap: 0.35rem; }
+
+/* Dead units (Classic mode): greyed, below the living in their own group, with the log's "fell" mark. */
+.units tr.fallen:not(.selected) td, .units tr.fallen:not(.selected) .who-class { color: var(--ink-soft); }
+.units tr.fallen .portrait, .cv-face.fallen .portrait { filter: grayscale(1); }
+.units tr.fallen:not(.selected) .portrait { opacity: 0.72; }
+.units tr.fallen-divider th {
+  padding: 0.7rem 0.35rem 0.15rem; text-align: left; font: 700 0.95rem var(--display); color: var(--ink-soft);
+  border-bottom: 1px solid var(--line); cursor: default;
+}
+.units tr.fallen-divider th > span { display: inline-flex; align-items: center; gap: 0.35rem; }
+.fallen-mark { margin-left: 0.35rem; font-size: 0.85rem; color: var(--red); vertical-align: -0.06em; }
+.units tr.selected .fallen-mark, .ref-table tr.selected .in-run.fallen { color: inherit; }
+.in-run.fallen { color: var(--red); }
+.death-status { display: inline-flex; align-items: center; gap: 0.3rem; text-align: left; }
+.death-status > .icon { color: var(--red); flex: none; }
+.death-status > .muted { margin-left: 0.3rem; }

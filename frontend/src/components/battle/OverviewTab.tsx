@@ -1,9 +1,9 @@
 /** The battle at a glance, on one screen: the map with its replay, your units, the log down the right, and the outlook
  * and key numbers under them. All of it follows the replay; picking a log row sends the replay there. The log and the
  * replay are one chronology of the battle (chronicle.ts), Divine Pulse uses and the actions they undid included. */
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import type { Battle } from "../../api";
-import { chronicle } from "./chronicle";
+import { chronicle, fallBeat } from "./chronicle";
 import { OverviewMap } from "./Minimap";
 import type { Item } from "./model";
 import { LogView } from "./LogTab";
@@ -11,9 +11,17 @@ import { KeyStats, OutlookCard, TrendChart } from "./parts";
 import { beatOf, replayStats, useReplay } from "./replay";
 import { UnitStatus } from "./UnitStatus";
 
-export function OverviewTab({ battle, items, seconds }: { battle: Battle; items: Item[]; seconds: number }) {
+export function OverviewTab({ battle, items, seconds, fell = null }: { battle: Battle; items: Item[]; seconds: number; fell?: string | null }) {
   const chron = useMemo(() => chronicle(battle), [battle]);
   const replay = useReplay(battle, chron);
+  // Opened at a unit's fall: the replay goes to that step (and the log highlights its row), once per link.
+  const sought = useRef<string | null>(null);
+  useEffect(() => {
+    if (!fell || sought.current === fell) return;
+    sought.current = fell;
+    const beat = fallBeat(chron, fell);
+    if (beat !== null) replay.seek(beat);
+  }, [fell, chron]); // eslint-disable-line react-hooks/exhaustive-deps
   const stats = replayStats(battle, replay, seconds);
   const chance = stats.chance;
   // The history position the replay is at, when that is on the timeline that stands (the last segment).

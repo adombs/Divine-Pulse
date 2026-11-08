@@ -284,6 +284,15 @@ class BattleStore:
                 log.exception("Could not load battle history %s", path)
                 return []
 
+    def stamp(self, run_id: str) -> tuple[int, int] | None:
+        """When the run's battle history last changed (modification time and size), None with no history: cheap to
+        compare, so a caller can tell whether it has to load the battles again."""
+        try:
+            info = self._path(run_id).stat()
+        except (OSError, NotFound):
+            return None
+        return info.st_mtime_ns, info.st_size
+
     def add(self, battle: Battle) -> None:
         with self._lock:
             path = self._path(battle.run_id)

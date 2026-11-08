@@ -119,7 +119,11 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
 ## Other pages
 
 - **Roster:** header with the unit count and chips for what changes the view (in-battle filter, units to check,
-  "Comparing as"); the run picker is the header's action. Table and unit card as before (`DetailCard`).
+  "Comparing as"); the run picker is the header's action. Table and unit card as before (`DetailCard`). Dead units
+  (Classic mode) stay in the table, greyed with the log's fell mark, in a Fallen group below the living whatever the sort;
+  their card's Status fact says where they fell and opens that battle with the replay at that step
+  (`#/battle/<id>?fell=<unit key>`), and the banner's Mark as Dead / Mark as Alive button overrides what was detected.
+  The shared people filters' Status (Alive / Dead) only counts people in the active run.
 - **Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
   with a `DetailCard`. The Archive's tabs: Characters, Crests, Battalions, Classes, Combat Arts, Abilities, Magic,
   Weapons, Items (old `#/characters/...` links open its Characters and Crests tabs).

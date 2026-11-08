@@ -126,3 +126,22 @@ test("a battle that never used Divine Pulse is its map history and its log", () 
   assert.deepEqual(pulses, []);
   assert.deepEqual(items.map((i) => [i.text, i.beat, i.undoneBy]), [["only", 0, null]]);
 });
+
+test("a unit's fall that stands is where a Roster death link opens the replay; an undone fall isn't", async () => {
+  const { fallBeat } = await vite.ssrLoadModule("/src/components/battle/chronicle.ts");
+  const fell = (position, t, extra = {}) => entry(position, t, "alpha fell.", { kind: "fell", ...extra });
+  const b = battle();
+  // Alpha fell in the first run (undone by the first pulse) and again in the timeline that stands.
+  b.branches[1].log.push(fell(4, 5));
+  b.log.push(fell(3, 211));
+  const chron = chronicle(b);
+  const beat = fallBeat(chron, "alpha");
+  assert.notEqual(beat, null);
+  const standingFall = chron.items.find((i) => i.kind === "fell" && i.undoneBy == null);
+  assert.equal(beat, standingFall.beat);
+  assert.equal(fallBeat(chron, "nobody"), null);
+  // Only the undone fall: no link to a step.
+  const undone = battle();
+  undone.branches[1].log.push(fell(4, 5));
+  assert.equal(fallBeat(chronicle(undone), "alpha"), null);
+});

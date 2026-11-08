@@ -174,6 +174,11 @@ export function runCharacterKeys(units: Unit[]): Set<string> {
   return new Set(units.map(characterKeyOfUnit).filter((k): k is string => !!k));
 }
 
+/** Characters page keys of the active run's dead units. */
+export function deadCharacterKeys(units: Unit[]): Set<string> {
+  return new Set(units.filter((u) => u.death).map(characterKeyOfUnit).filter((k): k is string => !!k));
+}
+
 /** The tracked unit for a Characters page key, if the active run has one. */
 export function unitForCharacter(key: string, units: Unit[]): Unit | undefined {
   return units.find((u) => characterKeyOfUnit(u) === key);

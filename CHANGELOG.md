@@ -7,6 +7,7 @@
 - Declutter the log's tree view: a dot you point at shows its log row once (in the card that grows out of it, not also on the tree), and the rest of the open path's rows fade back while the card is open.
 - Make tracking much faster and more responsive: a read of the game during a battle took about two seconds and now takes a few milliseconds, so the battle page follows the game as it happens.
 - Find a new battle's units without waiting: the tracker checks where they were last time first, and only searches the game's memory in the background.
+- Keep units that died (Classic mode) on the Roster, greyed out with a fallen mark in a Fallen group below the living. A unit counts as dead once it fell in the timeline that stands of its latest finished battle and the game's army no longer has it after that battle, so a restarted battle, a Divine Pulse or Casual mode leaves it alive. Its card says where it fell and opens that battle with the replay at the step it fell; Mark as Dead / Mark as Alive on the card fixes a wrong call. A Status filter (Alive / Dead) joins the shared people filters, and History's statistics, the Archive's "in run" marks and the battle's Units tab show the dead too.
 
 ## 1.3.1 (2026-11-07)
 

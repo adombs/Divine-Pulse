@@ -4,7 +4,7 @@ import { gameLanguageLocale } from "../../gameLanguage";
 import { Fragment, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
 import type { Unit } from "../../api";
-import { characterPortraitKey, runCharacterKeys } from "../../portraits";
+import { characterPortraitKey, deadCharacterKeys, runCharacterKeys } from "../../portraits";
 import { portraitCharacterId } from "../../portraits";
 import { SpriteIndex, UnitSprite, useSprites } from "../battle/mapIcons";
 import { CLASS_UNIT, EXCLUSIVE_CLASS_OWNERS } from "../../reference/classSprites";
@@ -366,10 +366,11 @@ function ClassCard({
 }) {
   const [people] = usePeopleFilters();
   const runKeys = runCharacterKeys(units);
+  const deadKeys = deadCharacterKeys(units);
   const gates = useMemo(() => ladderGates(data.classes), [data.classes]);
   const scale = useMemo(() => growthScale(data.classes), [data.classes]);
   // The shared people filters (affiliation, current run, route) narrow who is listed here too.
-  const shown = (ch: Character) => passes(people, { key: ch.key, house: ch.house, inRun: runKeys.has(ch.key) });
+  const shown = (ch: Character) => passes(people, { key: ch.key, house: ch.house, inRun: runKeys.has(ch.key), dead: deadKeys.has(ch.key) });
   const restricted = /only/i.test(c.restriction) && !/certified/i.test(c.restriction);
   const fits = restricted
     ? []

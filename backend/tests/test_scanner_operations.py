@@ -94,3 +94,34 @@ def test_stop_joins_worker_and_closes_memory(reader):
         reader.stop()
     assert not reader._thread.is_alive()
     assert reader.memory.closed == 1
+
+
+def test_a_unit_that_fell_and_is_gone_from_the_army_is_marked_dead(reader, tmp_path):
+    from datetime import datetime, timezone
+
+    from app.domain.battle import Battle, BattleUnitStats, LogEntry
+    from app.domain.units import Death, Unit
+    from app.storage import BattleStore
+
+    reader._tick()
+    reader._tick()
+    run_id = reader.settings.get().active_run_id
+    present = reader.store.get(run_id).units
+    back_key, back = next(iter(present.items()))
+    reader.battle_store = BattleStore(tmp_path / "battles")
+    reader.battle_store.add(Battle(
+        id="forest", run_id=run_id, map_name="Battle in the Forest",
+        started_at=datetime(2026, 11, 6, tzinfo=timezone.utc), ended_at=datetime(2026, 11, 6, tzinfo=timezone.utc),
+        units=[BattleUnitStats(key="gone", name="Gone", start_level=1, level=1, start={}, now={})],
+        log=[LogEntry(t=3.0, turn=2, kind="fell", text="Gone fell.", unit="gone", actor_id="a:gone", step=7)],
+    ))
+    reader.store.apply_units(run_id, {
+        "gone": Unit(name="Gone", game_id=239),  # not in the synthetic army
+        back_key: back.model_copy(update={"death": Death(battle_id="earlier")}),  # in the army: alive after all
+    })
+    reader._mem_applied = None
+    reader._tick()
+    reader._tick()
+    units = reader.store.get(run_id).units
+    assert units["gone"].death is not None and (units["gone"].death.battle_id, units["gone"].death.step) == ("forest", 7)
+    assert units[back_key].death is None

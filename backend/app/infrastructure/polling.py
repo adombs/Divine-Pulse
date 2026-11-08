@@ -46,6 +46,8 @@ from ..handlers import handle
 from ..application.roster_tracking import RosterUpdates
 from ..application.battle_tracking import BattleTracker
 from .battle_support import DefaultBattleSupport
+from ..domain import deaths
+from ..domain.changes import UnitChange
 from ..domain.units import unit_key
 from ..storage import BattleStore, NotFound, RunStore
 
@@ -138,6 +140,8 @@ class Scanner:
         # (a sample is used once two reads in a row agree, like unit updates).
         self.battle_store = battles
         self.recorder = recorder
+        # The last check for dead units that loaded the battles: (run ID, units missing, battles file stamp).
+        self._deaths_checked: tuple | None = None
         self._battles = BattleTracker(DefaultBattleSupport())
         self._battle_sample: BattleSample | None = None
         self._sample_made: tuple[tuple, BattleSample] | None = None  # the last battle sample and what it was made from
@@ -442,6 +446,10 @@ class Scanner:
             self.battle_store.clear_active(battle.run_id)
         except Exception:
             log.exception("Could not save the battle")
+            return
+        # Read the army again now the battle is filed, even if it hasn't changed: a unit that fell for good is
+        # missing from it (see _detect_deaths).
+        self._mem_applied = None
 
     def _sample_battle(self, snapshot: Snapshot, run_id: str) -> BattleSample:
         """The army units in the battle (on-screen values) and the other units on the map."""
@@ -717,6 +725,9 @@ class Scanner:
 
         uses = dict(snapshot.gambit_uses)
         result = self.roster_updates.apply(run, readings())
+        if decoded and not snapshot.in_battle and not self._battles.active:
+            # A complete read of the army between battles: who fell for good is missing from it.
+            result.changes.extend(self._detect_deaths(run, {unit.character for unit in decoded}))
         changes = result.changes
         warnings, key_of = result.warnings, result.keys
         self._mem_applied = (run_id, snapshot)
@@ -733,6 +744,34 @@ class Scanner:
         if changes:
             single = changes[0] if len(changes) == 1 else None
             self.events.publish("units_changed", {"run_id": run_id, "unit_key": single.key if single else None})
+
+
+    def _detect_deaths(self, run, present: set[int]) -> list[UnitChange]:
+        """Mark the units that fell for good as dead, and units back in the army as alive (domain/deaths.py). The
+        battles are only loaded when a unit is missing that wasn't when they were last looked at."""
+        missing = deaths.missing_units(run.units, present)
+        battles = None
+        if missing and self.battle_store is not None:
+            checked = (run.id, frozenset(missing), self.battle_store.stamp(run.id))
+            if checked != self._deaths_checked:
+                battles = self.battle_store.list(run.id)
+                self._deaths_checked = checked
+        changed = deaths.detect(run.units, present, battles)
+        if not changed:
+            return []
+        out = [UnitChange(key, run.units[key], unit) for key, unit in changed.items()]
+        try:
+            self.store.apply_units(run.id, changed)
+        except Exception:
+            log.exception("Could not save the units' deaths")
+            return []
+        run.units.update(changed)
+        for key, unit in changed.items():
+            if unit.death is not None:
+                log.info("%s fell for good in battle %s", key, unit.death.battle_id)
+            else:
+                log.info("%s is back in the army: alive", key)
+        return out
 
 
 def _stand_in(unit) -> bool:

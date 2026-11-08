@@ -223,3 +223,33 @@ def test_event_publishers_and_sse_wire_message_keep_names_and_payloads(tmp_path)
     event, data = message.splitlines()[:2]
     assert event == "event: units_changed"
     assert json.loads(data.removeprefix("data: ")) == {"run_id": "golden-deer", "unit_key": None}
+
+
+def test_marking_a_unit_dead_or_alive(tmp_path):
+    from app.domain.battle import LogEntry
+
+    app = create_app(tmp_path, background=False)
+    with TestClient(app) as client:
+        run_id = client.post("/api/runs", json={"name": "Classic"}).json()["id"]
+        app.state.store.put_unit(run_id, "raphael", Unit(name="Raphael", game_id=20))
+        app.state.battles.add(Battle(
+            id="forest", run_id=run_id, map_name="Battle in the Forest",
+            started_at=datetime(2026, 11, 6, tzinfo=timezone.utc), ended_at=datetime(2026, 11, 6, tzinfo=timezone.utc),
+            units=[BattleUnitStats(key="raphael", name="Raphael", start_level=1, level=1, start={}, now={})],
+            log=[LogEntry(t=12.5, turn=1, kind="fell", text="Raphael fell.", unit="raphael", actor_id="a:raphael", step=4)],
+        ))
+        [unit] = client.get(f"/api/runs/{run_id}/units").json()
+        assert unit["death"] is None
+
+        dead = client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": True})
+        assert dead.status_code == 200
+        death = dead.json()["death"]
+        assert (death["battle_id"], death["battle_name"], death["step"], death["t"], death["manual"]) == (
+            "forest", "Battle in the Forest", 4, 12.5, True)
+
+        alive = client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": False}).json()
+        assert alive["death"] is None and alive["death_dismissed"] == "forest"
+
+        assert client.put(f"/api/runs/{run_id}/units/nobody/dead", json={"dead": True}).status_code == 404
+        assert client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": "maybe"}).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": True, "x": 1}).status_code == 422

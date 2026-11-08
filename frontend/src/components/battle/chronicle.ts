@@ -56,6 +56,14 @@ export interface Chronicle {
 
 const EMPTY: Frame = new Map();
 
+/** The replay beat where an army unit (its key) fell in the timeline that stands, the last time it did (null: it
+ * didn't, or this recording can't replay it). */
+export function fallBeat(chron: Chronicle, key: string): number | null {
+  const actor = `a:${key}`;
+  const fall = chron.items.filter((i) => i.kind === "fell" && i.actor === actor && i.undoneBy == null && i.pulse === undefined).at(-1);
+  return fall ? (fall.beats?.[0] ?? fall.beat ?? null) : null;
+}
+
 /** The Divine Pulse uses in the order they happened. */
 export const sortedBranches = (battle: Battle): Branch[] => [...(battle.branches ?? [])].sort((a, b) => a.at - b.at);
 

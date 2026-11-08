@@ -4,7 +4,7 @@
  */
 import { CONCEPT_ICON } from "../../../icons/concepts";
 import type { Unit } from "../../../api";
-import { runCharacterKeys } from "../../../portraits";
+import { deadCharacterKeys, runCharacterKeys } from "../../../portraits";
 import { AFFILIATIONS, PeopleFilters, passes, routesOf } from "../../../filters";
 import {
   ROUTES,
@@ -55,7 +55,7 @@ export function inRun(p: Person, units: Unit[]): boolean {
 }
 
 export function passesPeople(f: PeopleFilters, p: Person, units: Unit[]): boolean {
-  return passes(f, { key: personKey(p), house: p.house, inRun: inRun(p, units) });
+  return passes(f, { key: personKey(p), house: p.house, inRun: inRun(p, units), dead: deadCharacterKeys(units).has(personKey(p)) });
 }
 
 /** Route lock check for a pair: the pair itself must be possible there, and both people on that route. */

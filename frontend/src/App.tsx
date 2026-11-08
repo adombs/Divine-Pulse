@@ -422,6 +422,7 @@ export default function App() {
                 replaySpeed={appearance.appearance.replaySpeed}
                 onReplaySpeed={(replaySpeed) => appearance.update({ replaySpeed })}
                 at={recording?.id === nav.route.id ? nav.route.q : null}
+                fell={recording?.id === nav.route.id ? nav.route.fell : null}
                 onDeleteRecording={deleteRecording}
               />
             )}

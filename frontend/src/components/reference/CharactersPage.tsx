@@ -5,7 +5,7 @@ import { Icon, IconButton } from "../Icon";
 import { useSpoiler } from "../../spoilers";
 import { isStoryClass } from "../../reference/links";
 import type { Unit } from "../../api";
-import { characterPortraitKey, runCharacterKeys, unitForCharacter } from "../../portraits";
+import { characterPortraitKey, deadCharacterKeys, runCharacterKeys, unitForCharacter } from "../../portraits";
 import { crestLabel, crestName } from "../../reference/crests";
 import { canonical, searchMatches } from "../../fuzzy";
 import {
@@ -64,7 +64,7 @@ export function CharacterTable({ data, units, part2 }: { data: ReferenceData } &
   const [people] = usePeopleFilters();
   const [showIdentities] = useSpoiler("identities");
   const [showStoryClasses] = useSpoiler("storyClasses");
-  const [peopleCount, clearPeople] = usePeopleFilterCount(["affiliation", "run"]);
+  const [peopleCount, clearPeople] = usePeopleFilterCount(["affiliation", "run", "status"]);
   const [view, setView] = useState<View>("growths");
   const [filter, setFilter] = useState("");
   const [withClass, setWithClass] = useState("");
@@ -75,13 +75,14 @@ export function CharacterTable({ data, units, part2 }: { data: ReferenceData } &
   const availableClasses = data.classes.filter((c) => showStoryClasses || !isStoryClass(c.name));
   const cls = view === "growths" ? availableClasses.find((c) => c.name === withClass) : undefined;
   const inRun = useMemo(() => runCharacterKeys(units), [units]);
+  const dead = useMemo(() => deadCharacterKeys(units), [units]);
   const value = (c: Character, k: StatKey) => c[view][k] + (cls ? cls.growths[k] : 0);
   const total = (c: Character) => STAT_KEYS.reduce((n, k) => n + value(c, k), 0);
 
   const rows = useMemo(() => {
     const list = data.characters.filter(
       (c) =>
-        passes({ ...people, routes: [] }, { key: c.key, house: c.house, inRun: inRun.has(c.key) }) &&
+        passes({ ...people, routes: [] }, { key: c.key, house: c.house, inRun: inRun.has(c.key), dead: dead.has(c.key) }) &&
         searchMatches(filter, c.name, c.full_name, c.house, c.start_class === "Death Knight" && !showIdentities ? "" : c.start_class, ...c.crests.map((x) => x.name), ...c.personal.map((p) => p.name)),
     );
     const houseIdx = (c: Character) => AFFILIATIONS.indexOf(c.house as (typeof AFFILIATIONS)[number]);
@@ -89,7 +90,7 @@ export function CharacterTable({ data, units, part2 }: { data: ReferenceData } &
       sort.key === "name" ? c.name : sort.key === "house" ? houseIdx(c) : sort.key === "total" ? total(c) : value(c, sort.key);
     const order = new Map(data.characters.map((c, i) => [c.key, i]));
     return list.sort((a, b) => compareValues(val(a), val(b)) * sort.dir || order.get(a.key)! - order.get(b.key)!);
-  }, [data, people, inRun, filter, sort, view, withClass, showIdentities]);
+  }, [data, people, inRun, dead, filter, sort, view, withClass, showIdentities]);
 
   // The id comes from the URL (the character whose card shows): accept a misspelt or differently cased name too. With
   // none picked, the first row's card shows.
@@ -117,11 +118,11 @@ export function CharacterTable({ data, units, part2 }: { data: ReferenceData } &
           chips={
             <>
               {cls && <FilterChip onClear={() => setWithClass("")}><span className="filter-label"><TierIcon tier={cls.tier} size={18} decorative />Growths as a {cls.name}</span></FilterChip>}
-              <PeopleFilterChips fields={["affiliation", "run"]} />
+              <PeopleFilterChips fields={["affiliation", "run", "status"]} />
             </>
           }
         >
-          <PeopleFilterFields fields={["affiliation", "run"]} />
+          <PeopleFilterFields fields={["affiliation", "run", "status"]} />
           <ClassGrowthFilter classes={availableClasses} value={availableClasses.some((c) => c.name === withClass) ? withClass : ""} onChange={setWithClass} />
         </FilterMenu>
         <span className="toolbar-end">
@@ -153,11 +154,15 @@ export function CharacterTable({ data, units, part2 }: { data: ReferenceData } &
                     <div className="who-text">
                       <span className="who-name">
                         {c.name}
-                        {inRun.has(c.key) && (
+                        {inRun.has(c.key) && (dead.has(c.key) ? (
+                          <span className="in-run fallen" title="Died in your active run">
+                            <Icon name={CONCEPT_ICON.dead} />
+                          </span>
+                        ) : (
                           <span className="in-run" title="In your active run">
                             <Icon name={CONCEPT_ICON.inRun} weight="fill" />
                           </span>
-                        )}
+                        ))}
                       </span>
                       <span className="who-class">{c.start_class === "Death Knight" && !showIdentities ? "Class hidden" : c.start_class}</span>
                     </div>
@@ -460,17 +465,18 @@ export function CrestTable({ data, units, part2 }: { data: ReferenceData } & Pro
   const nav = useNav();
   const [people] = usePeopleFilters();
   const [filter, setFilter] = useState("");
-  const [peopleCount, clearPeople] = usePeopleFilterCount(["affiliation", "run"]);
+  const [peopleCount, clearPeople] = usePeopleFilterCount(["affiliation", "run", "status"]);
   const runKeys = useMemo(() => runCharacterKeys(units), [units]);
+  const deadKeys = useMemo(() => deadCharacterKeys(units), [units]);
   const filtered = data.crests.filter((crest) => {
     const bearers = [...crest.bearers.major, ...crest.bearers.minor].map((name) => data.characters.find((ch) => ch.name === name)).filter((ch): ch is Character => !!ch);
-    const matching = bearers.filter((ch) => passes({ ...people, routes: [] }, { key: ch.key, house: ch.house, inRun: runKeys.has(ch.key) }));
-    return (!people.affiliations.length && !people.runOnly || matching.length > 0) && searchMatches(filter, crest.name, crest.effect, ...matching.map((ch) => ch.name));
+    const matching = bearers.filter((ch) => passes({ ...people, routes: [] }, { key: ch.key, house: ch.house, inRun: runKeys.has(ch.key), dead: deadKeys.has(ch.key) }));
+    return (!people.affiliations.length && !people.runOnly && !people.status.length || matching.length > 0) && searchMatches(filter, crest.name, crest.effect, ...matching.map((ch) => ch.name));
   });
   const selected = nav.route.id ?? filtered[0]?.name;
   const current = filtered.find((c) => c.name === selected) ?? filtered[0];
   const select = (name: string) => nav.go({ page: "archive", tab: "crests", id: name });
-  if (!current) return <><div className="toolbar"><SearchBox placeholder="Search crest or bearer" value={filter} onChange={setFilter} /><FilterMenu count={peopleCount} onClear={clearPeople} chips={<PeopleFilterChips fields={["affiliation", "run"]} />}><PeopleFilterFields fields={["affiliation", "run"]} /></FilterMenu></div><NoMatches what="crests" onReset={() => { setFilter(""); clearPeople(); }} /></>;
+  if (!current) return <><div className="toolbar"><SearchBox placeholder="Search crest or bearer" value={filter} onChange={setFilter} /><FilterMenu count={peopleCount} onClear={clearPeople} chips={<PeopleFilterChips fields={["affiliation", "run", "status"]} />}><PeopleFilterFields fields={["affiliation", "run", "status"]} /></FilterMenu></div><NoMatches what="crests" onReset={() => { setFilter(""); clearPeople(); }} /></>;
   const bearerGroup = (title: string, names: string[]) => {
     const people = names.map((n) => data.characters.find((c) => c.name === n)).filter((c): c is Character => !!c);
     if (!people.length) return null;
@@ -512,7 +518,7 @@ export function CrestTable({ data, units, part2 }: { data: ReferenceData } & Pro
         </DetailCard>
       }
     >
-      <div className="toolbar"><SearchBox placeholder="Search crest, effect or bearer" value={filter} onChange={setFilter} /><FilterMenu count={peopleCount} onClear={clearPeople} chips={<PeopleFilterChips fields={["affiliation", "run"]} />}><PeopleFilterFields fields={["affiliation", "run"]} /></FilterMenu><span className="muted small">{filtered.length} crests</span></div>
+      <div className="toolbar"><SearchBox placeholder="Search crest, effect or bearer" value={filter} onChange={setFilter} /><FilterMenu count={peopleCount} onClear={clearPeople} chips={<PeopleFilterChips fields={["affiliation", "run", "status"]} />}><PeopleFilterFields fields={["affiliation", "run", "status"]} /></FilterMenu><span className="muted small">{filtered.length} crests</span></div>
       <div className="table-wrap crest-table-wrap">
         <table className="units ref-table crest-table">
           <thead>
