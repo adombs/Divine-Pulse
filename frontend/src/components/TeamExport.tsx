@@ -103,6 +103,13 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
     return () => { live = false; };
   }, [run.id]);
   const ledger = useMemo(() => (battles ? buildRunLedger(battles, "characters") : null), [battles]);
+  // Ordering every unit at once: by BST, by deployments or by when they joined (each a fresh layout with no gaps), or
+  // "custom" once a unit is dragged.
+  const [orderBy, setOrderBy] = useState<OrderBy>("custom");
+  const applyOrder = (by: OrderBy) => {
+    setOrderBy(by);
+    if (by !== "custom") setPlaced(orderUnits(units, by, ledger?.characters ?? []));
+  };
 
   const loadouts = useRef<HTMLDivElement>(null);
   const stats = useRef<HTMLDivElement>(null);
@@ -179,7 +186,16 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
                 {left.size ? "Select all" : "Select none"}
               </button>
             </legend>
-            <UnitSlots slots={slots} byKey={byKey} left={left} part2={part2} columns={perRow} onToggle={toggle} onPlace={setPlaced} />
+            <label className="team-order-by">
+              Order
+              <select value={orderBy} onChange={(e) => applyOrder(e.target.value as OrderBy)}>
+                <option value="custom">Custom</option>
+                {ORDER_BY.map(([id, label]) => (
+                  <option key={id} value={id} disabled={(id === "deployments" || id === "joined") && !ledger}>{label}</option>
+                ))}
+              </select>
+            </label>
+            <UnitSlots slots={slots} byKey={byKey} left={left} part2={part2} columns={perRow} onToggle={toggle} onPlace={(next) => { setPlaced(next); setOrderBy("custom"); }} />
           </fieldset>
           <ExportActions
             facts={[plural(chosen.length, "unit"), "2 PNG images"]}
@@ -192,6 +208,38 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
       </div>
     </Modal>
   );
+}
+
+type OrderBy = "custom" | "bst" | "deployments" | "joined" | "name";
+
+/** The ways to order every unit at once (besides arranging them by hand). */
+const ORDER_BY: [Exclude<OrderBy, "custom">, string][] = [
+  ["bst", "BST (highest first)"],
+  ["deployments", "Deployments (most first)"],
+  ["joined", "Joined (first battle, earliest first)"],
+  ["name", "Name"],
+];
+
+/**
+ * The units' keys in the order asked for. Deployments and joining come from the run's finished battles: joined is
+ * when a unit first fought, those who never have go last in the roster's order. Ties keep the roster's order.
+ */
+export function orderUnits(units: Unit[], by: Exclude<OrderBy, "custom">, characters: { key: string; battles: number; appearances: { battle: { started_at: string } }[] }[]): string[] {
+  const stats = new Map(characters.map((c) => [c.key, c]));
+  const joined = (u: Unit) => {
+    const times = stats.get(u.key)?.appearances.map((a) => a.battle.started_at) ?? [];
+    return times.length ? times.reduce((a, b) => (a < b ? a : b)) : null;
+  };
+  const value: Record<typeof by, (a: Unit, b: Unit) => number> = {
+    bst: (a, b) => baseStatTotal(b) - baseStatTotal(a),
+    deployments: (a, b) => (stats.get(b.key)?.battles ?? 0) - (stats.get(a.key)?.battles ?? 0),
+    joined: (a, b) => {
+      const [ja, jb] = [joined(a), joined(b)];
+      return ja === jb ? 0 : ja === null ? 1 : jb === null ? -1 : ja.localeCompare(jb);
+    },
+    name: (a, b) => a.name.localeCompare(b.name),
+  };
+  return units.map((u, i) => ({ u, i })).sort((a, b) => value[by](a.u, b.u) || a.i - b.i).map(({ u }) => u.key);
 }
 
 /**

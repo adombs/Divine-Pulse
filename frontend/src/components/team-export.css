@@ -126,3 +126,7 @@
 .team-order.compact li.empty { min-height: 4.2rem; }
 .team-order li.over { border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
 .team-order li.dragging { opacity: 0.55; }
+
+/* Ordering every unit at once, above the slots. */
+.team-order-by { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--ink-soft); }
+.team-order-by select { width: 100%; }

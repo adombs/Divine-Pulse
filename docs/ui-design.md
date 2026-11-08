@@ -125,7 +125,8 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
   "Comparing as"); the run picker is the header's action. Table and unit card as before (`DetailCard`). Export Team (TeamExport.tsx), left
   of Back, previews the two images it saves (loadouts with BST, never eBST, as rows of cards as tall as the unit's
   portrait and stats, the rest flowing into columns beside them, units per row set beside the preview; run statistics) and the units to include, in slots laid out as many side by side as the loadouts (an empty row more at the
-  end); a six-dot handle drags a unit to another slot, empty or not (they swap), and empty slots leave rows short.
+  end); a six-dot handle drags a unit to another slot, empty or not (they swap), and empty slots leave rows short. An Order menu above
+  them lays every unit out by BST, deployments, joining (first battle) or name; dragging makes it Custom.
 - **Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
   with a `DetailCard`. The Archive's tabs: Characters, Crests, Battalions, Classes, Combat Arts, Abilities, Magic,
   Weapons, Items (old `#/characters/...` links open its Characters and Crests tabs).
