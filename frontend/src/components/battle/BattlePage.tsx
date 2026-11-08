@@ -8,6 +8,7 @@ import { api, Battle, Unit } from "../../api";
 import { PageHeader, StatusChip, Tab } from "../layout";
 import { useNav } from "../../nav";
 import { houseOfCharacter } from "../AffiliationIcon";
+import { RUN_HOUSE } from "../ui";
 import { Icon } from "../Icon";
 import { characterKeyOfName, characterKeyOfUnit, faceUrl, portraitUrl } from "../../portraits";
 import { PortraitPhaseContext } from "../../appearance";
@@ -17,7 +18,7 @@ import type { MapLook } from "./mapIcons";
 import { MoreStatsTab } from "./MoreStatsTab";
 import { OverviewTab } from "./OverviewTab";
 import { BattleNav, BattleNavContext, CopySummary, useElapsed } from "./parts";
-import { battleName, KIND_LABEL } from "./scenarios";
+import { battleName, KIND_LABEL, routeOf } from "./scenarios";
 import { UnitsTab } from "./UnitsTab";
 import { UnitPopup } from "./UnitPopup";
 import { isObject } from "./map";
@@ -159,7 +160,10 @@ export function BattleView(p: ViewProps) {
     for (const u of battle.units) {
       const id = armyId(u.key);
       if (!out.has(id)) set(id, characterKeyOfName(u.name));
-      out.set(id, factionOf(u.character, battle.scenario, "player", out.get(id)));
+      // Byleth belongs to the house this run chose (the game's own allegiance for them is the Church).
+      const route = battle.route ?? routeOf(battle);
+      const chosen = (u.character === 0 || u.character === 1) && route ? RUN_HOUSE[route] : undefined;
+      out.set(id, factionOf(u.character, battle.scenario, "player", chosen ?? out.get(id)));
     }
     for (const [slot, e] of Object.entries(battle.enemy_stats ?? {})) {
       const id = enemyId(slot);
