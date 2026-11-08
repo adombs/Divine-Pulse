@@ -16,6 +16,13 @@
 .tl-caption .log-row { grid-template-columns: 2.3rem 1.4rem minmax(0, 1fr); gap: 0.4rem; padding: 0.18rem 0.3rem; }
 .tl-caption .log-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tl-item.active .tl-caption { box-shadow: 0 0 0 2px var(--amber); }
+/* A log row is shown once: a pointed-at dot's row is the card (grown out of the dot), and while it is open the other
+   rows step back so they don't read through it. */
+.tl-caption { transition: opacity 0.15s ease; }
+.tl-item.hovered .tl-caption { opacity: 0; }
+.timelines-wrap.peeking .tl-caption { opacity: 0.2; }
+.timelines-wrap.peeking .tl-item.hovered .tl-caption { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .tl-caption { transition: none; } }
 
 /* The tree's zoom is the map's zoom slider, in the same box. */
 .tl-toolbar .map-tools { margin: 0 0 0 auto; width: min(16rem, 100%); }

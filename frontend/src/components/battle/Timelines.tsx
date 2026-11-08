@@ -10,6 +10,7 @@ import { createPortal } from "react-dom";
 import { Item, mergeHits, TimelineColumn } from "./model";
 import { ZoomSlider } from "./camera";
 import { ItemRow } from "./parts";
+import { ancestry, buildLanes, byImportance, dots, openPath, uncovered } from "./timelineTree";
 import "./log.css";
 
 const IN_VIEW = 10; // dots down the view by default
@@ -35,34 +36,11 @@ interface Props {
   current?: number | null;
 }
 
-interface Lane {
-  id: number;
-  parent: number | null;
-  fork: number;
-  at: number;
-  first: number;
-  last: number;
-  rows: [number, Item[]][];
-}
-
 /** A point in the tree's own units: history position down (fx), timeline (column index) across (fy). Fractions are in
  * between. */
 interface Spot {
   fx: number;
   fy: number;
-}
-
-/** Timelines left to right: each one's branches around it, the earliest nearest, alternately left and right, each with
- * its own branches around it in turn. */
-function order(lanes: Lane[]): Lane[] {
-  const children = (id: number) => lanes.filter((l) => l.parent === id).sort((a, b) => a.fork - b.fork || a.id - b.id);
-  const band = (lane: Lane): Lane[] => {
-    const kids = children(lane.id);
-    const above = kids.filter((_, i) => i % 2 === 0).reverse();
-    const below = kids.filter((_, i) => i % 2 === 1);
-    return [...above.flatMap(band), lane, ...below.flatMap(band)];
-  };
-  return band(lanes.find((l) => l.id === 0)!);
 }
 
 const ease = (k: number) => (k < 0.5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2);
@@ -78,19 +56,7 @@ function bend(a: Spot, b: Spot, k: number): Spot {
 }
 
 export function Timelines({ columns, jump, current = null }: Props) {
-  // The timelines' actions (Divine Pulse lines left out: the branches show where time went back), in tree order.
-  const lanes = useMemo(() => {
-    const out: Lane[] = [];
-    for (const c of columns) {
-      const rows = [...c.rows]
-        .map(([step, items]) => [step, items.filter((i) => i.kind !== "pulse")] as [number, Item[]])
-        .filter(([, items]) => items.length > 0)
-        .sort((a, b) => a[0] - b[0]);
-      if (!rows.length) continue;
-      out.push({ id: c.id, parent: c.parent, fork: c.fork, at: c.at, first: rows[0][0], last: rows[rows.length - 1][0], rows });
-    }
-    return order(out);
-  }, [columns]);
+  const lanes = useMemo(() => buildLanes(columns), [columns]);
   const byId = useMemo(() => new Map(lanes.map((l) => [l.id, l])), [lanes]);
   const laneIndex = useMemo(() => new Map(lanes.map((l, i) => [l.id, i])), [lanes]);
   // Divine Pulse uses in order: the branch each one undid.
@@ -102,19 +68,9 @@ export function Timelines({ columns, jump, current = null }: Props) {
     if (pinned !== id) void fitPath(id);
   };
   const selected = hoveredPath ?? pinned;
-  // A path includes its ancestors up to each fork, so every path starts at the shared Turn 1 node.
-  const ancestry = (id: number): { lane: Lane; end: number }[] => {
-    const result: { lane: Lane; end: number }[] = [];
-    let end = Infinity;
-    for (let l = byId.get(id); l; l = l.parent === null ? undefined : byId.get(l.parent)) {
-      result.unshift({ lane: l, end: Math.min(l.last, end) });
-      const parent = l.parent === null ? undefined : byId.get(l.parent);
-      // Sparse history has no node at fork - 1: join the last actual row before the split.
-      end = parent?.rows.filter(([step]) => step < l.fork).at(-1)?.[0] ?? parent?.first ?? 0;
-    }
-    return result;
-  };
-  const expanded = new Map(selected === null ? [] : ancestry(selected).map(({ lane, end }) => [lane.id, end]));
+  // The open path shows its log rows: its ancestors up to each fork too, so every path starts at the shared Turn 1 node.
+  const open = useMemo(() => openPath(byId, selected), [byId, selected]);
+  const nodes = useMemo(() => dots(lanes, open, current), [lanes, open, current]);
 
   // Zoom: px per history position, ten dots down the view until the slider moves.
   const box = useRef<HTMLDivElement>(null);
@@ -307,7 +263,7 @@ export function Timelines({ columns, jump, current = null }: Props) {
   const fitPath = async (pathId: number) => {
     const el = box.current;
     if (!el) return;
-    const parts = ancestry(pathId);
+    const parts = ancestry(byId, pathId);
     const rows = [parts[0].lane.first, ...parts.map((p) => p.end)];
     const [top, bottom] = [Math.min(...rows), Math.max(...rows)];
     const across = parts.map((p) => laneIndex.get(p.lane.id) ?? 0);
@@ -326,16 +282,16 @@ export function Timelines({ columns, jump, current = null }: Props) {
     void (jump.pulse > 0 && jump.pulse <= pulses.length ? replayPulse(jump.pulse) : toStart());
   }, [jump]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Log rows are as tall as their text, so which ones fit beside their dots is measured: a row that would cover
+  // another stays hidden (the current position's first).
   useLayoutEffect(() => {
     const labels = [...(box.current?.querySelectorAll<HTMLElement>(".tl-caption") ?? [])];
-    labels.sort((a, b) => Number(b.parentElement?.classList.contains("active")) - Number(a.parentElement?.classList.contains("active")));
-    const occupied: DOMRect[] = [];
-    for (const label of labels) {
-      const rect = label.getBoundingClientRect();
-      const collision = occupied.some((other) => rect.left < other.right + 4 && rect.right > other.left - 4 && rect.top < other.bottom + 3 && rect.bottom > other.top - 3);
-      label.style.visibility = collision ? "hidden" : "visible";
-      if (!collision) occupied.push(rect);
-    }
+    const slots = labels.map((el) => {
+      const { left, right, top, bottom } = el.getBoundingClientRect();
+      return { key: el.dataset.dot ?? "", active: !!el.parentElement?.classList.contains("active"), left, right, top, bottom };
+    });
+    const fits = uncovered(byImportance(slots));
+    for (const el of labels) el.style.visibility = fits.has(el.dataset.dot ?? "") ? "visible" : "hidden";
   });
 
   const shownMarker = marker.current;
@@ -348,7 +304,7 @@ export function Timelines({ columns, jump, current = null }: Props) {
     ["--tl-oy" as string]: `${PAD + step / 2}px`,
   };
   return (
-    <div className="timelines-wrap" style={{ ["--tl-dot" as string]: `${dot}px`, ["--tl-caption-scale" as string]: Math.min(1, step / fit(IN_VIEW)) }}>
+    <div className={`timelines-wrap ${hover ? "peeking" : ""}`} style={{ ["--tl-dot" as string]: `${dot}px`, ["--tl-caption-scale" as string]: Math.min(1, step / fit(IN_VIEW)) }}>
       <div className="toolbar tl-toolbar">
         <span className="toolbar-end map-tools">
           <ZoomSlider
@@ -411,7 +367,7 @@ export function Timelines({ columns, jump, current = null }: Props) {
               <line key={s} className="tl-turn" x1={4} x2={width} y1={yOf(s) - step / 2} y2={yOf(s) - step / 2} />
             ))}
             {lanes.map((l) => {
-              const segments = ancestry(l.id);
+              const segments = ancestry(byId, l.id);
               const d = segments.map(({ lane: part, end }, i) => {
                 const x = xOf(part.id);
                 if (!i) return `M ${x} ${yOf(part.first)} V ${yOf(end)}`;
@@ -437,58 +393,51 @@ export function Timelines({ columns, jump, current = null }: Props) {
               Turn {turn}
             </span>
           ))}
-          {lanes.map((l) => {
-            const branch = l.parent !== null;
-            const forks = new Set(lanes.filter((child) => child.parent === l.id).map((child) => {
-              const before = l.rows.filter(([s]) => s < child.fork);
-              return before.at(-1)?.[0] ?? l.first;
-            }));
-            const shown = l.rows.filter(([s]) => (l.parent === null && s === l.first) || s === l.last || forks.has(s) ||
-              (expanded.has(l.id) && s <= expanded.get(l.id)!) || (l.id === 0 && s === current));
-            return shown.map(([s, items], index) => {
-              const action = items.find((i) => !i.heading) ?? items[0];
-              const text = items.map((i) => i.text).join(" · ");
-              const key = `${l.id}-${s}`;
-              const active = l.id === 0 && s === current;
-              const caption = active || (expanded.has(l.id) && s <= expanded.get(l.id)!);
-              const show = (el: HTMLElement) => {
-                cancelHide();
-                if (drag.current?.moved || camera.current) return;
-                setHoveredPath(l.id);
-                setHover({ key, items, at: el.getBoundingClientRect() });
-              };
-              const hide = () => {
-                scheduleHide();
-              };
-              return (
-                <div
-                  key={key}
-                  className={`tl-item ${branch ? "undone" : ""} ${expanded.has(l.id) ? "open" : ""} ${active ? "active" : ""} ${hover?.key === key ? "hovered" : ""} ${flash === key ? "flash" : ""}`}
-                  style={{ left: xOf(l.id), top: yOf(s) }}
-                  onAnimationEnd={(e) => e.animationName === "tl-flash" && setFlash(null)}
-                  onPointerEnter={(e) => show(e.currentTarget.querySelector<HTMLElement>(".tl-node")!)}
-                  onPointerLeave={hide}
-                  onFocusCapture={(e) => e.target.matches(":focus-visible") && show(e.currentTarget.querySelector<HTMLElement>(".tl-node")!)}
-                  onBlurCapture={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) hide(); }}
-                >
-                  <button
-                    type="button"
-                    className={`tl-node cat-${action.category} ${action.heading ? "heading" : ""}`}
-                    aria-label={text}
-                    aria-current={active || undefined}
-                    aria-pressed={pinned === l.id}
+          {nodes.map(({ key, lane: l, step: s, items, index, active, open: onPath }) => {
+            const action = items.find((i) => !i.heading) ?? items[0];
+            const text = items.map((i) => i.text).join(" · ");
+            const hovered = hover?.key === key;
+            // A dot's log row is shown once: on the tree, or in the card grown out of the dot while it is pointed at
+            // (the row stays, unseen, so the pointer doesn't fall off the dot and its slot isn't handed to a neighbour).
+            const caption = active || onPath;
+            const show = (el: HTMLElement) => {
+              cancelHide();
+              if (drag.current?.moved || camera.current) return;
+              setHoveredPath(l.id);
+              setHover({ key, items, at: el.getBoundingClientRect() });
+            };
+            return (
+              <div
+                key={key}
+                className={`tl-item ${l.parent !== null ? "undone" : ""} ${open.has(l.id) ? "open" : ""} ${active ? "active" : ""} ${hovered ? "hovered" : ""} ${flash === key ? "flash" : ""}`}
+                style={{ left: xOf(l.id), top: yOf(s) }}
+                onAnimationEnd={(e) => e.animationName === "tl-flash" && setFlash(null)}
+                onPointerEnter={(e) => show(e.currentTarget.querySelector<HTMLElement>(".tl-node")!)}
+                onPointerLeave={scheduleHide}
+                onFocusCapture={(e) => e.target.matches(":focus-visible") && show(e.currentTarget.querySelector<HTMLElement>(".tl-node")!)}
+                onBlurCapture={(e) => { if (!e.currentTarget.contains(e.relatedTarget)) scheduleHide(); }}
+              >
+                <button
+                  type="button"
+                  className={`tl-node cat-${action.category} ${action.heading ? "heading" : ""}`}
+                  aria-label={text}
+                  aria-current={active || undefined}
+                  aria-pressed={pinned === l.id}
+                  onClick={() => toggle(l.id)}
+                />
+                {caption && (
+                  <ol
+                    className={`log-list tl-caption ${(index + (laneIndex.get(l.id) ?? 0)) % 2 ? "left" : "right"}`}
+                    data-dot={key}
                     onClick={() => toggle(l.id)}
-                  />
-                  {caption && (
-                    <ol className={`log-list tl-caption ${(index + (laneIndex.get(l.id) ?? 0)) % 2 ? "left" : "right"}`} onClick={() => toggle(l.id)}>
-                      {mergeHits(items).map((i) => (
-                        <ItemRow key={i.key} item={i} />
-                      ))}
-                    </ol>
-                  )}
-                </div>
-              );
-            });
+                  >
+                    {mergeHits(items).map((i) => (
+                      <ItemRow key={i.key} item={i} />
+                    ))}
+                  </ol>
+                )}
+              </div>
+            );
           })}
           {shownMarker && <span className="tl-marker" style={{ left: px(shownMarker.fy), top: py(shownMarker.fx) }} aria-hidden />}
         </div>
