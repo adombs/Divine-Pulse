@@ -6,11 +6,16 @@ from pathlib import Path
 
 from .. import system
 from ..gamemem.fe3h import GameMemory, GameMemoryError, decode_roster
+from ..gamemem.readers import emulators_for
+from .settings import SettingsStore
 
 
 class MemoryCheck:
+    def __init__(self, settings: SettingsStore):
+        self.settings = settings
+
     def check(self) -> dict:
-        memory = GameMemory()
+        memory = GameMemory(emulators_for(self.settings.get().memory_reader))
         try:
             snapshot = memory.read(battle=False)
             count = len(decode_roster(snapshot.roster))

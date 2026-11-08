@@ -278,6 +278,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [recordingLimit, setRecordingLimit] = useState("3");
   const [windowMode, setWindowMode] = useState<Settings["window_mode"]>("windowed");
+  const [memoryReader, setMemoryReader] = useState<Settings["memory_reader"]>("eden");
   // The window mode only applies to the desktop window, not the browser.
   const [desktop, setDesktop] = useState(false);
   const ids = useId();
@@ -287,6 +288,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const apply = (s: Settings) => {
     setSettings(s);
     setWindowMode(s.window_mode);
+    setMemoryReader(s.memory_reader);
     setRecordingLimit(String(s.max_recordings));
   };
 
@@ -307,6 +309,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
     try {
       const s = await api.saveSettings({
         window_mode: windowMode,
+        memory_reader: memoryReader,
         max_recordings: count,
       });
       apply(s);
@@ -320,7 +323,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   if (!settings) return <p className="muted">Loading…</p>;
 
   const changed: Partial<Record<SettingsTab, boolean>> = {
-    general: count !== settings.max_recordings || windowMode !== settings.window_mode,
+    general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader,
   };
   const dirty = Object.values(changed).some(Boolean);
 
@@ -391,9 +394,14 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
               {tab === "game-files" && <GameFilesSection desktop={desktop} />}
               {tab === "general" && (
                 <>
-                  <Group title="Game" note="Requires Windows, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0.">
+                  <Group title="Game" note={memoryReader === "recomp"
+                    ? "Requires Windows, FE3H Recomp (fe3hrecomp.exe) running Fire Emblem: Three Houses v1.2.0."
+                    : "Requires Windows, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0."}>
+                    <Row label="Read the game from" hint="Save the setting, then check the connection.">
+                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={[["eden", "Eden"], ["recomp", "FE3H Recomp"]]} />
+                    </Row>
                     <Row label="Connection">
-                      <MemoryCheck />
+                      <MemoryCheck key={settings.memory_reader} />
                     </Row>
                   </Group>
                   <Group title="Battle recordings">

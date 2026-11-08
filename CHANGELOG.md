@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Read the game from FE3H Recomp (the native Windows recompilation of Three Houses) as well as Eden: choose where under Settings > General > Game. Eden stays the default; nothing else about tracking changes.
+
 ## 1.3.1 (2026-11-07)
 
 - On the battle map, show a unit's portrait when it has no map sprite, and a "?" when it has neither; missing images elsewhere also show "?".

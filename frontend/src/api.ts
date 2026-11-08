@@ -83,9 +83,11 @@ export interface Settings {
   active_run_id: string | null;
   max_recordings: number;
   window_mode: "windowed" | "fullscreen";
+  /** Where the game is read from: the Eden emulator, or FE3H Recomp (the native Windows recompilation). */
+  memory_reader: "eden" | "recomp";
 }
 
-export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode">>;
+export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader">>;
 
 /** What the game reader is doing. */
 export interface AutoStatus {
