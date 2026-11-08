@@ -1,0 +1,22 @@
+# The website's changelog is built from these releases' descriptions, so rebuild the site when one is published, edited
+# or removed. The site also rebuilds every night, so a missed run is only a delay.
+name: Rebuild the website
+
+on:
+  release:
+    types: [published, edited, deleted, unpublished]
+
+permissions: {}
+
+jobs:
+  rebuild:
+    name: rebuild the website
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Trigger the Cloudflare Pages deploy hook
+        env:
+          DEPLOY_HOOK_URL: ${{ secrets.CLOUDFLARE_DEPLOY_HOOK_URL }}
+        run: |
+          test -n "$DEPLOY_HOOK_URL" || { echo 'The CLOUDFLARE_DEPLOY_HOOK_URL secret is not set.' >&2; exit 1; }
+          curl --fail --silent --show-error --request POST "$DEPLOY_HOOK_URL"
