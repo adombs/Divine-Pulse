@@ -1,37 +1,39 @@
 /**
- * The battle's log, on the Overview: in action order, as a list or the timelines as a tree. The Timeline picker goes
- * through the Divine Pulse uses, from Divine Pulse 0 (the battle as it first went) to the one that stands now. In the
- * list, the timeline that stands follows the replay, and picking a row sends the replay there.
+ * The battle's log, on the Overview: one chronology of everything that happened, undone actions included, with a row
+ * where each Divine Pulse was used, as a list or the timelines as a tree. The picker in the corner jumps to where a
+ * Divine Pulse was used; it never changes what the log shows. Picking a row sends the replay there.
  */
 import { useMemo, useState } from "react";
 import type { Battle } from "../../api";
 import { Section } from "../layout";
 import { Segmented } from "../ui";
+import type { Pulse } from "./chronicle";
 import { Item, timelineColumns } from "./model";
 import { ItemList } from "./parts";
 import { Timelines } from "./Timelines";
 
 interface Props {
   battle: Battle;
-  /** Everything in the timeline that stands (model.timeline). */
+  /** The timeline that stands (model.timeline), for the tree. */
   items: Item[];
-  /** Its rows as the replay shows them (replay.replayLog), the row the replay is at, and what picking a row does. */
-  pick: number | null;
-  onPick: (pick: number | null) => void;
-  available: boolean;
+  /** The log's rows (chronicle.log), the beat the replay is at (null: now), and what picking a row does. */
   shown: Item[];
   current: number | null;
   onSelect: (item: Item) => void;
+  /** Every use of Divine Pulse, and what picking one does. */
+  pulses: Pulse[];
+  onJump: (pulse: Pulse) => void;
+  /** Whether every use of Divine Pulse can be replayed on the map. */
+  complete: boolean;
+  /** Where the replay is on the timeline that stands (a history position), for the tree; null elsewhere. */
+  standing: number | null;
 }
 
-export function LogView({ battle, items: standing, pick, onPick, available, shown, current, onSelect }: Props) {
-  // Which timeline: Divine Pulse 0 is the original one, each Divine Pulse use starts the next; the last one stands.
-  const pulses = battle.branches?.length ?? 0;
+export function LogView({ battle, items: timeline, shown, current, onSelect, pulses, onJump, complete, standing }: Props) {
   // Each pick is numbered, so picking a Divine Pulse in the tree replays it even when it was picked before.
-  const [jumps, setJumps] = useState(0);
-  const chosen = pick === null || pick > pulses ? pulses : pick;
+  const [jumps, setJumps] = useState<{ pulse: number; n: number } | null>(null);
   // The timelines as a tree (needs the game's history positions).
-  const columns = useMemo(() => timelineColumns(battle, standing), [battle, standing]);
+  const columns = useMemo(() => timelineColumns(battle, timeline), [battle, timeline]);
   const [layout, setLayout] = useState<"list" | "tree">("list");
   const asTree = layout === "tree" && columns !== null;
 
@@ -49,24 +51,21 @@ export function LogView({ battle, items: standing, pick, onPick, available, show
           ]}
         />
       )}
-      {pulses > 0 && (
-        <PulsePicker
-          pulses={pulses}
-          value={chosen}
-          onChange={(n) => {
-            onPick(n === pulses ? null : n);
-            setJumps((j) => j + 1);
-          }}
-        />
-      )}
+      <PulsePicker
+        pulses={pulses}
+        onChange={(pulse) => {
+          onJump(pulse);
+          setJumps((j) => ({ pulse: pulse.index + 1, n: (j?.n ?? 0) + 1 }));
+        }}
+      />
     </span>
   );
 
   return (
     <Section title="Log" right={tools}>
-      {!available && <p className="muted">Map replay is unavailable for this timeline in an older recording.</p>}
+      {!complete && <p className="muted">Map replay of the undone actions is unavailable in an older recording.</p>}
       {asTree ? (
-        <Timelines columns={columns} current={current} jump={jumps ? { pulse: chosen, n: jumps } : null} />
+        <Timelines columns={columns} current={standing} jump={jumps} />
       ) : (
         <ItemList items={shown} current={current} empty="Nothing logged yet." onSelect={onSelect} />
       )}
@@ -74,14 +73,24 @@ export function LogView({ battle, items: standing, pick, onPick, available, show
   );
 }
 
-/** Divine Pulse 0 (the battle as it first went) to the latest use (the timeline that stands). */
-function PulsePicker({ pulses, value, onChange }: { pulses: number; value: number; onChange: (n: number) => void }) {
+/** Always there: jumps to where a Divine Pulse was used. It keeps no value of its own, so the same one can be picked again. */
+function PulsePicker({ pulses, onChange }: { pulses: Pulse[]; onChange: (pulse: Pulse) => void }) {
   return (
-    <select className="log-pulse" aria-label="Timeline" value={value} onChange={(e) => onChange(Number(e.target.value))}>
-      {Array.from({ length: pulses + 1 }, (_, n) => (
-        <option key={n} value={n}>
-          Divine Pulse {n}
-          {n === pulses ? " (now)" : n === 0 ? " (original)" : ""}
+    <select
+      className="log-pulse"
+      aria-label="Jump to a Divine Pulse"
+      value=""
+      disabled={!pulses.length}
+      onChange={(e) => {
+        const pulse = pulses[Number(e.target.value)];
+        if (pulse) onChange(pulse);
+      }}
+    >
+      <option value="">{pulses.length ? "Jump to Divine Pulse…" : "No Divine Pulse used"}</option>
+      {pulses.map((p) => (
+        <option key={p.index} value={p.index}>
+          Divine Pulse {p.index + 1}
+          {p.turn !== null ? ` · Turn ${p.turn}` : ""}
         </option>
       ))}
     </select>
