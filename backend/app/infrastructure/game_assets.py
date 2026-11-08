@@ -10,6 +10,7 @@ import json
 from collections.abc import Callable
 from pathlib import Path
 import threading
+import time
 from typing import Any
 
 from ..gamefiles.output import FORMAT
@@ -18,6 +19,8 @@ from ..domain.settings import GAME_LANGUAGES
 
 MANIFEST = "manifest.json"
 DEFAULT_LANGUAGE = "ENG_U"
+# How long the table files' modification times are trusted (see GameAssets.data_stamp).
+DATA_STAMP_TTL_S = 1.0
 
 
 class GameAssetError(RuntimeError):
@@ -36,6 +39,7 @@ class GameAssets:
         self._manifest: dict | None = None
         self._manifest_error: GameAssetError | None = None
         self._cache: dict[str, tuple[tuple[int, int], Any]] = {}
+        self._data_stamp: tuple[float, tuple, tuple] | None = None  # when it was read, for which manifest and language
         self.language: Callable[[], str] = lambda: DEFAULT_LANGUAGE
 
     def _refresh(self) -> None:
@@ -147,12 +151,25 @@ class GameAssets:
         return data
 
     def data_stamp(self) -> tuple:
-        """Reference-table cache identity, including files replaced without rewriting the manifest."""
+        """Reference-table cache identity, including files replaced without rewriting the manifest.
+
+        Every table lookup asks for it, and checking each table file takes a system call, so the files are only looked
+        at again after DATA_STAMP_TTL_S (a new manifest or language is noticed at once)."""
         manifest = self.manifest
         if manifest is None:
             return ()
-        stamps = []
         language = self.language()
+        key = self._stamp, language  # (not id(manifest): a freed manifest's id can be given to its replacement)
+        now = time.monotonic()
+        checked = self._data_stamp
+        if checked is not None and checked[1] == key and now - checked[0] < DATA_STAMP_TTL_S:
+            return checked[2]
+        stamps = self._read_data_stamp(manifest, language)
+        self._data_stamp = now, key, stamps
+        return stamps
+
+    def _read_data_stamp(self, manifest: dict, language: str) -> tuple:
+        stamps = []
         relatives = (rel for rel in manifest["files"] if rel.startswith("data/") or rel == f"text/{language}.json")
         for rel in sorted(relatives):
             # This fingerprint reads metadata only. Required content reads still use path()'s resolved allowlist.
