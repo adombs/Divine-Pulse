@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.3.1 (2026-11-07)
+
 - On the battle map, show a unit's portrait when it has no map sprite, and a "?" when it has neither; missing images elsewhere also show "?".
 - Give a unit with no known house or faction its army's banner (enemy, ally, third army or yours) from the game's own army pennants.
 
