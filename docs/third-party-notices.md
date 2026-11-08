@@ -21,6 +21,11 @@ the license is included in the source). Windows releases include [NSTool](https:
 (MIT, © 2019 Jack). Its license and dependency notices ship in `tools/nstool-licenses/` alongside the program.
 The executable's version, source, hashes and dependency revisions are recorded in `vendor/nstool/README.md`.
 
+## Mediabunny
+
+The battle replay export writes its MP4 files with [Mediabunny](https://github.com/Vanilagy/mediabunny) (MPL-2.0,
+© Vanilagy), bundled unmodified into the frontend; its source is available from that repository.
+
 ## Fire Emblem Wiki text
 
 `frontend/src/reference/wiki/fe-wiki.json` holds class-change restrictions and support availability and notes, by Fire

@@ -19,6 +19,7 @@ import { OverviewTab } from "./OverviewTab";
 import { BattleNav, BattleNavContext, CopySummary, useElapsed } from "./parts";
 import { battleName, KIND_LABEL } from "./scenarios";
 import { UnitsTab } from "./UnitsTab";
+import { ReplayExportButton } from "./ReplayExport";
 import { UnitPopup } from "./UnitPopup";
 import { isObject } from "./map";
 import { factionOf } from "./factions";
@@ -215,6 +216,7 @@ export function BattleView(p: ViewProps) {
                 </button>
               )}
               <CopySummary battle={battle} seconds={seconds} />
+              <ReplayExportButton battle={battle} />
               {recording && (
                 <button type="button" className="btn small danger" onClick={recording.onDelete} title="Delete this battle from the history">
                   <Icon name={CONCEPT_ICON.delete} /> Delete
