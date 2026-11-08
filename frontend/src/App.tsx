@@ -423,6 +423,7 @@ export default function App() {
                 onReplaySpeed={(replaySpeed) => appearance.update({ replaySpeed })}
                 at={recording?.id === nav.route.id ? nav.route.q : null}
                 onDeleteRecording={deleteRecording}
+                route={iconRoute}
               />
             )}
             {loaded && page === "history" && (

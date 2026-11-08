@@ -34,9 +34,9 @@ const REWIND_OUT_MS = 520;
 const REWIND_SPEED = 2;
 
 /** The replay speeds Settings offers. */
-export const REPLAY_SPEEDS = [0.25, 0.5, 1, 2, 4] as const;
+export const REPLAY_SPEEDS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3.5, 4] as const;
 
-/** The same five speed stops on the map and in Settings. */
+/** The same speed stops on the map, in Settings and in the video export. */
 export function ReplaySpeedSlider({ value, onChange }: { value: number; onChange: (value: number) => void }) {
   const stop = REPLAY_SPEEDS.reduce((best, speed, i) => Math.abs(speed - value) < Math.abs(REPLAY_SPEEDS[best] - value) ? i : best, 0);
   return (
@@ -126,21 +126,61 @@ export interface Rewind {
   badge: number;
 }
 
-export function useReplay(battle: Battle, chron: Chronicle) {
-  const asked = Number(useContext(BattleNavContext)?.replaySpeed);
+/** Which beats attacked and which healed (for the arrows on the map). */
+function actionKinds(chron: Chronicle): Map<number, "attack" | "heal"> {
+  const result = new Map<number, "attack" | "heal">();
+  for (const item of chron.items) {
+    if (item.beat == null) continue;
+    if (item.kind === "attack") result.set(item.beat, "attack");
+    else if ((item.kind === "heal" || item.kind === "item") && !result.has(item.beat)) result.set(item.beat, "heal");
+  }
+  return result;
+}
+
+/** How long each beat takes when played (ms), at `speed`: its animation, or the hold of a beat with none to play. */
+export function beatDurations(battle: Battle, chron: Chronicle, speed: number): number[] {
+  const { beats } = chron;
+  const steps = beats.map((b) => b.step);
+  const all = beats.map((b) => b.frame);
+  const kinds = actionKinds(chron);
+  const boards = all.map((f) => boardAt(battle, f));
+  return beats.map((beat, i) => {
+    if (beat.pulse !== null) return rewindPlan(battle, beat, speed).total;
+    if (i === 0) return PHASE_HOLD_MS / speed;
+    return timing(boards[i - 1], boards[i], stepAction(steps, all, i, kinds), !steps[i]?.actor, speed).total;
+  });
+}
+
+/** The tiles a camera keeps in view at each beat: the units acting in it (a beat with none keeps the one before's). */
+export function beatFocus(battle: Battle, chron: Chronicle): [number, number][][] {
+  const { beats } = chron;
+  const steps = beats.map((b) => b.step);
+  const all = beats.map((b) => b.frame);
+  const kinds = actionKinds(chron);
+  let last: [number, number][] = [];
+  return beats.map((_, i) => {
+    const follow = followed({ cursor: null, action: stepAction(steps, all, i, kinds), board: boardAt(battle, all[i]) });
+    if (follow.length) last = follow;
+    return last;
+  });
+}
+
+export interface ReplayOptions {
+  /** Play at this speed rather than the one set in Settings. */
+  speed?: number;
+  /** The caller moves the replay with `pose` (an export's own clock); it never plays on by itself. */
+  manual?: boolean;
+}
+
+export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptions = {}) {
+  const nav = useContext(BattleNavContext);
+  const asked = Number(options.speed ?? nav?.replaySpeed);
   const speed = asked > 0 && Number.isFinite(asked) ? asked : 1;
+  const manual = !!options.manual;
   const { beats, pulses } = chron;
   const steps = useMemo(() => beats.map((b) => b.step), [beats]);
   const all = useMemo(() => beats.map((b) => b.frame), [beats]);
-  const kinds = useMemo(() => {
-    const result = new Map<number, "attack" | "heal">();
-    for (const item of chron.items) {
-      if (item.beat == null) continue;
-      if (item.kind === "attack") result.set(item.beat, "attack");
-      else if ((item.kind === "heal" || item.kind === "item") && !result.has(item.beat)) result.set(item.beat, "heal");
-    }
-    return result;
-  }, [chron.items]);
+  const kinds = useMemo(() => actionKinds(chron), [chron]);
   const turns = useMemo(() => turnStarts(steps), [steps]);
   // The beat shown (an index into beats), or null for where things stand now.
   const [position, setAt] = useState<number | null>(null);
@@ -185,7 +225,7 @@ export function useReplay(battle: Battle, chron: Chronicle) {
 
   // The clock of the beat being animated; while playing, on to the next beat once it's done.
   useEffect(() => {
-    if (!animating || total === null) return;
+    if (manual || !animating || total === null) return;
     let frame = 0;
     const tick = (now: number) => {
       const t = now - animating.start;
@@ -201,7 +241,7 @@ export function useReplay(battle: Battle, chron: Chronicle) {
 
   // Playing a beat with nothing to animate (the first, or with reduced motion): hold it a moment, then go on.
   useEffect(() => {
-    if (!playing || total !== null || at === null) return;
+    if (manual || !playing || total !== null || at === null) return;
     const timer = window.setTimeout(() => advanceRef.current(at + 1), PHASE_HOLD_MS / speed);
     return () => window.clearTimeout(timer);
   }, [playing, total, at, speed]);
@@ -210,6 +250,14 @@ export function useReplay(battle: Battle, chron: Chronicle) {
     setPlaying(false);
     setAnimating(null);
     setAt(i === null || i >= beats.length ? null : Math.max(0, i));
+  };
+  /** Shows beat i `elapsed` ms into its animation (a manual replay's clock). */
+  const pose = (i: number, elapsed: number) => {
+    const shown = Math.max(0, Math.min(beats.length - 1, i));
+    setPlaying(false);
+    setAt(shown);
+    setAnimating({ step: shown, start: 0 });
+    setElapsed(elapsed);
   };
   const seek = (i: number) => {
     go(i);
@@ -246,7 +294,7 @@ export function useReplay(battle: Battle, chron: Chronicle) {
   const rewinding = plan ? rewindAt(plan, elapsed, speed) : null;
   const animation: StepAnimation | null = rewinding ? rewinding.animation : anim ? { ...anim, elapsed } : null;
   const rewind: Rewind | null = rewinding ? { badge: rewinding.badge } : null;
-  return { steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, cursor, go, seek, seeks, next, play, label, detail, army };
+  return { steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, cursor, go, seek, seeks, next, play, pose, label, detail, army };
 }
 
 export type Replay = ReturnType<typeof useReplay>;
@@ -292,7 +340,7 @@ export function replayStats(battle: Battle, replay: Replay, seconds: number): { 
 
 /** The tiles a camera keeps in view: the game's cursor live; in a replay, the units acting in the step; otherwise
  * the map's centre when no action is selected. */
-export function followed({ cursor, action, board }: Replay): [number, number][] {
+export function followed({ cursor, action, board }: Pick<Replay, "cursor" | "action" | "board">): [number, number][] {
   if (cursor) return [cursor];
   const actor = action ? board.pieces.find((p) => p.id === action.actor) : undefined;
   const aimed = action?.target ? board.pieces.find((p) => p.id === action.target) : undefined;

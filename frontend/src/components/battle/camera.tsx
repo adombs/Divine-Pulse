@@ -107,21 +107,28 @@ export function CameraTools({ camera }: { camera: MapCamera }) {
   return (
     <div className="map-tools">
       {nav.setReplaySpeed && <ReplaySpeedSlider value={nav.replaySpeed ?? 1} onChange={nav.setReplaySpeed} />}
-      <span className="camera-mode">
-      <Icon name={CONCEPT_ICON.camera} />
-      <Segmented
-          size="mini"
-          label="Camera"
-          value={mode}
-          onChange={setMode}
-          options={[
-            ["dynamic", "Dynamic", "Follow the action"],
-            ["static", "Static", "Stay where you put it"],
-          ]}
-      />
-      </span>
+      <CameraModeSwitch value={mode} onChange={setMode} />
       <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} />
     </div>
+  );
+}
+
+/** Dynamic (follow the action) or static (stay where it was put): the map's switch, and the replay export's. */
+export function CameraModeSwitch({ value, onChange }: { value: CameraMode; onChange: (mode: CameraMode) => void }) {
+  return (
+    <span className="camera-mode">
+      <Icon name={CONCEPT_ICON.camera} />
+      <Segmented
+        size="mini"
+        label="Camera"
+        value={value}
+        onChange={onChange}
+        options={[
+          ["dynamic", "Dynamic", "Follow the action"],
+          ["static", "Static", "Stay where you put it"],
+        ]}
+      />
+    </span>
   );
 }
 

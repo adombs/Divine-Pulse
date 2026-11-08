@@ -1,0 +1,140 @@
+/* Export Team (TeamExport.tsx): the two images one above the other on the left, the units to include on the right. */
+.modal.wide.team-export-modal { width: min(1320px, 100%); }
+.team-export-modal .modal-body { overflow: hidden; }
+.team-export { display: grid; grid-template-columns: minmax(0, 1fr) var(--export-side); gap: 1.2rem; height: 100%; min-height: 0; }
+.team-export-preview {
+  display: grid; align-content: start; gap: 1.1rem; min-width: 0; min-height: 0; overflow: auto; padding: 1rem; border-radius: 4px;
+  background: linear-gradient(180deg, var(--room-2), var(--room-1) 80%); scrollbar-width: thin;
+}
+.team-export-figure { display: grid; gap: 0.4rem; margin: 0; min-width: 0; }
+.team-export-figure figcaption { font: 600 0.92rem var(--display); color: var(--room-ink); }
+.team-export-room { min-width: 0; }
+.team-export-fit { overflow: hidden; box-shadow: 0 10px 28px rgb(0 0 0 / 0.5); }
+.team-layout-value { min-width: 2.2rem; text-align: right; color: var(--ink-soft); font: 0.9rem var(--nums); font-variant-numeric: tabular-nums; }
+.team-export-units .checklist-items { max-height: none; }
+.team-export-units .checklist-items label { padding-block: 0.2rem; }
+.team-export-units .portrait { width: 24px; height: 24px; border-radius: 50%; flex: none; }
+.team-export-units input { margin: 0; accent-color: var(--accent); }
+.team-export .export-side { gap: 0.8rem; }
+.team-export-units { min-height: 0; overflow: auto; scrollbar-width: thin; }
+
+/* An image: a sheet of the app's paper with its inner frame line, the run's banner, then its body. */
+.team-sheet {
+  display: grid; gap: 18px; padding: 26px 28px 30px; color: var(--ink); font: 1rem/1.4 var(--text);
+  background: radial-gradient(ellipse at 20% 0%, rgb(255 255 255 / 0.18), transparent 60%), var(--paper);
+  box-shadow: inset 0 0 0 7px var(--paper), inset 0 0 0 8px var(--line);
+}
+.snapshot-root[data-theme="dark"] .team-sheet,
+:root[data-theme="dark"] .team-sheet { background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper); }
+.team-sheet-title { display: flex; align-items: center; gap: 22px; min-width: 0; }
+.team-sheet-title .name-banner { flex: 1 1 auto; min-width: 0; }
+.team-sheet-meta { flex: none; display: grid; justify-items: end; gap: 3px; line-height: 1.2; color: var(--ink-soft); font-size: 0.95rem; }
+.team-sheet-credit { font: 700 0.8rem var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); }
+.team-sheet-credit span { color: var(--amber); }
+
+/* Loadouts: rows of cards, as many side by side as asked. Every card is as tall as asked; what doesn't fit flows into
+   another column to its right (TeamExport.tsx packs the pieces), so cards line up with no gaps between rows. */
+.team-sheet-loadouts { min-width: 900px; }
+.team-rows { display: grid; gap: 14px; justify-items: start; }
+.team-row { display: flex; gap: 14px; align-items: flex-start; }
+.team-card { display: flex; align-items: flex-start; background: var(--paper-2); border: 1px solid var(--row-border); border-radius: 4px; overflow: hidden; }
+.team-card-col { flex: none; display: flex; flex-direction: column; }
+.team-card-col + .team-card-col { padding-left: 14px; margin-left: -1px; border-left: 1px solid var(--line); }
+.team-card-top { display: grid; gap: 10px; padding-bottom: 6px; }
+.team-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
+.team-card-head .portrait { width: 64px; height: 64px; border-radius: 50%; background: var(--face-wash-blue); box-shadow: 0 0 0 2px var(--team-player); }
+.team-card-name { display: grid; min-width: 0; line-height: 1.15; }
+.team-card-name b { font: 600 1.3rem var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-card-name span { color: var(--ink-soft); font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-card-bst { display: grid; justify-items: center; padding: 3px 9px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font: 700 1.15rem/1.05 var(--nums); font-variant-numeric: tabular-nums; }
+.team-card-bst small { font: 600 0.66rem var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
+.team-card-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 0; }
+.team-card-stats div { display: grid; justify-items: center; padding: 3px 0 2px; border-radius: 3px; background: var(--row); border: 1px solid var(--row-border); }
+.team-card-stats dt { font: 600 0.72rem var(--display); letter-spacing: 0.04em; text-transform: uppercase; color: var(--ink-soft); }
+.team-card-stats dd { margin: 0; font: 600 1.05rem/1.1 var(--nums); font-variant-numeric: tabular-nums; }
+.team-card-stats .boosted dd { color: var(--blue); }
+.team-piece.title { padding-top: 8px; }
+.team-gear-title { margin: 0; padding-bottom: 2px; border-bottom: 1px solid var(--line); font: 600 0.8rem var(--display); letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); }
+.team-gear-line { display: grid; grid-template-columns: 22px minmax(0, 1fr) auto; align-items: center; gap: 6px; font-size: 0.95rem; min-height: 24px; }
+.team-gear-line > :first-child { display: inline-grid; place-items: center; width: 22px; height: 22px; }
+.team-gear-line img, .team-gear-line svg { max-width: 22px; max-height: 22px; }
+.team-gear-name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.team-gear-uses { color: var(--ink-soft); font: 0.88rem var(--nums); font-variant-numeric: tabular-nums; }
+.team-piece:not(.title) + .team-piece:has(.team-card-battalion) { padding-top: 8px; }
+.team-card-battalion { display: flex; align-items: center; gap: 6px; margin: 0; padding-top: 6px; border-top: 1px solid var(--line); min-height: 30px; font-size: 0.92rem; color: var(--ink-soft); }
+.team-card-battalion .icon { color: var(--accent); }
+
+/* Run statistics: a row per unit, combat and growth in groups, then the unit's top records, and the team's totals. */
+.team-stats { width: 100%; border-collapse: separate; border-spacing: 0; font-variant-numeric: tabular-nums; }
+.team-stats th, .team-stats td { padding: 6px 8px; text-align: center; border-bottom: 1px solid var(--row-border); }
+.team-stats thead th { font: 600 0.82rem var(--display); color: var(--ink-soft); vertical-align: bottom; line-height: 1.15; }
+.team-stats-groups th { font: 600 0.95rem var(--display) !important; color: var(--ink) !important; border-bottom: 2px solid var(--line); letter-spacing: 0.04em; text-transform: uppercase; }
+.team-stats .group-start { border-left: 1px solid var(--line); }
+.team-stats tbody td { font: 1.02rem var(--nums); }
+.team-stats tbody tr:nth-child(even) > * { background: color-mix(in srgb, var(--row) 60%, transparent); }
+.team-stats-unit { text-align: left !important; white-space: nowrap; }
+.team-stats-unit > span { display: flex; align-items: center; gap: 9px; }
+.team-stats-unit > span > span { display: grid; line-height: 1.1; }
+.team-stats-unit b { font: 600 1.05rem var(--display); }
+.team-stats-unit small { color: var(--ink-soft); font-size: 0.8rem; font-weight: 400; }
+.team-stats-unit .portrait { width: 32px; height: 32px; border-radius: 50%; background: var(--face-wash-blue); box-shadow: 0 0 0 1.5px var(--team-player); }
+.team-stats tr.unrecorded td { color: var(--ink-soft); }
+.team-stats-records { text-align: left !important; }
+.team-records { display: flex; flex-wrap: wrap; gap: 4px; }
+.team-record {
+  display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; white-space: nowrap;
+  font: 600 0.85rem var(--display); background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 35%, transparent);
+}
+.team-record .icon { color: var(--accent); }
+.team-record b { color: var(--accent); font-family: var(--nums); }
+.team-stats tfoot th, .team-stats tfoot td { border-bottom: 0; border-top: 2px solid var(--line); font: 700 1.02rem var(--nums); }
+.team-stats tfoot th { font-family: var(--display); }
+
+/* The units' order: a six-dot handle to drag each row up or down (or Alt+↑ / Alt+↓ on the handle). */
+.team-order { list-style: none; margin: 0; padding: 0; }
+.team-order li { display: flex; align-items: center; gap: 0.1rem; border-radius: 3px; transition: background-color 0.15s ease, box-shadow 0.15s ease; }
+.team-order li label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.team-order-handle { flex: none; display: inline-grid; place-items: center; width: 1.4rem; height: 1.8rem; color: var(--ink-soft); cursor: grab; touch-action: none; border-radius: 3px; }
+.team-order-handle:hover { color: var(--accent); background: var(--row-hover); }
+.team-order-handle:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.team-order.sorting, .team-order.sorting * { cursor: grabbing; user-select: none; }
+@media (prefers-reduced-motion: reduce) { .team-order li { transition: none; } }
+
+/* The loadouts' layout sliders: the name above, the slider and its value under it. */
+.team-layout .step-slider { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.15rem 0.5rem; }
+.team-layout .step-slider > .field-label { grid-column: 1 / -1; margin: 0; font: 0.85rem var(--ui); color: var(--ink-soft); }
+.team-layout .step-slider .notched { width: 100%; }
+
+/* The unit list is laid out like the loadouts (as many side by side), so the order reads the same in both. */
+.team-export { --export-side: 21rem; }
+.team-order { display: grid; gap: 4px; }
+.team-order li { min-width: 0; border: 1px solid transparent; }
+.team-order li.on { border-color: var(--row-border); background: var(--row); }
+.team-order-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Three or more side by side: each a small tile, the handle over the portrait and the name; clicking the tile leaves
+   the unit out (its portrait greys) or puts it back. */
+.team-order.compact li { display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; align-items: center; padding: 2px 3px 4px; }
+.team-order.compact .team-order-handle { width: 1.2rem; height: 1.3rem; justify-self: start; }
+.team-order.compact li label { grid-column: 1 / -1; display: grid; grid-template-columns: 1fr; justify-items: center; gap: 2px; padding: 0; font-size: 0.74rem; text-align: center; white-space: nowrap; }
+.team-order.compact li label input { position: absolute; opacity: 0; pointer-events: none; }
+.team-order.compact li:has(input:focus-visible) { outline: 2px solid var(--accent); outline-offset: 1px; }
+.team-order.compact .portrait { width: 28px; height: 28px; }
+.team-order.compact li:not(.on) .portrait { filter: grayscale(1); opacity: 0.5; }
+
+/* Slots: an empty one is a dashed outline you can drop a unit into; the slot under a dragged unit lights up. */
+.team-order li.empty { min-height: 2.1rem; border: 1px dashed color-mix(in srgb, var(--ink-soft) 55%, transparent); background: none; }
+.team-order.compact li.empty { min-height: 4.2rem; }
+.team-order li.over { border: 1px solid var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.team-order li.dragging { opacity: 0.55; }
+
+/* Ordering every unit at once, above the slots. */
+.team-order-by { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; font-size: 0.85rem; color: var(--ink-soft); }
+.team-order-by select { width: 100%; }
+
+/* Which images to save, and each image's theme box (exactly the sheet's size). */
+.team-images { display: flex; flex-wrap: wrap; gap: 0.3rem 1rem; }
+.team-images label { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.92rem; cursor: pointer; }
+.team-images input { margin: 0; accent-color: var(--accent); }
+.team-sheet-theme { width: max-content; min-width: 100%; }
+.export-theme-dark .team-sheet { background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper); }
+.export-theme-light .team-sheet { background: radial-gradient(ellipse at 20% 0%, rgb(255 255 255 / 0.18), transparent 60%), var(--paper); }
