@@ -238,7 +238,7 @@ function BattleAffiliation({ id }: { id: string }) {
   const nav = useBattleNav();
   const house = nav.house?.(id);
   const side = nav.people.get(id)?.enemy?.side ?? (id.startsWith("a:") ? "player" : "enemy");
-  return house ? <AffiliationIcon house={house} side={side} /> : null;
+  return <AffiliationIcon house={house} side={side} />;
 }
 
 function IconRow({ names }: { names: string[] }) {

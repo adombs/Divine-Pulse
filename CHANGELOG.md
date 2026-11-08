@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- On the battle map, show a unit's portrait when it has no map sprite, and a "?" when it has neither; missing images elsewhere also show "?".
+- Give a unit with no known house or faction its army's banner (enemy, ally, third army or yours) from the game's own army pennants.
+
 ## 1.3.0 (2026-11-07)
 
 - Open the Windows desktop app directly and exit completely when the window closes. Eden and Fire Emblem: Three Houses v1.2.0 are required.

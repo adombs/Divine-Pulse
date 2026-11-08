@@ -38,20 +38,32 @@ export function houseOfCharacter(ref: ReferenceData | null | undefined, key: str
 /** The game's banner for a unit's affiliation; an unknown one falls back to the neutral shield. */
 export type AffiliationSide = "player" | "enemy" | "ally" | "third" | "object";
 
-/** No unrelated army pennant substitutes for an unidentified faction emblem. */
-export function affiliationBanner(house?: string | null, _side: AffiliationSide = "enemy"): string | null {
-  if (!house) return null;
-  return factionBanners.get(house) ?? BANNER[house] ?? null;
+/** The game's army pennant of each side, for a unit whose own affiliation is unknown. */
+const ARMY_BANNER: Partial<Record<AffiliationSide, string>> = {
+  player: "army-player",
+  enemy: "army-enemy",
+  ally: "army-ally",
+  third: "army-third",
+};
+
+/** The banner for an affiliation. With no known affiliation, a unit whose army is given gets that army's pennant
+ * (the army is always known in battle); without an army there is no banner. */
+export function affiliationBanner(house?: string | null, side?: AffiliationSide): string | null {
+  const own = house ? factionBanners.get(house) ?? BANNER[house] : undefined;
+  return own ?? (side ? ARMY_BANNER[side] ?? null : null);
 }
+
+const ARMY_NAME: Partial<Record<AffiliationSide, string>> = { player: "Your army", enemy: "Enemy army", ally: "Allied army", third: "Third army" };
 
 export function AffiliationIcon({ house, side, bare = false }: { house?: string | null; side?: AffiliationSide; bare?: boolean }) {
   const [showCrests] = useSpoiler("crests");
   const banner = affiliationBanner(house === "Professor" && !showCrests ? "Other" : house, side);
   const imported = banner ? bundledHouse(banner) : null;
-  if (bare) return <GameImage className="affiliation-icon" imported={imported} alt={house || "Affiliation"} title={house || "Other"} draggable={false} />;
+  const name = house || (side && side !== "object" ? ARMY_NAME[side] : undefined);
+  if (bare) return <GameImage className="affiliation-icon" imported={imported} alt={name || "Affiliation"} title={name || "Other"} draggable={false} />;
   return (
-    <span className="crest house" role="img" aria-label={house || "Other"} title={house || undefined}>
-      <GameImage imported={imported} alt={house || "Affiliation"} draggable={false} />
+    <span className="crest house" role="img" aria-label={name || "Other"} title={name || undefined}>
+      <GameImage imported={imported} alt={name || "Affiliation"} draggable={false} />
     </span>
   );
 }
