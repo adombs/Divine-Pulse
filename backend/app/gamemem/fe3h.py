@@ -18,6 +18,7 @@ import hashlib
 import logging
 import re
 import struct
+import threading
 import time
 from dataclasses import dataclass, field
 
@@ -346,6 +347,10 @@ class GameMemory:
         self._counters: bytes | None = None
         self._scans_left = 0
         self._scan_at = 0.0
+        # Where each character's copy was last found: the game tends to put a new battle's copies in the same
+        # places, so these are checked first (a few small reads) and the full heap scan runs in the background.
+        self._hints: dict[int, int] = {}
+        self._generation = 0  # changes when the battle or the connection does, to drop a stale background scan
         # The battle history (battle_history): where Switch memory starts in Eden's, the pool slot of index 0, and
         # entries already decoded (with their raw bytes), by address and header, and the raw entries of the last
         # complete read in history order, for the battle recorder.
@@ -360,7 +365,8 @@ class GameMemory:
         if self._process is not None:
             self._process.close()
         self._process, self._main, self.version, self.emulator = None, 0, None, None
-        self._copies, self._counters = {}, None
+        self._copies, self._counters, self._hints = {}, None, {}
+        self._generation += 1
         self._arena, self._pool_start, self._history, self._history_raw = None, None, {}, []
 
     def read(self, battle: bool = True) -> Snapshot:
@@ -389,12 +395,19 @@ class GameMemory:
         counters = b"".join(roster[i * SLOT_SIZE + _BATTLES : i * SLOT_SIZE + _BATTLES + 2] for i in range(SLOTS))
         if counters != self._counters:  # first read, a battle started, or a save was loaded
             self._counters, self._copies = counters, {}
+            self._generation += 1
             self._scans_left, self._scan_at = BATTLE_SCANS, 0.0
             self._pool_start, self._history, self._history_raw = None, {}, []
         if not self._copies and self._scans_left and time.monotonic() >= self._scan_at:
             self._scans_left -= 1
             self._scan_at = time.monotonic() + BATTLE_RESCAN_S
-            self._copies = self._find_battle_copies(roster)
+            hinted = self._hinted_copies(roster)
+            if hinted:  # no wait: use where they were last time now, and let the full scan correct it
+                self._copies = hinted
+                self._scan_in_background(roster)
+            else:
+                self._copies = self._find_battle_copies(roster)
+                self._hints = dict(self._copies) or self._hints
         copies = {}
         for character, address in list(self._copies.items()):
             data = self._process.read(address, BATTLE_COPY_READ) if self._process else None
@@ -595,6 +608,35 @@ class GameMemory:
             "roster": roster or b"",
             "history": pack_history(self._history_raw),
         }
+
+    def _hinted_copies(self, roster: bytes) -> dict[int, int]:
+        """The copies still where they were last found (the same checks as the scan, a few small reads)."""
+        found = {}
+        for i in range(SLOTS):
+            slot = roster[i * SLOT_SIZE : (i + 1) * SLOT_SIZE]
+            character = struct.unpack_from("<H", slot, _CHARACTER)[0]
+            address = self._hints.get(character)
+            if address is None or slot[_FLAGS] & IN_ARMY != IN_ARMY or self._process is None:
+                continue
+            copy = self._process.read(address, BATTLE_COPY_READ)
+            if copy and is_live_copy(slot, copy):
+                found[character] = address
+        return found
+
+    def _scan_in_background(self, roster: bytes) -> None:
+        generation = self._generation
+
+        def run() -> None:
+            try:
+                found = self._find_battle_copies(roster)
+            except Exception:  # the connection went away mid-scan: the next battle looks again
+                log.debug("Background battle scan failed", exc_info=True)
+                return
+            if found and generation == self._generation:
+                self._copies = found
+                self._hints = dict(found)
+
+        threading.Thread(target=run, name="battle-scan", daemon=True).start()
 
     def _find_battle_copies(self, roster: bytes) -> dict[int, int]:
         """Host address of each army unit's live battle copy (none outside a battle)."""

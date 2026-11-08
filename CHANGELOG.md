@@ -6,6 +6,7 @@
 - Link more of the battle log, in the list and the tree: gambits open their battalion in the Archive, and the units in the "Battle started", level-up, joined, left and stat-gain lines open their cards.
 - Declutter the log's tree view: a dot you point at shows its log row once (in the card that grows out of it, not also on the tree), and the rest of the open path's rows fade back while the card is open.
 - Make tracking much faster and more responsive: a read of the game during a battle took about two seconds and now takes a few milliseconds, so the battle page follows the game as it happens.
+- Find a new battle's units without waiting: the tracker checks where they were last time first, and only searches the game's memory in the background.
 
 ## 1.3.1 (2026-11-07)
 
