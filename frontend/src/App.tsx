@@ -424,6 +424,7 @@ export default function App() {
                 at={recording?.id === nav.route.id ? nav.route.q : null}
                 fell={recording?.id === nav.route.id ? nav.route.fell : null}
                 onDeleteRecording={deleteRecording}
+                route={iconRoute}
               />
             )}
             {loaded && page === "history" && (

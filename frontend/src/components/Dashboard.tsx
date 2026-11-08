@@ -35,6 +35,7 @@ import { CharacterHero } from "./character/CharacterHero";
 import { SpriteFace, unitSprite } from "./character/CharacterFace";
 import { BattalionPanel } from "./character/Battalion";
 import { tidyAbility } from "../appearance";
+import { TeamExportButton } from "./TeamExport";
 import { plural } from "../format";
 import { deathText } from "../deaths";
 
@@ -237,6 +238,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
     <section className="roster-page list-page">
       <PageHeader
         title="Roster"
+        actions={<TeamExportButton run={run} units={[...sorted, ...units.filter((u) => !sorted.includes(u))]} part2={part2} />}
         status={
           <>
             {battleOnly && <StatusChip tone="live">Showing the {battleSet.size} in battle</StatusChip>}

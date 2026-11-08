@@ -21,7 +21,16 @@ the license is included in the source). Windows releases include [NSTool](https:
 (MIT, © 2019 Jack). Its license and dependency notices ship in `tools/nstool-licenses/` alongside the program.
 The executable's version, source, hashes and dependency revisions are recorded in `vendor/nstool/README.md`.
 
+## Mediabunny
+
+The battle replay export writes its MP4 files with [Mediabunny](https://github.com/Vanilagy/mediabunny) (MPL-2.0,
+© Vanilagy), bundled unmodified into the frontend; its source is available from that repository.
+
 ## Fire Emblem Wiki text
+
+The battle themes' titles in `backend/app/gamefiles/extract/music.py` are the official soundtrack's, as listed on the
+Fire Emblem Wiki ([Fire Emblem: Three Houses Original Soundtrack](https://fireemblemwiki.org/wiki/Fire_Emblem:_Three_Houses_Original_Soundtrack)),
+GNU Free Documentation License 1.3. The music itself is read from the player's own game files at import.
 
 `frontend/src/reference/wiki/fe-wiki.json` holds class-change restrictions and support availability and notes, by Fire
 Emblem Wiki contributors. Sources: [Class change](https://fireemblemwiki.org/wiki/Class_change)

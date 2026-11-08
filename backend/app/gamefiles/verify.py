@@ -111,16 +111,17 @@ def check(root: Path, *, require_complete: bool = False) -> Report:
         report.errors.append(f"{MANIFEST}: invalid game information")
         return report
     has_dlc = "cindered_shadows" in dump.get("dlc", [])
+    has_battle_maps = "auxiliary_battle_maps" in dump.get("dlc", [])
     for family, info in families.items():
         skips = info.get("skipped", [])
         if not isinstance(skips, list) or any(not isinstance(item, str) for item in skips):
             report.errors.append(f"{family}: invalid list of skipped assets")
             continue
         for skipped in skips:
-            optional = not has_dlc and skipped.startswith((
+            optional = (not has_dlc and skipped.startswith((
                 "Cindered Shadows DLC not found", "Cindered Shadows faces", "houses/ashen-wolves:",
                 "ability icons for the Cindered Shadows abilities:",
-            ))
+            ))) or (not has_battle_maps and skipped.startswith("Auxiliary Battle Maps DLC not found"))
             messages = report.errors if require_complete and not optional else report.warnings
             messages.append(f"{family}: skipped {skipped}")
     return report

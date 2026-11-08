@@ -51,6 +51,71 @@ def test_export_dialog_cancel_and_invalid_json_do_not_write(monkeypatch, tmp_pat
     assert not list(tmp_path.iterdir())
 
 
+def _media_bridge(monkeypatch, selected):
+    from app.desktop import ExportDialogs
+
+    calls = []
+    bridge = ExportDialogs()
+    bridge._window = SimpleNamespace(create_file_dialog=lambda *args, **kwargs: calls.append((args, kwargs)) or selected)
+    monkeypatch.setitem(sys.modules, "webview", SimpleNamespace(FileDialog=SimpleNamespace(SAVE=1, FOLDER=2)))
+    return bridge, calls
+
+
+def test_a_video_is_saved_in_pieces_to_the_chosen_path(monkeypatch, tmp_path):
+    import base64
+
+    target = tmp_path / "replay.mp4"
+    bridge, calls = _media_bridge(monkeypatch, (str(target),))
+    video = b"\x00\x00\x00\x18ftypisom" + bytes(range(256)) * 10
+    token = bridge.begin_media_save("mp4", ["folder/Battle replay.mp4"])
+    assert calls[0][1]["save_filename"] == "Battle replay.mp4"
+    for at in range(0, len(video), 1000):
+        assert bridge.write_media_chunk(token, 0, base64.b64encode(video[at:at + 1000]).decode())
+    assert not target.exists()  # still a .part until it's finished
+    assert bridge.finish_media_save(token) == [str(target)]
+    assert target.read_bytes() == video
+    assert [p.name for p in tmp_path.iterdir()] == ["replay.mp4"]
+
+
+def test_several_images_go_into_the_chosen_folder_without_overwriting(monkeypatch, tmp_path):
+    import base64
+
+    (tmp_path / "Team loadouts.png").write_bytes(b"old")
+    bridge, calls = _media_bridge(monkeypatch, (str(tmp_path),))
+    png = b"\x89PNG\r\n\x1a\n" + b"data"
+    token = bridge.begin_media_save("png", ["Team loadouts.png", "Team stats.png"])
+    assert calls[0][0] == (2,)
+    for index in (0, 1):
+        bridge.write_media_chunk(token, index, base64.b64encode(png).decode())
+    saved = bridge.finish_media_save(token)
+    assert [p.split("\\")[-1].split("/")[-1] for p in saved] == ["Team loadouts (2).png", "Team stats.png"]
+    assert (tmp_path / "Team loadouts.png").read_bytes() == b"old"
+    assert (tmp_path / "Team stats.png").read_bytes() == png
+
+
+def test_a_media_save_refuses_wrong_files_and_cleans_up(monkeypatch, tmp_path):
+    import base64
+
+    bridge, _ = _media_bridge(monkeypatch, (str(tmp_path / "x.mp4"),))
+    with pytest.raises(ValueError):
+        bridge.begin_media_save("exe", ["x.exe"])
+    with pytest.raises(ValueError):
+        bridge.begin_media_save("mp4", ["x.png"])
+    token = bridge.begin_media_save("mp4", ["x.mp4"])
+    bridge.write_media_chunk(token, 0, base64.b64encode(b"not a video at all").decode())
+    with pytest.raises(ValueError):
+        bridge.finish_media_save(token)
+    assert not list(tmp_path.iterdir())
+    token = bridge.begin_media_save("mp4", ["x.mp4"])
+    assert bridge.cancel_media_save(token)
+    assert not list(tmp_path.iterdir())
+
+
+def test_a_cancelled_media_dialog_saves_nothing(monkeypatch):
+    bridge, _ = _media_bridge(monkeypatch, None)
+    assert bridge.begin_media_save("png", ["a.png", "b.png"]) is None
+
+
 def test_geometry_keeps_the_normal_bounds_and_the_maximized_state():
     rect = (2800, 200, 3800, 900)  # physical pixels on a second monitor
     expected = {"x": 2800, "y": 200, "width": 1000, "height": 700, "physical": True}
