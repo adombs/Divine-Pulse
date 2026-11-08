@@ -153,6 +153,31 @@ export function Timelines({ columns, jump, current = null }: Props) {
     }
   }, [current, trunkLast, view]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // The scroll wheel is the zoom slider (the view has no scrollbars; dragging pans). Up zooms in, a stop per notch.
+  const wheelBy = useRef((_stops: number) => {});
+  wheelBy.current = (stops) => {
+    const next = Math.min(ZOOM_LEVELS - 1, Math.max(0, toSlider(stepNow.current) + stops));
+    if (next === toSlider(stepNow.current)) return;
+    stop();
+    setZoom(fromSlider(next));
+  };
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    let acc = 0;
+    const onWheel = (e: WheelEvent) => {
+      e.preventDefault();
+      const dy = e.deltaMode === 0 ? e.deltaY : e.deltaY * 40; // lines to pixels
+      acc -= dy;
+      const stops = Math.trunc(acc / 100);
+      if (!stops) return;
+      acc -= stops * 100;
+      wheelBy.current(stops);
+    };
+    el.addEventListener("wheel", onWheel, { passive: false });
+    return () => el.removeEventListener("wheel", onWheel);
+  }, []);
+
   // Drag to pan. A press that moves is a drag, and the click it ends with doesn't open or close a branch.
   const drag = useRef<{ x: number; y: number; left: number; top: number; moved: boolean } | null>(null);
   const dragged = useRef(false);
