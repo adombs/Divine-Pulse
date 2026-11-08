@@ -50,7 +50,9 @@ const ARMY_BANNER: Partial<Record<AffiliationSide, string>> = {
  * (the army is always known in battle); without an army there is no banner. */
 export function affiliationBanner(house?: string | null, side?: AffiliationSide): string | null {
   const own = house ? factionBanners.get(house) ?? BANNER[house] : undefined;
-  return own ?? (side ? ARMY_BANNER[side] ?? null : null);
+  // The neutral "Other" shield is no answer for a unit on the map: its army's pennant fits better.
+  const army = side ? ARMY_BANNER[side] ?? null : null;
+  return own === "other" && army ? army : own ?? army;
 }
 
 const ARMY_NAME: Partial<Record<AffiliationSide, string>> = { player: "Your army", enemy: "Enemy army", ally: "Allied army", third: "Third army" };

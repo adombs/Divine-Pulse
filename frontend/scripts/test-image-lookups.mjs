@@ -237,6 +237,11 @@ test("a unit with no known affiliation gets its army's banner", async () => {
   assert.equal(mod.affiliationBanner(undefined, "third"), "army-third");
   assert.equal(mod.affiliationBanner(undefined, "player"), "army-player");
   assert.equal(mod.affiliationBanner("Black Eagles", "enemy"), "black-eagles");
+  assert.equal(mod.affiliationBanner("Other", "enemy"), "army-enemy");
+  assert.equal(mod.affiliationBanner("Other", "ally"), "army-ally");
+  assert.equal(mod.affiliationBanner("Other", "third"), "army-third");
+  assert.equal(mod.affiliationBanner("Other"), "other");
+  assert.equal(mod.affiliationBanner("Flame Emperor Army", "enemy"), "army-enemy");
   assert.equal(mod.affiliationBanner(undefined, "object"), null);
   assert.equal(mod.affiliationBanner(undefined), null);
 });
