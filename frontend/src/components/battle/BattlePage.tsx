@@ -215,8 +215,8 @@ export function BattleView(p: ViewProps) {
                   Live Battle
                 </button>
               )}
-              <CopySummary battle={battle} seconds={seconds} />
               <ReplayExportButton battle={battle} />
+              <CopySummary battle={battle} seconds={seconds} />
               {recording && (
                 <button type="button" className="btn small danger" onClick={recording.onDelete} title="Delete this battle from the history">
                   <Icon name={CONCEPT_ICON.delete} /> Delete

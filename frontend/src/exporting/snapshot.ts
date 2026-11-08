@@ -11,8 +11,10 @@
  * A data URL, not a blob URL: Chromium marks a canvas painted with a blob URL's `foreignObject` as unreadable.
  */
 
-/** Images drawn smaller than this (portraits, sprites, icons) are scaled down to it once, to keep each picture small. */
-const SMALL_IMAGE = 192;
+/** Portraits and icons are never drawn bigger than this (CSS pixels; a portrait on the most zoomed-in map), so they're
+ * scaled down to it once, times the picture's scale, and kept as WebP: each picture carries them all, so smaller is
+ * faster. */
+const SMALL_IMAGE = 128;
 
 const dataUrls = new Map<string, Promise<string>>();
 
@@ -49,7 +51,7 @@ function inline(url: string, shrink: number | null): Promise<string> {
       g.imageSmoothingQuality = "high";
       g.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
       bitmap.close();
-      return canvas.toDataURL("image/png");
+      return canvas.toDataURL("image/webp", 0.92);
     })();
     found.catch(() => dataUrls.delete(key));
     dataUrls.set(key, found);
@@ -82,8 +84,22 @@ async function inlineCss(css: string): Promise<string> {
   });
 }
 
+/** Which of the page's style rules a picture needs: all of them, or only those a layer of the battle map uses. */
+export type StyleSet = "all" | "map";
+
+/** A rule a picture of the battle map (with its turn banner) can use: by what its selector names. Rules for the
+ * root's variables, fonts and every element (`*`) stay; media queries and keyframes don't apply in a fixed frame. */
+const MAP_SELECTOR = /snapshot-root|map|minimap|replay|rewind|icon|game-asset|portrait|sprite|^\s*\*|^\s*svg/;
+
+function keepRule(text: string, set: StyleSet): boolean {
+  if (set === "all") return true;
+  if (text.startsWith("@font-face")) return true;
+  if (text.startsWith("@")) return false;
+  return MAP_SELECTOR.test(text.slice(0, text.indexOf("{")));
+}
+
 /** The page's styles, made to apply inside a picture: `:root` and `html` become the wrapper. */
-async function pageCss(): Promise<string> {
+async function pageCss(set: StyleSet): Promise<string> {
   const parts: string[] = [];
   for (const sheet of Array.from(document.styleSheets)) {
     let rules: CSSRuleList;
@@ -92,16 +108,21 @@ async function pageCss(): Promise<string> {
     } catch {
       continue;
     }
-    for (const rule of Array.from(rules)) parts.push(rule.cssText);
+    for (const rule of Array.from(rules)) {
+      const text = rule.cssText.replace(/:root\b/g, ".snapshot-root").replace(/(^|[\s,}])html\b/g, "$1.snapshot-root");
+      if (keepRule(text, set)) parts.push(text);
+    }
   }
-  const css = parts.join("\n").replace(/:root\b/g, ".snapshot-root").replace(/(^|[\s,}])html\b/g, "$1.snapshot-root");
-  return inlineCss(css);
+  // A picture restarts every CSS animation at its first instant (a fade-in would be invisible) and has no time for a
+  // transition: everything is drawn as it finally stands. The export moves things frame by frame itself.
+  const still = ".snapshot-root *, .snapshot-root *::before, .snapshot-root *::after { animation: none !important; transition: none !important; }";
+  return `${await inlineCss(parts.join("\n"))}\n${still}`;
 }
 
-let cssCache: { key: string; css: Promise<string> } | null = null;
+const cssCache = new Map<StyleSet, { key: string; css: Promise<string> }>();
 
 /** The page's styles, read again when style sheets were added or removed (another font loaded). */
-function stylesNow(): Promise<string> {
+function stylesNow(set: StyleSet): Promise<string> {
   const key = Array.from(document.styleSheets).map((s) => {
     try {
       return `${s.href ?? "inline"}:${s.cssRules.length}`;
@@ -109,14 +130,32 @@ function stylesNow(): Promise<string> {
       return "x";
     }
   }).join("|");
-  if (cssCache?.key !== key) cssCache = { key, css: pageCss() };
-  return cssCache.css;
+  const cached = cssCache.get(set);
+  if (cached?.key === key) return cached.css;
+  const css = pageCss(set);
+  cssCache.set(set, { key, css });
+  return css;
+}
+
+/**
+ * One layer of a picture: parts of the element left out, so a frame can be drawn in layers that change at different
+ * rates (a video's log changes once a step, its map every frame).
+ */
+export interface Layer {
+  /** These stay in place, keeping their size, but are drawn empty and see-through (their contents dropped). */
+  hide?: string[];
+  /** These are dropped. */
+  remove?: string[];
+  /** The style rules it needs (default: all). */
+  styles?: StyleSet;
+  /** More rules for this layer (a see-through background, say). */
+  css?: string;
 }
 
 /** What makes a picture of an element: the page's styles, and the root element's own look (theme, variables). */
 export interface Snapshotter {
-  /** The element as an SVG document `width` × `height` CSS pixels, drawn `scale` times as big. */
-  svg(el: HTMLElement, width: number, height: number, scale: number): Promise<string>;
+  /** The element (or one layer of it) as an SVG document `width` × `height` CSS pixels, drawn `scale` times as big. */
+  svg(el: HTMLElement, width: number, height: number, scale: number, layer?: Layer): Promise<string>;
   /** The SVG as a decoded image, ready to paint. */
   image(svg: string): Promise<HTMLImageElement>;
 }
@@ -124,21 +163,31 @@ export interface Snapshotter {
 /** Gets the page's styles and fonts ready (read once, then kept). */
 export async function snapshotter(): Promise<Snapshotter> {
   await document.fonts.ready;
-  const css = await stylesNow();
+  const styles: Record<StyleSet, string> = { all: await stylesNow("all"), map: await stylesNow("map") };
   const root = document.documentElement;
   // The root's own variables (theme, fonts, text size, the minimap's tiles), with its images inlined too.
   const rootStyle = await inlineCss(root.getAttribute("style") ?? "");
   const theme = root.dataset.theme ? ` data-theme="${root.dataset.theme}"` : "";
   const fontSize = getComputedStyle(root).fontSize;
 
-  const svg = async (el: HTMLElement, width: number, height: number, scale: number) => {
+  const svg = async (el: HTMLElement, width: number, height: number, scale: number, layer: Layer = {}) => {
     const copy = el.cloneNode(true) as HTMLElement;
+    for (const selector of layer.remove ?? []) for (const node of Array.from(copy.querySelectorAll(selector))) node.remove();
+    for (const selector of layer.hide ?? []) {
+      for (const node of Array.from(copy.querySelectorAll<HTMLElement | SVGElement>(selector))) {
+        node.replaceChildren();
+        node.setAttribute("style", `${node.getAttribute("style") ?? ""};visibility:hidden`);
+      }
+    }
     await Promise.all(Array.from(copy.querySelectorAll<Element>("img, image")).map(async (node) => {
       const attr = node.tagName.toLowerCase() === "img" ? "src" : "href";
       const url = node.getAttribute(attr) ?? node.getAttribute("xlink:href");
       if (!url || url.startsWith("data:")) return;
-      // The map's own picture is drawn big; everything else is a portrait, sprite or icon.
-      const big = node.classList.contains("map-own") || node.hasAttribute("data-snapshot-full");
+      // Portraits and icons are drawn whole and small, so they're scaled down. The map's own picture is drawn big, and a
+      // sprite sheet is cut into cells (an <svg> inside the map, its viewBox showing one cell): those keep every pixel.
+      const inner = node.parentElement?.closest("svg");
+      const sheet = !!inner?.hasAttribute("viewBox") && !!inner.parentElement?.closest("svg");
+      const big = node.classList.contains("map-own") || node.hasAttribute("data-snapshot-full") || sheet;
       try {
         node.setAttribute(attr, await inline(new URL(url, document.baseURI).href, big ? null : SMALL_IMAGE * scale));
       } catch {
@@ -148,7 +197,9 @@ export async function snapshotter(): Promise<Snapshotter> {
     for (const node of Array.from(copy.querySelectorAll<HTMLElement>("[style*='url(']"))) {
       node.setAttribute("style", await inlineCss(node.getAttribute("style") ?? ""));
     }
+    shareImages(copy);
     const body = new XMLSerializer().serializeToString(copy);
+    const css = `${styles[layer.styles ?? "all"]}\n${layer.css ?? ""}`;
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}" viewBox="0 0 ${width} ${height}" style="font-size:${fontSize}">`
       + `<foreignObject x="0" y="0" width="${width}" height="${height}">`
       + `<div xmlns="http://www.w3.org/1999/xhtml" class="snapshot-root"${theme} style="${escapeAttr(rootStyle)};width:${width}px;height:${height}px;overflow:hidden;margin:0;font-size:${fontSize}">`
@@ -163,6 +214,58 @@ export async function snapshotter(): Promise<Snapshotter> {
     return img;
   };
   return { svg, image };
+}
+
+const SVG_NS = "http://www.w3.org/2000/svg";
+const XLINK = "http://www.w3.org/1999/xlink";
+
+/**
+ * Each picture once per drawing: an SVG <image> drawn in several places (the sprite sheet under every unit, the same
+ * portrait twice) is put once in the drawing's <defs>, and each place shows it with a <use>, moved to where it was.
+ * Every picture is inlined as a data URL, so without this a map with 40 units carries the sprite sheet 40 times.
+ */
+function shareImages(copy: Element): void {
+  const groups = new Map<string, SVGImageElement[]>();
+  for (const node of Array.from(copy.querySelectorAll("image")) as SVGImageElement[]) {
+    const href = node.getAttribute("href") ?? node.getAttributeNS(XLINK, "href");
+    const root = outermostSvg(node);
+    if (!href?.startsWith("data:") || !root) continue;
+    // The same picture at the same size; where it goes (x, y) is the <use>'s.
+    const key = [href, ...["width", "height", "preserveAspectRatio", "class"].map((a) => node.getAttribute(a) ?? "")].join("|");
+    const list = groups.get(key) ?? [];
+    list.push(node);
+    groups.set(key, list);
+  }
+  let n = 0;
+  for (const list of groups.values()) {
+    if (list.length < 2) continue;
+    const root = outermostSvg(list[0])!;
+    let defs = Array.from(root.children).find((c) => c.localName === "defs");
+    if (!defs) {
+      defs = document.createElementNS(SVG_NS, "defs");
+      root.insertBefore(defs, root.firstChild);
+    }
+    const id = `snapshot-image-${n++}`;
+    const shared = list[0].cloneNode(false) as SVGImageElement;
+    for (const a of ["x", "y", "id", "class", "style", "clip-path", "opacity", "transform"]) shared.removeAttribute(a);
+    shared.setAttribute("id", id);
+    defs.appendChild(shared);
+    for (const node of list) {
+      const use = document.createElementNS(SVG_NS, "use");
+      use.setAttribute("href", `#${id}`);
+      for (const a of Array.from(node.attributes)) {
+        if (!["href", "width", "height", "preserveAspectRatio", "id"].includes(a.name) && a.namespaceURI !== XLINK) use.setAttribute(a.name, a.value);
+      }
+      node.replaceWith(use);
+    }
+  }
+}
+
+/** The topmost <svg> an element is drawn in (the same picture can be shared anywhere inside it). */
+function outermostSvg(node: Element): Element | null {
+  let found: Element | null = null;
+  for (let at: Element | null = node.parentElement; at; at = at.parentElement) if (at.localName === "svg") found = at;
+  return found;
 }
 
 const escapeAttr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");

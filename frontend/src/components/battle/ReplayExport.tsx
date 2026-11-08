@@ -19,7 +19,7 @@ import { Modal } from "../Modal";
 import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange } from "../Slider";
 import { CardBanner, Segmented } from "../ui";
-import { snapshotter } from "../../exporting/snapshot";
+import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo } from "../../exporting/video";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, zoomText } from "./camera";
@@ -42,6 +42,15 @@ const END_HOLD_MS = 2000;
 const CAMERA_MS = 280;
 
 const ORIENTATION_KEY = "divine-pulse-export-orientation";
+
+/** A video frame's two layers (snapshot.ts `Layer`). The chrome: the title, the log and the map's frame, without the
+ * map or anything over it. The map: the map with its turn banner and rewind badge, over a see-through frame. */
+const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap"], remove: [".replay-banner", ".rewind-badge"] };
+const MAP_LAYER: Layer = {
+  hide: [".replay-stage-title", ".replay-stage-log"],
+  styles: "map",
+  css: ".replay-stage { background: none !important; box-shadow: none !important; }",
+};
 
 function loadOrientation(): Orientation {
   try {
@@ -128,7 +137,7 @@ function stageLayout(orientation: Orientation, aspect: number): { columns: strin
     return { columns: `${mapW}px minmax(0, 1fr)`, rows: `${TITLE_H.landscape}px minmax(0, 1fr)` };
   }
   const mapH = Math.round(Math.min(w / aspect, h) + MAP_FRAME);
-  return { columns: "minmax(0, 1fr)", rows: `auto ${mapH}px minmax(0, 1fr)` };
+  return { columns: "minmax(0, 1fr)", rows: `${TITLE_H.portrait}px ${mapH}px minmax(0, 1fr)` };
 }
 
 /** Where the video stands: a beat, and how far into it (ms). */
@@ -296,7 +305,10 @@ function ReplayExportDialog({ battle, chron, onClose }: { battle: Battle; chron:
     setStatus({ kind: "working", done: 0, total: frames, label: "Making the video" });
     try {
       const snap = await snapshotter();
-      let shown = "";
+      // A frame in two layers: the title and the log (with the map's frame) change once a step, so they're drawn once a
+      // step; the map (with its turn banner) is drawn each frame on its own, with only the styles it needs.
+      let chrome: { beat: number; img: HTMLImageElement } | null = null;
+      let map: { doc: string; img: HTMLImageElement } | null = null;
       const blob = await encodeVideo({
         width: out[0],
         height: out[1],
@@ -307,14 +319,19 @@ function ReplayExportDialog({ battle, chron, onClose }: { battle: Battle; chron:
           if (done % 6 === 0 || done === frames) setStatus({ kind: "working", done, total: frames, label: "Making the video" });
         },
         draw: async (i, g) => {
-          flushSync(() => seekRef.current((i * 1000) / FPS));
+          const ms = (i * 1000) / FPS;
+          flushSync(() => seekRef.current(ms));
           const el = stage.current;
           if (!el) throw new Cancelled();
-          const doc = await snap.svg(el, width, height, SCALE);
-          if (doc === shown) return; // a held frame: the canvas still has it
-          const img = await snap.image(doc);
-          g.drawImage(img, 0, 0, out[0], out[1]);
-          shown = doc;
+          const beat = momentAt(Math.min(total, ms)).beat;
+          const newChrome = chrome?.beat !== beat;
+          if (newChrome) chrome = { beat, img: await snap.image(await snap.svg(el, width, height, SCALE, CHROME_LAYER)) };
+          const doc = await snap.svg(el, width, height, SCALE, MAP_LAYER);
+          const newMap = map?.doc !== doc;
+          if (newMap) map = { doc, img: await snap.image(doc) };
+          if (!newChrome && !newMap) return; // a held frame: the canvas still has it
+          g.drawImage(chrome!.img, 0, 0, out[0], out[1]);
+          g.drawImage(map!.img, 0, 0, out[0], out[1]);
         },
       });
       const saved = await saveFiles("mp4", [{ name: `${safeFilename(name.title)} replay.mp4`, blob }]);
