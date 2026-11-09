@@ -562,7 +562,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
                       const themes = music?.themes.filter((m) => m.group === group) ?? [];
                       return themes.length ? (
                         <optgroup key={group} label={group}>
-                          {themes.map((m) => <option key={m.id} value={m.id}>{m.title}{music && defaultTheme(music, battle.scenario).id === m.id ? " (this battle's)" : ""}</option>)}
+                          {themes.map((m) => <option key={m.id} value={m.id}>{m.title}{music && defaultTheme(music, battle.scenario).id === m.id ? " (Default)" : ""}</option>)}
                         </optgroup>
                       ) : null;
                     })}
