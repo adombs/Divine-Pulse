@@ -31,7 +31,7 @@ export interface Flag {
   tone: "bad" | "warn" | "info" | "quiet";
 }
 
-export const FELL: Flag = { icon: CONCEPT_ICON.fell, title: "Fell", tone: "bad" };
+export const FELL: Flag = { icon: CONCEPT_ICON.fell, title: "Fallen", tone: "bad" };
 export const DEFEATED: Flag = { icon: CONCEPT_ICON.defeat, title: "Killed", tone: "bad" };
 export const AWAY: Flag = { icon: CONCEPT_ICON.left, title: "Not on the map", tone: "warn" };
 export const ACTED: Flag = { icon: CONCEPT_ICON.done, title: "Has acted this phase", tone: "quiet" };
