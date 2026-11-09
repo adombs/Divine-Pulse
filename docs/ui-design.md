@@ -78,7 +78,7 @@ fills the sheet: the header stays put and the view below fits the screen (the Ov
   (while one runs) and Delete. Export Video (battle/ReplayExport.tsx) opens a window with the video's frame previewed
   as it plays (title strip with the "by Adombs" credit, the map with its turn banner and no legend, the log as a
   list up to the step shown) and options down the right: orientation, turns, speed, camera, zoom, music (the battle
-  themes imported with the game files, the battle's own first, in its Rain or Thunder version, and a 0-100% volume) and the video's resolution, frame rate, quality and theme;
+  themes imported with the game files, the battle's own first, in its Rain or Thunder version, and a 0-100% volume) and the video's resolution, frame rate and quality;
   the export button stays at the foot of the options. A video is written to a temporary file in the page's
   private storage as it is made, and the soundtrack a second at a time, so memory doesn't grow with its length. The map takes all
   the room its view needs and the log the rest; zoomed in, the camera's view widens to fill that room. Tabs: **Overview · Units · More Stats**.
@@ -141,9 +141,9 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
   Dead units are greyed in that list with the fell mark; an "Include fallen units" checkbox above it (only when someone is dead; on by
   default, remembered) puts them in both images greyed with the mark by their name, or leaves them out of both (the statistics follow the
   overview, and their Team totals count whoever is shown).
-  Dead units (Classic mode) stay in the table, greyed with the log's fell mark, in a Fallen group below the living whatever the sort;
+  Dead units (Classic mode) stay in the table, greyed with a skull, in a Fallen group below the living whatever the sort;
   their card's Status fact says where they fell and opens that battle with the replay at that step
-  (`#/battle/<id>?fell=<unit key>`), and the banner's Mark as Dead / Mark as Alive button overrides the game's flag.
+  (`#/battle/<id>?fell=<unit key>`), and the banner's Mark as Alive button (only on a fallen unit) overrides the game's flag; a unit can't be marked dead by hand.
   The shared people filters' Status (Alive / Dead) only counts people in the active run.
 - **Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
   with a `DetailCard`. The Archive's tabs: Characters, Crests, Battalions, Classes, Combat Arts, Abilities, Magic,

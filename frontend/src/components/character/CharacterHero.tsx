@@ -89,7 +89,7 @@ export function CharacterHero({
         aria-label={`Flip ${name}'s information card to ${reverse ? "front facts" : "biography"}`}
         title={`Show ${reverse ? "front facts" : "biography"}`}
         onClick={flip}>
-        <Icon name={CONCEPT_ICON.flip} /> Flip
+        <Icon name={CONCEPT_ICON.flip} />
       </button>}
     </div>
   );

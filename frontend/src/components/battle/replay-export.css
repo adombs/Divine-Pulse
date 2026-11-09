@@ -2,19 +2,22 @@
 .modal.wide.replay-export-modal { width: min(1320px, 100%); }
 .replay-export-modal .modal-body { overflow: hidden; }
 .replay-export { display: grid; grid-template-columns: minmax(0, 1fr) var(--export-side); gap: 1.2rem; height: 100%; min-height: 0; }
-.replay-export-preview { display: grid; grid-template: minmax(0, 1fr) auto / minmax(0, 1fr); gap: 0.6rem; min-width: 0; min-height: 0; }
+/* The frame and its transport bar are one group, as big as the column allows and centred in it (ReplayExport.tsx
+   ScaledStage sizes both), so the video never floats in a room of dead space. */
+.replay-export-preview { display: grid; align-content: center; justify-items: center; gap: 0.6rem; min-width: 0; min-height: 0; }
 /* The frame sits on the app's dark wood, like the sheet does, so its own edge reads as the edge of the video. */
 .replay-export-room {
-  display: grid; place-items: center; min-width: 0; min-height: 0; overflow: hidden; padding: 1rem; border-radius: 4px;
+  display: grid; place-items: center; overflow: hidden; border-radius: 4px;
   background: linear-gradient(180deg, var(--room-2), var(--room-1) 80%);
 }
+.replay-export-foot { min-width: 0; }
 .replay-export-screen { overflow: hidden; box-shadow: 0 10px 28px rgb(0 0 0 / 0.5); }
 .replay-export-transport .replay-timeline { flex: 1 1 auto; }
 .replay-export-time { flex: none; min-width: 6.5rem; text-align: right; color: var(--ink-soft); font: 0.9rem var(--nums); font-variant-numeric: tabular-nums; }
 
 .export-turns { display: grid; grid-template-columns: 1fr 1fr; gap: 0.6rem; }
-.export-turns label { display: grid; gap: 0.2rem; font-size: 0.85rem; color: var(--ink-soft); }
-.export-turns select { width: 100%; }
+.export-turns label { display: flex; align-items: center; gap: 0.4rem; min-width: 0; font-size: 0.88rem; color: var(--ink-soft); }
+.export-turns select { flex: 1 1 0; width: 100%; min-width: 0; }
 
 
 /* The video's frame (1280 × 720 or 720 × 1280, drawn at 1.5×): a sheet of the app's paper with its inner frame line,
@@ -24,11 +27,9 @@
 .replay-stage {
   position: relative; display: grid; gap: 12px; width: 100%; height: 100%; padding: 16px;
   color: var(--ink); font: 1.06rem/1.45 var(--text);
-  background: radial-gradient(ellipse at 20% 0%, rgb(255 255 255 / 0.18), transparent 60%), var(--paper);
+  background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper);
   box-shadow: inset 0 0 0 5px var(--paper), inset 0 0 0 6px var(--line);
 }
-.snapshot-root[data-theme="dark"] .replay-stage,
-:root[data-theme="dark"] .replay-stage { background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper); }
 .replay-stage.landscape { grid-template-areas: "title title" "map log"; }
 .replay-stage.portrait { grid-template-areas: "title" "map" "log"; }
 
@@ -51,11 +52,6 @@
   grid-area: log; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 10px 8px 8px;
   background: var(--paper-2); border: 1px solid var(--row-border); border-radius: 4px;
 }
-/* The video's log rows: the time right-aligned in a column just wide enough for it, a tight even gap to the icon and on
-   to the text, which gets the width that frees (the same in the preview and in the exported frames, which are taken of
-   this very box). */
-.replay-stage-log .log-row { grid-template-columns: 2.2rem 1.45rem minmax(0, 1fr); gap: 0.4rem; padding: 0.26rem 0.3rem; }
-.replay-stage-log .log-time { text-align: right; }
 .replay-stage-log-title { display: flex; align-items: center; gap: 0.4rem; padding: 0 0 6px; border-bottom: 1px solid var(--line); font: 600 1.1rem var(--display); }
 .replay-stage-log-title .icon { color: var(--accent); }
 /* The newest row at the bottom; older ones go up and fade out at the top (no scrolling in a picture). */
@@ -65,7 +61,5 @@
 }
 .replay-stage-rows .log-list { flex: none; }
 
-/* The frame's theme box (the video's own theme, or the app's): exactly the frame's size. */
+/* The box the video's picture is taken of: exactly the frame's size. */
 .replay-stage-theme { width: 100%; height: 100%; }
-.export-theme-dark .replay-stage { background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper); }
-.export-theme-light .replay-stage { background: radial-gradient(ellipse at 20% 0%, rgb(255 255 255 / 0.18), transparent 60%), var(--paper); }

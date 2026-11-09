@@ -152,7 +152,7 @@ export interface Layer {
   css?: string;
 }
 
-/** What makes a picture of an element: the page's styles, and the root element's own look (theme, variables). */
+/** What makes a picture of an element: the page's styles, and the root element's own look (variables). */
 export interface Snapshotter {
   /** The element (or one layer of it) as an SVG document `width` × `height` CSS pixels, drawn `scale` times as big. */
   svg(el: HTMLElement, width: number, height: number, scale: number, layer?: Layer): Promise<string>;
@@ -167,9 +167,8 @@ export async function snapshotter(): Promise<Snapshotter> {
   await document.fonts.ready;
   const styles: Record<StyleSet, string> = { all: await stylesNow("all"), map: await stylesNow("map") };
   const root = document.documentElement;
-  // The root's own variables (theme, fonts, text size, the minimap's tiles), with its images inlined too.
+  // The root's own variables (fonts, text size, the minimap's tiles), with its images inlined too.
   const rootStyle = await inlineCss(root.getAttribute("style") ?? "");
-  const theme = root.dataset.theme ? ` data-theme="${root.dataset.theme}"` : "";
   const fontSize = getComputedStyle(root).fontSize;
 
   const svg = async (el: HTMLElement, width: number, height: number, scale: number, layer: Layer = {}) => {
@@ -204,7 +203,7 @@ export async function snapshotter(): Promise<Snapshotter> {
     const css = `${styles[layer.styles ?? "all"]}\n${layer.css ?? ""}`;
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}" viewBox="0 0 ${width} ${height}" style="font-size:${fontSize}">`
       + `<foreignObject x="0" y="0" width="${width}" height="${height}">`
-      + `<div xmlns="http://www.w3.org/1999/xhtml" class="snapshot-root"${theme} style="${escapeAttr(rootStyle)};width:${width}px;height:${height}px;overflow:hidden;margin:0;font-size:${fontSize}">`
+      + `<div xmlns="http://www.w3.org/1999/xhtml" class="snapshot-root" style="${escapeAttr(rootStyle)};width:${width}px;height:${height}px;overflow:hidden;margin:0;font-size:${fontSize}">`
       + `<style>${escapeText(css)}</style>${body}</div></foreignObject></svg>`;
   };
 

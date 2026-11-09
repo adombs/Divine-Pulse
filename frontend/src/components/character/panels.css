@@ -3,7 +3,7 @@
 .roster-stat-panel .roster-skills,
 .archive-stat-panel .shared-skill-chips {
   display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.3rem;
-  margin: 0 0 0.9rem; max-width: none;
+  margin: 0 0 0.6rem; max-width: none;
 }
 .roster-stat-panel .skill-chip,
 .archive-stat-panel .skill-chip {
@@ -16,18 +16,19 @@
 .roster-stat-panel .skill-chip.weak { border-bottom-color: var(--red); }
 .roster-stat-panel :is(.skill-chip.budding, .skill-chip.weak_budding) { border-bottom-color: var(--accent); }
 .roster-stat-panel .skill-icon { width: 1.2rem; height: 1.2rem; }
-.roster-stat-panel .vitals { gap: 0.7rem; margin-bottom: 0.8rem; }
-.roster-stat-panel .stat-row { grid-template-columns: 3.4rem minmax(1rem, 1fr) auto; gap: 0.5rem; padding-block: 0.45rem; }
-.roster-stat-panel .vital .stat-row { grid-template-columns: 3.4rem minmax(0, 1fr); min-height: 2.7rem; box-sizing: border-box; }
+.roster-stat-panel .vitals { gap: 0.7rem; margin-bottom: 0.45rem; }
+.roster-stat-panel .stat-row { grid-template-columns: 3.4rem minmax(1rem, 1fr) auto; gap: 0.5rem; padding-block: 0.3rem; }
+.roster-stat-panel .vital .stat-row { grid-template-columns: 3.4rem minmax(0, 1fr); min-height: 2.4rem; box-sizing: border-box; }
 .roster-stat-panel .stat-value { padding-right: 0; min-width: 2ch; }
 .roster-stat-panel .stat-value:has(.mark) { padding-right: 1.3rem; }
 .roster-stat-panel .stat-grid { gap: 0 1.25rem; }
 .roster-stat-panel .stat-bar { height: 0.35rem; border-radius: 2px; overflow: hidden; }
-.roster-stat-panel .ebst-setup { gap: 0.35rem; margin: 0 0 0.75rem; padding-bottom: 0.75rem; border-bottom: 1px solid var(--line); }
+.roster-stat-panel .ebst-setup { gap: 0.25rem; margin: 0.5rem 0 0; padding-top: 0.5rem; border-top: 1px solid var(--line); }
+.roster-stat-panel .compare-note { margin: 0.4rem 0 0; }
 .roster-stat-panel .type-buttons { display: grid; grid-template-columns: 4.4rem minmax(0, 1fr); gap: 0.5rem; }
 .roster-stat-panel .type-label { min-width: 0; font: 600 0.8rem var(--ui); }
 .roster-stat-panel .segmented { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); min-width: 0; }
-.roster-stat-panel .segmented button { padding: 0.35rem 0.15rem; min-width: 0; font-size: 0.85rem; }
+.roster-stat-panel .segmented button { padding: 0.15rem 0.15rem; min-width: 0; font-size: 0.85rem; }
 .roster-stat-panel .stat-row.excluded :is(.stat-label, .stat-value) { opacity: 0.75; }
 .roster-stat-panel .stat-row.excluded .stat-bar { opacity: 0.45; }
 .roster-stat-panel button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
