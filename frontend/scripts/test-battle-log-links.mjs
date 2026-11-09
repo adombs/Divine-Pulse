@@ -46,7 +46,18 @@ test("log rows link their units, gambits and other named things", async (t) => {
     const nav = { route: { page: "battle" }, go() {}, back() {}, canBack: false };
     const render = (item) =>
       renderToStaticMarkup(h(NavProvider, { nav }, h(BattleNavContext.Provider, { value: { people, open() {} } }, h("ol", null, h(ItemRow, { item })))));
-    const links = (html) => [...html.matchAll(/<button[^>]*>(.*?)<\/button>/g)].map((m) => m[1].replace(/<[^>]*>/g, ""));
+    // The text of some markup: everything outside its tags, read one character at a time.
+    const textOf = (markup) => {
+      let text = "";
+      let inTag = false;
+      for (const ch of markup) {
+        if (ch === "<") inTag = true;
+        else if (ch === ">") inTag = false;
+        else if (!inTag) text += ch;
+      }
+      return text;
+    };
+    const links = (html) => [...html.matchAll(/<button[^>]*>(.*?)<\/button>/g)].map((m) => textOf(m[1]));
 
     await t.test("a gambit opens the battalion its user has, and its target opens a card", () => {
       const html = render(row("gambit", { actor: "a:marianne", target: "a:raphael", detail: "Stride", text: "Marianne used Stride on Raphael." }));
