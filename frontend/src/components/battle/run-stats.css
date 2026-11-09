@@ -68,7 +68,6 @@
 .run-stats-table tfoot th, .run-stats-table tfoot td { position: sticky; bottom: 0; z-index: 2; border-top: 1px solid var(--row-border); border-bottom: 0; background-color: var(--paper-2); font-weight: 700; }
 .run-stats-table tfoot th:first-child { z-index: 3; background-color: var(--paper-2); }
 .run-stats-table tfoot small { font-weight: 400; }
-.run-stats-partial { margin-left: 6px; color: var(--ink-soft); font-size: 0.7em; font-weight: 400; text-transform: uppercase; letter-spacing: 0.06em; cursor: help; }
 .run-stats-unknown { color: var(--ink-soft); font-weight: 400; cursor: help; }
 .run-stats-no-matches { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 0.65rem; min-height: 9rem; padding: 1rem; color: var(--ink-soft); }
 .run-stats-no-matches > .icon { width: 1.3rem; height: 1.3rem; }
