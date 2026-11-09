@@ -120,7 +120,7 @@ export function buildCharacters(files: Record<string, unknown>, texts: Record<st
       const ability = abilities.find((a) => a.id === abilityId);
       return ability ? [{ name: display(ability, "ability"), description: text(texts.ability_description?.[String(ability.id)], text(ability.description)) }] : [];
     });
-    const house = id === 0 ? "Professor" : id >= 1045 ? "Other" : r.allegiance === 1 ? "Black Eagles" : r.allegiance === 2 ? "Blue Lions" : r.allegiance === 3 ? "Golden Deer" : id >= 1040 && id <= 1043 ? "Ashen Wolves" : [30, 31, 32, 33, 35].includes(id) ? "Knights of Seiros" : "Church of Seiros";
+    const house = id === 0 ? "Church of Seiros" : id >= 1045 ? "Other" : r.allegiance === 1 ? "Black Eagles" : r.allegiance === 2 ? "Blue Lions" : r.allegiance === 3 ? "Golden Deer" : id >= 1040 && id <= 1043 ? "Ashen Wolves" : [30, 31, 32, 33, 35].includes(id) ? "Knights of Seiros" : "Church of Seiros";
     const birthday = r.birthday?.month >= 1 && r.birthday?.month <= 12 && r.birthday?.day >= 1 && r.birthday?.day <= 31 ? `${r.birthday.month}/${r.birthday.day}` : "";
     const heightOf = (v: Row | undefined) => v && v.part1 > 0 && v.part1 < 255 ? `${v.part1} cm${v.part2 > 0 && v.part2 < 255 && v.part2 !== v.part1 ? ` → ${v.part2} cm (Part II)` : ""}` : "";
     const female = id === 0 ? chars.find((c) => c.id === 1) : undefined;
