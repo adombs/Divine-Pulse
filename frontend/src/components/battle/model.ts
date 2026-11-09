@@ -428,7 +428,8 @@ export function statGains(u: BattleUnit): number {
 export function armyTotals(battle: Battle) {
   const items = timeline(battle);
   const rows = battle.units.map((u) => battleUnitStats(battle, u, items));
-  const sum = (pick: (u: ReturnType<typeof battleUnitStats>) => number | null) => recordedSum(rows.map(pick));
+  // What was recorded: an adjutant (in the battle, not on the map) has no history numbers, and that mustn't blank the army's.
+  const sum = (pick: (u: ReturnType<typeof battleUnitStats>) => number | null) => partialSum(rows.map(pick)).value;
   return {
     fights: sum((u) => u.fights),
     dealt: sum((u) => u.dealt),

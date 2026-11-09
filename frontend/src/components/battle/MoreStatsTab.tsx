@@ -19,7 +19,7 @@ import { CharacterPopup } from "../CharacterPopup";
 import { CharLink } from "../Links";
 import { Icon, IconName } from "../Icon";
 import { clock, plural } from "../../format";
-import { armyId, armyTotals, Item, recordedSum, statGains } from "./model";
+import { armyId, armyTotals, Item, partialSum, statGains } from "./model";
 import { isLost } from "./marks";
 import { AWARDS, battleAwards, MoreStats, moreStats } from "./moreStats";
 import { BattleNav, BattleNavContext, HouseMark, ItemList, TrendChart, UnitFace, useBattleNav, WhoLink } from "./parts";
@@ -279,7 +279,7 @@ const shareRows = (stats: MoreStats) => [...stats.units].sort((a, b) => b.dealt 
 
 function Share({ stats }: { stats: MoreStats }) {
   const rows = shareRows(stats);
-  const total = recordedSum(rows.map((u) => u.metrics.dealt));
+  const total = partialSum(rows.map((u) => u.metrics.dealt)).value;
   const top = Math.max(1, ...rows.map((u) => u.dealt));
   if (!rows.length) return null;
   return (
