@@ -1,6 +1,6 @@
 /** Presentation data for History. Recorded-statistics functions remain the source of every value. */
 import type { Battle } from "../../api";
-import { armyTotals, recordedSum, statGains } from "./model";
+import { armyTotals, partialSum, recordedSum, statGains } from "./model";
 import { AWARDS } from "./moreStats";
 import { armySprite } from "./map";
 import type { Sprite } from "./mapIcons";
@@ -49,13 +49,17 @@ export function buildRunLedger(source: Battle[], kind: LedgerKind) {
     records: AWARDS.map((a) => ({ key: a.key, label: a.label, group: a.group,
       hint: "battleWide" in a ? "Battle-wide record; counted in the run total only" : `${a.title}: times received in finished battles` })),
   };
+  // Damage, healing and movement totals show what was recorded and say when some battles didn't record it.
+  const sums = { dealt: partialSum(battles.flatMap((b) => b.units.map((u) => u.damage_dealt))), taken: partialSum(battles.flatMap((b) => b.units.map((u) => u.damage_taken))),
+    healing: partialSum(battles.flatMap((b) => b.units.map((u) => u.healing_given))), tiles: partialSum(battles.flatMap((b) => b.units.map((u) => u.tiles_moved))) };
+  const partial = new Set(Object.entries(sums).filter(([, s]) => s.partial && s.value !== null).map(([key]) => key));
   const totals: Record<LedgerPart, (number | null)[]> = {
-    combat: kind === "battles" ? [run.seconds, run.turns, run.fights, run.defeats, run.damage_dealt, run.damage_taken, run.healing, run.tiles_moved]
-      : [characters.reduce((n, c) => n + c.battles, 0), run.fights, run.defeats, run.damage_dealt, run.damage_taken, run.healing, recordedSum(characters.map((c) => c.healed)), run.tiles_moved],
+    combat: kind === "battles" ? [run.seconds, run.turns, run.fights, run.defeats, sums.dealt.value, sums.taken.value, sums.healing.value, sums.tiles.value]
+      : [characters.reduce((n, c) => n + c.battles, 0), run.fights, run.defeats, sums.dealt.value, sums.taken.value, sums.healing.value, recordedSum(characters.map((c) => c.healed)), sums.tiles.value],
     growth: [run.level_ups, run.stat_points, run.weapon_uses, run.spells_cast, run.item_uses, ...(kind === "battles" ? [run.divine_pulses] : [])],
     records: AWARDS.map((a) => awards.totals[a.key]),
   };
-  return { battles, characters, run, awards, rows, columns, totals };
+  return { battles, characters, run, awards, rows, columns, totals, sums, partial };
 }
 
 /** Search never changes totals. Missing observations sort last in either direction. */
