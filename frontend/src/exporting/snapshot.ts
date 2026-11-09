@@ -156,8 +156,10 @@ export interface Layer {
 export interface Snapshotter {
   /** The element (or one layer of it) as an SVG document `width` × `height` CSS pixels, drawn `scale` times as big. */
   svg(el: HTMLElement, width: number, height: number, scale: number, layer?: Layer): Promise<string>;
-  /** The SVG as a decoded image, ready to paint. */
-  image(svg: string): Promise<HTMLImageElement>;
+  /** The SVG as a decoded image, ready to paint. With `into`, that image element is loaded afresh (what it showed is
+   * let go at once) instead of a new one being made: a video needs a new picture every frame, and an element per
+   * frame would leave a big decoded picture behind for each until the browser got round to collecting it. */
+  image(svg: string, into?: HTMLImageElement): Promise<HTMLImageElement>;
 }
 
 /** Gets the page's styles and fonts ready (read once, then kept). */
@@ -206,8 +208,8 @@ export async function snapshotter(): Promise<Snapshotter> {
       + `<style>${escapeText(css)}</style>${body}</div></foreignObject></svg>`;
   };
 
-  const image = async (doc: string) => {
-    const img = new Image();
+  const image = async (doc: string, into?: HTMLImageElement) => {
+    const img = into ?? new Image();
     img.decoding = "async";
     img.src = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(doc)}`;
     await img.decode();

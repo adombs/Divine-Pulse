@@ -58,3 +58,48 @@ def test_twenty_battle_themes_are_taken_rain_only_and_battles_map_to_them():
     assert len({title for _, title, _ in music.THEMES.values()}) == 20
     # Every theme a battle can play is one that is taken.
     assert set(music.GAME_MUSIC.values()) <= set(music.THEMES)
+
+
+def _bank(*ids: int, samples: int = 1920) -> bytes:
+    packets = [bytes([0xF8]) + b"x" * 30]
+    return b"".join(_ktss(i, packets, samples=samples) for i in ids)
+
+
+def test_a_themes_thunder_version_is_the_stream_after_its_rain_one():
+    bank = _bank(0x11, 0x22, 0x33)
+    streams = music._streams(bank)
+    assert music._thunder(streams, streams[0])["id"] == 0x22
+    # The last stream has nothing after it, and a stream of another length is not the same theme's.
+    assert music._thunder(streams, streams[2]) is None
+    other = music._streams(_bank(0x11) + _bank(0x22, samples=960))
+    assert music._thunder(other, other[0]) is None
+
+
+def test_the_importer_writes_both_versions_of_each_theme(monkeypatch, tmp_path):
+    (tmp_path / "nx" / "sound").mkdir(parents=True)
+    (tmp_path / "nx" / "sound" / "BGM.ktsl2stbin").write_bytes(_bank(0x11, 0x22, 0x33))
+    monkeypatch.setattr(music, "THEMES", {0x11: ("base", "One", "Part I"), 0x33: ("base", "Three", "Part I")})
+    monkeypatch.setattr(music, "GAME_MUSIC", {})
+    written, skipped = {}, []
+
+    class Out:
+        def binary(self, rel, data, **_):
+            written[rel] = data
+
+        def json(self, rel, data, **_):
+            written[rel] = data
+
+    class Ctx:
+        dump = type("Dump", (), {"romfs": tmp_path, "dlc": {}})()
+        out = Out()
+        skip = skipped.append
+        log = staticmethod(lambda _: None)
+
+        def table(self, *_):
+            return []
+
+    music.extract(Ctx())
+    one, three = written["data/music.json"]["tracks"]
+    assert one["id"] == "00000011" and one["thunder"]["id"] == "00000022" and one["thunder"]["file"] == "audio/bgm/00000022.ogg"
+    assert "audio/bgm/00000011.ogg" in written and "audio/bgm/00000022.ogg" in written
+    assert "thunder" not in three and any("Three" in message for message in skipped)

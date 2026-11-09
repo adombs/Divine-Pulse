@@ -1,15 +1,19 @@
-"""The battle maps' music: the 20 battle themes, each in its calm (Rain) version, and which one each battle plays.
+"""The battle maps' music: the 20 battle themes, each in its calm (Rain) and its intense (Thunder) version, and which one
+each battle plays.
 
 The game keeps its background music in Koei Tecmo stream banks (nx/sound/BGM.ktsl2stbin, and BGM_DLC.ktsl2stbin in the
 Auxiliary Battle Maps DLC): a KTSR archive of KTSS streams, each Opus audio in Nintendo's framing (a 4-byte big-endian
 packet size and a 4-byte final range before each packet). A battle theme is two streams in a row, its Rain then its
-Thunder version; only the Rain versions, and only the battle themes (THEMES), are taken.
+Thunder version (the game numbers them 2n and 2n + 1, and a pair has the same length and loop); only the battle themes
+(THEMES, by their Rain stream) are taken, each with the stream that follows it as its Thunder version.
 
 Each is rewrapped, not re-encoded, as an Ogg Opus file any browser can play:
     audio/bgm/<stream id>.ogg     the audio (the stream id is the bank's own, as 8 hex digits)
     data/music.json               each theme: its id, title, group, file, sample rate, samples and loop (start and
-                                  length in samples, so a video can loop it seamlessly); and which theme each battle
-                                  plays, by scenario id, from nx/data/fixed_scenario.bin (byte 29 of its row)
+                                  length in samples, so a video can loop it seamlessly) for its Rain version, and
+                                  the same under "thunder" for its Thunder version (left out when the bank has none);
+                                  and which theme each battle plays, by scenario id, from nx/data/fixed_scenario.bin
+                                  (byte 29 of its row)
 
 Titles are not in the game files: they're the official soundtrack's (Fire Emblem Wiki, GFDL 1.3), matched to the
 streams by the battles that play them and by length.
@@ -28,7 +32,7 @@ BANKS = {
     "dlc": ("auxiliary_battle_maps", "BGM_DLC.ktsl2stbin"),
 }
 
-# The battle themes' Rain streams, by the bank's stream id: their bank, title and group (for the music picker).
+# The battle themes' Rain streams (each is followed in its bank by the same theme's Thunder stream), by the bank's stream id: their bank, title and group (for the music picker).
 THEMES: dict[int, tuple[str, str, str]] = {
     0x62435707: ("base", "Fódlan Winds", "Part I"),
     0x0CF7EC0F: ("base", "Dwelling of the Ancient Gods", "Part I"),
@@ -185,6 +189,29 @@ def to_ogg(blob: bytes, stream: dict, serial: int) -> bytes:
     return b"".join(pages)
 
 
+def _thunder(streams: list[dict], rain: dict) -> dict | None:
+    """A Rain stream's Thunder version: the stream after it in the bank, when it is the same kind of audio, as long."""
+    index = streams.index(rain)
+    after = streams[index + 1] if index + 1 < len(streams) else None
+    if after is None or after["id"] is None or after["id"] in THEMES:
+        return None
+    same = ("codec", "channels", "rate", "samples")
+    return after if all(after[k] == rain[k] for k in same) else None
+
+
+def _track(stream: dict) -> dict:
+    name = f"{stream['id']:08x}"
+    return {
+        "id": name,
+        "file": f"audio/bgm/{name}.ogg",
+        "rate": stream["rate"],
+        "channels": stream["channels"],
+        "samples": stream["samples"],
+        "loop_start": stream["loop_start"],
+        "loop_length": stream["loop_length"],
+    }
+
+
 def extract(ctx: Context) -> None:
     tracks = []
     for bank, (dlc, rel) in BANKS.items():
@@ -198,27 +225,24 @@ def extract(ctx: Context) -> None:
             ctx.skip(f"music: {rel} not found")
             continue
         with path.open("rb") as file, mmap.mmap(file.fileno(), 0, access=mmap.ACCESS_READ) as blob:
-            found = {s["id"]: s for s in _streams(blob) if s["id"] in wanted}
+            streams = _streams(blob)
+            found = {s["id"]: s for s in streams if s["id"] in wanted}
             for sid in sorted(wanted, key=list(THEMES).index):
                 stream = found.get(sid)
                 if stream is None:
                     ctx.skip(f"music: {THEMES[sid][1]} ({sid:08x}) not in {rel}")
                     continue
-                name = f"{sid:08x}"
-                file_rel = f"audio/bgm/{name}.ogg"
-                ctx.out.binary(file_rel, to_ogg(blob, stream, serial=sid), kind="audio", source=f"{rel} stream {name}")
                 _, title, group = THEMES[sid]
-                tracks.append({
-                    "id": name,
-                    "title": title,
-                    "group": group,
-                    "file": file_rel,
-                    "rate": stream["rate"],
-                    "channels": stream["channels"],
-                    "samples": stream["samples"],
-                    "loop_start": stream["loop_start"],
-                    "loop_length": stream["loop_length"],
-                })
+                track = {**_track(stream), "title": title, "group": group}
+                ctx.out.binary(track["file"], to_ogg(blob, stream, serial=sid), kind="audio", source=f"{rel} stream {track['id']}")
+                thunder = _thunder(streams, stream)
+                if thunder is None:
+                    ctx.skip(f"music: {title} has no Thunder version after it in {rel}")
+                else:
+                    track["thunder"] = _track(thunder)
+                    ctx.out.binary(track["thunder"]["file"], to_ogg(blob, thunder, serial=thunder["id"]), kind="audio",
+                                   source=f"{rel} stream {track['thunder']['id']} (Thunder)")
+                tracks.append(track)
         ctx.log(f"  {rel}: {sum(1 for t in tracks if THEMES[int(t['id'], 16)][0] == bank)} battle themes")
     if not tracks:
         return

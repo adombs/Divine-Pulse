@@ -22,9 +22,9 @@ import { NotchedRange } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
-import { saveFiles, safeFilename } from "../../exporting/save";
+import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
-import { defaultTheme, loadMusic, previewTheme, soundtrack, THEME_GROUPS, type Music } from "../../exporting/music";
+import { defaultTheme, loadMusic, previewTheme, recording, soundtrack, THEME_GROUPS, type Music, type Theme, type Version } from "../../exporting/music";
 import { THEME_OPTIONS, themeClass, useExportThemes, type ExportTheme } from "../../exporting/theme";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
@@ -46,7 +46,6 @@ const RESOLUTIONS: [number, string, number][] = [
   [2160, "4K Ultra HD", 3],
 ];
 const QUALITIES: [VideoQuality, string][] = [["standard", "Standard (smaller file)"], ["high", "High"], ["best", "Best (bigger file)"]];
-const VOLUMES = [0, 0.25, 0.5, 0.75, 1];
 /** The last step stays on screen this long at the end of the video (ms). */
 const END_HOLD_MS = 2000;
 /** How long a dynamic camera takes to glide to the next step's action (ms), as on the battle map. */
@@ -61,9 +60,12 @@ interface VideoOptions {
   fps: 30 | 60;
   quality: VideoQuality;
   theme: ExportTheme;
+  /** Which version of the battle theme plays under the video. */
+  version: Version;
+  /** The music's volume: a whole number of percent, 0 to 100. */
   volume: number;
 }
-const DEFAULT_OPTIONS: VideoOptions = { resolution: 1080, fps: 30, quality: "high", theme: "app", volume: 0.75 };
+const DEFAULT_OPTIONS: VideoOptions = { resolution: 1080, fps: 30, quality: "high", theme: "app", version: "rain", volume: 75 };
 
 function loadOptions(): VideoOptions {
   try {
@@ -73,7 +75,8 @@ function loadOptions(): VideoOptions {
       fps: saved.fps === 60 ? 60 : 30,
       quality: QUALITIES.some(([q]) => q === saved.quality) ? saved.quality! : DEFAULT_OPTIONS.quality,
       theme: THEME_OPTIONS.some(([t]) => t === saved.theme) ? saved.theme! : DEFAULT_OPTIONS.theme,
-      volume: VOLUMES.includes(saved.volume ?? -1) ? saved.volume! : DEFAULT_OPTIONS.volume,
+      version: saved.version === "thunder" ? "thunder" : "rain",
+      volume: Number.isInteger(saved.volume) && saved.volume! >= 0 && saved.volume! <= 100 ? saved.volume! : DEFAULT_OPTIONS.volume,
     };
   } catch {
     return DEFAULT_OPTIONS;
@@ -225,6 +228,15 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     };
   }, [battle.scenario]);
   const theme = music?.themes.find((m) => m.id === themeId) ?? null;
+  // Thunder needs the game files imported again (older imports only have Rain); the toggle says so when it can't be used.
+  const thunderNote = !music?.themes.some((m) => m.thunder)
+    ? "Thunder isn't imported yet. Re-import your game files (Settings > Game files) to add it."
+    : theme && !theme.thunder ? "This theme has no Thunder version in your game files." : null;
+  /** The version a theme plays in: the chosen one, where the theme has it. */
+  const versionOf = (m: Theme): Version => (options.version === "thunder" && m.thunder ? "thunder" : "rain");
+  const version: Version = theme ? versionOf(theme) : "rain";
+  const track = theme ? recording(theme, version) : null;
+  const volume = options.volume / 100;
   const [orientation, setOrientationState] = useState<Orientation>(loadOrientation);
   const setOrientation = (o: Orientation) => {
     setOrientationState(o);
@@ -372,14 +384,17 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     setPlaying(false);
     const frames = Math.ceil((total / 1000) * fps);
     setStatus({ kind: "working", done: 0, total: frames, label: theme ? "Preparing the music" : "Making the video" });
+    // Each layer is loaded into one image element over and over (snapshot.ts `image`), so no decoded frame is left behind.
+    const chromeImg = new Image();
+    const mapImg = new Image();
     try {
-      const audio = theme && options.volume > 0 ? await soundtrack(theme, frames / fps, options.volume) : null;
+      const audio = track && options.volume > 0 ? await soundtrack(track, frames / fps, volume) : null;
       const snap = await snapshotter();
       // A frame in two layers: the title and the log (with the map's frame) change once a step, so they're drawn once a
       // step; the map (with its turn banner) is drawn each frame on its own, with only the styles it needs.
       let chrome: { beat: number; img: HTMLImageElement } | null = null;
       let map: { doc: string; img: HTMLImageElement } | null = null;
-      const blob = await encodeVideo({
+      const video = await encodeVideo({
         width: out[0],
         height: out[1],
         fps,
@@ -397,21 +412,28 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
           if (!el) throw new Cancelled();
           const beat = momentAt(Math.min(total, ms)).beat;
           const newChrome = chrome?.beat !== beat;
-          if (newChrome) chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER)) };
+          if (newChrome) chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
           const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
           const newMap = map?.doc !== doc;
-          if (newMap) map = { doc, img: await snap.image(doc) };
+          if (newMap) map = { doc, img: await snap.image(doc, mapImg) };
           if (!newChrome && !newMap) return; // a held frame: the canvas still has it
           g.drawImage(chrome!.img, 0, 0, out[0], out[1]);
           g.drawImage(map!.img, 0, 0, out[0], out[1]);
         },
       });
-      const saved = await saveFiles("mp4", [{ name: `${safeFilename(name.title)} replay.mp4`, blob }]);
-      setStatus(saved ? { kind: "saved", where: saved } : { kind: "idle" });
+      try {
+        const saved = await saveFiles("mp4", [{ name: `${safeFilename(name.title)} replay.mp4`, blob: video.blob }]);
+        setStatus(saved ? { kind: "saved", where: saved } : { kind: "idle" });
+      } finally {
+        // The video may be a temporary file on disk; a browser's download still reads it for a while.
+        window.setTimeout(() => void video.release(), savesNatively() ? 0 : 120_000);
+      }
     } catch (error) {
       setStatus(error instanceof Cancelled ? { kind: "idle" } : { kind: "error", message: (error as Error).message || "The video couldn't be made." });
     } finally {
       abort.current = null;
+      chromeImg.removeAttribute("src");
+      mapImg.removeAttribute("src");
     }
   };
 
@@ -534,7 +556,8 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
                 <div className="export-music">
                   <select aria-label="Battle theme" value={themeId} disabled={!music} onChange={(e) => {
                     setThemeId(e.target.value);
-                    if (previewing) setPreviewing(previewTheme(music?.themes.find((m) => m.id === e.target.value) ?? null, options.volume || 0.5));
+                    const next = music?.themes.find((m) => m.id === e.target.value);
+                    if (previewing) setPreviewing(previewTheme(next ? recording(next, versionOf(next)) : null, volume || 0.5));
                   }}>
                     <option value="">No music</option>
                     {THEME_GROUPS.map((group) => {
@@ -550,19 +573,34 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
                     icon={previewing ? CONCEPT_ICON.pause : CONCEPT_ICON.play}
                     label={previewing ? "Stop listening" : "Listen to it"}
                     pressed={previewing}
-                    disabled={!theme}
-                    onClick={() => setPreviewing(previewTheme(theme, options.volume || 0.5))}
+                    disabled={!track}
+                    onClick={() => setPreviewing(previewTheme(track, volume || 0.5))}
                   />
                 </div>
+                <Segmented<Version>
+                  label="Version of the theme"
+                  value={version}
+                  disabled={!theme || !!thunderNote}
+                  onChange={(v) => {
+                    setOption("version", v);
+                    // The listening follows the toggle.
+                    if (previewing && theme) setPreviewing(previewTheme(recording(theme, v), volume || 0.5));
+                  }}
+                  options={[
+                    ["rain", "Rain", "The calm version"],
+                    ["thunder", "Thunder", "The intense version"],
+                  ]}
+                />
+                {thunderNote && theme && <p className="export-note">{thunderNote}</p>}
                 <StepSlider
                   label="Volume"
-                  stops={VOLUMES.length}
-                  value={VOLUMES.indexOf(options.volume)}
-                  onChange={(i) => setOption("volume", VOLUMES[i])}
-                  valueText={`${Math.round(options.volume * 100)}%`}
+                  stops={101}
+                  value={options.volume}
+                  onChange={(v) => setOption("volume", v)}
+                  valueText={`${options.volume}%`}
                   variant="timeline"
                   slim
-                  after={<span className="export-value">{Math.round(options.volume * 100)}%</span>}
+                  after={<span className="export-value">{options.volume}%</span>}
                 />
               </>
             )}
@@ -598,7 +636,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
             </div>
           </fieldset>
           <ExportActions
-            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), theme ? theme.title : "No music"]}
+            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}` : "No music"]}
             status={status}
             action="Export MP4…"
             onExport={() => void exportVideo()}

@@ -65,17 +65,20 @@ export function Segmented<T extends string>({
   onChange,
   label,
   size,
+  disabled,
 }: {
   value: T;
   options: readonly (readonly [T, ReactNode] | readonly [T, ReactNode, string])[];
   onChange: (v: T) => void;
   label: string;
   size?: "mini";
+  /** Shows the choice but doesn't let it be changed. */
+  disabled?: boolean;
 }) {
   return (
-    <div className={`segmented ${size ?? ""}`} role="radiogroup" aria-label={label}>
+    <div className={`segmented ${size ?? ""}`} role="radiogroup" aria-label={label} aria-disabled={disabled || undefined}>
       {options.map(([id, text, title]) => (
-        <button key={id} type="button" role="radio" aria-checked={value === id} className={value === id ? "on" : ""} title={title} onClick={() => onChange(id)}>
+        <button key={id} type="button" role="radio" aria-checked={value === id} className={value === id ? "on" : ""} title={title} disabled={disabled} onClick={() => onChange(id)}>
           {text}
         </button>
       ))}
