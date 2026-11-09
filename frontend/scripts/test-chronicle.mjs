@@ -145,3 +145,11 @@ test("a unit's fall that stands is where a Roster death link opens the replay; a
   undone.branches[1].log.push(fell(4, 5));
   assert.equal(fallBeat(chronicle(undone), "alpha"), null);
 });
+
+test("a death put in words never mentions how the unit was marked", async () => {
+  const { deathText } = await import("../src/deaths.ts");
+  assert.equal(deathText({ name: "Lorenz", death: null }), "");
+  assert.equal(deathText({ name: "Lorenz", death: { battle_id: null, manual: true } }), "Lorenz fell");
+  assert.equal(deathText({ name: "Lorenz", death: { battle_id: "b1", battle_name: "Battle in the Forest", turn: 2, by: "Bandit", manual: true } }), "Fell in Battle in the Forest, turn 2, to Bandit");
+  assert.equal(deathText({ name: "Lorenz", death: { battle_id: null, manual: false } }), "Lorenz is dead (no recorded battle has the fall)");
+});

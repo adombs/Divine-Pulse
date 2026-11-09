@@ -26,8 +26,7 @@ import { buildRunLedger, type LedgerRow } from "./battle/runStatsLedger";
 import { ExportActions, type ExportStatus } from "./ExportActions";
 import { Icon } from "./Icon";
 import { Modal } from "./Modal";
-import { CardBanner, Portrait, RunIcon } from "./ui";
-import { THEME_OPTIONS, themeClass, useExportThemes, type ExportTheme } from "../exporting/theme";
+import { CardBanner, Portrait, RunIcon, Segmented } from "./ui";
 import { StepSlider } from "./Slider";
 
 /** Each image's width on the page (CSS pixels); it is saved at its chosen size (SIZES) times that. */
@@ -41,10 +40,9 @@ const SIZES: [number, string][] = [
 ];
 const IMAGE_OPTIONS_KEY = "divine-pulse-export-team";
 
-/** The images' own options, remembered between exports: their size and theme, and which of the two to save. */
+/** The images' own options, remembered between exports: their size, and which of the two to save. */
 interface ImageOptions {
   size: number;
-  theme: ExportTheme;
   loadouts: boolean;
   stats: boolean;
   /** Whether units that died (Classic mode) are in the images: greyed, with the fell mark. */
@@ -58,14 +56,13 @@ const FACES: [ExportFace, string][] = [
   ["portrait", "Portrait"],
   ["sprite", "Sprite"],
 ];
-const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, theme: "app", loadouts: true, stats: true, fallen: true, face: "both" };
+const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, loadouts: true, stats: true, fallen: true, face: "both" };
 
 function loadImageOptions(): ImageOptions {
   try {
     const saved = JSON.parse(localStorage.getItem(IMAGE_OPTIONS_KEY) ?? "{}") as Partial<ImageOptions>;
     return {
       size: SIZES.some(([k]) => k === saved.size) ? saved.size! : DEFAULT_IMAGE_OPTIONS.size,
-      theme: THEME_OPTIONS.some(([t]) => t === saved.theme) ? saved.theme! : DEFAULT_IMAGE_OPTIONS.theme,
       loadouts: saved.loadouts !== false,
       stats: saved.stats !== false,
       fallen: saved.fallen !== false,
@@ -124,7 +121,6 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
       // Not kept; fine.
     }
   }, [perRow]);
-  useExportThemes();
   const [options, setOptionsState] = useState<ImageOptions>(loadImageOptions);
   const setOption = <K extends keyof ImageOptions>(key: K, value: ImageOptions[K]) => setOptionsState((o) => {
     const next = { ...o, [key]: value };
@@ -183,6 +179,8 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
     return () => observer.disconnect();
   }, []);
   const pixels = ([w, h]: [number, number]) => `${Math.round(w * options.size).toLocaleString()} × ${Math.round(h * options.size).toLocaleString()} px`;
+  // Each preview fits the window by default; "Full size" shows it as the page draws it, to read, scrolling sideways.
+  const [fullSize, setFullSize] = useState({ overview: false, stats: false });
   const [status, setStatus] = useState<ExportStatus>({ kind: "idle" });
   const working = status.kind === "working";
   const base = safeFilename(run.name);
@@ -212,9 +210,12 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
       <div className="team-export">
         <div className="team-export-preview" aria-label="Preview">
           <figure className="team-export-figure">
-            <figcaption>Overview</figcaption>
-            <FitWidth>
-              <TeamSheet ref={loadouts} run={run} units={chosen} title="Team Overview" className="team-sheet-loadouts" theme={options.theme}>
+            <figcaption>
+              Overview
+              <Segmented size="mini" label="Overview preview" value={fullSize.overview ? "full" : "fit"} onChange={(v) => setFullSize((f) => ({ ...f, overview: v === "full" }))} options={[["fit", "Fit", "Shrink to the window"], ["full", "Full size", "As drawn, to read the details"]]} />
+            </figcaption>
+            <FitWidth actual={fullSize.overview}>
+              <TeamSheet ref={loadouts} run={run} units={chosen} title="Team Overview" className="team-sheet-loadouts">
                 <div className="team-rows">
                   {rows.map((row, r) => (
                     <div key={r} className="team-row">
@@ -226,9 +227,12 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
             </FitWidth>
           </figure>
           <figure className="team-export-figure">
-            <figcaption>Run statistics</figcaption>
-            <FitWidth width={WIDTH}>
-              <TeamSheet ref={stats} run={run} units={chosen} title="Team Run Statistics" theme={options.theme} note={ledger ? plural(ledger.battles.length, "finished battle") : undefined}>
+            <figcaption>
+              Run statistics
+              <Segmented size="mini" label="Run statistics preview" value={fullSize.stats ? "full" : "fit"} onChange={(v) => setFullSize((f) => ({ ...f, stats: v === "full" }))} options={[["fit", "Fit", "Shrink to the window"], ["full", "Full size", "As drawn, to read the details"]]} />
+            </figcaption>
+            <FitWidth width={WIDTH} actual={fullSize.stats}>
+              <TeamSheet ref={stats} run={run} units={chosen} title="Team Run Statistics" note={ledger ? plural(ledger.battles.length, "finished battle") : undefined}>
                 {ledger ? <StatsTable units={chosen} rows={ledger.rows} totals={ledger.totals.records} part2={part2} face={options.face} />
                   : <p className="muted">{loadError ?? "Reading the run's battles…"}</p>}
               </TeamSheet>
@@ -287,7 +291,7 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
               </label>
             </div>
             <div className="export-pairs">
-              <label className="wide">
+              <label className="wide inline">
                 Size
                 <select value={options.size} onChange={(e) => setOption("size", Number(e.target.value))}>
                   {SIZES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
@@ -303,12 +307,6 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
                 Faces
                 <select value={options.face} onChange={(e) => setOption("face", e.target.value as ExportFace)}>
                   {FACES.map(([f, label]) => <option key={f} value={f}>{label}</option>)}
-                </select>
-              </label>
-              <label className="wide">
-                Theme
-                <select value={options.theme} onChange={(e) => setOption("theme", e.target.value as ExportTheme)}>
-                  {THEME_OPTIONS.map(([t, label]) => <option key={t} value={t}>{label}</option>)}
                 </select>
               </label>
             </div>
@@ -490,7 +488,7 @@ function UnitSlots({ slots, byKey, left, includeFallen, part2, columns, onToggle
 }
 
 /** An image at its real width (`width`, or as wide as its content), scaled down to fit the preview's width. */
-function FitWidth({ width, children }: { width?: number; children: ReactNode }) {
+function FitWidth({ width, actual, children }: { width?: number; actual?: boolean; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<[number, number, number]>([0, 0, 0]);
@@ -501,9 +499,9 @@ function FitWidth({ width, children }: { width?: number; children: ReactNode }) 
     if (inner.current) observer.observe(inner.current);
     return () => observer.disconnect();
   }, []);
-  const k = size[0] && size[1] ? Math.min(1, size[0] / size[1]) : 0;
+  const k = actual ? 1 : size[0] && size[1] ? Math.min(1, size[0] / size[1]) : 0;
   return (
-    <div className="team-export-room" ref={box}>
+    <div className={`team-export-room${actual ? " actual" : ""}`} ref={box}>
       <div className="team-export-fit" style={{ height: size[2] * k, width: size[1] * k || undefined }}>
         <div ref={inner} style={{ width: width ?? "max-content", transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
       </div>
@@ -512,11 +510,11 @@ function FitWidth({ width, children }: { width?: number; children: ReactNode }) 
 }
 
 /** One image: the run's banner with the date and the credit, then its body. */
-function TeamSheet({ run, units, title, note, className, theme, children, ref }: { run: RunSummary; units: Unit[]; title: string; note?: string; className?: string; theme: ExportTheme; children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
+function TeamSheet({ run, units, title, note, className, children, ref }: { run: RunSummary; units: Unit[]; title: string; note?: string; className?: string; children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
   const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   return (
-    // The picture is taken of the outer box: it carries the image's theme, so the sheet inside is drawn in it.
-    <div ref={ref} className={`team-sheet-theme ${themeClass(theme)}`}>
+    // The picture is taken of the outer box, exactly the sheet's size.
+    <div ref={ref} className="team-sheet-theme">
       <div className={`team-sheet${className ? ` ${className}` : ""}`}>
         <header className="team-sheet-title">
           <CardBanner title={`${run.name} · ${title}`} icon={<RunIcon route={run.route} />} />

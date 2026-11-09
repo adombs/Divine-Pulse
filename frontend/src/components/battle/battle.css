@@ -64,24 +64,20 @@
 .battle-page .unit-status-row { padding: 0.12rem 0.3rem; gap: 0.45rem; grid-template-columns: 1.5rem minmax(0, 1fr) 7rem; font-size: 0.98rem; }
 .battle-page .unit-status-row .unit-face.sm { width: 1.5rem; height: 1.5rem; }
 .battle-page .unit-status-row .hp-bar { min-width: 0; font-size: 0.88rem; }
-.battle-page .overview .log-row { grid-template-columns: 2.3rem 1.4rem minmax(0, 1fr); gap: 0.4rem; padding: 0.18rem 0.3rem; }
-.battle-page .overview .log-time { font-size: 0.74rem; }
 .battle-page .overview .log-icon { width: 1.3rem; height: 1.3rem; }
 
 /* Map controls remain one compact row so the map keeps its height. */
-.battle-page .map-pane-head .map-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 0.6rem; margin: 0; width: 100%; }
-.battle-page .map-pane-head .map-tools > .step-slider { width: min(100%, 9rem); min-width: 0; }
-.battle-page .map-pane-head .map-tools > .step-slider:first-child { grid-column: 1; justify-self: start; }
-.battle-page .map-pane-head .map-tools > .camera-mode { grid-column: 2; }
-.battle-page .map-pane-head .map-tools > .step-slider:last-child { grid-column: 3; justify-self: end; }
-.battle-page .map-pane-head .map-tools > .step-slider::after { content: none; }
+.battle-page .map-pane-head .map-tools { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin: 0; width: 100%; }
+/* Speed and zoom are the same length (icon, bar, value), whatever their number of stops; the camera sits between them. */
+.battle-page .map-pane-head .map-tools > .step-slider { flex: 1 1 0; min-width: 0; max-width: 12.5rem; }
+.battle-page .map-pane-head .map-tools > .camera-mode { flex: none; }
 .battle-page .map-tool-label, .map-tools .step-slider > .field-label { display: none; }
 /* Icon, track and value share one centre line (the map's tools and the log tree's zoom). */
 .map-tools { align-items: center; }
 .map-tools .step-slider { display: flex; align-items: center; flex: 1 1 0; min-width: 3.5rem; gap: 0.3rem; line-height: 1; }
 .map-tools .step-slider > .icon { flex: none; display: block; vertical-align: baseline; }
 .map-tools .step-slider .notched { width: auto; flex: 1 1 0; min-width: 0; align-self: center; }
-.map-tools .replay-speed-value { display: inline-flex; align-items: center; min-width: 2.6em; line-height: 1; font-variant-numeric: tabular-nums; }
+.map-tools .replay-speed-value { display: inline-flex; align-items: center; flex: none; min-width: 4.4em; line-height: 1; font-variant-numeric: tabular-nums; white-space: nowrap; }
 @media (min-width: 1251px) { .battle-page .overview { grid-template-columns: minmax(0, 1.3fr) minmax(250px, 0.85fr) minmax(280px, 1fr); } }
 .battle-page .page-header .btn { white-space: nowrap; }
 .battle-page .unit-status-name { flex-wrap: nowrap; align-items: center; }
@@ -182,7 +178,6 @@
 .notched.timeline.slim .notched-track { border-radius: 3px; }
 .notched.timeline.slim input::-webkit-slider-thumb { border-radius: 2px; }
 .notched.timeline.slim input::-moz-range-thumb { border-radius: 2px; }
-.map-tools .step-slider:not(:has(.replay-speed-value))::after { content: ""; flex: none; min-width: 2.6em; }
 .battle-page .map-tools .camera-mode { display: inline-flex; align-items: center; line-height: 1; gap: 0.3rem; flex: none; }
 .position-map { display: grid; grid-template-columns: 1.5rem minmax(0, 1fr); gap: 0.65rem; align-items: stretch; }
 .position-map > .map-frame { min-width: 0; margin: 0; }

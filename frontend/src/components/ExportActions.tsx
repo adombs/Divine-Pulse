@@ -27,7 +27,7 @@ export function ExportActions({ facts, status, action, disabled, onExport, onCan
   return (
     <div className="export-go">
       <p className="export-facts">
-        {facts.map((f, i) => <span key={i}>{f}</span>)}
+        {facts.map((f, i) => <span key={i} title={typeof f === "string" ? f : undefined}>{f}</span>)}
       </p>
       {status.kind === "working" ? (
         <>

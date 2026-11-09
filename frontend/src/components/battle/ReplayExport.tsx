@@ -3,7 +3,7 @@
  * as it will be: a title strip, the map with the turn in its corner (no legend), and the log as a list beside it
  * (landscape) or under it (portrait), the log showing what has happened up to the step on the map. Beside the preview:
  * the orientation, the turns to cover, the replay's own speed, camera and zoom (the map's controls), the battle theme
- * to play under it (music.ts), and the video's resolution, frame rate, quality and theme.
+ * to play under it (music.ts), and the video's resolution, frame rate and quality.
  *
  * The preview and the video run on one clock (ms into the video): each moment poses the replay (`useReplay`'s manual
  * mode) at a beat and how far into it, and the camera is worked out from the same moment, so the video is the preview
@@ -25,8 +25,7 @@ import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
 import { defaultTheme, loadMusic, previewTheme, recording, soundtrack, THEME_GROUPS, type Music, type Theme, type Version } from "../../exporting/music";
-import { THEME_OPTIONS, themeClass, useExportThemes, type ExportTheme } from "../../exporting/theme";
-import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, zoomText } from "./camera";
+import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap } from "./map";
 import { Minimap, type Zoom } from "./Minimap";
@@ -59,13 +58,12 @@ interface VideoOptions {
   resolution: number;
   fps: 30 | 60;
   quality: VideoQuality;
-  theme: ExportTheme;
   /** Which version of the battle theme plays under the video. */
   version: Version;
   /** The music's volume: a whole number of percent, 0 to 100. */
   volume: number;
 }
-const DEFAULT_OPTIONS: VideoOptions = { resolution: 1080, fps: 30, quality: "high", theme: "app", version: "rain", volume: 75 };
+const DEFAULT_OPTIONS: VideoOptions = { resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75 };
 
 function loadOptions(): VideoOptions {
   try {
@@ -74,7 +72,6 @@ function loadOptions(): VideoOptions {
       resolution: RESOLUTIONS.some(([r]) => r === saved.resolution) ? saved.resolution! : DEFAULT_OPTIONS.resolution,
       fps: saved.fps === 60 ? 60 : 30,
       quality: QUALITIES.some(([q]) => q === saved.quality) ? saved.quality! : DEFAULT_OPTIONS.quality,
-      theme: THEME_OPTIONS.some(([t]) => t === saved.theme) ? saved.theme! : DEFAULT_OPTIONS.theme,
       version: saved.version === "thunder" ? "thunder" : "rain",
       volume: Number.isInteger(saved.volume) && saved.volume! >= 0 && saved.volume! <= 100 ? saved.volume! : DEFAULT_OPTIONS.volume,
     };
@@ -198,7 +195,6 @@ const easeOut = (k: number) => 1 - (1 - Math.max(0, Math.min(1, k))) ** 3;
 
 function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle; chron: Chronicle; route: RunRoute | null; onClose: () => void }) {
   const nav = useBattleNav();
-  useExportThemes();
   const [options, setOptionsState] = useState<VideoOptions>(loadOptions);
   const setOption = <K extends keyof VideoOptions>(key: K, value: VideoOptions[K]) => setOptionsState((o) => {
     const next = { ...o, [key]: value };
@@ -460,8 +456,37 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
       }}
     >
       <div className="replay-export">
-        <div className="replay-export-preview">
-          <ScaledStage width={width} height={height}>
+        <ScaledStage
+          width={width}
+          height={height}
+          footer={
+              <div className="replay-bar replay-export-transport">
+                <div className="replay-buttons">
+                  <IconButton icon={playing ? CONCEPT_ICON.pause : CONCEPT_ICON.play} primary pressed={playing} label={playing ? "Pause the preview" : "Play the preview"} onClick={() => setPlaying((p) => !p)} disabled={working} className="replay-btn" />
+                </div>
+                <NotchedRange
+                  className="replay-timeline"
+                  variant="timeline"
+                  min={0}
+                  max={total}
+                  step="any"
+                  value={t}
+                  onChange={(v) => {
+                    if (working) return;
+                    // Scrubbing pauses the preview; Play goes on from there.
+                    setPlaying(false);
+                    seekTo(v);
+                  }}
+                  notches={notches}
+                  label="Time in the video"
+                  valueText={`${clock(t / 1000)} of ${clock(total / 1000)}`}
+                />
+                <span className="replay-export-time">
+                  {clock(t / 1000)} / {clock(total / 1000)}
+                </span>
+              </div>
+          }
+        >
             <ReplayStage
               ref={stage}
               battle={battle}
@@ -471,38 +496,11 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
               orientation={orientation}
               layout={layout}
               route={route}
-              theme={options.theme}
               zoom={zoom}
               onWheelAt={working ? undefined : onWheelAt}
               onDrag={working ? undefined : onDrag}
             />
-          </ScaledStage>
-          <div className="replay-bar replay-export-transport">
-            <div className="replay-buttons">
-              <IconButton icon={playing ? CONCEPT_ICON.pause : CONCEPT_ICON.play} primary pressed={playing} label={playing ? "Pause the preview" : "Play the preview"} onClick={() => setPlaying((p) => !p)} disabled={working} className="replay-btn" />
-            </div>
-            <NotchedRange
-              className="replay-timeline"
-              variant="timeline"
-              min={0}
-              max={total}
-              step="any"
-              value={t}
-              onChange={(v) => {
-                if (working) return;
-                // Scrubbing pauses the preview; Play goes on from there.
-                setPlaying(false);
-                seekTo(v);
-              }}
-              notches={notches}
-              label="Time in the video"
-              valueText={`${clock(t / 1000)} of ${clock(total / 1000)}`}
-            />
-            <span className="replay-export-time">
-              {clock(t / 1000)} / {clock(total / 1000)}
-            </span>
-          </div>
-        </div>
+        </ScaledStage>
         <aside className="export-side" aria-label="Video options">
           <fieldset className="export-group" disabled={working}>
             <legend>Orientation</legend>
@@ -543,9 +541,9 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
           </fieldset>
           <fieldset className="export-group" disabled={working}>
             <legend>Replay</legend>
-            <ReplaySpeedSlider value={speed} onChange={setSpeed} />
-            <CameraModeSwitch value={mode} onChange={setMode} />
-            <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} />
+            <ReplaySpeedSlider value={speed} onChange={setSpeed} labelled />
+            <CameraModeSwitch value={mode} onChange={setMode} labelled />
+            <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} after={<ZoomValue level={level} />} />
           </fieldset>
           <fieldset className="export-group" disabled={working}>
             <legend>Music</legend>
@@ -627,12 +625,6 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
                   {QUALITIES.map(([q, label]) => <option key={q} value={q}>{label}</option>)}
                 </select>
               </label>
-              <label className="wide">
-                Theme
-                <select value={options.theme} onChange={(e) => setOption("theme", e.target.value as ExportTheme)}>
-                  {THEME_OPTIONS.map(([t, label]) => <option key={t} value={t}>{label}</option>)}
-                </select>
-              </label>
             </div>
           </fieldset>
           <ExportActions
@@ -648,23 +640,39 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
   );
 }
 
-/** The video's frame at its real size, scaled down to fit the preview's room. */
-function ScaledStage({ width, height, children }: { width: number; height: number; children: React.ReactNode }) {
+/** Room around the frame (px), on every side. */
+const ROOM_PAD = 14;
+
+/** The video's frame at its real size, scaled down to the biggest the preview's column allows, with its transport bar
+ * (`footer`) under it at the frame's width; the pair sits in the middle of the column rather than leaving the frame
+ * floating in a room of its own. */
+function ScaledStage({ width, height, footer, children }: { width: number; height: number; footer: React.ReactNode; children: React.ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
+  const foot = useRef<HTMLDivElement>(null);
   const [room, setRoom] = useState<[number, number]>([0, 0]);
   useEffect(() => {
     const el = box.current;
     if (!el) return;
-    const observer = new ResizeObserver(([entry]) => setRoom([entry.contentRect.width, entry.contentRect.height]));
+    const measure = () => {
+      const below = foot.current ? foot.current.offsetHeight + 10 : 0;
+      setRoom([el.clientWidth, el.clientHeight - below]);
+    };
+    const observer = new ResizeObserver(measure);
     observer.observe(el);
+    if (foot.current) observer.observe(foot.current);
+    measure();
     return () => observer.disconnect();
   }, []);
-  const k = Math.min(room[0] / width, room[1] / height);
+  const k = Math.max(0, Math.min((room[0] - ROOM_PAD * 2) / width, (room[1] - ROOM_PAD * 2) / height));
+  const frame: [number, number] = [width * k, height * k];
   return (
-    <div className="replay-export-room" ref={box}>
-      <div className="replay-export-screen" style={{ width: width * k, height: height * k }}>
-        <div style={{ width, height, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
+    <div className="replay-export-preview" ref={box}>
+      <div className="replay-export-room" style={{ width: frame[0] + ROOM_PAD * 2, height: frame[1] + ROOM_PAD * 2 }}>
+        <div className="replay-export-screen" style={{ width: frame[0], height: frame[1] }}>
+          <div style={{ width, height, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
+        </div>
       </div>
+      <div className="replay-export-foot" ref={foot} style={{ width: frame[0] + ROOM_PAD * 2 }}>{footer}</div>
     </div>
   );
 }
@@ -677,7 +685,6 @@ interface StageProps {
   orientation: Orientation;
   layout: { columns: string; rows: string };
   route: RunRoute | null;
-  theme: ExportTheme;
   zoom: Zoom | null;
   onWheelAt?: (x: number, y: number, deltaY: number) => void;
   onDrag?: (dx: number, dy: number) => void;
@@ -685,7 +692,7 @@ interface StageProps {
 }
 
 /** One frame of the video: the title strip, the map and the log. */
-function ReplayStage({ battle, chron, replay, moment, orientation, layout, route, theme, zoom, onWheelAt, onDrag, ref }: StageProps) {
+function ReplayStage({ battle, chron, replay, moment, orientation, layout, route, zoom, onWheelAt, onDrag, ref }: StageProps) {
   const name = battleName(battle);
   // The log up to the step on the map: rows of later steps aren't shown yet (the newest is at the bottom).
   const rows = useMemo(() => {
@@ -699,8 +706,8 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, route
   }, [chron.log, moment.beat]);
   const date = new Date(battle.started_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   return (
-    // The picture is taken of the outer box: it carries the video's theme, so the frame inside is drawn in it.
-    <div ref={ref} className={`replay-stage-theme ${themeClass(theme)}`}>
+    // The picture is taken of the outer box, exactly the frame's size.
+    <div ref={ref} className="replay-stage-theme">
     <div className={`replay-stage ${orientation}`} style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows }}>
       <header className="replay-stage-title">
         <CardBanner title={name.title} icon={<RunIcon route={route} />} />

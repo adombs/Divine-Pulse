@@ -14,52 +14,7 @@
   --link-ink: #fff;
   --link-hover: #b9a5ef;
 }
-:root,
-:root[data-theme="light"] {
-  --room-1: #241a15;
-  --room-2: #3d2c23;
-  --room-grain: rgb(0 0 0 / 0.12);
-  --room-ink: #efe7d8;
-  --paper: #ece8df;
-  --paper-2: #e4dfd4;
-  /* Behind portraits: a light wash, so the face stands out; the team shows in the ring. */
-  --face-wash: color-mix(in srgb, var(--ink) 13%, transparent);
-  --face-wash-blue: color-mix(in srgb, var(--blue) 22%, transparent);
-  --ink: #2f2a26;
-  --ink-soft: #62594f;
-  --line: #c9c0ae;
-  --head-1: #77716c;
-  --head-2: #938d88;
-  --head-ink: #ffffff;
-  --row: #f6f3ec;
-  --row-border: #cdc4b2;
-  --row-hover: #ece6da;
-  --sel: #4f4b45;
-  --sel-ink: #fbf8f1;
-  --sel-border: #86817a;
-  --banner-1: #2c2440;
-  --banner-2: #463a62;
-  --accent: #5d42a6;
-  --accent-2: #b9a5ef;
-  --crest-bg: #f1ede5;
-  --bar-bg: #dcd6cb;
-  --bar: #b7a6ea;
-  --blue: #1f6fd6;
-  --blue-on-sel: #a8d0ff;
-  --amber: #97590a;
-  --amber-bg: #f7ebd3;
-  --green: #2f6e3d;
-  --red: #a2342c;
-  --shadow: 0 18px 40px rgb(0 0 0 / 0.45);
-  --display: "EB Garamond", Garamond, Georgia, serif;
-  --text: var(--display);
-  --nums: var(--text);
-  --ui: var(--text);
-  --font-scale: 1;
-  color-scheme: light;
-}
-
-:root[data-theme="dark"] {
+:root {
   --room-1: #0c0a11;
   --room-2: #1c1726;
   --room-grain: rgb(255 255 255 / 0.025);
@@ -92,6 +47,14 @@
   --green: #86c994;
   --red: #ec8579;
   --shadow: 0 18px 40px rgb(0 0 0 / 0.6);
+  /* Behind portraits: a light wash, so the face stands out; the team shows in the ring. */
+  --face-wash: color-mix(in srgb, var(--ink) 13%, transparent);
+  --face-wash-blue: color-mix(in srgb, var(--blue) 22%, transparent);
+  --display: "EB Garamond", Garamond, Georgia, serif;
+  --text: var(--display);
+  --nums: var(--text);
+  --ui: var(--text);
+  --font-scale: 1;
   color-scheme: dark;
 }
 
@@ -230,16 +193,10 @@ b, strong { font-weight: 700; }
   position: relative; min-height: 0; overflow: auto; overscroll-behavior: contain;
   padding: 1.1rem 1.3rem 1.3rem;
   border-radius: 2px;
-  background:
-    radial-gradient(ellipse at 20% 0%, rgb(255 255 255 / 0.18), transparent 60%),
-    radial-gradient(ellipse at 90% 100%, rgb(0 0 0 / 0.04), transparent 50%),
-    var(--paper);
+  background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper);
   /* Outer drop shadow + the thin inner frame line of the game's panels. */
   box-shadow: var(--shadow), inset 0 0 0 7px var(--paper), inset 0 0 0 8px var(--line);
   scrollbar-width: thin; scrollbar-color: var(--row-border) transparent;
-}
-:root[data-theme="dark"] .sheet {
-  background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper);
 }
 
 
@@ -1046,8 +1003,7 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .unit-flag.info { color: var(--blue); }
 .unit-flag.quiet { color: var(--ink-soft); }
 /* More stats (MoreStatsTab.tsx): record cards, then two small charts with their own dealt / taken colours. */
-.more-stats { --dealt: #1f6fd6; --taken: #a2342c; --heal: #2f6e3d; --healed: #8a6fc4; --walk: #c28a1e; }
-:root[data-theme="dark"] .more-stats { --dealt: #4a8ee6; --taken: #de6a5a; --heal: #5fb673; --healed: #a98fdc; --walk: #e0a93c; }
+.more-stats { --dealt: #4a8ee6; --taken: #de6a5a; --heal: #5fb673; --healed: #a98fdc; --walk: #e0a93c; }
 .record { display: grid; align-content: start; gap: 0.15rem; padding: 0.5rem 0.75rem 0.55rem; background: var(--row); border: 1px solid var(--row-border); border-top: 3px solid var(--accent); }
 .record-title { display: flex; align-items: center; gap: 0.35rem; font: 700 0.72rem var(--ui); letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); }
 .record-title .icon { width: 1.1rem; height: 1.1rem; color: var(--accent); }
@@ -1740,10 +1696,10 @@ code.path { word-break: break-all; font-size: 0.9rem; }
    the colour of the army the number belongs to, the kind of action as a tinted icon; phase starts are thin banners in
    their army's colour. */
 .log-row {
-  display: grid; grid-template-columns: 3.1rem 1.55rem minmax(0, 1fr); gap: 0.7rem; align-items: center;
-  padding: 0.26rem 0.45rem; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); transition: background-color 0.2s;
+  display: grid; grid-template-columns: 2.2rem 1.45rem minmax(0, 1fr); gap: 0.4rem; align-items: center;
+  padding: 0.26rem 0.3rem; border-bottom: 1px solid color-mix(in srgb, var(--line) 70%, transparent); transition: background-color 0.2s;
 }
-.log-time { font: 0.82rem var(--nums); color: var(--ink-soft); font-variant-numeric: tabular-nums lining-nums; }
+.log-time { text-align: right; font: 0.82rem var(--nums); color: var(--ink-soft); font-variant-numeric: tabular-nums lining-nums; }
 .log-icon {
   display: grid; place-items: center; width: 1.45rem; height: 1.45rem; border-radius: 50%; font-size: 0.88rem;
   color: var(--ink-soft); background: color-mix(in srgb, currentColor 13%, transparent);
@@ -1910,12 +1866,12 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
    text size still leaves the table its columns. */
 .roster-page .ref-layout { grid-template-columns: minmax(0, 1fr) minmax(22rem, min(30rem, 36%)); gap: 0.6rem; }
 .roster-page .units th:not(.left) { padding-right: 0.45rem; padding-left: 0; }
-.roster-page .units td.num { padding-right: 1.2rem; font-size: 1.12rem; }
+.roster-page .units td.num { padding-right: 1rem; font-size: 1.12rem; }
 .roster-page .units td.ebst-col, .roster-page .units th.ebst-col { padding-left: 0.3rem; }
 .roster-page .units td.ebst-col { font-size: 1.2rem; }
 .roster-page .units td.num > .mark { right: 0.12rem; font-size: 0.66rem; }
 .roster-page .units .name-cell, .roster-page .units th.left { width: var(--name-width); min-width: var(--name-width); max-width: var(--name-width); }
-.roster-page .units th.left { position: relative; padding-right: 0.8rem; }
+.roster-page .units th.left { position: sticky; padding-right: 0.8rem; }
 .roster-page .who-text { overflow: hidden; }
 .roster-page .who-name, .roster-page .who-class { overflow: hidden; text-overflow: ellipsis; }
 .name-resize { position: absolute; z-index: 1; top: 0; right: -0.25rem; bottom: 0; width: 0.7rem; cursor: col-resize; touch-action: none; }
@@ -1924,6 +1880,8 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .roster-page .compare-bar { display: flex; flex-wrap: wrap; gap: 0.3rem 1.4rem; margin: 0 0 0.5rem; padding: 0.35rem 0.6rem; }
 .roster-page .toolbar { margin-bottom: 0.4rem; }
 .roster-page .profile { margin: 0.1rem 0 0.3rem; gap: 0.7rem; }
+.roster-page .cv-hero { --cv-face: 6rem; margin: 0.15rem 0 0.35rem; }
+.roster-page .cv-fact { padding: 0.15rem 0; }
 .roster-page .profile-rows dd { overflow: visible; text-overflow: clip; }
 .roster-page .card-pane { padding-left: 0.8rem; }
 .roster-skills { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.35rem; margin-top: 0.55rem; }
@@ -1999,3 +1957,45 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .death-status { display: inline-flex; align-items: center; gap: 0.3rem; text-align: left; }
 .death-status > .icon { color: var(--red); flex: none; }
 .death-status > .muted { margin-left: 0.3rem; }
+
+/* Roster fit: the search shrinks before the toolbar wraps, and a narrower window trims the table's columns instead of
+   clipping the eBST column. */
+.roster-page .toolbar .search-box { flex: 1 1 6.5rem; min-width: 0; max-width: 17rem; }
+.roster-page .toolbar .search-box .search { width: 100%; }
+@media (min-width: 1151px) and (max-width: 1360px) {
+  .roster-page .ref-layout { grid-template-columns: minmax(0, 1fr) minmax(19rem, 34%); }
+  .roster-page .units td.num { padding-right: 0.85rem; font-size: 1.05rem; }
+  .roster-page .units td.ebst-col { font-size: 1.1rem; }
+  .roster-page .units .name-cell, .roster-page .units th.left { width: min(var(--name-width), 9rem); min-width: min(var(--name-width), 9rem); max-width: min(var(--name-width), 9rem); }
+}
+
+/* Shorter windows: the unit card trades some air for fitting every stat, so Stats never needs a scroll. */
+@media (min-width: 1151px) and (max-height: 880px) {
+  .roster-page .cv-hero { --cv-face: 5rem; margin: 0 0 0.1rem; }
+  .roster-page .cv-information .cv-info-side.with-face { padding: 0.35rem 0.6rem; }
+  .roster-page .cv-fact { padding: 0.08rem 0; }
+  .roster-page .cv-fact dd { font-size: 1rem; }
+  .roster-page .unit-card .card-pane > .sec-head { margin-top: 0.15rem; }
+  .roster-stat-panel .roster-skills { margin-bottom: 0.25rem; }
+  .roster-stat-panel .roster-skills { margin-top: 0.3rem; }
+  .roster-stat-panel .skill-chip { padding-block: 0.1rem; }
+  .roster-stat-panel .vitals { margin-bottom: 0.1rem; }
+  .roster-stat-panel .vital .stat-row { min-height: 2rem; }
+  .roster-stat-panel .stat-row { padding-block: 0.06rem; }
+  .roster-stat-panel .stat-label { font-size: 1.05rem; }
+  .roster-stat-panel .stat-value { font-size: 1.3rem; }
+  .roster-stat-panel .vital .stat-row { min-height: 1.8rem; }
+  .roster-stat-panel .ebst-setup { margin-top: 0.2rem; padding-top: 0.25rem; gap: 0.1rem; }
+  .roster-stat-panel .segmented button { padding-block: 0.04rem; line-height: 1.15; }
+}
+@media (min-width: 1151px) and (max-height: 790px) {
+  .roster-page .cv-hero { --cv-face: 4.2rem; }
+  .roster-page .cv-information .cv-info-side.with-face { padding-block: 0.25rem; }
+  .roster-stat-panel .roster-skills { gap: 0.2rem; margin-bottom: 0.15rem; }
+  .roster-stat-panel .skill-chip { padding-block: 0; }
+  .roster-stat-panel .vital .stat-row { min-height: 1.6rem; }
+  .roster-stat-panel .stat-value { font-size: 1.2rem; }
+  .roster-stat-panel .stat-row { padding-block: 0.02rem; }
+  .roster-stat-panel .ebst-setup { margin-top: 0.1rem; padding-top: 0.15rem; }
+}
+

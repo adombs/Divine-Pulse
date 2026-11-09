@@ -115,7 +115,7 @@ export const CONCEPT_ICON = {
   lostItem: "item",
   finalBlow: "defeat",
   add: "statUp",
-  // A run's unit alive or dead (Classic mode): dead is the log's "fell".
+  // A run's unit alive or dead (Classic mode): dead is the skull, as for a defeat.
   alive: "ending",
-  dead: "fell",
+  dead: "defeat",
 } as const satisfies Record<IconName | SharedConcept, IconName>;

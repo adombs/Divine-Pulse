@@ -424,7 +424,7 @@ function DeathLink({ unit }: { unit: Unit }) {
   const d = unit.death;
   if (!d) return null;
   const label = <><Icon name={CONCEPT_ICON.dead} />Fell{d.battle_name ? ` · ${d.battle_name}` : ""}{d.turn != null ? `, turn ${d.turn}` : ""}</>;
-  if (!d.battle_id) return <span className="death-status" title={deathText(unit)}>{label}<span className="muted">{d.manual ? "(marked by hand)" : "(no recorded battle)"}</span></span>;
+  if (!d.battle_id) return <span className="death-status" title={deathText(unit)}>{label}{!d.manual && <span className="muted">(no recorded battle)</span>}</span>;
   return (
     <button
       type="button"
@@ -456,11 +456,11 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
   const nav = useNav();
   const ref = useReference();
 
-  const setDead = async (dead: boolean) => {
+  const setAlive = async () => {
     try {
-      await api.setUnitDead(runId, unit.key, dead);
+      await api.setUnitDead(runId, unit.key, false);
     } catch (e) {
-      toasts.push({ kind: "error", title: dead ? "Couldn't mark the unit dead" : "Couldn't mark the unit alive", body: (e as Error).message });
+      toasts.push({ kind: "error", title: "Couldn't mark the unit alive", body: (e as Error).message });
     }
   };
 
@@ -559,11 +559,8 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
       actions={
         <>
           <IconButton icon={CONCEPT_ICON.history} label="Battle Stats" onClick={() => nav.go({ page: "history", tab: "stats", id: unit.key })} />
-          <IconButton
-            icon={unit.death ? CONCEPT_ICON.alive : CONCEPT_ICON.dead}
-            label={unit.death ? "Mark as Alive" : "Mark as Dead"}
-            onClick={() => setDead(!unit.death)}
-          />
+          {/* A unit can be put back among the living when the game's flag is wrong, but never marked fallen by hand. */}
+          {unit.death && <IconButton icon={CONCEPT_ICON.alive} label="Mark as Alive" onClick={setAlive} />}
         </>
       }
     >
@@ -616,6 +613,11 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
           <div className="vital">{statRow("mv")}</div>
         </div>
 
+        <div className="stat-grid">
+          <div>{left.map(statRow)}</div>
+          <div>{right.map(statRow)}</div>
+        </div>
+
         <div className="ebst-setup">
           <TypeButtons label="Offense" value={cfg.offense} onChange={(offense) => setEbst({ offense })} />
           <TypeButtons label="Defense" value={cfg.defense} onChange={(defense) => setEbst({ defense })} />
@@ -623,14 +625,9 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
         {lens && (
           <p className="compare-note">
             The roster is comparing everyone as <b>{lens.name}</b> (for {unit.name}: eBST {fmtEbst(resultFor(unit, mode, lens).ebst)}).
-            This unit's own types below are unchanged.
+            This unit's own types above are unchanged.
           </p>
         )}
-
-        <div className="stat-grid">
-          <div>{left.map(statRow)}</div>
-          <div>{right.map(statRow)}</div>
-        </div>
         </div>
       </Section>
 
@@ -737,12 +734,12 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
         )}
       </Section>
 
-      <Section title="Class Mastery" icon={CONCEPT_ICON.classes} summary={unit.mastered_classes ? plural(unit.mastered_classes.length, "class", "classes") : "Not read yet"}>
-        <ClassMasteryPanel unit={unit} />
-      </Section>
-
       <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={unit.battalion || (unit.battalion === "" ? "No battalion" : "Not read yet")}>
         <BattalionPanel unit={unit} scope="run" />
+      </Section>
+
+      <Section title="Class Mastery" icon={CONCEPT_ICON.classes} summary={unit.mastered_classes ? plural(unit.mastered_classes.length, "class", "classes") : "Not read yet"}>
+        <ClassMasteryPanel unit={unit} />
       </Section>
 
       {unit.boosted_unexplained.length > 0 && (
@@ -751,10 +748,6 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
           The game has not supplied these values yet.
         </p>
       )}
-
-      <p className="muted small">
-        Updated {new Date(unit.updated_at).toLocaleString()}
-      </p>
     </DetailCard>
   );
 }

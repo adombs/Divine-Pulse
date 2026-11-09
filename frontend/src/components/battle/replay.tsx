@@ -36,13 +36,13 @@ const REWIND_SPEED = 2;
 /** The replay speeds Settings offers. */
 export const REPLAY_SPEEDS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3.5, 4] as const;
 
-/** The same speed stops on the map, in Settings and in the video export. */
-export function ReplaySpeedSlider({ value, onChange }: { value: number; onChange: (value: number) => void }) {
+/** The same speed stops on the map, in Settings and in the video export (`labelled`: its name in front, as a form row). */
+export function ReplaySpeedSlider({ value, onChange, labelled }: { value: number; onChange: (value: number) => void; labelled?: boolean }) {
   const stop = REPLAY_SPEEDS.reduce((best, speed, i) => Math.abs(speed - value) < Math.abs(REPLAY_SPEEDS[best] - value) ? i : best, 0);
   return (
     <StepSlider
-      label="Replay speed"
-      bare
+      label={labelled ? "Speed" : "Replay speed"}
+      bare={!labelled}
       stops={REPLAY_SPEEDS.length}
       value={stop}
       onChange={(i) => onChange(REPLAY_SPEEDS[i])}

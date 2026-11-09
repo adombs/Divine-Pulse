@@ -4,7 +4,7 @@
  * zooming with the wheel moves it until the action moves on. Static, it stays wherever it was put, moved only by
  * dragging and the wheel. The mode is remembered per map.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { Icon } from "../Icon";
 import { Segmented } from "../ui";
@@ -108,16 +108,16 @@ export function CameraTools({ camera }: { camera: MapCamera }) {
     <div className="map-tools">
       {nav.setReplaySpeed && <ReplaySpeedSlider value={nav.replaySpeed ?? 1} onChange={nav.setReplaySpeed} />}
       <CameraModeSwitch value={mode} onChange={setMode} />
-      <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} />
+      <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} after={<ZoomValue level={level} />} />
     </div>
   );
 }
 
 /** Dynamic (follow the action) or static (stay where it was put): the map's switch, and the replay export's. */
-export function CameraModeSwitch({ value, onChange }: { value: CameraMode; onChange: (mode: CameraMode) => void }) {
+export function CameraModeSwitch({ value, onChange, labelled }: { value: CameraMode; onChange: (mode: CameraMode) => void; labelled?: boolean }) {
   return (
     <span className="camera-mode">
-      <Icon name={CONCEPT_ICON.camera} />
+      {labelled ? <span className="field-label">Camera</span> : <Icon name={CONCEPT_ICON.camera} />}
       <Segmented
         size="mini"
         label="Camera"
@@ -132,7 +132,12 @@ export function CameraModeSwitch({ value, onChange }: { value: CameraMode; onCha
   );
 }
 
+/** The map's zoom stop in a few characters, after its slider as the speed slider's "1×" is after its own. */
+export function ZoomValue({ level }: { level: number }) {
+  return <span className="replay-speed-value" title={zoomText(level)}>{ZOOM_TILES[level] ? `${ZOOM_TILES[level]} tiles` : "All"}</span>;
+}
+
 /** The zoom slider every zoomable view uses (the map, the log's timelines), in a `map-tools` box: the same look. */
-export function ZoomSlider({ stops, value, onChange, valueText }: { stops: number; value: number; onChange: (v: number) => void; valueText?: string }) {
-  return <StepSlider label="Zoom" stops={stops} value={value} onChange={onChange} valueText={valueText} icon="search" variant="timeline" slim />;
+export function ZoomSlider({ stops, value, onChange, valueText, after }: { stops: number; value: number; onChange: (v: number) => void; valueText?: string; after?: ReactNode }) {
+  return <StepSlider label="Zoom" stops={stops} value={value} onChange={onChange} valueText={valueText} icon="search" variant="timeline" slim after={after} />;
 }

@@ -13,7 +13,7 @@
 }
 .tl-caption.right { left: 12px; transform-origin: left center; }
 .tl-caption.left { right: 12px; transform-origin: right center; }
-.tl-caption .log-row { grid-template-columns: 2.3rem 1.4rem minmax(0, 1fr); gap: 0.4rem; padding: 0.18rem 0.3rem; }
+.tl-caption .log-row { padding: 0.18rem 0.3rem; }
 .tl-caption .log-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tl-item.active .tl-caption { box-shadow: 0 0 0 2px var(--amber); }
 /* A log row is shown once: a pointed-at dot's row is the card (grown out of the dot), and while it is open the other

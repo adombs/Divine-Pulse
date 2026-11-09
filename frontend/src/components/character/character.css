@@ -48,7 +48,7 @@
 
 /* ---------- The hero: face, facts, scope. ---------- */
 .cv-hero {
-  --cv-face: 6.5rem;
+  --cv-face: 7rem;
   display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-areas: "face facts";
   column-gap: 1.1rem; row-gap: 0.55rem; align-items: center; margin: 0.25rem 0 0.55rem; min-width: 0;
 }
@@ -85,21 +85,23 @@
 /* The face inside the card (Roster, Archive): portrait on the front, map sprite on the back. */
 .cv-hero.carded { grid-template-columns: minmax(0, 1fr); grid-template-areas: "facts"; }
 .cv-information .cv-info-side.with-face {
-  grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 1fr auto; grid-template-areas: "face facts" "face toggle";
-  column-gap: 0.9rem;
+  position: relative; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "face facts";
+  column-gap: 0.8rem; align-items: center; padding: 0.5rem 0.75rem;
 }
-.cv-info-side.with-face > .cv-info-face { grid-area: face; display: grid; place-items: center; padding: 6px; }
+.cv-info-side.with-face > .cv-info-face { grid-area: face; display: grid; place-items: center; padding: 4px; }
 .cv-info-side.with-face > .cv-facts { grid-area: facts; }
-.cv-info-side.with-face > .cv-information-toggle { grid-area: toggle; }
+/* The turn button is a symbol in the card's top right corner, so it takes no row of its own. */
+.cv-info-side.with-face > .cv-information-toggle { position: absolute; top: 0.3rem; right: 0.3rem; margin: 0; z-index: 1; }
+.cv-info-side.with-face > .cv-facts > .cv-fact:first-child { padding-right: 1.9rem; }
 .cv-information .cv-facts { grid-area: auto; grid-template-columns: minmax(0, 1fr); }
 .character-card .card-main { overflow-x: hidden; }
 .cv-information-toggle {
-  display: flex; align-items: center; justify-content: center; gap: 0.35rem; margin: 0.15rem auto 0;
-  padding: 0.25rem 0.6rem; border: 1px solid var(--line); border-radius: 4px; background: var(--paper-2);
-  color: var(--ink); font: 600 0.9rem var(--display); cursor: pointer;
+  display: grid; place-items: center; width: 1.65rem; height: 1.65rem; margin: 0.15rem auto 0;
+  padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--paper-2);
+  color: var(--ink-soft); font-size: 1rem; cursor: pointer; transition: color 0.15s, border-color 0.15s;
 }
 .cv-information-toggle:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
-.cv-information-toggle:hover { border-color: var(--accent); }
+.cv-information-toggle:hover { border-color: var(--accent); color: var(--ink); }
 .cv-hero-box .crest-marks { display: inline-flex; flex-wrap: wrap; justify-content: flex-end; align-items: center; gap: 0.3rem 0.5rem; }
 .cv-hero-box .crest-marks > span { display: inline-flex; align-items: center; gap: 0.2rem; }
 .cv-crest-fact { display: inline-flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 0.25rem 0.45rem; }
@@ -141,12 +143,12 @@
 .cv-face :is(.portrait, .unit-face) { width: 100% !important; height: 100% !important; border: 0; }
 /* The medallion's frame, drawn around both sides. */
 .cv-face::before {
-  content: ""; position: absolute; inset: -6px; border-radius: 50%; pointer-events: none;
-  box-shadow: 0 0 0 1px var(--line), 0 0 0 5px var(--paper), 0 0 0 6px var(--line);
+  content: ""; position: absolute; inset: -3px; border-radius: 50%; pointer-events: none;
+  box-shadow: 0 0 0 1px var(--line);
 }
 .cv-flip { cursor: pointer; perspective: 600px; -webkit-tap-highlight-color: transparent; }
 .cv-flip:focus-visible { outline: none; }
-.cv-flip:focus-visible::before { box-shadow: 0 0 0 1px var(--line), 0 0 0 4px var(--paper), 0 0 0 6px var(--accent); }
+.cv-flip:focus-visible::before { box-shadow: 0 0 0 2px var(--accent); }
 .cv-flip-card {
   position: relative; display: block; width: 100%; height: 100%; transform-style: preserve-3d;
   transition: transform 0.42s cubic-bezier(0.22, 1, 0.36, 1);
@@ -202,7 +204,7 @@
 
 /* Narrow windows: the face and the sprite above the facts. */
 @media (max-width: 560px) {
-  .cv-hero { --cv-face: 5rem; column-gap: 0.8rem; }
+  .cv-hero { --cv-face: 5.4rem; column-gap: 0.8rem; }
 }
 
 /* Text exposed to assistive technology alongside the character's visual facts. */

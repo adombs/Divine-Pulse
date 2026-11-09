@@ -34,7 +34,7 @@ const TABS: { id: SettingsTab; label: string; icon: IconName; blurb: string }[] 
   { id: "game-files", label: "Game files", icon: CONCEPT_ICON.item, blurb: "Import from your own game" },
   { id: "ebst", label: "eBST", icon: CONCEPT_ICON.statUp, blurb: "How effective stats are counted" },
   { id: "spoilers", label: "Spoilers", icon: CONCEPT_ICON.hide, blurb: "What stays hidden for now" },
-  { id: "appearance", label: "Appearance", icon: CONCEPT_ICON.edit, blurb: "Theme, text, faces and the map" },
+  { id: "appearance", label: "Appearance", icon: CONCEPT_ICON.edit, blurb: "Text, faces and the map" },
   { id: "about", label: "About", icon: CONCEPT_ICON.info, blurb: "Version, data folder, credits" },
 ];
 
@@ -79,10 +79,7 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
   useEffect(() => setTextScale(appearance.textScale), [appearance.textScale]);
   return (
     <>
-      <Group title="Theme and text" note="Changes apply at once and are remembered for this installation.">
-        <Row label="Theme">
-          <Segmented label="Theme" value={appearance.theme} onChange={(theme) => update({ theme })} options={[["light", "Light"], ["dark", "Dark"]]} />
-        </Row>
+      <Group title="Text" note="Changes apply at once and are remembered for this installation.">
         <Row label="Text size" hint="Applies to every page. Press Apply when it looks right.">
           <StepSlider
             label="Text size"
