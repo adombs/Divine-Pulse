@@ -11,6 +11,9 @@
 .team-export-room { min-width: 0; }
 .team-export-room.actual { overflow-x: auto; padding-bottom: 0.4rem; scrollbar-width: thin; }
 .team-export-fit { overflow: hidden; box-shadow: 0 10px 28px rgb(0 0 0 / 0.5); }
+.team-choice { display: grid; gap: 0.3rem; }
+.team-choice .segmented { width: 100%; }
+.team-choice .segmented button { flex: 1 1 0; }
 .team-layout-value { min-width: 2.2rem; text-align: right; color: var(--ink-soft); font: 0.9rem var(--nums); font-variant-numeric: tabular-nums; }
 .team-export-units .checklist-items { max-height: none; }
 .team-export-units .checklist-items label { padding-block: 0.2rem; }

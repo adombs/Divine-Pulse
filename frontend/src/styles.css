@@ -1671,9 +1671,9 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 @keyframes sink-out { to { opacity: 0; transform: translateY(12px) scale(0.98); } }
 
 /* Sliders (components/Slider.tsx): one notched bar under all of them. */
-.notched-fill { position: absolute; inset: 0 auto 0 0; width: var(--at, 0%); background: color-mix(in srgb, var(--accent) 22%, transparent); transition: width 0.15s ease; }
-/* Dragged, the fill keeps up with the thumb exactly (Slider.tsx sets --at from the input as it moves). */
-.notched.held .notched-fill { transition: none; }
+.notched-fill { position: absolute; inset: 0 auto 0 0; width: var(--at, 0%); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+/* No easing on the fill: the thumb is placed straight from the value, so the fill must be too, or it trails behind
+   (playback, clicks on the bar and keys all move the thumb at once). */
 .notched input::-webkit-slider-thumb { transition: transform 0.15s ease; }
 .notched input:hover::-webkit-slider-thumb, .notched input:active::-webkit-slider-thumb { transform: scale(1.15); }
 .step-slider { display: inline-flex; align-items: center; gap: 0.3rem; }
@@ -2000,3 +2000,19 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
   .roster-stat-panel .ebst-setup { margin-top: 0.1rem; padding-top: 0.15rem; }
 }
 
+
+/* Two-cursor range (Slider.tsx RangeSlider): a bar with a number box at each end. The bar is as wide as the room
+   between the boxes, so its size never depends on the values. */
+.range2 { --thumb: 8px; --h: 1.9rem; display: grid; grid-template-columns: 3.2rem minmax(0, 1fr) 3.2rem; align-items: center; gap: 0.5rem; width: 100%; }
+.range2-box { width: 100%; min-width: 0; text-align: center; font: 0.9rem var(--nums); font-variant-numeric: tabular-nums; -moz-appearance: textfield; appearance: textfield; }
+.range2-box::-webkit-inner-spin-button, .range2-box::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+.range2-bar { position: relative; display: block; height: var(--h); min-width: 0; }
+.range2-track { position: absolute; left: calc(var(--thumb) / 2); right: calc(var(--thumb) / 2); top: 0; bottom: 0; border-radius: 5px; background: var(--row); box-shadow: inset 0 1px 2px rgb(0 0 0 / 0.12); overflow: hidden; pointer-events: none; }
+.range2-fill { position: absolute; top: 0; bottom: 0; left: var(--a); width: calc(var(--b) - var(--a)); background: color-mix(in srgb, var(--accent) 22%, transparent); }
+.range2-bar input[type="range"] { position: absolute; inset: 0; width: 100%; height: var(--h); margin: 0; background: transparent; appearance: none; -webkit-appearance: none; pointer-events: none; }
+.range2-bar input[type="range"]::-webkit-slider-runnable-track { height: var(--h); background: transparent; }
+.range2-bar input[type="range"]::-moz-range-track { height: var(--h); background: transparent; }
+.range2-bar input[type="range"]::-webkit-slider-thumb { -webkit-appearance: none; pointer-events: auto; cursor: pointer; width: var(--thumb); height: var(--h); border-radius: 3px; background: var(--accent); border: 1px solid var(--paper); box-shadow: 0 0 0 1px var(--accent), 0 1px 4px rgb(0 0 0 / 0.35); }
+.range2-bar input[type="range"]::-moz-range-thumb { pointer-events: auto; cursor: pointer; box-sizing: border-box; width: var(--thumb); height: var(--h); border-radius: 3px; background: var(--accent); border: 1px solid var(--paper); }
+.range2-bar input[type="range"]:focus-visible { outline: none; }
+.range2-bar input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }

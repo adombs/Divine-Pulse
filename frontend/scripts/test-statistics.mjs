@@ -224,6 +224,7 @@ test("Export Team's join order puts Byleth first, then by first battle", async (
     { key: "byleth", battles: 2, appearances: when("2026-01-01") }];
   assert.deepEqual(orderUnits(units, "joined", characters), ["byleth", "seteth", "hilda"]);
   assert.deepEqual(orderUnits(units, "joined", []), ["byleth", "seteth", "hilda"], "before the battles are read, Byleth still leads");
+  assert.deepEqual(orderUnits(units, "joined", characters, true), ["hilda", "seteth", "byleth"], "descending is the exact reverse");
 });
 
 test("Export Team leaves out units that died unless the fallen are included", async () => {
