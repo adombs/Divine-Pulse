@@ -3,7 +3,7 @@
  * were in. Pure functions over recorded battles (using the standing timeline of completed battles), like model.ts.
  */
 import type { Battle, BattleUnit, Usage, ValueKey } from "../../api";
-import { battleUnitStats, Item, statGains, timeline, recordedSum } from "./model";
+import { battleUnitStats, Item, partialSum, statGains, timeline, recordedSum } from "./model";
 import { isLost } from "./marks";
 import { AWARDS, type AwardKey, battleAwards } from "./moreStats";
 
@@ -46,9 +46,9 @@ export function runAwards(source: Battle[]): { characters: Map<string, AwardCoun
   return { characters, totals, battles: battles.length };
 }
 
-/** Missing contributors keep the total unknown. */
+/** What was recorded added up: a missing contributor is skipped, and the total is unknown only while nothing was. */
 function add(a: number | null, b: number | null | undefined): number | null {
-  return a === null || b === null || b === undefined ? null : a + b;
+  return b === null || b === undefined ? a : (a ?? 0) + b;
 }
 
 /** One snapshot per completed battle. A resumed battle invalidates its stale saved copy. */
@@ -161,13 +161,13 @@ export function characterStats(battles: Battle[], items: Map<string, Item[]> = t
         battles: 0,
         left: 0,
         mvp: 0,
-        fights: 0,
-        defeats: 0,
-        damage_dealt: 0,
-        damage_taken: 0,
-        healing_given: 0,
-        healed: 0,
-        tiles_moved: 0,
+        fights: null,
+        defeats: null,
+        damage_dealt: null,
+        damage_taken: null,
+        healing_given: null,
+        healed: null,
+        tiles_moved: null,
         level_ups: 0,
         stat_points: 0,
         gains: {},
@@ -183,7 +183,7 @@ export function characterStats(battles: Battle[], items: Map<string, Item[]> = t
       // Battles come newest first, so the first one seen sets the name and class, and the last the starting level.
       c.first_level = u.start_level;
       c.battles += 1;
-      if (!u.on_map) c.left += 1;
+      if (isLost(u)) c.left += 1;
       if (mvp) c.mvp += 1;
       c.fights = add(c.fights, fights);
       c.defeats = add(c.defeats, defeats);
@@ -239,9 +239,9 @@ export function runStats(battles: Battle[], characters: CharacterStats[], items:
     return best;
   };
   const withTurns = battles.filter((b) => b.turn !== null);
-  const fights = recordedSum(battles.flatMap((b) => b.units.map((u) => battleUnitStats(b, u, items.get(b.id)).fights)));
+  const fights = partialSum(battles.flatMap((b) => b.units.map((u) => battleUnitStats(b, u, items.get(b.id)).fights))).value;
   const sum = (pick: (u: BattleUnit) => number | null) =>
-    recordedSum(battles.flatMap((b) => b.units.map(pick)));
+    partialSum(battles.flatMap((b) => b.units.map(pick))).value;
   return {
     battles: battles.length,
     seconds: battles.reduce((n, b) => n + b.seconds, 0),
@@ -254,9 +254,9 @@ export function runStats(battles: Battle[], characters: CharacterStats[], items:
     no_pulse: battles.filter((b) => !b.active && b.divine_pulses === 0).length,
     most_pulses: most((b) => b.divine_pulses || null),
     fights,
-    defeats: recordedSum(characters.map((c) => c.defeats)),
+    defeats: partialSum(characters.map((c) => c.defeats)).value,
     losses: battles.reduce((n, b) => n + b.units.filter(isLost).length, 0),
-    flawless: battles.filter((b) => !b.active && b.units.length > 0 && b.units.every((u) => u.on_map)).length,
+    flawless: battles.filter((b) => !b.active && b.units.length > 0 && !b.units.some(isLost)).length,
     enemies: battles.reduce((n, b) => n + b.enemies_start, 0),
     damage_dealt: sum((u) => u.damage_dealt),
     damage_taken: sum((u) => u.damage_taken),

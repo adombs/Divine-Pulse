@@ -75,13 +75,18 @@ test("rewound branches never enter standing statistics or per-turn observations"
   assert.equal(timeline(b, "all").filter((i) => i.kind === "attack").length, 2);
 });
 
-test("unknown is not zero, partial totals do not claim full coverage", () => {
+test("unknown is not zero, and totals add what was recorded", () => {
   const unknown = unit("alpha", { combats: null, defeats: null, damage_dealt: null, healing_given: null, damage_taken: null, healed: null, tiles_moved: null });
   const { run, share } = compareScope(battle({ units: [unknown, unit("beta")], log: [], events: [{ t: 0, kind: "start", text: "Started", unit: null }] }));
-  assert.equal(run.fights, null);
-  assert.equal(run.damage_dealt, null);
-  assert.equal(run.healing, null);
-  assert.equal(share.units[0].metrics.dealt, null);
+  // A unit with nothing recorded (an adjutant, say) doesn't blank the totals: they hold what the others recorded.
+  assert.equal(run.fights, 2);
+  assert.equal(run.damage_dealt, 12);
+  assert.equal(run.healing, 0);
+  assert.equal(share.units.find((u) => u.id === "a:alpha").metrics.dealt, null);
+  const nothing = { combats: null, defeats: null, damage_dealt: null, healing_given: null, damage_taken: null, healed: null, tiles_moved: null };
+  const blank = compareScope(battle({ units: [unit("alpha", nothing), unit("beta", nothing)], log: [] })).run;
+  assert.equal(blank.fights, null);
+  assert.equal(blank.damage_dealt, null);
   assert.equal(share.carry, null);
   assert.equal(compareScope(battle({ units: [unit("alpha", { combats: 0, defeats: 0, damage_dealt: 0 })], log: [] })).run.damage_dealt, 0);
 });

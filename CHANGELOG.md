@@ -4,6 +4,7 @@
 
 - Count a battle's fights and kills from the game's battle history instead of its own counters, which the game rewrites when a battle ends (finished battles showed no fights and no kills). Battles recorded before this keep the numbers they were saved with.
 - Count a unit that fell as lost wherever losses are shown (History's cards and Flawless filter, the battle's Units count and comparison, the run's Units Lost, the outlook and the best unit).
+- Add up what was recorded in battle and run totals (damage, healing, movement, fights and kills): an adjutant, which is in the battle without being on the map, has no numbers of its own, and it no longer turns the army's totals into dashes.
 
 ## 1.4.0 (2026-11-08)
 
