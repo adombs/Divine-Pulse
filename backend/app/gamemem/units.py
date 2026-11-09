@@ -45,6 +45,7 @@ class GameClass:
     boosts: dict[str, int] = field(default_factory=dict)
     mounted: dict[str, int] = field(default_factory=dict)
     female_name: str | None = None
+    tier: int = 0
 
 
 @dataclass(frozen=True)
@@ -63,6 +64,9 @@ class GameData:
     battalions: list[str | None] = field(default_factory=list)  # names by battalion ID
     # Modifiers at levels 1-5 by battalion ID (None where the import has no progression).
     battalion_stats: list[list[dict[str, int]] | None] = field(default_factory=list)
+    # The tracker's spelling of each ability name already looked up (known_ability). One GameData is one import and
+    # language (the scanner loads a new one when either changes), so what it has worked out stays right for its life.
+    _spelled: dict[str, str] = field(default_factory=dict, repr=False, compare=False)
 
     @classmethod
     def load(cls) -> GameData:
@@ -82,12 +86,15 @@ class GameData:
 
     def ability(self, ability_id: int) -> str | None:
         name = self.abilities[ability_id] if 0 <= ability_id < len(self.abilities) else None
-        return _known_ability(name) if name else None
+        return self.known_ability(name) if name else None
 
-
-def _known_ability(name: str) -> str:
-    """The tracker's spelling of an ability ("Lily’s Poise" with a curly apostrophe, as the Status page shows)."""
-    return names.snap(name, names.abilities(), 0.9)
+    def known_ability(self, name: str) -> str:
+        """The tracker's spelling of an ability ("Lily’s Poise" with a curly apostrophe, as the Status page shows).
+        Matching a name against every ability is slow and the answer doesn't change, so it's worked out once."""
+        spelled = self._spelled.get(name)
+        if spelled is None:
+            spelled = self._spelled[name] = names.snap(name, names.abilities(), 0.9)
+        return spelled
 
 
 def unit_name(unit: RosterUnit, data: GameData, player_name: str | None) -> str:
@@ -95,6 +102,17 @@ def unit_name(unit: RosterUnit, data: GameData, player_name: str | None) -> str:
         return player_name
     character = data.characters.get(unit.character)
     return character.name if character else f"Character {unit.character}"
+
+
+def mastered_classes(unit: RosterUnit, data: GameData, female: bool) -> list[str]:
+    """The names of the classes the unit has mastered (the game's own flag for each), lowest tier first and, within a
+    tier, in class order; a name shared by variants of a class comes once."""
+    ranked = sorted((c for c in unit.mastered_classes if c in data.classes), key=lambda c: (data.classes[c].tier, c))
+    found: dict[str, None] = {}
+    for class_id in ranked:
+        game_class = data.classes[class_id]
+        found[tidy_class(game_class.female_name if female and game_class.female_name else game_class.name)] = None
+    return list(found)
 
 
 def to_reading(
@@ -119,9 +137,9 @@ def to_reading(
     name = unit_name(unit, data, player_name)
 
     personal = character.personal or ""
-    if current_personal and character.personal_plus and names.normalize(current_personal) == names.normalize(_known_ability(character.personal_plus)):
+    if current_personal and character.personal_plus and names.normalize(current_personal) == names.normalize(data.known_ability(character.personal_plus)):
         personal = character.personal_plus
-    personal = _known_ability(personal) if personal else ""
+    personal = data.known_ability(personal) if personal else ""
     equipped = [a for a in (data.ability(i) for i in unit.abilities) if a]
     accessory = data.equipment[unit.accessory] if unit.accessory is not None and 0 <= unit.accessory < len(data.equipment) else None
 
@@ -170,6 +188,7 @@ def to_reading(
             gambit_uses=gambit_uses if battalion and in_battle else None,
             battalion_bonus=battalion_bonus if modifiers is not None else None,
             skills=unit.skills,
+            mastered_classes=mastered_classes(unit, data, character.gender == "Female"),
         ),
         class_name=tidy_class(class_name) if class_name else None,
         gender=character.gender or None,

@@ -221,6 +221,7 @@ class BattleTracker:
             self._set_resources(unit, a)
         self._set_power(sample)
         self._set_scenario(sample)
+        self._set_quest(sample)
         self._set_located(sample)
         self._set_terrain(sample)
         self._set_cursor(sample)
@@ -241,6 +242,7 @@ class BattleTracker:
         t = battle.seconds(at)
         changed = self._set_terrain(sample)
         changed = self._set_scenario(sample) or changed
+        changed = self._set_quest(sample) or changed
         by_key = {u.key: u for u in battle.units}
         previous = {a.key: a for a in self._last.army} if self._last else {}
         seen = set()
@@ -676,6 +678,7 @@ class BattleTracker:
                 stats.side,
                 stats.character,
                 stats.person_id,
+                stats.allegiance,
                 stats.inventory,
             )
 
@@ -710,6 +713,9 @@ class BattleTracker:
                 stats.accessory = next((item.name for item in stats.inventory if item.kind == "equipment"), None)
             stats.class_id, stats.female, stats.side, stats.character = e.class_id, e.female, e.side, e.character
             stats.person_id = e.person_id
+            # Read afresh every time: a reveal changes whose side a unit is on (Chapter 11), and the page follows it.
+            if e.allegiance is not None:
+                stats.allegiance = e.allegiance
             if e.x is not None and e.y is not None:
                 stats.x, stats.y = e.x, e.y
             if e.combats is not None:
@@ -1278,7 +1284,7 @@ class BattleTracker:
         """Army and enemy HP totals, when current HP is located. Returns whether they changed."""
         battle = self.battle
         assert battle is not None
-        before = (battle.army_hp, battle.enemy_hp, [(u.x, u.y, u.acted, u.look) for u in battle.units])
+        before = (battle.army_hp, battle.enemy_hp, [(u.x, u.y, u.acted, u.look, u.allegiance) for u in battle.units])
         by_key = {u.key: u for u in battle.units}
         for a in sample.army:
             unit = by_key.get(a.key)
@@ -1288,6 +1294,8 @@ class BattleTracker:
                 unit.acted = a.acted
                 unit.class_id, unit.character, unit.female = a.class_id, a.character, a.female
                 unit.weapon = a.weapon
+                if a.allegiance is not None:
+                    unit.allegiance = a.allegiance
                 unit.look = (byleth_look(battle.scenario, True) or a.look or unit.look) if a.character in (0, 1) else None
         army = [a for a in sample.army if a.hp is not None]
         if army:
@@ -1311,7 +1319,7 @@ class BattleTracker:
             battle.enemy_max_hp = sum(e.max_hp for e in enemies)
             battle.enemies_defeated = sum(1 for e in enemies if e.hp <= 0)  # defeated units stay in memory with no HP
         self._note_extent((a.x, a.y) for a in (*sample.army, *sample.enemies))
-        return (battle.army_hp, battle.enemy_hp, [(u.x, u.y, u.acted, u.look) for u in battle.units]) != before
+        return (battle.army_hp, battle.enemy_hp, [(u.x, u.y, u.acted, u.look, u.allegiance) for u in battle.units]) != before
 
     def _set_terrain(self, sample: BattleSample) -> bool:
         """Keep the map's terrain once known (the import's data/maps.json; a later read for another map replaces it).
@@ -1337,6 +1345,15 @@ class BattleTracker:
             return False
         battle.scenario = sample.scenario
         battle.map_name = self.support.scenario_name(sample.scenario)
+        return True
+
+    def _set_quest(self, sample: BattleSample) -> bool:
+        """The quest the battle is for, once read. Returns whether it changed."""
+        battle = self.battle
+        assert battle is not None
+        if sample.quest is None or sample.quest == battle.quest:
+            return False
+        battle.quest = sample.quest
         return True
 
     def _set_cursor(self, sample: BattleSample) -> bool:

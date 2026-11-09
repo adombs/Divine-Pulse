@@ -94,3 +94,39 @@ def test_stop_joins_worker_and_closes_memory(reader):
         reader.stop()
     assert not reader._thread.is_alive()
     assert reader.memory.closed == 1
+
+
+def test_a_unit_the_game_marks_dead_is_marked_dead(reader, tmp_path):
+    import struct
+    from datetime import datetime, timezone
+
+    from app.domain.battle import Battle, BattleUnitStats, LogEntry
+    from app.domain.units import Death
+    from app.gamemem import fe3h
+    from app.storage import BattleStore
+
+    reader._tick()
+    reader._tick()
+    run_id = reader.settings.get().active_run_id
+    units = reader.store.get(run_id).units
+    (dead_key, dead_unit), (back_key, back) = list(units.items())[:2]
+    reader.battle_store = BattleStore(tmp_path / "battles")
+    reader.battle_store.add(Battle(
+        id="forest", run_id=run_id, map_name="Battle in the Forest",
+        started_at=datetime(2026, 11, 6, tzinfo=timezone.utc), ended_at=datetime(2026, 11, 6, tzinfo=timezone.utc),
+        units=[BattleUnitStats(key=dead_key, name="X", start_level=1, level=1, start={}, now={})],
+        log=[LogEntry(t=3.0, turn=2, kind="fell", text="X fell.", unit=dead_key, actor_id=f"a:{dead_key}", step=7)],
+    ))
+    reader.store.apply_units(run_id, {back_key: back.model_copy(update={"death": Death(battle_id="earlier")})})
+    # The game sets the "Is Dead" bit on the first unit's roster slot.
+    roster = bytearray(reader.memory.snapshot.roster)
+    slot = next(i for i in range(fe3h.SLOTS)
+                if struct.unpack_from("<H", roster, i * fe3h.SLOT_SIZE + fe3h._CHARACTER)[0] == dead_unit.game_id)
+    flags = struct.unpack_from("<I", roster, slot * fe3h.SLOT_SIZE + fe3h._FLAGS)[0]
+    struct.pack_into("<I", roster, slot * fe3h.SLOT_SIZE + fe3h._FLAGS, flags | fe3h.DEAD)
+    reader.memory.snapshot = reader.memory.snapshot.__class__(bytes(roster), reader.memory.snapshot.player_name)
+    reader._tick()
+    reader._tick()
+    units = reader.store.get(run_id).units
+    assert units[dead_key].death is not None and (units[dead_key].death.battle_id, units[dead_key].death.step) == ("forest", 7)
+    assert units[back_key].death is None  # in the army with no dead flag: alive after all

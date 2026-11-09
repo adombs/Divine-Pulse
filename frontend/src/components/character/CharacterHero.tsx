@@ -8,9 +8,8 @@
  * - stats: the character added up over the run's finished battles;
  * - reference: the character in general, the same in every run (the Archive).
  *
- * Layouts: "flip" puts the face beside the facts; "split" puts a larger portrait on the left and the
- * map sprite on the right, the facts between them (the battle window). With `backFace` (the Roster and the
- * Archive), the face is part of the information card: the front shows the portrait, the back the map sprite.
+ * With `backFace` (the Roster, the Archive and the battle window), the face is part of the information card: the
+ * front shows the portrait, the back the map sprite.
  */
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { CONCEPT_ICON } from "../../icons/concepts";
@@ -43,17 +42,14 @@ export function CharacterHero({
   layout,
   scope,
   face,
-  sprite,
   facts,
   backFacts,
   backFace,
   name = "Character",
 }: {
-  layout: "flip" | "split";
+  layout: "flip";
   scope: CharacterScope;
   face: ReactNode;
-  /** The map sprite, on the right ("split" only). */
-  sprite?: ReactNode;
   facts: Fact[];
   /** Biography on the reverse. Links and controls keep their own actions. */
   backFacts?: Fact[];
@@ -93,7 +89,7 @@ export function CharacterHero({
         aria-label={`Flip ${name}'s information card to ${reverse ? "front facts" : "biography"}`}
         title={`Show ${reverse ? "front facts" : "biography"}`}
         onClick={flip}>
-        <Icon name={CONCEPT_ICON.flip} /> Flip
+        <Icon name={CONCEPT_ICON.flip} />
       </button>}
     </div>
   );
@@ -112,7 +108,6 @@ export function CharacterHero({
             {backFacts && side(backFacts, true)}
           </div>
         </div>
-        {layout === "split" && <div className="cv-hero-sprite">{sprite}</div>}
       </div>
     </div>
   );

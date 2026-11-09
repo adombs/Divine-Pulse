@@ -9,7 +9,7 @@ Divine Pulse is a free, offline Windows companion for players who emulate **Fire
 ## Requirements
 
 - Windows 10 or 11, 64-bit, with Microsoft Edge WebView2.
-- **Eden** with fastmem enabled and **Fire Emblem: Three Houses v1.2.0**.
+- **Eden** with fastmem enabled, or **FE3H Recomp by onerag90** (pick one under Settings > General > Game), and **Fire Emblem: Three Houses v1.2.0**.
 - Your own base game and 1.2.0 update files, with optional DLC.
 
 Divine Pulse reads game memory. It does not write to the emulator or game. It has no accounts, telemetry, update check, or network service beyond its own local window.

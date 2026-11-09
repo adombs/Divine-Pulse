@@ -15,7 +15,7 @@ import { clock, plural } from "../../format";
 import { useNav } from "../../nav";
 import { Board, boardNow, hasMap } from "./map";
 import { Minimap, Zoom } from "./Minimap";
-import { battleName, KIND_LABEL, routeOf, searchText, type Kind } from "./scenarios";
+import { battleName, KINDS, KIND_LABEL, KIND_PLURAL, routeOf, searchText, type Kind } from "./scenarios";
 import "./battle-filters.css";
 import "./battle-kinds.css";
 
@@ -33,7 +33,7 @@ interface BattleFilters {
   part: Part;
 }
 const NO_BATTLE_FILTERS: BattleFilters = { kinds: [], flawless: false, pulse: "any", part: "any" };
-const KIND_OPTIONS = (Object.keys(KIND_LABEL) as Kind[]).map((k) => [k, KIND_LABEL[k]] as const);
+const KIND_OPTIONS = KINDS.map((k) => [k, KIND_PLURAL[k]] as const);
 const SORTS = [
   ["newest", "Newest"],
   ["oldest", "Oldest"],

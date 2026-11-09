@@ -4,14 +4,12 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { useContext, useEffect, useMemo, useState } from "react";
-import { api, Battle, Unit } from "../../api";
+import { api, Battle, RunRoute, Unit } from "../../api";
 import { PageHeader, StatusChip, Tab } from "../layout";
 import { useNav } from "../../nav";
-import { houseOfCharacter } from "../AffiliationIcon";
 import { Icon } from "../Icon";
-import { characterKeyOfName, characterKeyOfUnit, faceUrl, portraitUrl } from "../../portraits";
+import { faceUrl, portraitUrl } from "../../portraits";
 import { PortraitPhaseContext } from "../../appearance";
-import { useReference } from "../../reference/types";
 import { armyId, enemies, enemyId, people, timeline } from "./model";
 import type { MapLook } from "./mapIcons";
 import { MoreStatsTab } from "./MoreStatsTab";
@@ -19,6 +17,7 @@ import { OverviewTab } from "./OverviewTab";
 import { BattleNav, BattleNavContext, CopySummary, useElapsed } from "./parts";
 import { battleName, KIND_LABEL } from "./scenarios";
 import { UnitsTab } from "./UnitsTab";
+import { ReplayExportButton } from "./ReplayExport";
 import { UnitPopup } from "./UnitPopup";
 import { isObject } from "./map";
 import { factionOf } from "./factions";
@@ -42,9 +41,13 @@ interface Props {
   onReplaySpeed: (speed: number) => void;
   onDeleteRecording: () => void;
   at?: string | null;
+  /** A unit whose fall the Overview's replay opens at. */
+  fell?: string | null;
+  /** The run's route, for its emblem on exports. */
+  route?: RunRoute | null;
 }
 
-export function BattlePage({ battle, recording, runId, version, units, part2, mapLook, replaySpeed, onReplaySpeed, onDeleteRecording, at }: Props) {
+export function BattlePage({ battle, recording, runId, version, units, part2, mapLook, replaySpeed, onReplaySpeed, onDeleteRecording, at, fell, route }: Props) {
   // The run's battles, for More stats' comparison.
   const [history, setHistory] = useState<Battle[]>([]);
   useEffect(() => {
@@ -69,7 +72,7 @@ export function BattlePage({ battle, recording, runId, version, units, part2, ma
       </section>
     );
   }
-  return <><BattleView key={shown.id} battle={shown} live={battle} history={history} roster={units} part2={part2} mapLook={mapLook} replaySpeed={replaySpeed} onReplaySpeed={onReplaySpeed} at={at} recording={battle ? undefined : { onDelete: onDeleteRecording }} /></>;
+  return <><BattleView key={shown.id} battle={shown} live={battle} history={history} roster={units} part2={part2} mapLook={mapLook} replaySpeed={replaySpeed} onReplaySpeed={onReplaySpeed} at={at} fell={fell} route={route} recording={battle ? undefined : { onDelete: onDeleteRecording }} /></>;
 }
 
 interface ViewProps {
@@ -84,13 +87,17 @@ interface ViewProps {
   onReplaySpeed: (speed: number) => void;
   /** A unit to open the battle at ("Units" with it selected). */
   at?: string | null;
+  /** A unit to open the Overview's replay at the fall of. */
+  fell?: string | null;
+  /** The run's route, for its emblem on exports. */
+  route?: RunRoute | null;
   /** Set when this is a selected past battle: delete it. */
   recording?: { onDelete: () => void };
 }
 
 /** One battle's views, live or a selected recording. Key it by the battle's id. */
 export function BattleView(p: ViewProps) {
-  const { at = null, recording } = p;
+  const { at = null, fell = null, recording } = p;
   const portraitData = usePortraitData();
   const battle = useMemo(() => ({ ...p.battle, enemy_stats: Object.fromEntries(Object.entries(p.battle.enemy_stats ?? {}).map(([slot, enemy]) => {
     const personId = (enemy as typeof enemy & { person_id?: number | null }).person_id;
@@ -100,7 +107,7 @@ export function BattleView(p: ViewProps) {
   const [showIdentities] = useSpoiler("identities");
   const [showLaterPortraits] = useSpoiler("portraits");
   const go = useNav().go;
-  const [view, setView] = useState<View>(at ? "units" : "overview");
+  const [view, setView] = useState<View>(at && !fell ? "units" : "overview");
   // The unit open in the character popup ("a:<key>" / "e:<slot>"), from anywhere on the page, and the one whose card
   // is beside the Units table (units opened there show in that card).
   const [unit, setUnit] = useState<string | null>(null);
@@ -112,6 +119,10 @@ export function BattleView(p: ViewProps) {
     setPicked(armyId(at));
     setView("units");
   }, [at]);
+  // Opened again at a unit's fall (a link from the Roster).
+  useEffect(() => {
+    if (fell) setView("overview");
+  }, [fell]);
 
   const seconds = useElapsed(battle.started_at, battle.active, battle.seconds, battle.away_s ?? 0);
   const items = useMemo(() => timeline(battle), [battle]);
@@ -147,19 +158,12 @@ export function BattleView(p: ViewProps) {
     }
     return out;
   }, [battle.units, battle.enemy_stats, portraitData, p.part2, automatic, showLaterPortraits]);
-  const ref = useReference();
   const houses = useMemo(() => {
     const out = new Map<string, string>();
-    const set = (id: string, key: string | null) => {
-      const house = houseOfCharacter(ref, key);
-      if (house) out.set(id, house);
-    };
-    for (const r of p.roster) set(armyId(r.key), characterKeyOfUnit(r));
-    // Named characters not in the roster (Jeralt fighting beside you) have their house too.
+    const set = (id: string, house: string | undefined) => { if (house) out.set(id, house); };
     for (const u of battle.units) {
-      const id = armyId(u.key);
-      if (!out.has(id)) set(id, characterKeyOfName(u.name));
-      out.set(id, factionOf(u.character, battle.scenario, "player", out.get(id)));
+      // The game's record names each unit's faction, Byleth's included (the Church, whatever house the run chose).
+      set(armyId(u.key), factionOf(u.allegiance, u.character));
     }
     for (const [slot, e] of Object.entries(battle.enemy_stats ?? {})) {
       const id = enemyId(slot);
@@ -168,11 +172,10 @@ export function BattleView(p: ViewProps) {
         out.set(id, /flame emperor/i.test(e.name || e.label) ? "Flame Emperor Army" : "Affiliation hidden");
         continue;
       }
-      if (e.name) set(id, characterKeyOfName(e.name));
-      out.set(id, factionOf(e.character, battle.scenario, e.side ?? "enemy", out.get(id)));
+      set(id, factionOf(e.allegiance, e.character));
     }
     return out;
-  }, [p.roster, ref, battle.units, battle.enemy_stats, battle.scenario, showIdentities]);
+  }, [battle, showIdentities]);
   const configs = useMemo(() => new Map(p.roster.map((u) => [u.key, u.ebst_effective])), [p.roster]);
   const nav: BattleNav = {
     people: who,
@@ -214,6 +217,7 @@ export function BattleView(p: ViewProps) {
                   Live Battle
                 </button>
               )}
+              <ReplayExportButton battle={battle} route={p.route} />
               <CopySummary battle={battle} seconds={seconds} />
               {recording && (
                 <button type="button" className="btn small danger" onClick={recording.onDelete} title="Delete this battle from the history">
@@ -227,7 +231,7 @@ export function BattleView(p: ViewProps) {
           onTab={setView}
         />
         <div key={view} className={`battle-body view-${view} view-enter`}>
-          {view === "overview" && <OverviewTab battle={battle} items={items} seconds={seconds} />}
+          {view === "overview" && <OverviewTab battle={battle} items={items} seconds={seconds} fell={fell} />}
           {view === "units" && <UnitsTab battle={battle} items={items} selected={picked} onSelect={setPicked} roster={p.roster} part2={p.part2} />}
           {view === "more" && <MoreStatsTab battle={battle} items={items} seconds={seconds} history={p.history} />}
         </div>

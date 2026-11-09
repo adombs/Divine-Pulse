@@ -36,7 +36,8 @@ from .game_assets import game_assets
 from . import game_tables
 from ..gamemem.battle import FlagWatch
 from ..gamemem.combat import weapon_kind
-from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_player_name, decode_roster
+from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_dead, decode_player_name, decode_roster
+from ..gamemem.readers import emulators_for
 from ..gamemem.recorder import BattleRecorder
 from ..gamemem.units import SCREEN_TITLE as MEMORY_TITLE
 from ..gamemem.units import GameData, to_reading, unit_name
@@ -45,6 +46,8 @@ from ..handlers import handle
 from ..application.roster_tracking import RosterUpdates
 from ..application.battle_tracking import BattleTracker
 from .battle_support import DefaultBattleSupport
+from ..domain import deaths
+from ..domain.changes import UnitChange
 from ..domain.units import unit_key
 from ..storage import BattleStore, NotFound, RunStore
 
@@ -129,7 +132,8 @@ class Scanner:
         self.events = events
         self.bonuses = bonuses
         self.roster_updates = RosterUpdates(store, partial(handle, bonuses=bonuses))
-        self.memory = memory or GameMemory()
+        self._reader = settings.get().memory_reader
+        self.memory = memory or GameMemory(emulators_for(self._reader))
         self._game_data: GameData | None = None
         self._game_generation: tuple | None = None
         # Battle in progress (game memory only): the tracker, finished battles' store, and the last sample seen
@@ -138,6 +142,7 @@ class Scanner:
         self.recorder = recorder
         self._battles = BattleTracker(DefaultBattleSupport())
         self._battle_sample: BattleSample | None = None
+        self._sample_made: tuple[tuple, BattleSample] | None = None  # the last battle sample and what it was made from
         self._flag_watch = FlagWatch()  # every unit's flags byte, read to read: unknown bits that change are logged
         self._battle_lock = threading.Lock()
         self._leftovers_checked: set[str] = set()  # runs checked for a battle that ended while the tracker was off
@@ -252,8 +257,19 @@ class Scanner:
     def _reset(self) -> None:
         self._mem_pending, self._mem_applied = None, None
 
+    def _use_reader(self, reader: str) -> None:
+        """Look for the game in another program (Settings > Game) from the next read on."""
+        if reader == self._reader:
+            return
+        self._reader = reader
+        if isinstance(self.memory, GameMemory):
+            self.memory.emulators = emulators_for(reader)
+            self.memory.close()  # connects again, to the other program, on the next read
+        self._reset()
+
     def _tick(self) -> None:
         settings = self.settings.get()
+        self._use_reader(settings.memory_reader)
         if self.recorder is not None:
             self.recorder.set_limit(settings.max_recordings)
         if not settings.active_run_id:
@@ -267,7 +283,8 @@ class Scanner:
             self._end_battle()
             self._publish_status("error", MEMORY_TITLE, message=NEEDS_IMPORT)
             return
-        self._memory_tick()
+        with game_tables.pinned():  # one read of the game makes hundreds of table lookups: check the tables once
+            self._memory_tick()
 
     # Game memory
 
@@ -427,6 +444,10 @@ class Scanner:
             self.battle_store.clear_active(battle.run_id)
         except Exception:
             log.exception("Could not save the battle")
+            return
+        # Read the roster again now the battle is filed, even if it hasn't changed: a unit that died in it can now be
+        # linked to where it fell (see _detect_deaths).
+        self._mem_applied = None
 
     def _sample_battle(self, snapshot: Snapshot, run_id: str) -> BattleSample:
         """The army units in the battle (on-screen values) and the other units on the map."""
@@ -434,14 +455,30 @@ class Scanner:
             self._flag_watch.reset()
             return BattleSample(())
         data = self._data()
+        battle_units = getattr(self.memory, "battle_units", None)
+        pool = battle_units() if battle_units else []
+        globals_ = getattr(self.memory, "battle_globals", None)
+        located = globals_() if globals_ else {}
+        self._log_flag_changes(pool, data, located.get("turn"))
+        history = getattr(self.memory, "battle_history", None)
+        read = history(pool) if history and pool else None
+        # Everything the sample is made of. Between two reads nothing in the game usually changed (most are
+        # between actions), and then the sample is the one just made: working it out again is most of a read's cost.
+        revision = self.store.revision(run_id)
+        key = (snapshot, tuple(pool), located, read, id(data), revision)
+        if revision is not None and self._sample_made is not None and self._sample_made[0] == key:
+            return self._sample_made[1]
+        sample = self._build_sample(snapshot, run_id, data, pool, located, read)
+        self._sample_made = (key, sample)
+        return sample
+
+    def _build_sample(self, snapshot: Snapshot, run_id: str, data: GameData, pool: list, located: dict, read) -> BattleSample:
         try:
             run = self.store.get(run_id)
             units = run.units
         except NotFound:
             units = {}
         player_name = decode_player_name(snapshot.player_name)
-        battle_units = getattr(self.memory, "battle_units", None)
-        pool = battle_units() if battle_units else []
         # Units in the pool that aren't on the map: adjutants, and reinforcements still to come.
         on_map = [u for u in pool if not u.off_map and not _stand_in(u)]
         records = {u.character: u for u in on_map if u.army}
@@ -534,6 +571,7 @@ class Scanner:
                     battalion_endurance=ability.battalion_endurance,
                     gambit_uses=ability.gambit_uses,
                     rattled=record.rattled if record else None,
+                    allegiance=record.allegiance if record else None,
                 )
             )
         enemies = []
@@ -566,20 +604,16 @@ class Scanner:
                     side_of(other.team, name),
                     character,
                     other.character,
-                    other.items,
-                    other.spell_uses,
-                    other.spells,
-                    other.equipped == EQUIPPED_WEAPON,
-                    other.item_slot_0,
+                    allegiance=other.allegiance,
+                    items=other.items,
+                    spells=other.spell_uses,
+                    spell_ids=other.spells,
+                    equipped_weapon=other.equipped == EQUIPPED_WEAPON,
+                    equipped_item_id=other.item_slot_0,
                 )
             )
-        globals_ = getattr(self.memory, "battle_globals", None)
-        located = globals_() if globals_ else {}
-        self._log_flag_changes(pool, data, located.get("turn"))
         terrain_of = getattr(self.memory, "battle_terrain", None)
         on_this_map = terrain_of(on_map) if terrain_of and on_map else None
-        history = getattr(self.memory, "battle_history", None)
-        read = history(pool) if history and pool else None
         steps = history_steps(*read, keys, pool) if read else ()
         return BattleSample(
             tuple(sorted(army, key=lambda a: a.key)),
@@ -605,6 +639,7 @@ class Scanner:
             frozenset(
                 f"e:{u.slot}" for u in pool if (u.off_map or _stand_in(u)) and not u.army and u.character not in own
             ),
+            quest=located.get("quest"),
         )
 
     def _log_flag_changes(self, pool: list, data: GameData, turn: int | None) -> None:
@@ -691,6 +726,11 @@ class Scanner:
 
         uses = dict(snapshot.gambit_uses)
         result = self.roster_updates.apply(run, readings())
+        if decoded and not snapshot.in_battle and not self._battles.active:
+            # A complete read of the roster between battles: the game marks who died.
+            result.changes.extend(
+                self._detect_deaths(run, {unit.character for unit in decoded}, set(decode_dead(snapshot.roster)))
+            )
         changes = result.changes
         warnings, key_of = result.warnings, result.keys
         self._mem_applied = (run_id, snapshot)
@@ -707,6 +747,30 @@ class Scanner:
         if changes:
             single = changes[0] if len(changes) == 1 else None
             self.events.publish("units_changed", {"run_id": run_id, "unit_key": single.key if single else None})
+
+
+    def _detect_deaths(self, run, present: set[int], dead: set[int]) -> list[UnitChange]:
+        """Mark the units the game marks dead as dead, and units back in the army alive as alive (domain/deaths.py).
+        The battles (for where they fell) are only loaded when a unit has newly died."""
+        battles = None
+        if deaths.newly_dead(run.units, dead) and self.battle_store is not None:
+            battles = self.battle_store.list(run.id)
+        changed = deaths.detect(run.units, present, dead, battles)
+        if not changed:
+            return []
+        out = [UnitChange(key, run.units[key], unit) for key, unit in changed.items()]
+        try:
+            self.store.apply_units(run.id, changed)
+        except Exception:
+            log.exception("Could not save the units' deaths")
+            return []
+        run.units.update(changed)
+        for key, unit in changed.items():
+            if unit.death is not None:
+                log.info("%s is dead (the game says so); fell in battle %s", key, unit.death.battle_id)
+            else:
+                log.info("%s is back in the army: alive", key)
+        return out
 
 
 def _stand_in(unit) -> bool:

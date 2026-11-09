@@ -130,11 +130,129 @@ def place_window(hwnd: int, geo: dict, show_cmd: int = SW_HIDE) -> None:
             raise ctypes.WinError()
 
 
+MEDIA_TYPES = {
+    "mp4": ("MP4 video (*.mp4)", ".mp4"),
+    "png": ("PNG image (*.png)", ".png"),
+}
+PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
+MEDIA_LIMIT = 2 * 1024**3  # bytes per file: a long replay at 1080p is a few hundred MB at most
+
+
+def _is_media(kind: str, head: bytes) -> bool:
+    """Whether a file starts the way an MP4 video (an `ftyp` box) or a PNG image does."""
+    if kind == "png":
+        return head.startswith(PNG_SIGNATURE)
+    return len(head) >= 8 and head[4:8] == b"ftyp"
+
+
+def _free_path(path: Path) -> Path:
+    """`path`, or "name (2).ext" and so on when it's taken."""
+    n = 2
+    candidate = path
+    while candidate.exists():
+        candidate = path.with_name(f"{path.stem} ({n}){path.suffix}")
+        n += 1
+    return candidate
+
+
+class _MediaSave:
+    """Files being written for one export: each to a .part file beside where it goes, moved there when all is done."""
+
+    def __init__(self, kind: str, paths: list[Path]):
+        self.kind = kind
+        self.paths = paths
+        self.parts = [p.with_name(p.name + ".part") for p in paths]
+        self.sizes = [0] * len(paths)
+        self.heads = [b""] * len(paths)
+
+    def discard(self) -> None:
+        for part in self.parts:
+            part.unlink(missing_ok=True)
+
+
 class ExportDialogs:
-    """Expose only a user-confirmed Save As operation to the desktop page."""
+    """Expose only user-confirmed Save As operations to the desktop page: a run's JSON export, and the battle
+    replay video and team images, whose bytes come over in pieces. Paths come only from the window's own dialogs."""
 
     def __init__(self):
         self._window = None
+        self._saves: dict[str, _MediaSave] = {}
+        self._lock = threading.Lock()
+
+    def begin_media_save(self, kind: str, filenames: list[str]) -> str | None:
+        """Ask where to save: Save As for one file, a folder for several. Returns a token for the writes, or None if
+        the user cancelled."""
+        import secrets
+
+        import webview
+
+        if kind not in MEDIA_TYPES or not filenames or len(filenames) > 8:
+            raise ValueError("Unsupported export")
+        label, suffix = MEDIA_TYPES[kind]
+        names = [Path(str(name)).name for name in filenames]
+        if any(not name or Path(name).suffix.lower() != suffix for name in names):
+            raise ValueError("Unsupported file name")
+        if self._window is None:
+            raise RuntimeError("The desktop window is not ready")
+        if len(names) == 1:
+            selected = self._window.create_file_dialog(webview.FileDialog.SAVE, save_filename=names[0], file_types=(label,))
+            if not selected:
+                return None
+            path = Path(selected[0] if isinstance(selected, (tuple, list)) else selected)
+            if path.suffix.lower() != suffix:
+                path = path.with_name(path.name + suffix)
+            paths = [path]
+        else:
+            selected = self._window.create_file_dialog(webview.FileDialog.FOLDER)
+            if not selected:
+                return None
+            folder = Path(selected[0] if isinstance(selected, (tuple, list)) else selected)
+            paths = [_free_path(folder / name) for name in names]
+        token = secrets.token_urlsafe(16)
+        save = _MediaSave(kind, paths)
+        for part in save.parts:
+            part.write_bytes(b"")
+        with self._lock:
+            self._saves[token] = save
+        return token
+
+    def write_media_chunk(self, token: str, index: int, data: str) -> bool:
+        import base64
+
+        with self._lock:
+            save = self._saves.get(token)
+        if save is None or not 0 <= index < len(save.paths):
+            raise ValueError("Unknown export")
+        chunk = base64.b64decode(data, validate=True)
+        if save.sizes[index] + len(chunk) > MEDIA_LIMIT:
+            self.cancel_media_save(token)
+            raise ValueError("The export is too large")
+        if save.sizes[index] < 16:
+            save.heads[index] = (save.heads[index] + chunk)[:16]
+        with save.parts[index].open("ab") as out:
+            out.write(chunk)
+        save.sizes[index] += len(chunk)
+        return True
+
+    def finish_media_save(self, token: str) -> list[str]:
+        """Check each file is what it says it is and put it in place. Returns the saved paths."""
+        with self._lock:
+            save = self._saves.pop(token, None)
+        if save is None:
+            raise ValueError("Unknown export")
+        if not all(_is_media(save.kind, head) for head in save.heads):
+            save.discard()
+            raise ValueError("The export isn't a valid file")
+        for part, path in zip(save.parts, save.paths):
+            part.replace(path)
+        return [str(path) for path in save.paths]
+
+    def cancel_media_save(self, token: str) -> bool:
+        with self._lock:
+            save = self._saves.pop(token, None)
+        if save is not None:
+            save.discard()
+        return save is not None
 
     def save_export(self, filename: str, content: str) -> bool:
         import webview

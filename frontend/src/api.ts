@@ -76,16 +76,42 @@ export interface Unit {
   gambit_uses?: number | null;
   /** Current skill progress from game memory, when its roster fields are known. */
   skills?: Partial<Record<SkillKey, { rank: string; exp: number }>>;
+  /** The classes it has mastered, as read from game memory (null/absent: not read yet; [] none). */
+  mastered_classes?: string[] | null;
   updated_at: string;
+  /** Dead (Classic mode): the battle and step of its log where it fell. null/absent while alive. */
+  death?: Death | null;
+  /** The user said it's alive although the game marks it dead. */
+  marked_alive?: boolean;
+}
+
+/** Where a unit died (the game's own "Is Dead" flag, or marked by hand): all empty but `manual` when no fall of it was
+ * recorded. */
+export interface Death {
+  battle_id: string | null;
+  /** The battle's map name when it happened. */
+  battle_name: string;
+  scenario: number | null;
+  turn: number | null;
+  /** The "fell" log entry's history position and time (seconds since the battle started). */
+  step: number | null;
+  t: number | null;
+  /** Who caused it, if known. */
+  by: string | null;
+  /** Marked dead by the user. */
+  manual: boolean;
+  at: string;
 }
 
 export interface Settings {
   active_run_id: string | null;
   max_recordings: number;
   window_mode: "windowed" | "fullscreen";
+  /** Where the game is read from: the Eden emulator, or FE3H Recomp (the native Windows recompilation). */
+  memory_reader: "eden" | "recomp";
 }
 
-export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode">>;
+export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader">>;
 
 /** What the game reader is doing. */
 export interface AutoStatus {
@@ -154,6 +180,8 @@ export interface BattleUnit {
   character?: number | null;
   /** Byleth's hair in this battle: "green" after the Sothis merge. */
   look?: "dark" | "green" | null;
+  /** The faction ID on its battle record, as the game has it now (null or absent: not read). */
+  allegiance?: number | null;
   female?: boolean;
   damage_taken: number | null;
   /** HP the unit got back. */
@@ -297,6 +325,8 @@ export interface EnemyStats {
   /** "object": not a unit but a thing with HP of its own (a breakable wall). */
   side?: "enemy" | "ally" | "third" | "object";
   character?: number | null;
+  /** The faction ID on its battle record, as the game has it now (null or absent: not read). */
+  allegiance?: number | null;
 }
 
 /** Where units stood after one step of the game's history: only the units the step changed (everyone on the first). */
@@ -357,6 +387,12 @@ export interface AtRisk {
   level: "danger" | "exposed";
   /** Losing it loses the battle. */
   critical: boolean;
+  /** Player phase: it hasn't acted, so it can still step out of reach (its risk counts for less). */
+  pending?: boolean;
+  /** The phase in progress: 0 player, 1 enemy, null when unknown. */
+  phase?: number | null;
+  /** Enemy phase: the share of the reach on it at the phase's start that is still to act (1 = all of it). */
+  left?: number;
 }
 
 export interface Outlook {
@@ -403,6 +439,8 @@ export interface Battle {
   map_h?: number | null;
   /** Which map the battle is on (the import's data/maps.json), with `terrain`. */
   map_id?: number | null;
+  /** The quest the battle is for, by its row in the game's quest table (null: not for a quest, or not read). */
+  quest?: number | null;
   /** Where everyone stood after each step of the game's history, to replay the battle (empty without it). */
   map_steps?: MapStep[];
   /** When other units came onto the map or left it without being defeated: uid -> [step, on the map from then] in
@@ -492,6 +530,8 @@ export const api = {
   setRunEbst: (runId: string, body: EbstConfig) => request<EbstConfig>("PUT", `/runs/${enc(runId)}/ebst`, body),
   setUnitEbst: (runId: string, key: string, body: Partial<EbstConfig>) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/ebst`, body),
+  setUnitDead: (runId: string, key: string, dead: boolean) =>
+    request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/dead`, { dead }),
   gameFilesStatus: () => request<GameFilesStatus>("GET", "/game-assets/status"),
   scanGameFiles: (dump: string) => request<GameFilesScan>("POST", "/game-assets/scan", { dump }),
   importGameFiles: (dump: string) => request<{ job: GameAssetsJob }>("POST", "/game-assets/import", { dump }),

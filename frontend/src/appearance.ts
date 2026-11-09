@@ -101,10 +101,7 @@ export const TEXT_SCALE = { min: 0.7, max: 1.3, step: 0.05 } as const;
 /** What 100% means: the root font scale at a textScale of 1. */
 const BASE_SCALE = 1.1;
 
-export type Theme = "light" | "dark";
-
 export interface Appearance {
-  theme: Theme;
   font: string;
   /** Text size (TEXT_SCALE). */
   textScale: number;
@@ -126,7 +123,6 @@ const isUnitLook = (v: unknown): v is MapLook["mine"] => UNIT_LOOKS.some(([look]
 
 export function loadAppearance(): Appearance {
   const fallback: Appearance = {
-    theme: window.matchMedia?.("(prefers-color-scheme: dark)").matches ? "dark" : "light",
     font: "fodlan",
     portraits: "auto",
     textScale: 1,
@@ -140,6 +136,8 @@ export function loadAppearance(): Appearance {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? "null");
     if (saved && typeof saved === "object") {
       const { mapNamed, mapGeneric, unitFaces, ...current } = saved;
+      // A theme saved by an earlier version (the app has one theme now) is dropped.
+      delete (current as Record<string, unknown>).theme;
       const out: Appearance = { ...fallback, ...current };
       out.mapMine = isUnitLook(out.mapMine) ? out.mapMine : fallback.mapMine;
       out.mapOthers = isUnitLook(out.mapOthers) ? out.mapOthers : fallback.mapOthers;
@@ -175,14 +173,13 @@ export function applyAppearance(a: Appearance): void {
   const font = fontById(a.font);
   const size = Math.min(TEXT_SCALE.max, Math.max(TEXT_SCALE.min, Number(a.textScale) || 1));
   loadFont(font);
-  root.dataset.theme = a.theme;
   root.style.setProperty("--display", font.heading);
   root.style.setProperty("--text", font.text);
   root.style.setProperty("--nums", font.nums);
   root.style.setProperty("--font-scale", String(font.scale * size * BASE_SCALE));
 }
 
-/** Theme, font and text size are saved in the desktop window's profile. */
+/** Font and text size are saved in the desktop window's profile. */
 export function useAppearance() {
   // Refresh pure portrait lookups throughout the app when a spoiler preference changes.
   useSpoilers();

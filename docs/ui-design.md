@@ -71,11 +71,17 @@ fills the sheet: the header stays put and the view below fits the screen (the Ov
 16:9 / 16:10; the Settings text size slider scales everything).
 
 - **Header:** the battle's name with its chapter ("Chapter 7: Battle of the Eagle and Lion", battle/scenarios.ts,
-  from the game's scenario id; Part II chapters by route, from the house leader fighting), its kind (Main battle,
-  Paralogue, Auxiliary battle, Cindered Shadows) and place when known, Live (or its date), and the numbers worth a
+  from the game's scenario id; Part II chapters by route, from the house leader fighting), its kind (Mission,
+  Auxiliary, Paralogue, Quest or DLC Battle; see below) and place when known, Live (or its date), and the numbers worth a
   glance in game: time, turn, units on the map, army HP, enemies, Divine Pulse, outlook (on the Overview they're
-  cards instead; elsewhere they're small cards under the header). Actions: Copy Summary; for a recording Live Battle
-  (while one runs) and Delete. Tabs: **Overview · Units · More Stats**.
+  cards instead; elsewhere they're small cards under the header). Actions: Copy Summary, Export Video; for a recording Live Battle
+  (while one runs) and Delete. Export Video (battle/ReplayExport.tsx) opens a window with the video's frame previewed
+  as it plays (title strip with the "by Adombs" credit, the map with its turn banner and no legend, the log as a
+  list up to the step shown) and options down the right: orientation, turns, speed, camera, zoom, music (the battle
+  themes imported with the game files, the battle's own first, in its Rain or Thunder version, and a 0-100% volume) and the video's resolution, frame rate and quality;
+  the export button stays at the foot of the options. A video is written to a temporary file in the page's
+  private storage as it is made, and the soundtrack a second at a time, so memory doesn't grow with its length. The map takes all
+  the room its view needs and the log the rest; zoomed in, the camera's view widens to fill that room. Tabs: **Overview · Units · More Stats**.
 - **Overview:** three columns. The map (as big as it fits, with the replay timeline under it), the Units
   (UnitStatus.tsx: everyone on the board but objects, filterable by team, as at the replay's step; HP, and warnings
   on your units: at risk, losing them loses the battle, no magic, a weapon about to break, fell; live, those yet to
@@ -113,13 +119,32 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
   of the run, newest first, searchable by name, kind, place, result, date and unit. Opening one shows it on the Battle page as a
   recording (`#/battle/<id>`). On wide screens the page fits the sheet: the
   characters fill the rest and scroll in their own columns.
+- **Battle kinds:** every battle is one of five kinds, read from its scenario id (battle/scenarios.ts; nothing is
+  stored, so older recordings take the same kinds): Mission Battles (the story, ids 0-37), Auxiliary Battles (61-80),
+  Paralogue Battles (38-60, 93, 94, 97) and DLC Battles (81-85, the extra auxiliary battles, and 86-92, Cindered
+  Shadows). A Quest Battle runs on an ordinary auxiliary scenario and map, so the scenario can't say: the game's memory
+  holds the quest it is for (`Battle.quest`, its row in the quest table, a byte in the global data at
+  app/data/battle_fields.json "quest"; 151 or more when none), and a quest of `app/data/quest_battles.json` (the quests
+  that have a battle) makes it a Quest Battle, titled with the quest's name (text category `quest_title`). A tag says it
+  in the singular ("Mission Battle"), filters and counts in the plural ("Mission Battles").
 - **Totals, Records and Characters:** the run's finished battles added up and each character over the battles they were in;
   it's a route of its own (`#/history/stats/<unit key>`) so other pages can link to a character's stats.
 
 ## Other pages
 
 - **Roster:** header with the unit count and chips for what changes the view (in-battle filter, units to check,
-  "Comparing as"); the run picker is the header's action. Table and unit card as before (`DetailCard`).
+  "Comparing as"); the run picker is the header's action. Table and unit card as before (`DetailCard`). Export Team (TeamExport.tsx), left
+  of Back, previews the two images it saves (an overview of each unit with BST, never eBST, as rows of cards as tall as the unit's
+  portrait and stats, the rest flowing into columns beside them, units per row set beside the preview; run statistics) and the units to include, in slots laid out as many side by side as the overview (an empty row more at the
+  end); a six-dot handle drags a unit to another slot, empty or not (they swap), and empty slots leave rows short. An Order menu above
+  them lays every unit out by BST, deployments, joining (first battle) or name; dragging makes it Custom.
+  Dead units are greyed in that list with the fell mark; an "Include fallen units" checkbox above it (only when someone is dead; on by
+  default, remembered) puts them in both images greyed with the mark by their name, or leaves them out of both (the statistics follow the
+  overview, and their Team totals count whoever is shown).
+  Dead units (Classic mode) stay in the table, greyed with a skull, in a Fallen group below the living whatever the sort;
+  their card's Status fact says where they fell and opens that battle with the replay at that step
+  (`#/battle/<id>?fell=<unit key>`), and the banner's Mark as Alive button (only on a fallen unit) overrides the game's flag; a unit can't be marked dead by hand.
+  The shared people filters' Status (Alive / Dead) only counts people in the active run.
 - **Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
   with a `DetailCard`. The Archive's tabs: Characters, Crests, Battalions, Classes, Combat Arts, Abilities, Magic,
   Weapons, Items (old `#/characters/...` links open its Characters and Crests tabs).

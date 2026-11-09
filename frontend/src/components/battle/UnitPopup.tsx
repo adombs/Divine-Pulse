@@ -14,14 +14,13 @@ import { characterKeyOfUnit } from "../../portraits";
 import { IconButton } from "../Icon";
 import { DetailCard, Section } from "../layout";
 import { CharacterHero } from "../character/CharacterHero";
-import { SpriteFigure, useHasSprite } from "../character/CharacterFace";
+import { SpriteFace } from "../character/CharacterFace";
 import { BattalionPanel } from "../character/Battalion";
 import { armySprite, isObject, spriteOf } from "./map";
-import type { Sprite } from "./mapIcons";
 import { Portrait } from "../ui";
 import { CombatTiles, FightsAndActions } from "./detail";
 import { useSpoiler } from "../../spoilers";
-import { crestsOf, factionOf } from "./factions";
+import { crestsOf } from "./factions";
 import { crestLabel } from "../../reference/crests";
 import { MapSection } from "./Minimap";
 import { alertsFor, armyId, enemies, enemyId, Item, LOW_WEAPON, statGains, tally } from "./model";
@@ -96,6 +95,7 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
   const level = u.level_ups ? `${u.start_level} → ${u.level}` : String(u.level);
   const gained = statGains(u);
   const nav = useNav();
+  const battleNav = useBattleNav();
   const status = !u.on_map ? (
     <span className="form-error" title="Left the battle">Left</span>
   ) : u.adjutant_of ? (
@@ -124,10 +124,10 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
       <CharacterHero
         key={u.key}
         name={u.name}
-        layout="split"
+        layout="flip"
         scope="battle"
-        face={<span className="cv-face">{roster ? <Portrait unit={roster} part2={part2} size={120} /> : <UnitFace id={id} name={u.name} size="lg" look="portraits" />}</span>}
-        sprite={<SpriteTile sprite={armySprite(u)} name={u.name} className={u.class_name} />}
+        face={<span className="cv-face">{roster ? <Portrait unit={roster} part2={part2} size={104} /> : <UnitFace id={id} name={u.name} size="lg" look="portraits" />}</span>}
+        backFace={<SpriteFace sprite={armySprite(u)} name={u.name} className={u.class_name} />}
         facts={[
           ["Name", roster?.full_name || u.name],
           ["Class", <ClassLink key="class" name={u.class_name} />],
@@ -138,7 +138,7 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
         ]}
         backFacts={[
           ["Gender", roster?.gender || character?.gender || "—"],
-          ["Affiliation", character?.house || factionOf(u.character, battle.scenario, "player")],
+          ["Affiliation", battleNav.house?.(id) || "—"],
           ["Birthday", character?.birthday || "—"],
           ["Height", character?.height || "—"],
         ]}
@@ -195,10 +195,10 @@ function EnemyCard({ enemy: e, battle, items }: { enemy: EnemyStats; battle: Bat
       <CharacterHero
         key={id}
         name={e.label}
-        layout="split"
+        layout="flip"
         scope="battle"
         face={<span className="cv-face"><UnitFace id={id} name={e.label} size="lg" look="portraits" /></span>}
-        sprite={<SpriteTile sprite={isObject(e) ? null : spriteOf(e)} name={e.label} className={classOf(e)} />}
+        backFace={<SpriteFace sprite={isObject(e) ? null : spriteOf(e)} name={e.label} className={classOf(e)} />}
         facts={[
           ["Name", e.name || e.label],
           ["Class", <ClassLink key="class" name={classOf(e)} />],
@@ -275,19 +275,6 @@ export function ArtList({ arts }: { arts: string[] }) {
           <ArtLink name={a} />
         </span>
       ))}
-    </span>
-  );
-}
-
-/** The unit's map sprite in a round medallion like the portrait's, on the right of the battle window's hero. */
-function SpriteTile({ sprite, name, className }: { sprite: Sprite | null; name: string; className: string }) {
-  const has = useHasSprite(sprite);
-  if (!has) return <span className="cv-face cv-sprite-face empty">No map sprite</span>;
-  return (
-    <span className="cv-face cv-sprite-face">
-      <span className="cv-sprite-disc">
-        <SpriteFigure sprite={sprite} label={`${name}'s map sprite${className ? ` as a ${className}` : ""}`} />
-      </span>
     </span>
   );
 }

@@ -18,7 +18,7 @@ from ..application.operations import (
     RunNameTaken,
     UnitMissing,
 )
-from .inputs import EbstIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
+from .inputs import DeadIn, EbstIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
 from ..domain.ebst import EbstConfig
 from ..domain.runs import RunSummary
 from ..domain.runs import Run
@@ -183,6 +183,12 @@ def set_unit_ebst(run_id: str, key: str, body: EbstIn, request: Request) -> Unit
         key,
         body.model_dump(exclude_none=True),
     )
+    return UnitOut.from_unit(key, unit)
+
+
+@router.put("/runs/{run_id}/units/{key}/dead")
+def set_unit_dead(run_id: str, key: str, body: DeadIn, request: Request) -> UnitOut:
+    unit = _call(_state(request).operations.set_unit_dead, run_id, key, body.dead)
     return UnitOut.from_unit(key, unit)
 
 

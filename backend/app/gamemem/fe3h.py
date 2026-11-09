@@ -18,6 +18,7 @@ import hashlib
 import logging
 import re
 import struct
+import threading
 import time
 from dataclasses import dataclass, field
 
@@ -88,6 +89,15 @@ _ABILITIES = 0x7F  # 5 equipped ability IDs; 0xFF = empty
 _LEARNED_ARTS = 0x57
 _LEARNED_ABILITIES = 0x61
 LEARNED_ABILITIES = 240
+# Which classes the unit has mastered: one byte per class ID (data/classes.json, 100 classes) from _CLASS_MASTERED to the
+# end of the slot, 1 once mastered. Checked on a battle where Lorenz (Cavalier) and Ignatz (Mercenary) mastered their
+# classes: each one's byte for that class went 0 -> 1 mid-battle, its mastery ability's learned bit was set, and its
+# progress toward the class (a u16 per class from 0x112, 98 before) went back to 0. The flag matched the learned mastery
+# arts and abilities of the 15-unit army before and after, and Noble and Commoner read 1 on exactly the units that
+# mastered them (units still in those classes read 0). Progress
+# is not the marker: a Warlock at 100 progress wasn't flagged or given its ability.
+_CLASS_MASTERED = 0x1E7
+CLASS_COUNT = 100
 # 3 equipped combat art IDs (data/combat-arts.json: Sunder 0, Wrath Strike 1 ... Pneuma Gale 79); 80 and up
 # = empty slot. Checked on all 15 units of a save (Manuela: Wrath Strike, Grounder, Hexblade; Lysithea: Draw Back only).
 _ARTS = 0x84
@@ -110,7 +120,11 @@ _VICTORIES = 0x28
 # top of its inventory, 0xFFFF if it has nothing to fight with.
 _EQUIPPED = 0x2E
 EQUIPPED_WEAPON = 1
+# The slot's flags (u32 at _FLAGS), as hashcade/feth-save-editor's enmCharacterFlags names them: bit 0 "Is Available"
+# and bit 1 "Has Joined" (IN_ARMY: both set on every unit in the army), bit 3 "Is Dead". The dead bit isn't confirmed
+# live yet: no permadeath has been read with it.
 IN_ARMY = 0x03
+DEAD = 0x08
 
 # Battle copies have the slot layout (up to the flags) and sit this far after this marker.
 BATTLE_MARKER = b"\x04\x03\x00\x00\x00\x00\x00\x00\x00"
@@ -120,6 +134,7 @@ BATTLE_COPY_READ = GAMBIT_USES + 1
 BATTLE_SCANS = 3
 BATTLE_RESCAN_S = 10.0
 NO_SCENARIO = 0xFF  # the scenario id outside a battle (seen at the title screen)
+QUESTS = 151  # the quest table's rows; the battle's quest field reads this (or more) when the battle is not for a quest
 
 STAT_ORDER = ("str", "mag", "dex", "spd", "lck", "def", "res", "mv", "cha")
 EMPTY_SLOT = 0xFFFF
@@ -152,6 +167,13 @@ class RosterUnit:
     # The assigned battalion's cumulative experience and endurance left (None with no battalion).
     battalion_exp: int | None = None
     battalion_endurance: int | None = None
+    mastered_classes: tuple[int, ...] = ()  # IDs of the classes it has mastered
+
+
+def decode_mastered_classes(record: bytes) -> tuple[int, ...]:
+    """The IDs of the classes a roster slot has mastered; a truncated slot yields none."""
+    flags = record[_CLASS_MASTERED : _CLASS_MASTERED + CLASS_COUNT]
+    return tuple(class_id for class_id, flag in enumerate(flags) if flag == 1)
 
 
 def decode_roster(data: bytes) -> list[RosterUnit]:
@@ -182,9 +204,21 @@ def decode_roster(data: bytes) -> list[RosterUnit]:
                 decode_skill_progress(s),
                 battalion_exp,
                 battalion_endurance,
+                decode_mastered_classes(s),
             )
         )
     return units
+
+
+def decode_dead(data: bytes) -> tuple[int, ...]:
+    """Character IDs of the slots the game marks dead (Classic mode), whether or not they still count as in the army."""
+    dead = []
+    for i in range(min(SLOTS, len(data) // SLOT_SIZE)):
+        s = data[i * SLOT_SIZE : (i + 1) * SLOT_SIZE]
+        character = struct.unpack_from("<H", s, _CHARACTER)[0]
+        if character != EMPTY_SLOT and struct.unpack_from("<I", s, _FLAGS)[0] & DEAD:
+            dead.append(character)
+    return tuple(dead)
 
 
 def decode_battalion(record: bytes, owned: bool = True) -> tuple[int | None, int | None, int | None]:
@@ -346,6 +380,10 @@ class GameMemory:
         self._counters: bytes | None = None
         self._scans_left = 0
         self._scan_at = 0.0
+        # Where each character's copy was last found: the game tends to put a new battle's copies in the same
+        # places, so these are checked first (a few small reads) and the full heap scan runs in the background.
+        self._hints: dict[int, int] = {}
+        self._generation = 0  # changes when the battle or the connection does, to drop a stale background scan
         # The battle history (battle_history): where Switch memory starts in Eden's, the pool slot of index 0, and
         # entries already decoded (with their raw bytes), by address and header, and the raw entries of the last
         # complete read in history order, for the battle recorder.
@@ -360,7 +398,8 @@ class GameMemory:
         if self._process is not None:
             self._process.close()
         self._process, self._main, self.version, self.emulator = None, 0, None, None
-        self._copies, self._counters = {}, None
+        self._copies, self._counters, self._hints = {}, None, {}
+        self._generation += 1
         self._arena, self._pool_start, self._history, self._history_raw = None, None, {}, []
 
     def read(self, battle: bool = True) -> Snapshot:
@@ -389,12 +428,19 @@ class GameMemory:
         counters = b"".join(roster[i * SLOT_SIZE + _BATTLES : i * SLOT_SIZE + _BATTLES + 2] for i in range(SLOTS))
         if counters != self._counters:  # first read, a battle started, or a save was loaded
             self._counters, self._copies = counters, {}
+            self._generation += 1
             self._scans_left, self._scan_at = BATTLE_SCANS, 0.0
             self._pool_start, self._history, self._history_raw = None, {}, []
         if not self._copies and self._scans_left and time.monotonic() >= self._scan_at:
             self._scans_left -= 1
             self._scan_at = time.monotonic() + BATTLE_RESCAN_S
-            self._copies = self._find_battle_copies(roster)
+            hinted = self._hinted_copies(roster)
+            if hinted:  # no wait: use where they were last time now, and let the full scan correct it
+                self._copies = hinted
+                self._scan_in_background(roster)
+            else:
+                self._copies = self._find_battle_copies(roster)
+                self._hints = dict(self._copies) or self._hints
         copies = {}
         for character, address in list(self._copies.items()):
             data = self._process.read(address, BATTLE_COPY_READ) if self._process else None
@@ -440,7 +486,7 @@ class GameMemory:
         from .battle import fields
 
         f = fields()
-        out: dict[str, int | None] = {"turn": None, "divine_pulse_charges": None, "scenario": None, "map": None, "cursor_x": None, "cursor_y": None}
+        out: dict[str, int | None] = {"turn": None, "divine_pulse_charges": None, "scenario": None, "map": None, "quest": None, "cursor_x": None, "cursor_y": None}
         if self._process is None or not self._copies:
             return out
         base = self._main + self.GLOBALS[0]
@@ -453,6 +499,8 @@ class GameMemory:
             out["scenario"] = scenario if scenario < NO_SCENARIO else None
         if f.map is not None and (data := self._process.read(base + f.map, 2)):
             out["map"] = struct.unpack("<H", data)[0]
+        if f.quest is not None and (data := self._process.read(base + f.quest, 1)):
+            out["quest"] = data[0] if data[0] < QUESTS else None
         for name in ("cursor_x", "cursor_y"):
             if (at := getattr(f, name)) is not None and (data := self._process.read(base + at, 4)):
                 out[name] = struct.unpack("<i", data)[0]
@@ -595,6 +643,35 @@ class GameMemory:
             "roster": roster or b"",
             "history": pack_history(self._history_raw),
         }
+
+    def _hinted_copies(self, roster: bytes) -> dict[int, int]:
+        """The copies still where they were last found (the same checks as the scan, a few small reads)."""
+        found = {}
+        for i in range(SLOTS):
+            slot = roster[i * SLOT_SIZE : (i + 1) * SLOT_SIZE]
+            character = struct.unpack_from("<H", slot, _CHARACTER)[0]
+            address = self._hints.get(character)
+            if address is None or slot[_FLAGS] & IN_ARMY != IN_ARMY or self._process is None:
+                continue
+            copy = self._process.read(address, BATTLE_COPY_READ)
+            if copy and is_live_copy(slot, copy):
+                found[character] = address
+        return found
+
+    def _scan_in_background(self, roster: bytes) -> None:
+        generation = self._generation
+
+        def run() -> None:
+            try:
+                found = self._find_battle_copies(roster)
+            except Exception:  # the connection went away mid-scan: the next battle looks again
+                log.debug("Background battle scan failed", exc_info=True)
+                return
+            if found and generation == self._generation:
+                self._copies = found
+                self._hints = dict(found)
+
+        threading.Thread(target=run, name="battle-scan", daemon=True).start()
 
     def _find_battle_copies(self, roster: bytes) -> dict[int, int]:
         """Host address of each army unit's live battle copy (none outside a battle)."""

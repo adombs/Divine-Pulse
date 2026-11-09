@@ -55,6 +55,7 @@ class BattleFields:
     divine_pulse_charges: int | None = None  # u8 in the global data
     scenario: int | None = None  # u16 in the global data: which battle this is (app/data/scenarios.json)
     map: int | None = None  # u16 in the global data: which map the battle is on (the import's data/maps.json)
+    quest: int | None = None  # u8 in the global data: the quest this battle is for (its row in the quest table); 151 for none
     cursor_x: int | None = None  # i32 each in the global data: the tile the map cursor is on
     cursor_y: int | None = None
 
@@ -79,6 +80,7 @@ class BattleFields:
             divine_pulse_charges=offset(globals_.get("divine_pulse_charges")),
             scenario=offset(globals_.get("scenario")),
             map=offset(globals_.get("map")),
+            quest=offset(globals_.get("quest")),
             cursor_x=offset(globals_.get("cursor_x")),
             cursor_y=offset(globals_.get("cursor_y")),
         )
@@ -118,6 +120,11 @@ POOL_INDEX = 0xF0
 # (the game's history keeps it as this + 1). Seen live (Oil and Water): 0 on every army unit, 1 on every bandit.
 TEAM = 0xF1
 ATTACHED_TO = 0x100
+# The allegiance of the unit's character (u8, an ID of data/factions.json: 0 Church of Seiros, 1 Adrestian Empire, 3
+# Leicester Alliance, 9 Thieves, 11 Rogues, 18 Bandits...), the same value as the persondata table. Checked in
+# 3 recordings of a Verdant Wind run (16 characters): every unit's byte matched its persondata allegiance and none
+# changed during a battle. Byleth's is 0 (the Church) whatever house the run chose.
+ALLEGIANCE = 0x109
 SPELL_USES = 0x94
 SPELL_SLOTS = 12  # seen live: a 12th slot (+0x9E) dropped when Lysithea cast
 # The spell in each of those slots (u8 spell ID, as in data/spells.json; NO_SPELL = empty). Seen: Lysithea's
@@ -170,7 +177,7 @@ def decode_record(data: bytes, offset: int, army_ids: set[int], located: BattleF
         abilities=abilities, spells=spell_ids,
         acted=bool(flags & ACTED_BIT) if flags is not None else None,
         off_map=off_map,
-        pool_index=at(POOL_INDEX), attached_to=at(ATTACHED_TO), team=at(TEAM), flags=flags,
+        pool_index=at(POOL_INDEX), attached_to=at(ATTACHED_TO), team=at(TEAM), allegiance=at(ALLEGIANCE), flags=flags,
         equipped=struct.unpack_from("<H", data, offset + _EQUIPPED)[0],
         item_slot_0=pairs[0] if pairs[0] != 0xFFFF else None,
         battalion=battalion, battalion_exp=battalion_exp, battalion_endurance=battalion_endurance,

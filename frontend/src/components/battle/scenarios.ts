@@ -1,22 +1,44 @@
 /**
- * What each battle is, by the game's scenario id (backend/app/data/scenarios.json has the names): main battle,
- * paralogue, auxiliary battle or Cindered Shadows, its chapter, and where it's fought. Part II chapters differ by route,
+ * What each battle is, by the game's scenario id (the game's scenario_title text has the names): one of five kinds
+ * (Mission, Auxiliary, Paralogue, Quest or DLC battle), its chapter, and where it's fought. Part II chapters differ by route,
  * worked out from the house leader in the battle. Places are left out where they aren't known for sure.
  */
 import scenarioData from "../../../../backend/app/data/scenario_routes.json";
+import questData from "../../../../backend/app/data/quest_battles.json";
 import { loadGameText } from "../../gameAssets";
 import { gameLanguage } from "../../gameLanguage";
 import type { Battle } from "../../api";
 
-export type Kind = "main" | "paralogue" | "auxiliary" | "dlc";
+/** The five kinds of battle, in the order filters and counts list them. The game itself names the first four ("Mission,
+ * Auxiliary, Paralogue, and Quest battles"); DLC is the extra auxiliary battles (81-85) and Cindered Shadows (86-92). */
+export type Kind = "mission" | "auxiliary" | "paralogue" | "quest" | "dlc";
 export type Route = "cf" | "am" | "vw" | "ss";
 
+/** A kind on a tag or chip, singular. */
 export const KIND_LABEL: Record<Kind, string> = {
-  main: "Main battle",
-  paralogue: "Paralogue",
-  auxiliary: "Auxiliary battle",
-  dlc: "Cindered Shadows",
+  mission: "Mission Battle",
+  auxiliary: "Auxiliary Battle",
+  paralogue: "Paralogue Battle",
+  quest: "Quest Battle",
+  dlc: "DLC Battle",
 };
+/** A kind in a filter or a count, plural. */
+export const KIND_PLURAL: Record<Kind, string> = {
+  mission: "Mission Battles",
+  auxiliary: "Auxiliary Battles",
+  paralogue: "Paralogue Battles",
+  quest: "Quest Battles",
+  dlc: "DLC Battles",
+};
+export const KINDS = Object.keys(KIND_LABEL) as Kind[];
+
+/**
+ * Quest Battles. A quest battle runs on an ordinary auxiliary scenario and map, so its scenario id can't tell it
+ * apart; the game's memory names the quest instead (`Battle.quest`, its row in the quest table). These are the quests
+ * of that table that have a battle (backend/app/data/quest_battles.json); the quest's name is the battle's title.
+ */
+const QUEST_BATTLES: ReadonlySet<number> = new Set(questData.quests);
+const isQuestBattle = (battle: Battle) => battle.quest != null && QUEST_BATTLES.has(battle.quest);
 
 interface Scenario {
   kind: Kind;
@@ -25,6 +47,7 @@ interface Scenario {
 }
 
 let titles: Record<string, string> = {};
+let questTitles: Record<string, string> = {};
 let places: Record<string, string> = {};
 const PLACE_TEXT: Record<number, number> = {
   ...Object.fromEntries(Array.from({ length: 17 }, (_, id) => [id, id])),
@@ -37,30 +60,40 @@ const PLACE_NAME: Record<number, string> = {
   52: "Lake Teutates", 81: "Lake Teutates", 77: "Rhodos Coast", 86: "Abyss", 87: "Abyss", 88: "Abyss", 89: "Abyss", 91: "Abyss",
 };
 export async function loadScenarioText() {
-  [titles, places] = await Promise.all([loadGameText("scenario_title", gameLanguage()), loadGameText("battle_place", gameLanguage())]);
+  [titles, places, questTitles] = await Promise.all([
+    loadGameText("scenario_title", gameLanguage()), loadGameText("battle_place", gameLanguage()),
+    // Imported before quest names were read: a quest battle is then titled by its map until the game files are imported again.
+    loadGameText("quest_title", gameLanguage()).catch(() => ({})),
+  ]);
 }
-const main = (chapter: Scenario["chapter"]): Scenario => ({ kind: "main", chapter });
-const MERCEUS = main({ ss: 17, vw: 18, am: 20 });
+const mission = (chapter: Scenario["chapter"]): Scenario => ({ kind: "mission", chapter });
+const MERCEUS = mission({ ss: 17, vw: 18, am: 20 });
 
 const SCENARIOS: Record<number, Scenario> = {
-  0: main(0), 1: main(1), 2: main(2), 3: main(3), 4: main(4), 5: main(5),
-  6: main(6), 7: main(7), 8: main(8), 9: main(9), 10: main(10), 11: main(11),
-  12: main(12), 13: main(13), 14: main(14), 15: main(15), 16: main(16), 17: main(17), 18: main(17),
+  0: mission(0), 1: mission(1), 2: mission(2), 3: mission(3), 4: mission(4), 5: mission(5),
+  6: mission(6), 7: mission(7), 8: mission(8), 9: mission(9), 10: mission(10), 11: mission(11),
+  12: mission(12), 13: mission(13), 14: mission(14), 15: mission(15), 16: mission(16), 17: mission(17), 18: mission(17),
   19: MERCEUS,
   20: MERCEUS,
-  21: main(18), 22: main({ ss: 18, vw: 19 }), 23: main(19), 24: main({ ss: 19, vw: 20 }),
+  21: mission(18), 22: mission({ ss: 18, vw: 19 }), 23: mission(19), 24: mission({ ss: 19, vw: 20 }),
   25: MERCEUS,
-  26: main({ ss: 20, vw: 21 }), 27: main(21), 28: main(21),
-  29: main(22),
-  30: main(22), 31: main(12), 32: main(13), 33: main(14), 34: main(15), 35: main(16), 36: main(17), 37: main(18),
+  26: mission({ ss: 20, vw: 21 }), 27: mission(21), 28: mission(21),
+  29: mission(22),
+  30: mission(22), 31: mission(12), 32: mission(13), 33: mission(14), 34: mission(15), 35: mission(16), 36: mission(17), 37: mission(18),
   86: { kind: "dlc", chapter: 1 }, 87: { kind: "dlc", chapter: 2 }, 88: { kind: "dlc", chapter: 3 },
   89: { kind: "dlc", chapter: 4 }, 90: { kind: "dlc", chapter: 5 }, 91: { kind: "dlc", chapter: 6 }, 92: { kind: "dlc", chapter: 7 },
 };
 
+/** Which kind of battle a scenario id is, null when it isn't one the app knows. */
+export function kindOfScenario(id: number): Kind | null {
+  return scenario(id)?.kind ?? null;
+}
+
 function scenario(id: number): Scenario | null {
   if (SCENARIOS[id]) return SCENARIOS[id];
   if ((id >= 38 && id <= 60) || id === 93 || id === 94 || id === 97) return { kind: "paralogue" };
-  if (id >= 61 && id <= 85) return { kind: "auxiliary" };
+  if (id >= 61 && id <= 80) return { kind: "auxiliary" };
+  if (id >= 81 && id <= 85) return { kind: "dlc" };
   return null;
 }
 
@@ -97,13 +130,14 @@ export interface BattleName {
 }
 
 export function battleName(battle: Battle): BattleName {
-  const name = battle.map_name || titles[String(battle.scenario)] || "";
+  const quest = isQuestBattle(battle);
+  const name = (quest ? questTitles[String(battle.quest)] : "") || battle.map_name || titles[String(battle.scenario)] || "";
   const s = battle.scenario !== null && battle.scenario !== undefined ? scenario(battle.scenario) : null;
-  const prefix = chapterPrefix(s, () => routeOf(battle));
+  const prefix = quest ? "" : chapterPrefix(s, () => routeOf(battle));
   const title = name ? (prefix ? `${prefix}: ${name}` : name) : prefix || "Battle";
   const id = battle.scenario;
   const place = id == null ? null : PLACE_NAME[id] ?? places[String(PLACE_TEXT[id])] ?? null;
-  return { title, name, kind: s?.kind ?? null, place };
+  return { title, name, kind: quest ? "quest" : s?.kind ?? null, place };
 }
 
 /** "Prologue", "Chapter 7" or "" (not a chapter); a chapter that differs by route asks for the route only then. */

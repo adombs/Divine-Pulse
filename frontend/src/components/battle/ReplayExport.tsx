@@ -1,0 +1,751 @@
+/**
+ * Export a battle's replay as an MP4 video (the battle page's header, beside Copy Summary). A window previews the video
+ * as it will be: a title strip, the map with the turn in its corner (no legend), and the log as a list beside it
+ * (landscape) or under it (portrait), the log showing what has happened up to the step on the map. Beside the preview:
+ * the orientation, the turns to cover, the replay's own speed, camera and zoom (the map's controls), the battle theme
+ * to play under it (music.ts), and the video's resolution, frame rate and quality.
+ *
+ * The preview and the video run on one clock (ms into the video): each moment poses the replay (`useReplay`'s manual
+ * mode) at a beat and how far into it, and the camera is worked out from the same moment, so the video is the preview
+ * frame for frame. Exporting draws each frame of the preview (snapshot.ts) and encodes it (video.ts).
+ */
+import { CONCEPT_ICON } from "../../icons/concepts";
+import "./replay-export.css";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
+import type { Battle, RunRoute } from "../../api";
+import { clock } from "../../format";
+import { Icon, IconButton } from "../Icon";
+import { Modal } from "../Modal";
+import { ExportActions, type ExportStatus } from "../ExportActions";
+import { NotchedRange } from "../Slider";
+import { CardBanner, RunIcon, Segmented } from "../ui";
+import { StepSlider } from "../Slider";
+import { snapshotter, type Layer } from "../../exporting/snapshot";
+import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
+import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
+import { defaultTheme, loadMusic, previewTheme, recording, soundtrack, THEME_GROUPS, type Music, type Theme, type Version } from "../../exporting/music";
+import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
+import { chronicle, type Chronicle } from "./chronicle";
+import { hasMap } from "./map";
+import { Minimap, type Zoom } from "./Minimap";
+import { ItemList, useBattleNav } from "./parts";
+import { beatDurations, beatFocus, beatOf, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
+import { battleName, KIND_LABEL } from "./scenarios";
+
+type Orientation = "landscape" | "portrait";
+
+/** The video's frame in CSS pixels; it is drawn at a resolution's scale times that (1.5: 1920 × 1080). */
+const STAGE: Record<Orientation, [number, number]> = { landscape: [1280, 720], portrait: [720, 1280] };
+/** The resolutions offered, by their short side, and the scale each draws the frame at. */
+const RESOLUTIONS: [number, string, number][] = [
+  [720, "720p HD", 1],
+  [1080, "1080p Full HD", 1.5],
+  [1440, "1440p Quad HD", 2],
+  [2160, "4K Ultra HD", 3],
+];
+const QUALITIES: [VideoQuality, string][] = [["standard", "Standard (smaller file)"], ["high", "High"], ["best", "Best (bigger file)"]];
+/** The last step stays on screen this long at the end of the video (ms). */
+const END_HOLD_MS = 2000;
+/** How long a dynamic camera takes to glide to the next step's action (ms), as on the battle map. */
+const CAMERA_MS = 280;
+
+const ORIENTATION_KEY = "divine-pulse-export-orientation";
+const OPTIONS_KEY = "divine-pulse-export-video";
+
+/** The video's own options, remembered between exports. */
+interface VideoOptions {
+  resolution: number;
+  fps: 30 | 60;
+  quality: VideoQuality;
+  /** Which version of the battle theme plays under the video. */
+  version: Version;
+  /** The music's volume: a whole number of percent, 0 to 100. */
+  volume: number;
+}
+const DEFAULT_OPTIONS: VideoOptions = { resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75 };
+
+function loadOptions(): VideoOptions {
+  try {
+    const saved = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? "{}") as Partial<VideoOptions>;
+    return {
+      resolution: RESOLUTIONS.some(([r]) => r === saved.resolution) ? saved.resolution! : DEFAULT_OPTIONS.resolution,
+      fps: saved.fps === 60 ? 60 : 30,
+      quality: QUALITIES.some(([q]) => q === saved.quality) ? saved.quality! : DEFAULT_OPTIONS.quality,
+      version: saved.version === "thunder" ? "thunder" : "rain",
+      volume: Number.isInteger(saved.volume) && saved.volume! >= 0 && saved.volume! <= 100 ? saved.volume! : DEFAULT_OPTIONS.volume,
+    };
+  } catch {
+    return DEFAULT_OPTIONS;
+  }
+}
+
+/** A video frame's two layers (snapshot.ts `Layer`). The chrome: the title, the log and the map's frame, without the
+ * map or anything over it. The map: the map with its turn banner and rewind badge, over a see-through frame. */
+const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap"], remove: [".replay-banner", ".rewind-badge"] };
+const MAP_LAYER: Layer = {
+  hide: [".replay-stage-title", ".replay-stage-log"],
+  styles: "map",
+  css: ".replay-stage { background: none !important; box-shadow: none !important; }",
+};
+
+function loadOrientation(): Orientation {
+  try {
+    return localStorage.getItem(ORIENTATION_KEY) === "portrait" ? "portrait" : "landscape";
+  } catch {
+    return "landscape";
+  }
+}
+
+/** Whether a battle has a replay to export, and if not, why. */
+export function replayExportBlocker(battle: Battle, chron: Chronicle): string | null {
+  if (!hasMap(battle)) return "No positions were read for this battle, so there's no map to replay";
+  if (!chron.beats.length) return "This battle has no steps to replay";
+  return null;
+}
+
+/** The header button: opens the export window. */
+export function ReplayExportButton({ battle, route }: { battle: Battle; route?: RunRoute | null }) {
+  const [open, setOpen] = useState(false);
+  const chron = useMemo(() => chronicle(battle), [battle]);
+  const blocker = replayExportBlocker(battle, chron);
+  return (
+    <>
+      <button
+        type="button"
+        className="btn small"
+        onClick={() => setOpen(true)}
+        disabled={!!blocker}
+        title={blocker ?? "Save the replay as an MP4 video, to share"}
+      >
+        <Icon name={CONCEPT_ICON.share} /> Export Video
+      </button>
+      {open && <ReplayExportDialog battle={battle} chron={chron} route={route ?? null} onClose={() => setOpen(false)} />}
+    </>
+  );
+}
+
+/** The frame's padding, the gap between its parts, the title strip's height (a line taller in portrait), the map
+ * frame's own padding and border, and the least room the log keeps (px). */
+const PAD = 16;
+const GAP = 12;
+const TITLE_H: Record<Orientation, number> = { landscape: 46, portrait: 76 };
+const MAP_FRAME = 14;
+const LOG_MIN: Record<Orientation, number> = { landscape: 380, portrait: 360 };
+
+/** The most room the map can have: the whole height (landscape) or width (portrait) and all but the log's least. */
+function mapRoom(orientation: Orientation): [number, number] {
+  const [width, height] = STAGE[orientation];
+  const innerW = width - 2 * PAD;
+  const innerH = height - 2 * PAD - TITLE_H[orientation] - GAP;
+  return orientation === "landscape"
+    ? [innerW - GAP - LOG_MIN.landscape - MAP_FRAME, innerH - MAP_FRAME]
+    : [innerW - MAP_FRAME, innerH - GAP - LOG_MIN.portrait - MAP_FRAME];
+}
+
+/**
+ * The camera's view in tiles at a zoom level: the whole map zoomed out; zoomed in, `tiles` along the map's short side
+ * of the frame and as many along the long side as the room there holds, so the map fills all the room it can.
+ */
+function viewSize(orientation: Orientation, tiles: number, board: { w: number; h: number }): [number, number] {
+  if (!tiles) return [board.w + 0.3, board.h + 0.3];
+  const [w, h] = mapRoom(orientation);
+  const across = orientation === "landscape" ? tiles * (w / h) : tiles;
+  const down = orientation === "landscape" ? tiles : tiles * (h / w);
+  return [Math.min(across, board.w), Math.min(down, board.h)];
+}
+
+/** The view `size` tiles big centred on (cx, cy), kept inside the map (null: the whole map is in view). */
+function viewAround([cx, cy]: [number, number], [w, h]: [number, number], board: { w: number; h: number }): Zoom | null {
+  if (w >= board.w && h >= board.h) return null;
+  const clamp = (v: number, hi: number) => Math.max(0, Math.min(hi, v));
+  return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
+}
+
+/**
+ * The rows and columns of a frame: the title strip across the top, then the map on the left and the log beside it
+ * (landscape), or the map and the log under it (portrait). The map gets what its view's shape needs (`aspect`, its
+ * width over its height) of the room `mapRoom` allows; the log, the rest.
+ */
+function stageLayout(orientation: Orientation, aspect: number): { columns: string; rows: string } {
+  const [w, h] = mapRoom(orientation);
+  if (orientation === "landscape") {
+    const mapW = Math.round(Math.min(h * aspect, w) + MAP_FRAME);
+    return { columns: `${mapW}px minmax(0, 1fr)`, rows: `${TITLE_H.landscape}px minmax(0, 1fr)` };
+  }
+  const mapH = Math.round(Math.min(w / aspect, h) + MAP_FRAME);
+  return { columns: "minmax(0, 1fr)", rows: `${TITLE_H.portrait}px ${mapH}px minmax(0, 1fr)` };
+}
+
+/** Where the video stands: a beat, and how far into it (ms). */
+interface Moment {
+  beat: number;
+  elapsed: number;
+}
+
+/** The middle of the tiles a camera follows (the map's middle when there are none), as useMapCamera centres them. */
+function centre(follow: [number, number][], w: number, h: number): [number, number] {
+  if (!follow.length) return [w / 2, h / 2];
+  const xs = follow.map(([x]) => x + 0.5);
+  const ys = follow.map(([, y]) => y + 0.5);
+  return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+}
+
+const easeOut = (k: number) => 1 - (1 - Math.max(0, Math.min(1, k))) ** 3;
+
+function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle; chron: Chronicle; route: RunRoute | null; onClose: () => void }) {
+  const nav = useBattleNav();
+  const [options, setOptionsState] = useState<VideoOptions>(loadOptions);
+  const setOption = <K extends keyof VideoOptions>(key: K, value: VideoOptions[K]) => setOptionsState((o) => {
+    const next = { ...o, [key]: value };
+    try {
+      localStorage.setItem(OPTIONS_KEY, JSON.stringify(next));
+    } catch {
+      // Not kept; fine.
+    }
+    return next;
+  });
+  const scale = RESOLUTIONS.find(([r]) => r === options.resolution)?.[2] ?? 1.5;
+  const fps = options.fps;
+  // The battle themes (imported with the game files), and the one to play: the battle's own to begin with.
+  const [music, setMusic] = useState<Music | null | undefined>(undefined);
+  const [themeId, setThemeId] = useState<string>("");
+  const [previewing, setPreviewing] = useState(false);
+  useEffect(() => {
+    let live = true;
+    void loadMusic().then((m) => {
+      if (!live) return;
+      setMusic(m);
+      if (m) setThemeId(defaultTheme(m, battle.scenario).id);
+    });
+    return () => {
+      live = false;
+      previewTheme(null);
+    };
+  }, [battle.scenario]);
+  const theme = music?.themes.find((m) => m.id === themeId) ?? null;
+  // Thunder needs the game files imported again (older imports only have Rain); the toggle says so when it can't be used.
+  const thunderNote = !music?.themes.some((m) => m.thunder)
+    ? "Thunder isn't imported yet. Re-import your game files (Settings > Game files) to add it."
+    : theme && !theme.thunder ? "This theme has no Thunder version in your game files." : null;
+  /** The version a theme plays in: the chosen one, where the theme has it. */
+  const versionOf = (m: Theme): Version => (options.version === "thunder" && m.thunder ? "thunder" : "rain");
+  const version: Version = theme ? versionOf(theme) : "rain";
+  const track = theme ? recording(theme, version) : null;
+  const volume = options.volume / 100;
+  const [orientation, setOrientationState] = useState<Orientation>(loadOrientation);
+  const setOrientation = (o: Orientation) => {
+    setOrientationState(o);
+    try {
+      localStorage.setItem(ORIENTATION_KEY, o);
+    } catch {
+      // Not kept; fine.
+    }
+  };
+  const [speed, setSpeed] = useState(() => nav.replaySpeed ?? 1);
+  const [mode, setModeState] = useState<CameraMode>("dynamic");
+  const [level, setLevel] = useState(DEFAULT_ZOOM);
+  // Where a static camera looks (the middle of its view, in tiles).
+  const [still, setStill] = useState<[number, number] | null>(null);
+
+  // The turns to cover: from the first step of `from` to the last of `to`.
+  const turns = useMemo(() => [...new Set(chron.beats.map((b) => b.step.turn))].sort((a, b) => a - b), [chron.beats]);
+  const [from, setFrom] = useState(turns[0] ?? 1);
+  const [to, setTo] = useState(turns[turns.length - 1] ?? 1);
+  const first = Math.max(0, chron.beats.findIndex((b) => b.step.turn >= from));
+  const lastIndex = chron.beats.length - 1 - [...chron.beats].reverse().findIndex((b) => b.step.turn <= to);
+  const last = Math.max(first, Math.min(chron.beats.length - 1, lastIndex));
+
+  const replay = useReplay(battle, chron, { speed, manual: true });
+  const durations = useMemo(() => beatDurations(battle, chron, speed), [battle, chron, speed]);
+  const focus = useMemo(() => beatFocus(battle, chron), [battle, chron]);
+  // When each beat in the range starts (ms into the video), and how long the video is.
+  const { starts, total } = useMemo(() => {
+    const out: number[] = [];
+    let t = 0;
+    for (let i = first; i <= last; i++) {
+      out.push(t);
+      t += durations[i];
+    }
+    return { starts: out, total: t + END_HOLD_MS };
+  }, [durations, first, last]);
+
+  const momentAt = (ms: number): Moment => {
+    let lo = 0;
+    let hi = starts.length - 1;
+    while (lo < hi) {
+      const mid = (lo + hi + 1) >> 1;
+      if (starts[mid] <= ms) lo = mid;
+      else hi = mid - 1;
+    }
+    const beat = first + lo;
+    return { beat, elapsed: Math.min(durations[beat], ms - starts[lo]) };
+  };
+
+  // The clock: ms into the video, played in the preview (looping) or stepped through frame by frame to export.
+  const [t, setT] = useState(0);
+  const [moment, setMoment] = useState<Moment>({ beat: first, elapsed: 0 });
+  const [playing, setPlaying] = useState(true);
+  const [status, setStatus] = useState<ExportStatus>({ kind: "idle" });
+  const working = status.kind === "working";
+  const seekTo = (ms: number) => {
+    const m = momentAt(Math.max(0, Math.min(total, ms)));
+    setT(Math.max(0, Math.min(total, ms)));
+    setMoment(m);
+    replay.pose(m.beat, m.elapsed);
+  };
+  const seekRef = useRef(seekTo);
+  seekRef.current = seekTo;
+
+  // A new range or speed starts the preview over.
+  useEffect(() => {
+    seekRef.current(0);
+  }, [first, last, speed]);
+
+  useEffect(() => {
+    if (!playing || working) return;
+    let frame = 0;
+    let before = performance.now();
+    let at = t;
+    const tick = (now: number) => {
+      at += now - before;
+      before = now;
+      if (at >= total) at = 0;
+      seekRef.current(at);
+      frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+    // Restarted only when playing starts or stops, or the video's length changes; `t` is where it starts from.
+  }, [playing, working, total]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // The camera, from the moment alone: a dynamic one glides from the last step's action to this one's.
+  const { board } = replay;
+  const size = viewSize(orientation, ZOOM_TILES[level], board);
+  const viewOf = (c: [number, number]): Zoom => viewAround(c, size, board) ?? { x0: 0, y0: 0, w: board.w, h: board.h };
+  const dynamicCentre = (m: Moment): [number, number] => {
+    const to = viewOf(centre(focus[m.beat] ?? [], board.w, board.h));
+    if (m.beat <= first) return [to.x0 + to.w / 2, to.y0 + to.h / 2];
+    const from = viewOf(centre(focus[m.beat - 1] ?? [], board.w, board.h));
+    const k = easeOut(m.elapsed / Math.min(CAMERA_MS, durations[m.beat] || CAMERA_MS));
+    return [from.x0 + from.w / 2 + (to.x0 - from.x0) * k, from.y0 + from.h / 2 + (to.y0 - from.y0) * k];
+  };
+  const looking = mode === "static" ? still ?? [board.w / 2, board.h / 2] : dynamicCentre(moment);
+  const zoom = viewAround(looking, size, board);
+
+  const setMode = (m: CameraMode) => {
+    // Static holds where the camera is now.
+    if (m === "static") setStill(zoom ? [zoom.x0 + zoom.w / 2, zoom.y0 + zoom.h / 2] : [board.w / 2, board.h / 2]);
+    setModeState(m);
+  };
+  /** The wheel steps the zoom around the tile under the pointer (a static camera keeps that tile where it is). */
+  const onWheelAt = (x: number, y: number, deltaY: number) => {
+    if (working) return;
+    const next = Math.max(0, Math.min(ZOOM_TILES.length - 1, level + (deltaY < 0 ? 1 : -1)));
+    if (next === level) return;
+    if (mode === "static") {
+      const fromView = zoom ?? { x0: 0, y0: 0, w: board.w, h: board.h };
+      const toView = viewAround(looking, viewSize(orientation, ZOOM_TILES[next], board), board) ?? { x0: 0, y0: 0, w: board.w, h: board.h };
+      const nx0 = x - ((x - fromView.x0) * toView.w) / fromView.w;
+      const ny0 = y - ((y - fromView.y0) * toView.h) / fromView.h;
+      setStill([nx0 + toView.w / 2, ny0 + toView.h / 2]);
+    }
+    setLevel(next);
+  };
+  /** Dragging places the camera, which then stays there. */
+  const onDrag = (dx: number, dy: number) => {
+    if (working || !zoom) return;
+    setStill([zoom.x0 + zoom.w / 2 + dx, zoom.y0 + zoom.h / 2 + dy]);
+    if (mode !== "static") setModeState("static");
+  };
+
+  const [width, height] = STAGE[orientation];
+  // The camera's view keeps one shape at a zoom level (the whole map's, zoomed out), so the frame is laid out for it.
+  const layout = stageLayout(orientation, size[0] / size[1]);
+  const stage = useRef<HTMLDivElement>(null);
+  const abort = useRef<AbortController | null>(null);
+  useEffect(() => () => abort.current?.abort(), []);
+  const name = battleName(battle);
+
+  const exportVideo = async () => {
+    const out = [Math.round(width * scale), Math.round(height * scale)] as const;
+    if (!(await canEncode(out[0], out[1], fps))) {
+      setStatus({ kind: "error", message: `This window can't encode MP4 video at ${out[0]} × ${out[1]}${fps === 60 ? " and 60 frames a second" : ""}. Try a lower resolution, or update Microsoft Edge WebView2.` });
+      return;
+    }
+    previewTheme(null);
+    setPreviewing(false);
+    const controller = new AbortController();
+    abort.current = controller;
+    setPlaying(false);
+    const frames = Math.ceil((total / 1000) * fps);
+    setStatus({ kind: "working", done: 0, total: frames, label: theme ? "Preparing the music" : "Making the video" });
+    // Each layer is loaded into one image element over and over (snapshot.ts `image`), so no decoded frame is left behind.
+    const chromeImg = new Image();
+    const mapImg = new Image();
+    try {
+      const audio = track && options.volume > 0 ? await soundtrack(track, frames / fps, volume) : null;
+      const snap = await snapshotter();
+      // A frame in two layers: the title and the log (with the map's frame) change once a step, so they're drawn once a
+      // step; the map (with its turn banner) is drawn each frame on its own, with only the styles it needs.
+      let chrome: { beat: number; img: HTMLImageElement } | null = null;
+      let map: { doc: string; img: HTMLImageElement } | null = null;
+      const video = await encodeVideo({
+        width: out[0],
+        height: out[1],
+        fps,
+        frames,
+        quality: options.quality,
+        audio,
+        signal: controller.signal,
+        onProgress: (done) => {
+          if (done % 6 === 0 || done === frames) setStatus({ kind: "working", done, total: frames, label: "Making the video" });
+        },
+        draw: async (i, g) => {
+          const ms = (i * 1000) / fps;
+          flushSync(() => seekRef.current(ms));
+          const el = stage.current;
+          if (!el) throw new Cancelled();
+          const beat = momentAt(Math.min(total, ms)).beat;
+          const newChrome = chrome?.beat !== beat;
+          if (newChrome) chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
+          const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
+          const newMap = map?.doc !== doc;
+          if (newMap) map = { doc, img: await snap.image(doc, mapImg) };
+          if (!newChrome && !newMap) return; // a held frame: the canvas still has it
+          g.drawImage(chrome!.img, 0, 0, out[0], out[1]);
+          g.drawImage(map!.img, 0, 0, out[0], out[1]);
+        },
+      });
+      try {
+        const saved = await saveFiles("mp4", [{ name: `${safeFilename(name.title)} replay.mp4`, blob: video.blob }]);
+        setStatus(saved ? { kind: "saved", where: saved } : { kind: "idle" });
+      } finally {
+        // The video may be a temporary file on disk; a browser's download still reads it for a while.
+        window.setTimeout(() => void video.release(), savesNatively() ? 0 : 120_000);
+      }
+    } catch (error) {
+      setStatus(error instanceof Cancelled ? { kind: "idle" } : { kind: "error", message: (error as Error).message || "The video couldn't be made." });
+    } finally {
+      abort.current = null;
+      chromeImg.removeAttribute("src");
+      mapImg.removeAttribute("src");
+    }
+  };
+
+  const notches = useMemo(() => {
+    const out: { at: number; className: string }[] = [];
+    let turn: number | null = null;
+    for (let i = first; i <= last; i++) {
+      const step = chron.beats[i].step;
+      if (step.turn !== turn) out.push({ at: starts[i - first], className: `${step.phase === 0 ? "player" : step.phase === 1 ? "enemy" : "other"} major` });
+      turn = step.turn;
+    }
+    return out;
+  }, [chron.beats, first, last, starts]);
+
+  return (
+    <Modal
+      open
+      wide
+      className="replay-export-modal"
+      title="Export Video"
+      onClose={() => {
+        abort.current?.abort();
+        onClose();
+      }}
+    >
+      <div className="replay-export">
+        <ScaledStage
+          width={width}
+          height={height}
+          footer={
+              <div className="replay-bar replay-export-transport">
+                <div className="replay-buttons">
+                  <IconButton icon={playing ? CONCEPT_ICON.pause : CONCEPT_ICON.play} primary pressed={playing} label={playing ? "Pause the preview" : "Play the preview"} onClick={() => setPlaying((p) => !p)} disabled={working} className="replay-btn" />
+                </div>
+                <NotchedRange
+                  className="replay-timeline"
+                  variant="timeline"
+                  min={0}
+                  max={total}
+                  step="any"
+                  value={t}
+                  onChange={(v) => {
+                    if (working) return;
+                    // Scrubbing pauses the preview; Play goes on from there.
+                    setPlaying(false);
+                    seekTo(v);
+                  }}
+                  notches={notches}
+                  label="Time in the video"
+                  valueText={`${clock(t / 1000)} of ${clock(total / 1000)}`}
+                />
+                <span className="replay-export-time">
+                  {clock(t / 1000)} / {clock(total / 1000)}
+                </span>
+              </div>
+          }
+        >
+            <ReplayStage
+              ref={stage}
+              battle={battle}
+              chron={chron}
+              replay={replay}
+              moment={moment}
+              orientation={orientation}
+              layout={layout}
+              route={route}
+              zoom={zoom}
+              onWheelAt={working ? undefined : onWheelAt}
+              onDrag={working ? undefined : onDrag}
+            />
+        </ScaledStage>
+        <aside className="export-side" aria-label="Video options">
+          <fieldset className="export-group" disabled={working}>
+            <legend>Orientation</legend>
+            <Segmented<Orientation>
+              label="Orientation"
+              value={orientation}
+              onChange={setOrientation}
+              options={[
+                ["landscape", <><Icon name={CONCEPT_ICON.landscape} /> Landscape</>, "1920 × 1080, the log beside the map"],
+                ["portrait", <><Icon name={CONCEPT_ICON.portrait} /> Portrait</>, "1080 × 1920, the log under the map"],
+              ]}
+            />
+          </fieldset>
+          <fieldset className="export-group" disabled={working}>
+            <legend>Turns</legend>
+            <div className="export-turns">
+              <label>
+                From
+                <select value={from} onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setFrom(v);
+                  if (to < v) setTo(v);
+                }}>
+                  {turns.map((n) => <option key={n} value={n}>Turn {n}</option>)}
+                </select>
+              </label>
+              <label>
+                To
+                <select value={to} onChange={(e) => {
+                  const v = Number(e.target.value);
+                  setTo(v);
+                  if (from > v) setFrom(v);
+                }}>
+                  {turns.map((n) => <option key={n} value={n}>Turn {n}</option>)}
+                </select>
+              </label>
+            </div>
+          </fieldset>
+          <fieldset className="export-group" disabled={working}>
+            <legend>Replay</legend>
+            <ReplaySpeedSlider value={speed} onChange={setSpeed} labelled />
+            <CameraModeSwitch value={mode} onChange={setMode} labelled />
+            <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} after={<ZoomValue level={level} />} />
+          </fieldset>
+          <fieldset className="export-group" disabled={working}>
+            <legend>Music</legend>
+            {music === null ? (
+              <p className="export-note">Re-import your game files (Settings &gt; Game files) to add the battle themes.</p>
+            ) : (
+              <>
+                <div className="export-music">
+                  <select aria-label="Battle theme" value={themeId} disabled={!music} onChange={(e) => {
+                    setThemeId(e.target.value);
+                    const next = music?.themes.find((m) => m.id === e.target.value);
+                    if (previewing) setPreviewing(previewTheme(next ? recording(next, versionOf(next)) : null, volume || 0.5));
+                  }}>
+                    <option value="">No music</option>
+                    {THEME_GROUPS.map((group) => {
+                      const themes = music?.themes.filter((m) => m.group === group) ?? [];
+                      return themes.length ? (
+                        <optgroup key={group} label={group}>
+                          {themes.map((m) => <option key={m.id} value={m.id}>{m.title}{music && defaultTheme(music, battle.scenario).id === m.id ? " (Default)" : ""}</option>)}
+                        </optgroup>
+                      ) : null;
+                    })}
+                  </select>
+                  <IconButton
+                    icon={previewing ? CONCEPT_ICON.pause : CONCEPT_ICON.play}
+                    label={previewing ? "Stop listening" : "Listen to it"}
+                    pressed={previewing}
+                    disabled={!track}
+                    onClick={() => setPreviewing(previewTheme(track, volume || 0.5))}
+                  />
+                </div>
+                <Segmented<Version>
+                  label="Version of the theme"
+                  value={version}
+                  disabled={!theme || !!thunderNote}
+                  onChange={(v) => {
+                    setOption("version", v);
+                    // The listening follows the toggle.
+                    if (previewing && theme) setPreviewing(previewTheme(recording(theme, v), volume || 0.5));
+                  }}
+                  options={[
+                    ["rain", "Rain", "The calm version"],
+                    ["thunder", "Thunder", "The intense version"],
+                  ]}
+                />
+                {thunderNote && theme && <p className="export-note">{thunderNote}</p>}
+                <StepSlider
+                  label="Volume"
+                  stops={101}
+                  value={options.volume}
+                  onChange={(v) => setOption("volume", v)}
+                  valueText={`${options.volume}%`}
+                  variant="timeline"
+                  slim
+                  after={<span className="export-value">{options.volume}%</span>}
+                />
+              </>
+            )}
+          </fieldset>
+          <fieldset className="export-group" disabled={working}>
+            <legend>Video</legend>
+            <div className="export-pairs">
+              <label className="wide">
+                Resolution
+                <select value={options.resolution} onChange={(e) => setOption("resolution", Number(e.target.value))}>
+                  {RESOLUTIONS.map(([r, label]) => <option key={r} value={r}>{label}</option>)}
+                </select>
+              </label>
+              <label>
+                Frame rate
+                <select value={options.fps} onChange={(e) => setOption("fps", Number(e.target.value) === 60 ? 60 : 30)}>
+                  <option value={30}>30 fps</option>
+                  <option value={60}>60 fps (smoother)</option>
+                </select>
+              </label>
+              <label>
+                Quality
+                <select value={options.quality} onChange={(e) => setOption("quality", e.target.value as VideoQuality)}>
+                  {QUALITIES.map(([q, label]) => <option key={q} value={q}>{label}</option>)}
+                </select>
+              </label>
+            </div>
+          </fieldset>
+          <ExportActions
+            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}` : "No music"]}
+            status={status}
+            action="Export MP4…"
+            onExport={() => void exportVideo()}
+            onCancel={() => abort.current?.abort()}
+          />
+        </aside>
+      </div>
+    </Modal>
+  );
+}
+
+/** Room around the frame (px), on every side. */
+const ROOM_PAD = 14;
+
+/** The video's frame at its real size, scaled down to the biggest the preview's column allows, with its transport bar
+ * (`footer`) under it at the frame's width; the pair sits in the middle of the column rather than leaving the frame
+ * floating in a room of its own. */
+function ScaledStage({ width, height, footer, children }: { width: number; height: number; footer: React.ReactNode; children: React.ReactNode }) {
+  const box = useRef<HTMLDivElement>(null);
+  const foot = useRef<HTMLDivElement>(null);
+  const [room, setRoom] = useState<[number, number]>([0, 0]);
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const measure = () => {
+      const below = foot.current ? foot.current.offsetHeight + 10 : 0;
+      setRoom([el.clientWidth, el.clientHeight - below]);
+    };
+    const observer = new ResizeObserver(measure);
+    observer.observe(el);
+    if (foot.current) observer.observe(foot.current);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+  const k = Math.max(0, Math.min((room[0] - ROOM_PAD * 2) / width, (room[1] - ROOM_PAD * 2) / height));
+  const frame: [number, number] = [width * k, height * k];
+  return (
+    <div className="replay-export-preview" ref={box}>
+      <div className="replay-export-room" style={{ width: frame[0] + ROOM_PAD * 2, height: frame[1] + ROOM_PAD * 2 }}>
+        <div className="replay-export-screen" style={{ width: frame[0], height: frame[1] }}>
+          <div style={{ width, height, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
+        </div>
+      </div>
+      <div className="replay-export-foot" ref={foot} style={{ width: frame[0] + ROOM_PAD * 2 }}>{footer}</div>
+    </div>
+  );
+}
+
+interface StageProps {
+  battle: Battle;
+  chron: Chronicle;
+  replay: ReturnType<typeof useReplay>;
+  moment: Moment;
+  orientation: Orientation;
+  layout: { columns: string; rows: string };
+  route: RunRoute | null;
+  zoom: Zoom | null;
+  onWheelAt?: (x: number, y: number, deltaY: number) => void;
+  onDrag?: (dx: number, dy: number) => void;
+  ref?: React.Ref<HTMLDivElement>;
+}
+
+/** One frame of the video: the title strip, the map and the log. */
+function ReplayStage({ battle, chron, replay, moment, orientation, layout, route, zoom, onWheelAt, onDrag, ref }: StageProps) {
+  const name = battleName(battle);
+  // The log up to the step on the map: rows of later steps aren't shown yet (the newest is at the bottom).
+  const rows = useMemo(() => {
+    const out = [];
+    for (const item of chron.log) {
+      const beat = beatOf(item);
+      if (beat !== null && beat > moment.beat) break;
+      out.push(item);
+    }
+    return out;
+  }, [chron.log, moment.beat]);
+  const date = new Date(battle.started_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  return (
+    // The picture is taken of the outer box, exactly the frame's size.
+    <div ref={ref} className="replay-stage-theme">
+    <div className={`replay-stage ${orientation}`} style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows }}>
+      <header className="replay-stage-title">
+        <CardBanner title={name.title} icon={<RunIcon route={route} />} />
+        <div className="replay-stage-meta">
+          <span className="replay-stage-facts">
+            {[name.kind ? KIND_LABEL[name.kind] : null, name.place, date].filter(Boolean).join(" · ")}
+          </span>
+          <span className="replay-stage-credit">
+            Divine Pulse <span>· by Adombs</span>
+          </span>
+        </div>
+      </header>
+      <div className="replay-stage-map map-frame">
+        <Minimap
+          board={replay.board}
+          action={replay.action}
+          animation={replay.animation}
+          label={`The battle map at ${replay.label}`}
+          zoom={zoom}
+          onWheelAt={onWheelAt}
+          onDrag={onDrag}
+        />
+        {replay.rewind && (
+          <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.6 + 0.4 * replay.rewind.badge})` }} aria-hidden>
+            <Icon name={CONCEPT_ICON.pulse} />
+          </div>
+        )}
+        <ReplayBanner replay={replay} />
+      </div>
+      <section className="replay-stage-log" aria-label="Log">
+        <h3 className="replay-stage-log-title">
+          <Icon name={CONCEPT_ICON.log} /> Log
+        </h3>
+        <div className="replay-stage-rows">
+          <ItemList items={rows} current={replay.at} empty="The battle begins." />
+        </div>
+      </section>
+    </div>
+    </div>
+  );
+}

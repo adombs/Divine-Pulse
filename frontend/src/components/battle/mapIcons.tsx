@@ -165,7 +165,7 @@ interface Layers {
 }
 
 /** The atlas rows to draw a unit from: its class's body with a head (a character's own, else a generic one by
- * gender), or for a character in Noble / Commoner (no body), their finished sprite. Null: no sprite for it. */
+ * gender), or for a character in Noble / Commoner (no body) or with no head of their own, their finished sprite. Null: no sprite for it. */
 export function spriteLayers(index: SpriteIndex, s: Sprite, named: boolean): Layers | null {
   // A character's uncovered head can identify a masked class before the story does.
   if (!spoilerShown("identities") && s.classId !== null && [47, 48, 59, 91].includes(s.classId)) named = false;
@@ -181,6 +181,8 @@ export function spriteLayers(index: SpriteIndex, s: Sprite, named: boolean): Lay
     const own = s.look ? look?.characters[key] : index.characters[s.character];
     if ((s.classId === 0 || s.classId === 1) && own !== undefined) return { row: own, head: null, mounted: false };
     const head = s.look ? look?.heads[key] : index.heads.characters[s.character];
+    // Jeralt, Rhea and Sothis have no head apart from their finished sprite, so it stands in for any class.
+    if (head === undefined && own !== undefined) return { row: own, head: null, mounted: false };
     return body === undefined || head === undefined ? null : { row: body, head, mounted: index.mounted.includes(body) };
   }
   return body === undefined ? null : { row: body, head: s.female ? index.heads.f : index.heads.m, mounted: index.mounted.includes(body) };

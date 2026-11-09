@@ -34,7 +34,7 @@ const TABS: { id: SettingsTab; label: string; icon: IconName; blurb: string }[] 
   { id: "game-files", label: "Game files", icon: CONCEPT_ICON.item, blurb: "Import from your own game" },
   { id: "ebst", label: "eBST", icon: CONCEPT_ICON.statUp, blurb: "How effective stats are counted" },
   { id: "spoilers", label: "Spoilers", icon: CONCEPT_ICON.hide, blurb: "What stays hidden for now" },
-  { id: "appearance", label: "Appearance", icon: CONCEPT_ICON.edit, blurb: "Theme, text, faces and the map" },
+  { id: "appearance", label: "Appearance", icon: CONCEPT_ICON.edit, blurb: "Text, faces and the map" },
   { id: "about", label: "About", icon: CONCEPT_ICON.info, blurb: "Version, data folder, credits" },
 ];
 
@@ -79,10 +79,7 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
   useEffect(() => setTextScale(appearance.textScale), [appearance.textScale]);
   return (
     <>
-      <Group title="Theme and text" note="Changes apply at once and are remembered for this installation.">
-        <Row label="Theme">
-          <Segmented label="Theme" value={appearance.theme} onChange={(theme) => update({ theme })} options={[["light", "Light"], ["dark", "Dark"]]} />
-        </Row>
+      <Group title="Text" note="Changes apply at once and are remembered for this installation.">
         <Row label="Text size" hint="Applies to every page. Press Apply when it looks right.">
           <StepSlider
             label="Text size"
@@ -278,6 +275,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [recordingLimit, setRecordingLimit] = useState("3");
   const [windowMode, setWindowMode] = useState<Settings["window_mode"]>("windowed");
+  const [memoryReader, setMemoryReader] = useState<Settings["memory_reader"]>("eden");
   // The window mode only applies to the desktop window, not the browser.
   const [desktop, setDesktop] = useState(false);
   const ids = useId();
@@ -287,6 +285,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const apply = (s: Settings) => {
     setSettings(s);
     setWindowMode(s.window_mode);
+    setMemoryReader(s.memory_reader);
     setRecordingLimit(String(s.max_recordings));
   };
 
@@ -307,6 +306,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
     try {
       const s = await api.saveSettings({
         window_mode: windowMode,
+        memory_reader: memoryReader,
         max_recordings: count,
       });
       apply(s);
@@ -320,7 +320,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   if (!settings) return <p className="muted">Loading…</p>;
 
   const changed: Partial<Record<SettingsTab, boolean>> = {
-    general: count !== settings.max_recordings || windowMode !== settings.window_mode,
+    general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader,
   };
   const dirty = Object.values(changed).some(Boolean);
 
@@ -391,9 +391,14 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
               {tab === "game-files" && <GameFilesSection desktop={desktop} />}
               {tab === "general" && (
                 <>
-                  <Group title="Game" note="Requires Windows, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0.">
+                  <Group title="Game" note={memoryReader === "recomp"
+                    ? "Requires Windows, FE3H Recomp by onerag90 (fe3hrecomp.exe) running Fire Emblem: Three Houses v1.2.0."
+                    : "Requires Windows, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0."}>
+                    <Row label="Read the game from" hint="Save the setting, then check the connection.">
+                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={[["eden", "Eden"], ["recomp", "FE3H Recomp by onerag90"]]} />
+                    </Row>
                     <Row label="Connection">
-                      <MemoryCheck />
+                      <MemoryCheck key={settings.memory_reader} />
                     </Row>
                   </Group>
                   <Group title="Battle recordings">

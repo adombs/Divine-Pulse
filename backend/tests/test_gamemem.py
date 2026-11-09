@@ -2,6 +2,7 @@
 helpers/synthetic_roster.py. tests/test_gamemem_captures.py checks the same against a roster read from a real game."""
 
 import struct
+import threading
 
 import pytest
 
@@ -418,6 +419,28 @@ def test_reads_the_battle_in_progress(emulator, monkeypatch):
     assert len(scans) == 2
 
 
+def test_a_new_battle_reads_at_once_from_where_the_copies_were(emulator, monkeypatch):
+    emulator[7] = process = battle_process(battle_copy())
+    memory = GameMemory()
+    assert memory.read().battle_units == 1  # the first battle scans the heap
+
+    roster = bytearray(DATA)
+    slot = LYSITHEA * fe3h.SLOT_SIZE
+    struct.pack_into("<H", roster, slot + 0xBC, struct.unpack_from("<H", roster, slot + 0xBC)[0] + 1)
+    process.memory[MAIN + V.roster_offset] = bytes(roster)
+    heap = bytearray(process.memory[HEAP])
+    at = heap.index(fe3h.BATTLE_MARKER) + fe3h.BATTLE_MARKER_TO_COPY + 0xBC
+    struct.pack_into("<H", heap, at, struct.unpack_from("<H", heap, at)[0] + 1)
+    process.memory[HEAP] = bytes(heap)
+    blocked = threading.Event()
+    real = memory._find_battle_copies
+    monkeypatch.setattr(memory, "_find_battle_copies", lambda r: blocked.wait(5) and real(r))
+    try:
+        assert memory.read().battle_units == 1  # found from the remembered address, with the scan still running
+    finally:
+        blocked.set()
+
+
 def test_no_battle_means_no_repeated_scans(emulator, monkeypatch):
     emulator[7] = game_process()
     memory = GameMemory()
@@ -478,3 +501,11 @@ def test_only_byleth_gets_a_look(data, bonuses):
     assert to_reading(byleth, data, bonuses, scenario=3).look == "dark"
     assert to_reading(byleth, data, bonuses).look is None
     assert to_reading(claude, data, bonuses, scenario=12).look is None
+
+
+def test_a_battle_record_carries_its_allegiance():
+    from app.gamemem.battle import ALLEGIANCE, RECORD_SIZE, decode_record
+
+    record = bytearray(RECORD_SIZE)
+    record[ALLEGIANCE] = 18  # Bandits
+    assert decode_record(bytes(record), 0, set()).allegiance == 18

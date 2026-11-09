@@ -13,9 +13,30 @@
 }
 .tl-caption.right { left: 12px; transform-origin: left center; }
 .tl-caption.left { right: 12px; transform-origin: right center; }
-.tl-caption .log-row { grid-template-columns: 2.3rem 1.4rem minmax(0, 1fr); gap: 0.4rem; padding: 0.18rem 0.3rem; }
+.tl-caption .log-row { padding: 0.18rem 0.3rem; }
 .tl-caption .log-text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tl-item.active .tl-caption { box-shadow: 0 0 0 2px var(--amber); }
+/* A log row is shown once: a pointed-at dot's row is the card (grown out of the dot), and while it is open the other
+   rows step back so they don't read through it. */
+.tl-caption { transition: opacity 0.15s ease; }
+.tl-item.hovered .tl-caption { opacity: 0; }
+.timelines-wrap.peeking .tl-caption { opacity: 0.2; }
+.timelines-wrap.peeking .tl-item.hovered .tl-caption { opacity: 0; }
+@media (prefers-reduced-motion: reduce) { .tl-caption { transition: none; } }
 
 /* The tree's zoom is the map's zoom slider, in the same box. */
 .tl-toolbar .map-tools { margin: 0 0 0 auto; width: min(16rem, 100%); }
+
+/* A row Divine Pulse turned back: faded, with a small "undone" tag (the tree keeps its strike-through). */
+.log-list .log-row.undone .log-text { text-decoration: none; opacity: 0.55; }
+.log-list .log-row.undone .undone-badge { margin-left: 0.4rem; font-size: 0.68em; font-style: normal; text-transform: uppercase; letter-spacing: 0.04em; padding: 0 0.3rem; border: 1px solid var(--line); border-radius: 3px; color: var(--ink-soft); }
+.log-defeat { margin-left: 0.35rem; color: var(--red); }
+/* The rewind badge in the middle of the map while a Divine Pulse is played back. */
+.rewind-badge {
+  position: absolute; left: 50%; top: 50%; z-index: 3; pointer-events: none;
+  display: grid; place-items: center; width: clamp(4rem, 22%, 8rem); aspect-ratio: 1; border-radius: 50%; font-size: clamp(2.2rem, 6vw, 4.5rem);
+  color: #fff; background: color-mix(in srgb, var(--accent) 78%, #000 22%); box-shadow: 0 0 0 4px color-mix(in srgb, var(--accent) 35%, transparent), 0 6px 24px rgba(0, 0, 0, 0.45);
+}
+.rewind-badge .icon { animation: rewind-spin 1.1s linear infinite reverse; }
+@keyframes rewind-spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .rewind-badge .icon { animation: none; } }

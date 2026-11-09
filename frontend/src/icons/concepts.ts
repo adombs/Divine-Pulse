@@ -6,7 +6,7 @@
  */
 import type { IconName } from "../components/Icon";
 
-type SharedConcept = "weapon" | "actions" | "affiliation" | "lostItem" | "finalBlow" | "add" | "levelUp";
+type SharedConcept = "weapon" | "actions" | "affiliation" | "lostItem" | "finalBlow" | "add" | "levelUp" | "alive" | "dead";
 
 export const CONCEPT_ICON = {
   // Pages.
@@ -49,6 +49,10 @@ export const CONCEPT_ICON = {
   warning: "warning",
   section: "section",
   log: "log",
+  share: "share",
+  landscape: "landscape",
+  portrait: "portrait",
+  drag: "drag",
   // Battle events.
   phase: "phase",
   move: "move",
@@ -111,4 +115,7 @@ export const CONCEPT_ICON = {
   lostItem: "item",
   finalBlow: "defeat",
   add: "statUp",
+  // A run's unit alive or dead (Classic mode): dead is the skull, as for a defeat.
+  alive: "ending",
+  dead: "defeat",
 } as const satisfies Record<IconName | SharedConcept, IconName>;

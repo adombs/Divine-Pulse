@@ -214,3 +214,14 @@ test("award aggregation uses persistent identity and handles missing legacy evid
   assert.equal(battleAwards(battle({ units: [unit(), unit("unknown", { defeats: null })], log: [] }), []).some((a) => a.key === "mvp"), false,
     "a partial kill ranking cannot prove an MVP");
 });
+
+test("Export Team leaves out units that died unless the fallen are included", async () => {
+  const { pickRows } = await vite.ssrLoadModule("/src/components/TeamExport.tsx");
+  const mk = (key, dead = false) => ({ key, name: key, death: dead ? { battle_id: null, manual: true } : null });
+  const byKey = new Map(["a", "b", "c", "d"].map((k) => [k, mk(k, k === "b" || k === "d")]));
+  const slots = ["a", "b", "c", null, "d", null];
+  const keys = (rows) => rows.map((r) => r.map((u) => u.key));
+  assert.deepEqual(keys(pickRows(slots, byKey, new Set(), 3, true)), [["a", "b", "c"], ["d"]]);
+  assert.deepEqual(keys(pickRows(slots, byKey, new Set(), 3, false)), [["a", "c"]]);
+  assert.deepEqual(keys(pickRows(slots, byKey, new Set(["a"]), 3, true)), [["b", "c"], ["d"]]);
+});
