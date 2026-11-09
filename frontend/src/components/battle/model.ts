@@ -445,6 +445,12 @@ export function recordedSum(values: (number | null | undefined)[]): number | nul
     ? (values as number[]).reduce((n, v) => n + v, 0) : null;
 }
 
+/** What was recorded, with whether anything was missing. Null only when nothing was recorded. */
+export function partialSum(values: (number | null | undefined)[]): { value: number | null; partial: boolean } {
+  const known = values.filter((v): v is number => v !== null && v !== undefined);
+  return { value: known.length ? known.reduce((n, v) => n + v, 0) : null, partial: known.length < values.length };
+}
+
 /** Canonical battle-scoped unit metrics. Backend metrics already exclude undone branches; never add log damage. */
 export function battleUnitStats(battle: Battle, unit: BattleUnit, items: Item[] = timeline(battle)) {
   const counts = tally(items.filter((i) => i.branch === 0), armyId(unit.key), { fights: unit.combats, defeats: unit.defeats });
