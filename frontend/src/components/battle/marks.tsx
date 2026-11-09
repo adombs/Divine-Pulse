@@ -43,12 +43,16 @@ export function lowHpFlag(hp: number | null, max: number | null): Flag | null {
   return { icon: CONCEPT_ICON.lowHp, title: `Low HP: ${hp} of ${max}`, tone: "warn" };
 }
 
+/** Still on the map in the game's record, but out of HP: it fell. */
+export const hasFallen = (u: BattleUnit): boolean => u.on_map && u.hp !== null && u.hp <= 0;
+
 /** One of your units as things stand now: fell, adjutant, at risk of falling, out of magic, weapons worn out. */
 export function armyFlags(u: BattleUnit, risk: AtRisk | undefined, adjutantOf?: string): Flag[] {
   if (u.adjutant_of) return [adjutantFlag(adjutantOf)];
   if (!u.on_map) return [{ icon: CONCEPT_ICON.fell, title: "Left the battle (fell or retreated)", tone: "bad" }];
-  const out: Flag[] = [];
-  if (risk) {
+  // A unit that fell leads with that; its other marks (a broken weapon) follow.
+  const out: Flag[] = hasFallen(u) ? [FELL] : [];
+  if (risk && !hasFallen(u)) {
     const near = risk.near ? ` · ${plural(risk.near, "other unit")} in reach` : "";
     if (risk.critical) out.push({ icon: CONCEPT_ICON.critical, title: `Could fall, and losing them loses the battle${near}`, tone: "bad" });
     else out.push({ icon: CONCEPT_ICON.danger, title: `${risk.level === "danger" ? "In danger" : "Exposed"}: could fall${near}`, tone: risk.level === "danger" ? "bad" : "warn" });

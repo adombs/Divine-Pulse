@@ -12,7 +12,7 @@ import { CheckList, FilterMenu } from "../common";
 import { Section } from "../layout";
 import { isObject } from "./map";
 import { battleWeapon } from "./unitAppearance";
-import { ACTED, adjutantFlag, armyFlags, AWAY, DEFEATED, FELL, Flag, Flags, lowHpFlag, Team, TeamTag, teamOf } from "./marks";
+import { ACTED, adjutantFlag, armyFlags, AWAY, DEFEATED, FELL, Flag, Flags, hasFallen, lowHpFlag, Team, TeamTag, teamOf } from "./marks";
 import { armyId, enemies, enemyId, LOW_HP, people } from "./model";
 import { WeaponIcon } from "./gameIcons";
 import { UnitFace, useBattleNav } from "./parts";
@@ -56,7 +56,7 @@ function rowsNow(battle: Battle): Row[] {
   const risks = new Map((battle.outlook?.at_risk ?? []).map((r) => [r.key, r]));
   const nameOf = (key: string) => battle.units.find((u) => u.key === key)?.name;
   const yours: Row[] = battle.units.map((u): Row => ({
-    id: armyId(u.key), name: u.name, team: "player", hp: u.hp, max: u.now.hp, off: !u.on_map, acted: !!u.acted, weapon: u.weapon ?? "",
+    id: armyId(u.key), name: u.name, team: "player", hp: u.hp, max: u.now.hp, off: !u.on_map || hasFallen(u), acted: !!u.acted, weapon: u.weapon ?? "",
     flags: armyFlags(u, risks.get(u.key), u.adjutant_of ? nameOf(u.adjutant_of) : undefined), unit: u,
   }));
   const others: Row[] = enemies(battle)
