@@ -1,6 +1,6 @@
 /**
- * What each battle is, by the game's scenario id (backend/app/data/scenarios.json has the names): main battle,
- * paralogue, auxiliary battle or Cindered Shadows, its chapter, and where it's fought. Part II chapters differ by route,
+ * What each battle is, by the game's scenario id (the game's scenario_title text has the names): one of five kinds
+ * (Mission, Auxiliary, Paralogue, Quest or DLC battle), its chapter, and where it's fought. Part II chapters differ by route,
  * worked out from the house leader in the battle. Places are left out where they aren't known for sure.
  */
 import scenarioData from "../../../../backend/app/data/scenario_routes.json";
@@ -8,15 +8,35 @@ import { loadGameText } from "../../gameAssets";
 import { gameLanguage } from "../../gameLanguage";
 import type { Battle } from "../../api";
 
-export type Kind = "main" | "paralogue" | "auxiliary" | "dlc";
+/** The five kinds of battle, in the order filters and counts list them. The game itself names the first four ("Mission,
+ * Auxiliary, Paralogue, and Quest battles"); DLC is the extra auxiliary battles (81-85) and Cindered Shadows (86-92). */
+export type Kind = "mission" | "auxiliary" | "paralogue" | "quest" | "dlc";
 export type Route = "cf" | "am" | "vw" | "ss";
 
+/** A kind on a tag or chip, singular. */
 export const KIND_LABEL: Record<Kind, string> = {
-  main: "Main battle",
-  paralogue: "Paralogue",
-  auxiliary: "Auxiliary battle",
-  dlc: "Cindered Shadows",
+  mission: "Mission Battle",
+  auxiliary: "Auxiliary Battle",
+  paralogue: "Paralogue Battle",
+  quest: "Quest Battle",
+  dlc: "DLC Battle",
 };
+/** A kind in a filter or a count, plural. */
+export const KIND_PLURAL: Record<Kind, string> = {
+  mission: "Mission Battles",
+  auxiliary: "Auxiliary Battles",
+  paralogue: "Paralogue Battles",
+  quest: "Quest Battles",
+  dlc: "DLC Battles",
+};
+export const KINDS = Object.keys(KIND_LABEL) as Kind[];
+
+/**
+ * The scenario ids of Quest Battles. NOT KNOWN YET: nothing in the game's data says which id a quest battle reports
+ * (no id from 0 to 99 is one by title or description), so none is listed and such a battle shows like any unknown
+ * scenario until its id is added here. Adding an id is the only change needed.
+ */
+const QUEST_SCENARIOS: ReadonlySet<number> = new Set<number>([]);
 
 interface Scenario {
   kind: Kind;
@@ -39,28 +59,35 @@ const PLACE_NAME: Record<number, string> = {
 export async function loadScenarioText() {
   [titles, places] = await Promise.all([loadGameText("scenario_title", gameLanguage()), loadGameText("battle_place", gameLanguage())]);
 }
-const main = (chapter: Scenario["chapter"]): Scenario => ({ kind: "main", chapter });
-const MERCEUS = main({ ss: 17, vw: 18, am: 20 });
+const mission = (chapter: Scenario["chapter"]): Scenario => ({ kind: "mission", chapter });
+const MERCEUS = mission({ ss: 17, vw: 18, am: 20 });
 
 const SCENARIOS: Record<number, Scenario> = {
-  0: main(0), 1: main(1), 2: main(2), 3: main(3), 4: main(4), 5: main(5),
-  6: main(6), 7: main(7), 8: main(8), 9: main(9), 10: main(10), 11: main(11),
-  12: main(12), 13: main(13), 14: main(14), 15: main(15), 16: main(16), 17: main(17), 18: main(17),
+  0: mission(0), 1: mission(1), 2: mission(2), 3: mission(3), 4: mission(4), 5: mission(5),
+  6: mission(6), 7: mission(7), 8: mission(8), 9: mission(9), 10: mission(10), 11: mission(11),
+  12: mission(12), 13: mission(13), 14: mission(14), 15: mission(15), 16: mission(16), 17: mission(17), 18: mission(17),
   19: MERCEUS,
   20: MERCEUS,
-  21: main(18), 22: main({ ss: 18, vw: 19 }), 23: main(19), 24: main({ ss: 19, vw: 20 }),
+  21: mission(18), 22: mission({ ss: 18, vw: 19 }), 23: mission(19), 24: mission({ ss: 19, vw: 20 }),
   25: MERCEUS,
-  26: main({ ss: 20, vw: 21 }), 27: main(21), 28: main(21),
-  29: main(22),
-  30: main(22), 31: main(12), 32: main(13), 33: main(14), 34: main(15), 35: main(16), 36: main(17), 37: main(18),
+  26: mission({ ss: 20, vw: 21 }), 27: mission(21), 28: mission(21),
+  29: mission(22),
+  30: mission(22), 31: mission(12), 32: mission(13), 33: mission(14), 34: mission(15), 35: mission(16), 36: mission(17), 37: mission(18),
   86: { kind: "dlc", chapter: 1 }, 87: { kind: "dlc", chapter: 2 }, 88: { kind: "dlc", chapter: 3 },
   89: { kind: "dlc", chapter: 4 }, 90: { kind: "dlc", chapter: 5 }, 91: { kind: "dlc", chapter: 6 }, 92: { kind: "dlc", chapter: 7 },
 };
 
+/** Which kind of battle a scenario id is, null when it isn't one the app knows. */
+export function kindOfScenario(id: number): Kind | null {
+  return scenario(id)?.kind ?? null;
+}
+
 function scenario(id: number): Scenario | null {
+  if (QUEST_SCENARIOS.has(id)) return { kind: "quest" };
   if (SCENARIOS[id]) return SCENARIOS[id];
   if ((id >= 38 && id <= 60) || id === 93 || id === 94 || id === 97) return { kind: "paralogue" };
-  if (id >= 61 && id <= 85) return { kind: "auxiliary" };
+  if (id >= 61 && id <= 80) return { kind: "auxiliary" };
+  if (id >= 81 && id <= 85) return { kind: "dlc" };
   return null;
 }
 

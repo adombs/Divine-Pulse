@@ -58,11 +58,28 @@ await t.test("character rows use the latest recorded native sprite identity", ()
 });
 
 await t.test("battle rows keep History's scenario classification", () => {
-  for (const [scenario, kind] of [[7, "main"], [40, "paralogue"], [61, "auxiliary"], [86, "dlc"], [999, null]]) {
+  for (const [scenario, kind] of [[7, "mission"], [40, "paralogue"], [61, "auxiliary"], [86, "dlc"], [999, null]]) {
     const [row] = buildRunLedger([battle("1", { scenario })], "battles").rows;
     assert.equal(row.kind, kind);
     assert.equal(row.sprite, undefined);
   }
+});
+
+await t.test("a battle's type is read from its scenario id: five kinds, named the same everywhere", async () => {
+  const { KINDS, KIND_LABEL, KIND_PLURAL, battleName, kindOfScenario, searchText } = await vite.ssrLoadModule("/src/components/battle/scenarios.ts");
+  assert.deepEqual(KINDS, ["mission", "auxiliary", "paralogue", "quest", "dlc"]);
+  assert.deepEqual(KINDS.map((k) => KIND_PLURAL[k]), ["Mission Battles", "Auxiliary Battles", "Paralogue Battles", "Quest Battles", "DLC Battles"]);
+  assert.deepEqual(KINDS.map((k) => KIND_LABEL[k]), ["Mission Battle", "Auxiliary Battle", "Paralogue Battle", "Quest Battle", "DLC Battle"]);
+  // Battles recorded before the rename carry only their scenario id (no stored type), so they take the new kinds as they are read.
+  const expected = { mission: [0, 7, 28, 37], paralogue: [38, 52, 60, 93, 94, 97], auxiliary: [61, 74, 80], dlc: [81, 82, 85, 86, 92] };
+  for (const [kind, ids] of Object.entries(expected)) for (const id of ids) assert.equal(kindOfScenario(id), kind, `scenario ${id}`);
+  // Quest Battles have no scenario id mapped yet, so every id is read as another kind or as unknown, never as a quest.
+  for (let id = 0; id < 256; id += 1) assert.notEqual(kindOfScenario(id), "quest", `scenario ${id}`);
+  for (const id of [95, 96, 98, 99, 100, 254]) assert.equal(kindOfScenario(id), null, `scenario ${id}`);
+  assert.equal(battleName(battle("1", { scenario: 82 })).kind, "dlc");
+  assert.equal(battleName(battle("1", { scenario: 999 })).kind, null);
+  assert.match(searchText(battle("1", { scenario: 7 })), /mission battle/);
+  for (const text of [...Object.values(KIND_LABEL), ...Object.values(KIND_PLURAL)]) assert.doesNotMatch(text, /main/i);
 });
 
 await t.test("unknown observations remain distinct from zero and sort last both ways", () => {
@@ -109,10 +126,10 @@ await t.test("Records renders group filtering and honest run-only sentinels with
 
 await t.test("battle comparison shows type tags beside dates using History's shared colours", async () => {
   const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx");
-  const battles = [7, 40, 61, 86].map((scenario, index) => battle(String(index + 1), { scenario }));
+  const battles = [7, 40, 61, 82, 86].map((scenario, index) => battle(String(index + 1), { scenario }));
   const html = renderToStaticMarkup(h(RunStatsPopup, { kind: "battles", onClose() {}, battles, error: false, onRetry() {} }));
-  for (const kind of ["main", "paralogue", "auxiliary", "dlc"]) assert.match(html, new RegExp(`class="run-stats-battle battle-kind-${kind}"`));
-  for (const label of ["Main battle", "Paralogue", "Auxiliary battle", "Cindered Shadows"]) {
+  for (const kind of ["mission", "paralogue", "auxiliary", "dlc"]) assert.match(html, new RegExp(`class="run-stats-battle battle-kind-${kind}"`));
+  for (const label of ["Mission Battle", "Paralogue Battle", "Auxiliary Battle", "DLC Battle"]) {
     assert.match(html, new RegExp(`class="run-stats-row-meta"><span>[^<]+</span><span class="run-stats-kind">${label}</span>`));
   }
   assert.doesNotMatch(html, /Select a column to compare|run-stats-footnote|Battle comparison/);

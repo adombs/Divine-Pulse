@@ -1,7 +1,8 @@
 /* History cards, chips, run pips and comparison rows share the same battle-kind colours. */
-:is(.battle-card, .battle-kind-chip, .rh-pip).main, .battle-kind-main { --battle-kind-color: var(--accent); }
+:is(.battle-card, .battle-kind-chip, .rh-pip).mission, .battle-kind-mission { --battle-kind-color: var(--accent); }
 :is(.battle-card, .battle-kind-chip, .rh-pip).paralogue, .battle-kind-paralogue { --battle-kind-color: #7a58aa; }
 :is(.battle-card, .battle-kind-chip, .rh-pip).auxiliary, .battle-kind-auxiliary { --battle-kind-color: #43866b; }
+:is(.battle-card, .battle-kind-chip, .rh-pip).quest, .battle-kind-quest { --battle-kind-color: #3f78a8; }
 :is(.battle-card, .battle-kind-chip, .rh-pip).dlc, .battle-kind-dlc { --battle-kind-color: #b87828; }
-.battle-card:is(.main, .paralogue, .auxiliary, .dlc)::before,
-:is(.battle-kind-chip, .rh-pip):is(.main, .paralogue, .auxiliary, .dlc) { background: var(--battle-kind-color); }
+.battle-card:is(.mission, .auxiliary, .paralogue, .quest, .dlc)::before,
+:is(.battle-kind-chip, .rh-pip):is(.mission, .auxiliary, .paralogue, .quest, .dlc) { background: var(--battle-kind-color); }
