@@ -392,10 +392,10 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
               {tab === "general" && (
                 <>
                   <Group title="Game" note={memoryReader === "recomp"
-                    ? "Requires Windows, FE3H Recomp (fe3hrecomp.exe) running Fire Emblem: Three Houses v1.2.0."
+                    ? "Requires Windows, FE3H Recomp by onerag90 (fe3hrecomp.exe) running Fire Emblem: Three Houses v1.2.0."
                     : "Requires Windows, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0."}>
                     <Row label="Read the game from" hint="Save the setting, then check the connection.">
-                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={[["eden", "Eden"], ["recomp", "FE3H Recomp"]]} />
+                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={[["eden", "Eden"], ["recomp", "FE3H Recomp by onerag90"]]} />
                     </Row>
                     <Row label="Connection">
                       <MemoryCheck key={settings.memory_reader} />
