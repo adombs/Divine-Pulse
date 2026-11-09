@@ -46,6 +46,9 @@ export function lowHpFlag(hp: number | null, max: number | null): Flag | null {
 /** Still on the map in the game's record, but out of HP: it fell. */
 export const hasFallen = (u: BattleUnit): boolean => u.on_map && u.hp !== null && u.hp <= 0;
 
+/** Lost to the battle: fell, or left the map altogether. An adjutant is in the battle without being on the map. */
+export const isLost = (u: BattleUnit): boolean => !u.adjutant_of && (!u.on_map || hasFallen(u));
+
 /** One of your units as things stand now: fell, adjutant, at risk of falling, out of magic, weapons worn out. */
 export function armyFlags(u: BattleUnit, risk: AtRisk | undefined, adjutantOf?: string): Flag[] {
   if (u.adjutant_of) return [adjutantFlag(adjutantOf)];

@@ -107,6 +107,12 @@ class BattleUnitStats(BaseModel):
     def level_ups(self) -> int:
         return max(0, self.level - self.start_level) + self.assumed_level_ups
 
+    @property
+    def fell(self) -> bool:
+        """Lost to the battle: off the map, or still in the game's record with no HP left. (An adjutant is in the
+        battle without being on the map; that isn't a fall.)"""
+        return self.adjutant_of is None and (not self.on_map or (self.hp is not None and self.hp <= 0))
+
     def gains(self) -> dict[str, int]:
         return {k: self.now[k] - self.start[k] for k in VALUE_KEYS if self.now.get(k, 0) != self.start.get(k, 0)}
 

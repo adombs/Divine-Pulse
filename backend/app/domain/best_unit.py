@@ -41,7 +41,7 @@ def best_unit(battles: Iterable[Battle], roster: Collection[str] = ()) -> BestUn
             total.healing += unit.healing_given or 0
             total.kills += unit.defeats or 0
             # An adjutant is in the battle without being on the map; that isn't a fall.
-            total.falls += not unit.on_map and unit.adjutant_of is None
+            total.falls += unit.fell
     if not totals:
         return None
     order = {key: i for i, key in enumerate(roster)}

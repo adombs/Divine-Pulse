@@ -13,6 +13,7 @@ import { GearIcon, WeaponIcon } from "./gameIcons";
 import { ArtIcon } from "../../reference/icons";
 import { AbilityLink, ArtLink, GambitLink, ItemLink, SpellLink } from "../Links";
 import { nameParts } from "../../reference/links";
+import { isLost } from "./marks";
 import { battleSummary, hpShare, ICON, Item, mergeHits, STAT_LABEL, STAT_ORDER, TEXT, Who } from "./model";
 
 /** Opening a unit's card from anywhere on the page (names in the log, opponents, highlights). */
@@ -581,8 +582,8 @@ export interface KeyNumber {
 
 /** The numbers worth a glance in game: time, turn, units, HP, enemies, Divine Pulse. */
 export function keyNumbers(battle: Battle, seconds: number): KeyNumber[] {
-  const onMap = battle.units.filter((u) => u.on_map).length;
-  const lost = battle.units.length - onMap;
+  const lost = battle.units.filter(isLost).length;
+  const onMap = battle.units.length - lost;
   const army = hpShare(battle.army_hp, battle.army_max_hp ?? 0);
   const out: KeyNumber[] = [
     { label: "Time", value: clock(seconds), title: "Time in Battle" },

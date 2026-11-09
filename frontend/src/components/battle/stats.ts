@@ -4,6 +4,7 @@
  */
 import type { Battle, BattleUnit, Usage, ValueKey } from "../../api";
 import { battleUnitStats, Item, statGains, timeline, recordedSum } from "./model";
+import { isLost } from "./marks";
 import { AWARDS, type AwardKey, battleAwards } from "./moreStats";
 
 export type AwardCounts = Record<AwardKey, number>;
@@ -254,7 +255,7 @@ export function runStats(battles: Battle[], characters: CharacterStats[], items:
     most_pulses: most((b) => b.divine_pulses || null),
     fights,
     defeats: recordedSum(characters.map((c) => c.defeats)),
-    losses: battles.reduce((n, b) => n + b.units.filter((u) => !u.on_map).length, 0),
+    losses: battles.reduce((n, b) => n + b.units.filter(isLost).length, 0),
     flawless: battles.filter((b) => !b.active && b.units.length > 0 && b.units.every((u) => u.on_map)).length,
     enemies: battles.reduce((n, b) => n + b.enemies_start, 0),
     damage_dealt: sum((u) => u.damage_dealt),

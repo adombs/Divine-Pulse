@@ -20,6 +20,7 @@ import { CharLink } from "../Links";
 import { Icon, IconName } from "../Icon";
 import { clock, plural } from "../../format";
 import { armyId, armyTotals, Item, recordedSum, statGains } from "./model";
+import { isLost } from "./marks";
 import { AWARDS, battleAwards, MoreStats, moreStats } from "./moreStats";
 import { BattleNav, BattleNavContext, HouseMark, ItemList, TrendChart, UnitFace, useBattleNav, WhoLink } from "./parts";
 import { Empty, MirrorBars, Series, TurnColumns, TurnLines, UnitBars } from "./charts";
@@ -331,7 +332,7 @@ function Compared({ battle, seconds, history }: { battle: Battle; seconds: numbe
     const known = history.map(pick).filter((v): v is number => v !== null);
     return known.length ? known.reduce((n, v) => n + v, 0) / known.length : null;
   };
-  const lost = (b: Battle) => b.units.filter((u) => !u.on_map && !u.adjutant_of).length;
+  const lost = (b: Battle) => b.units.filter(isLost).length;
   const rows: [string, number | null, number | null, (n: number) => string, Better][] = [
     ["Time", seconds, avg((b) => b.seconds), clock, null],
     ["Turns", battle.turn, avg((b) => b.turn), one, null],

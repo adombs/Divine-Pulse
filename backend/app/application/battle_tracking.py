@@ -1267,6 +1267,10 @@ class BattleTracker:
                 unit.healed, unit.healing_given = healed.get(uid, 0), given.get(uid, 0)
                 unit.tiles_moved = tiles.get(uid, 0)
                 unit.usage = sorted(usage.get(uid, {}).values(), key=lambda u: (-u.times, -u.spent, u.name))
+                # Fights and defeats from the history too: the game's counters can read as no change over a whole
+                # battle (see _set_located), and the history is the timeline that stands.
+                unit.combats = fought.get(uid, 0)
+                unit.defeats = sum(1 for s in (*killed_by.values(), *fell_to.values()) if s == uid)
         for slot, stats in battle.enemy_stats.items():
             uid = f"e:{slot}"
             if uid in state:
@@ -1309,9 +1313,11 @@ class BattleTracker:
         units = {u.key: u for u in battle.units}
         for a in sample.army:
             unit = units.get(a.key)
-            if unit is not None and None not in (a.combats, a.combats_start):
+            if unit is None or unit.damage_dealt is not None:
+                continue  # with the game's history read, its fights and defeats come from there (_replay)
+            if None not in (a.combats, a.combats_start):
                 unit.combats = max(0, a.combats - a.combats_start)
-            if unit is not None and None not in (a.victories, a.victories_start):
+            if None not in (a.victories, a.victories_start):
                 unit.defeats = max(0, a.victories - a.victories_start)
         enemies = [e for e in sample.enemies if e.hp is not None and e.is_unit]
         if enemies:
