@@ -73,12 +73,42 @@ await t.test("a battle's type is read from its scenario id: five kinds, named th
   // Battles recorded before the rename carry only their scenario id (no stored type), so they take the new kinds as they are read.
   const expected = { mission: [0, 7, 28, 37], paralogue: [38, 52, 60, 93, 94, 97], auxiliary: [61, 74, 80], dlc: [81, 82, 85, 86, 92] };
   for (const [kind, ids] of Object.entries(expected)) for (const id of ids) assert.equal(kindOfScenario(id), kind, `scenario ${id}`);
-  // Quest Battles have no scenario id mapped yet, so every id is read as another kind or as unknown, never as a quest.
+  // A quest battle runs on an ordinary scenario and map, so no scenario id is a quest: the battle's quest says it.
   for (let id = 0; id < 256; id += 1) assert.notEqual(kindOfScenario(id), "quest", `scenario ${id}`);
   for (const id of [95, 96, 98, 99, 100, 254]) assert.equal(kindOfScenario(id), null, `scenario ${id}`);
   assert.equal(battleName(battle("1", { scenario: 82 })).kind, "dlc");
   assert.equal(battleName(battle("1", { scenario: 999 })).kind, null);
   assert.match(searchText(battle("1", { scenario: 7 })), /mission battle/);
+
+  // Quest Battles: the quest (its row in the quest table) is on the battle, and only a quest with a battle counts.
+  const asked = { quest: 78, scenario: 66, map_name: "Synthetic Map" };
+  assert.equal(battleName(battle("1", asked)).kind, "quest");
+  assert.equal(battleName(battle("1", { ...asked, quest: 5 })).kind, "auxiliary", "a quest without a battle is not a quest battle");
+  assert.equal(battleName(battle("1", { ...asked, quest: null })).kind, "auxiliary");
+  assert.equal(battleName(battle("1", { scenario: 66, map_name: "Synthetic Map" })).kind, "auxiliary", "a battle saved before the quest field");
+  assert.equal(battleName(battle("1", { ...asked, scenario: 7, quest: 126 })).title, "Synthetic Map", "no chapter on a quest battle");
+  assert.match(searchText(battle("1", asked)), /quest battle/);
+  // Its title is the quest's name once the game's text has it, else its map's name.
+  const served = (categories) => async (url) => {
+    const ok = (body) => ({ ok: true, status: 200, json: async () => body });
+    if (String(url).endsWith("/status")) return ok({ available: true, created: String(Math.random()) });
+    if (String(url).includes("ENG_U.json")) return ok({ categories });
+    return { ok: false, status: 404, json: async () => null };
+  };
+  const assets = await vite.ssrLoadModule("/src/gameAssets.ts");
+  const realFetch = globalThis.fetch;
+  try {
+    for (const [categories, title] of [
+      [{ scenario_title: {}, battle_place: {}, quest_title: { 78: "Synthetic Quest" } }, "Synthetic Quest"],
+      [{ scenario_title: {}, battle_place: {} }, "Synthetic Map"], // game files imported before quest names were read
+    ]) {
+      globalThis.fetch = served(categories);
+      await assets.loadGameAssetsStatus(true);
+      await (await vite.ssrLoadModule("/src/components/battle/scenarios.ts")).loadScenarioText();
+      assert.equal(battleName(battle("1", asked)).title, title);
+      assert.equal(battleName(battle("1", { ...asked, quest: null })).title, "Synthetic Map");
+    }
+  } finally { globalThis.fetch = realFetch; }
   for (const text of [...Object.values(KIND_LABEL), ...Object.values(KIND_PLURAL)]) assert.doesNotMatch(text, /main/i);
 });
 
@@ -127,9 +157,10 @@ await t.test("Records renders group filtering and honest run-only sentinels with
 await t.test("battle comparison shows type tags beside dates using History's shared colours", async () => {
   const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx");
   const battles = [7, 40, 61, 82, 86].map((scenario, index) => battle(String(index + 1), { scenario }));
+  battles.push(battle("6", { scenario: 66, quest: 78 }));
   const html = renderToStaticMarkup(h(RunStatsPopup, { kind: "battles", onClose() {}, battles, error: false, onRetry() {} }));
-  for (const kind of ["mission", "paralogue", "auxiliary", "dlc"]) assert.match(html, new RegExp(`class="run-stats-battle battle-kind-${kind}"`));
-  for (const label of ["Mission Battle", "Paralogue Battle", "Auxiliary Battle", "DLC Battle"]) {
+  for (const kind of ["mission", "paralogue", "auxiliary", "quest", "dlc"]) assert.match(html, new RegExp(`class="run-stats-battle battle-kind-${kind}"`));
+  for (const label of ["Mission Battle", "Paralogue Battle", "Auxiliary Battle", "Quest Battle", "DLC Battle"]) {
     assert.match(html, new RegExp(`class="run-stats-row-meta"><span>[^<]+</span><span class="run-stats-kind">${label}</span>`));
   }
   assert.doesNotMatch(html, /Select a column to compare|run-stats-footnote|Battle comparison/);

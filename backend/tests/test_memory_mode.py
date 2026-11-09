@@ -517,6 +517,45 @@ def test_app_shutdown_files_the_battle_as_completed(scanner, tmp_path):
     assert scanner.battle_store.load_active(scanner.run_id) is None
 
 
+def test_a_battle_records_the_quest_it_is_for_and_one_without_a_quest_records_none(scanner):
+    scanner.memory.battle_globals = lambda: {"turn": 1, "scenario": 66, "quest": 78}
+    scanner.memory.in_battle, scanner.memory.battle_key = (22,), "quest"
+    for _ in range(2):
+        scanner._tick()
+    assert (scanner.current_battle().scenario, scanner.current_battle().quest) == (66, 78)
+    scanner.memory.in_battle = ()
+    for _ in range(2):
+        scanner._tick()
+    scanner.memory.battle_globals = lambda: {"turn": 1, "scenario": 66, "quest": None}  # the game reads "no quest"
+    scanner.memory.in_battle, scanner.memory.battle_key = (22,), "plain"
+    for _ in range(2):
+        scanner._tick()
+    assert (scanner.current_battle().scenario, scanner.current_battle().quest) == (66, None)
+
+
+def test_the_quest_field_reads_the_quest_table_row_and_nothing_past_the_table(monkeypatch):
+    from app.gamemem import fe3h
+
+    class Process:
+        def __init__(self, byte):
+            self.byte = byte
+
+        def read(self, address, size):
+            return bytes([self.byte]) if address == 0x1000 + fe3h.GameMemory.GLOBALS[0] + 0x1536FF else None
+
+    for byte, expected in ((78, 78), (150, 150), (151, None), (255, None)):
+        memory = fe3h.GameMemory.__new__(fe3h.GameMemory)
+        memory._process, memory._main, memory._copies = Process(byte), 0x1000, {1: 1}
+        monkeypatch.setattr("app.gamemem.battle.fields", lambda: fe3h_fields())
+        assert memory.battle_globals()["quest"] == expected
+
+
+def fe3h_fields():
+    from app.gamemem.battle import BattleFields
+
+    return BattleFields(quest=0x1536FF)
+
+
 def test_a_battle_quit_with_a_bookmark_and_resumed_is_the_same_battle(scanner, tmp_path):
     from app.storage import BattleStore
 

@@ -437,6 +437,8 @@ export interface Battle {
   map_h?: number | null;
   /** Which map the battle is on (the import's data/maps.json), with `terrain`. */
   map_id?: number | null;
+  /** The quest the battle is for, by its row in the game's quest table (null: not for a quest, or not read). */
+  quest?: number | null;
   /** Where everyone stood after each step of the game's history, to replay the battle (empty without it). */
   map_steps?: MapStep[];
   /** When other units came onto the map or left it without being defeated: uid -> [step, on the map from then] in

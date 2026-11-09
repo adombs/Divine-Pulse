@@ -1257,3 +1257,18 @@ def test_breaking_a_monsters_hp_bar_is_damage_not_a_heal():
     assert entry.kind == "attack" and "broke one of" in entry.text and "restored" not in entry.text
     assert not [e for e in battle.log if e.kind == "heal"]
     assert battle.units[0].healing_given in (0, None)
+
+
+def test_the_quest_a_battle_is_for_is_kept_and_battles_saved_before_it_load_without_one():
+    from app.gamemem.battle import fields
+
+    assert fields().quest == 0x1536FF  # app/data/battle_fields.json
+    tracker = BattleTracker()
+    tracker.update(BattleSample((army(),), scenario=66, quest=78), "run", T0)
+    assert (tracker.battle.scenario, tracker.battle.quest) == (66, 78)
+    tracker.update(BattleSample((army(),), scenario=66), "run", T0 + timedelta(seconds=1))  # not read this time: kept
+    assert tracker.battle.quest == 78
+    saved = tracker.battle.model_dump(mode="json")
+    assert Battle.model_validate(saved).quest == 78
+    del saved["quest"]  # a battle file from before the field
+    assert Battle.model_validate(saved).quest is None

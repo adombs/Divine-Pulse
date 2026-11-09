@@ -639,6 +639,7 @@ class Scanner:
             frozenset(
                 f"e:{u.slot}" for u in pool if (u.off_map or _stand_in(u)) and not u.army and u.character not in own
             ),
+            quest=located.get("quest"),
         )
 
     def _log_flag_changes(self, pool: list, data: GameData, turn: int | None) -> None:

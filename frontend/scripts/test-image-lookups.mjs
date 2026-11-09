@@ -192,6 +192,7 @@ test("Byleth's recorded hair follows Auto and yields to explicit portrait phases
 test("battle places resolve imported text and unmapped scenarios stay empty", async () => {
   const scenarios = await moduleWithStubs("../src/components/battle/scenarios.ts", `
     const scenarioData = { routes: {} };
+    const questData = { quests: [] };
     const gameLanguage = () => 'ENG_U';
     const loadGameText = async (category) => category === 'battle_place' ? { 7: 'Example place', 17: 'Another place' } : {};
   `);

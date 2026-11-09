@@ -4,6 +4,7 @@
  * worked out from the house leader in the battle. Places are left out where they aren't known for sure.
  */
 import scenarioData from "../../../../backend/app/data/scenario_routes.json";
+import questData from "../../../../backend/app/data/quest_battles.json";
 import { loadGameText } from "../../gameAssets";
 import { gameLanguage } from "../../gameLanguage";
 import type { Battle } from "../../api";
@@ -32,11 +33,12 @@ export const KIND_PLURAL: Record<Kind, string> = {
 export const KINDS = Object.keys(KIND_LABEL) as Kind[];
 
 /**
- * The scenario ids of Quest Battles. NOT KNOWN YET: nothing in the game's data says which id a quest battle reports
- * (no id from 0 to 99 is one by title or description), so none is listed and such a battle shows like any unknown
- * scenario until its id is added here. Adding an id is the only change needed.
+ * Quest Battles. A quest battle runs on an ordinary auxiliary scenario and map, so its scenario id can't tell it
+ * apart; the game's memory names the quest instead (`Battle.quest`, its row in the quest table). These are the quests
+ * of that table that have a battle (backend/app/data/quest_battles.json); the quest's name is the battle's title.
  */
-const QUEST_SCENARIOS: ReadonlySet<number> = new Set<number>([]);
+const QUEST_BATTLES: ReadonlySet<number> = new Set(questData.quests);
+const isQuestBattle = (battle: Battle) => battle.quest != null && QUEST_BATTLES.has(battle.quest);
 
 interface Scenario {
   kind: Kind;
@@ -45,6 +47,7 @@ interface Scenario {
 }
 
 let titles: Record<string, string> = {};
+let questTitles: Record<string, string> = {};
 let places: Record<string, string> = {};
 const PLACE_TEXT: Record<number, number> = {
   ...Object.fromEntries(Array.from({ length: 17 }, (_, id) => [id, id])),
@@ -57,7 +60,11 @@ const PLACE_NAME: Record<number, string> = {
   52: "Lake Teutates", 81: "Lake Teutates", 77: "Rhodos Coast", 86: "Abyss", 87: "Abyss", 88: "Abyss", 89: "Abyss", 91: "Abyss",
 };
 export async function loadScenarioText() {
-  [titles, places] = await Promise.all([loadGameText("scenario_title", gameLanguage()), loadGameText("battle_place", gameLanguage())]);
+  [titles, places, questTitles] = await Promise.all([
+    loadGameText("scenario_title", gameLanguage()), loadGameText("battle_place", gameLanguage()),
+    // Imported before quest names were read: a quest battle is then titled by its map until the game files are imported again.
+    loadGameText("quest_title", gameLanguage()).catch(() => ({})),
+  ]);
 }
 const mission = (chapter: Scenario["chapter"]): Scenario => ({ kind: "mission", chapter });
 const MERCEUS = mission({ ss: 17, vw: 18, am: 20 });
@@ -83,7 +90,6 @@ export function kindOfScenario(id: number): Kind | null {
 }
 
 function scenario(id: number): Scenario | null {
-  if (QUEST_SCENARIOS.has(id)) return { kind: "quest" };
   if (SCENARIOS[id]) return SCENARIOS[id];
   if ((id >= 38 && id <= 60) || id === 93 || id === 94 || id === 97) return { kind: "paralogue" };
   if (id >= 61 && id <= 80) return { kind: "auxiliary" };
@@ -124,13 +130,14 @@ export interface BattleName {
 }
 
 export function battleName(battle: Battle): BattleName {
-  const name = battle.map_name || titles[String(battle.scenario)] || "";
+  const quest = isQuestBattle(battle);
+  const name = (quest ? questTitles[String(battle.quest)] : "") || battle.map_name || titles[String(battle.scenario)] || "";
   const s = battle.scenario !== null && battle.scenario !== undefined ? scenario(battle.scenario) : null;
-  const prefix = chapterPrefix(s, () => routeOf(battle));
+  const prefix = quest ? "" : chapterPrefix(s, () => routeOf(battle));
   const title = name ? (prefix ? `${prefix}: ${name}` : name) : prefix || "Battle";
   const id = battle.scenario;
   const place = id == null ? null : PLACE_NAME[id] ?? places[String(PLACE_TEXT[id])] ?? null;
-  return { title, name, kind: s?.kind ?? null, place };
+  return { title, name, kind: quest ? "quest" : s?.kind ?? null, place };
 }
 
 /** "Prologue", "Chapter 7" or "" (not a chapter); a chapter that differs by route asks for the route only then. */

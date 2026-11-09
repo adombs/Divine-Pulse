@@ -221,6 +221,7 @@ class BattleTracker:
             self._set_resources(unit, a)
         self._set_power(sample)
         self._set_scenario(sample)
+        self._set_quest(sample)
         self._set_located(sample)
         self._set_terrain(sample)
         self._set_cursor(sample)
@@ -241,6 +242,7 @@ class BattleTracker:
         t = battle.seconds(at)
         changed = self._set_terrain(sample)
         changed = self._set_scenario(sample) or changed
+        changed = self._set_quest(sample) or changed
         by_key = {u.key: u for u in battle.units}
         previous = {a.key: a for a in self._last.army} if self._last else {}
         seen = set()
@@ -1343,6 +1345,15 @@ class BattleTracker:
             return False
         battle.scenario = sample.scenario
         battle.map_name = self.support.scenario_name(sample.scenario)
+        return True
+
+    def _set_quest(self, sample: BattleSample) -> bool:
+        """The quest the battle is for, once read. Returns whether it changed."""
+        battle = self.battle
+        assert battle is not None
+        if sample.quest is None or sample.quest == battle.quest:
+            return False
+        battle.quest = sample.quest
         return True
 
     def _set_cursor(self, sample: BattleSample) -> bool:

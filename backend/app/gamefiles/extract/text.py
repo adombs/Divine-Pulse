@@ -63,6 +63,7 @@ CATEGORIES = (
     Category("terrain", range(115), 5502),
     Category("scenario_title", range(100), 0),
     Category("battle_place", range(28), 957),
+    Category("quest_title", range(151), 12361),  # by the quest's row in fixed_lobby_quest.bin
     Category("gift", range(245), 10147),
     Category("meal", range(32), 9852),
     Category("ingredient", range(96, 165), 5056),
