@@ -7,7 +7,7 @@ import { ReactNode } from "react";
 import { canonical } from "../fuzzy";
 import { isMysteryCrest } from "../reference/crests";
 import { useNav } from "../nav";
-import { useReference } from "../reference/types";
+import { useReference, type ReferenceData } from "../reference/types";
 import { useSpoiler } from "../spoilers";
 import { gambitOwner, isStoryClass, matchNames } from "../reference/links";
 import { RefLink } from "./common";
@@ -132,11 +132,13 @@ export function CrestLink({ name, children }: { name: string; children?: ReactNo
     </RefLink>
   );
 }
-/** Link known names in descriptive prose. */
-export function LinkedDescription({ text }: { text: string }) {
-  const ref = useReference();
-  if (!ref || !text) return <>{text}</>;
-  const entries = [
+type LinkEntry = { name: string; render: (label: string) => ReactNode };
+/** Every linkable name, built once per import (not for each description), with the first entry for each name. */
+const linkEntries = new WeakMap<ReferenceData, { names: string[]; byName: Map<string, LinkEntry> }>();
+function entriesOf(ref: ReferenceData) {
+  const known = linkEntries.get(ref);
+  if (known) return known;
+  const entries: LinkEntry[] = [
     ...ref.crests.map((c) => ({ name: `Crest of ${c.name}`, render: (label: string) => <CrestLink name={c.name}>{label}</CrestLink> })),
     ...ref.characters.map((c) => ({ name: c.name, render: (label: string) => <CharLink charKey={c.key}>{label}</CharLink> })),
     ...ref.classes.map((c) => ({ name: c.name, render: (label: string) => <ClassLink name={c.name}>{label}</ClassLink> })),
@@ -145,7 +147,19 @@ export function LinkedDescription({ text }: { text: string }) {
     ...ref.abilities.map((a) => ({ name: a.name, render: (label: string) => <AbilityLink name={a.name}>{label}</AbilityLink> })),
     ...ref.items.map((i) => ({ name: i.name, render: (label: string) => <ItemLink name={i.name}>{label}</ItemLink> })),
   ];
-  const matches = matchNames(text, entries.map((e) => e.name));
+  const byName = new Map<string, LinkEntry>();
+  for (const e of entries) if (!byName.has(e.name)) byName.set(e.name, e);
+  const built = { names: entries.map((e) => e.name), byName };
+  linkEntries.set(ref, built);
+  return built;
+}
+
+/** Link known names in descriptive prose. */
+export function LinkedDescription({ text }: { text: string }) {
+  const ref = useReference();
+  if (!ref || !text) return <>{text}</>;
+  const { names, byName } = entriesOf(ref);
+  const matches = matchNames(text, names);
   let end = 0;
-  return <>{matches.map((m) => { const before = text.slice(end, m.start); end = m.end; const entry = entries.find((e) => e.name === m.name)!; return <span key={m.start}>{before}{entry.render(text.slice(m.start, m.end))}</span>; })}{text.slice(end)}</>;
+  return <>{matches.map((m) => { const before = text.slice(end, m.start); end = m.end; const entry = byName.get(m.name)!; return <span key={m.start}>{before}{entry.render(text.slice(m.start, m.end))}</span>; })}{text.slice(end)}</>;
 }
