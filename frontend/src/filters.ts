@@ -8,7 +8,6 @@ import { ROUTES, type RouteId } from "./reference/supports";
 import { useSpoiler } from "./spoilers";
 
 export const AFFILIATIONS = [
-  "Professor",
   "Black Eagles",
   "Blue Lions",
   "Golden Deer",
@@ -85,7 +84,9 @@ export function usePeopleFiltersState(loadedRun = false): [PeopleFilters, (f: Pe
       const raw = localStorage.getItem(STORE);
       const stored = raw ? JSON.parse(raw) as Partial<PeopleFilters> : {};
       const status = Array.isArray(stored.status) ? stored.status.filter((s) => LIFE_STATUSES.includes(s)) : [];
-      return { ...NO_FILTERS, ...stored, status, runOnly: false };
+      // Byleth is under the Church of Seiros, as the game has it, so a saved "Professor" choice means that.
+      const affiliations = Array.isArray(stored.affiliations) ? [...new Set(stored.affiliations.map((a) => (a === "Professor" ? "Church of Seiros" : a)))] : [];
+      return { ...NO_FILTERS, ...stored, affiliations, status, runOnly: false };
     } catch {
       return NO_FILTERS;
     }
