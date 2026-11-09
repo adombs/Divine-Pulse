@@ -233,7 +233,7 @@ def factors(battle: Battle) -> list[tuple[str, float, str]]:
                 )
             )
     deployed = len(battle.units)
-    lost = sum(1 for u in battle.units if not u.on_map)
+    lost = sum(1 for u in battle.units if u.fell)
     critical = [u.name for u in battle.units if not u.on_map and u.key in CRITICAL]
     if critical:
         out.append(

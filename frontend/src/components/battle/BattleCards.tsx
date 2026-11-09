@@ -14,6 +14,7 @@ import { CheckChips, CheckList, FilterChip, FilterMenu, NoMatches, SearchBox, Se
 import { clock, plural } from "../../format";
 import { useNav } from "../../nav";
 import { Board, boardNow, hasMap } from "./map";
+import { isLost } from "./marks";
 import { Minimap, Zoom } from "./Minimap";
 import { battleName, KINDS, KIND_LABEL, KIND_PLURAL, routeOf, searchText, type Kind } from "./scenarios";
 import "./battle-filters.css";
@@ -41,7 +42,7 @@ const SORTS = [
   ["turns", <FilterLabel key="turns" icon={CONCEPT_ICON.turn}>Most turns</FilterLabel>],
 ] as const;
 
-const lost = (b: Battle) => b.units.filter((u) => !u.on_map && !u.adjutant_of).length;
+const lost = (b: Battle) => b.units.filter(isLost).length;
 
 /** Which half of the game a battle belongs to; undefined when its scenario doesn't say. */
 function partOf(b: Battle): "1" | "2" | undefined {
