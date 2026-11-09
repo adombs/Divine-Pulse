@@ -2,9 +2,6 @@
 
 ## Unreleased
 
-- Count a battle's fights and kills from the game's battle history, which stands after a Divine Pulse, instead of its own counters, which the game rewrites when the battle ends (they read as no fights and no kills over the whole battle, so a recorded battle showed empty statistics). Battles recorded before this keep the numbers they were saved with.
-- Count a unit that fell as lost wherever losses are shown (History's cards and "Flawless" filter, the battle's Units count and comparison, the run's Units Lost, the outlook and the best unit): it stays in the game's record with no HP left, so it was never counted as off the map.
-
 ## 1.4.0 (2026-11-08)
 
 - Sort battles into five kinds with the same names everywhere (the battle page, History's cards, filter and comparison, Battle Stats and the video header): Mission Battles (formerly Main battles), Auxiliary Battles, Paralogue Battles, Quest Battles and DLC Battles, shown singular on a tag and plural in filters. DLC Battles are the five extra auxiliary battles (formerly Auxiliary battles) and Cindered Shadows. A Quest Battle runs on an ordinary auxiliary map, so the app tells it apart by the quest the game reads for it, and titles it with the quest's name ("Maintaining Your Training") instead of the map's; re-import your game files once to get the quest names (until then it is titled by its map). Recorded battles take the new kinds as they are read, so nothing needs migrating; a quest battle recorded before this shows as an Auxiliary Battle.
