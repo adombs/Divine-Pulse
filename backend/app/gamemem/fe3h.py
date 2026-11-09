@@ -89,6 +89,15 @@ _ABILITIES = 0x7F  # 5 equipped ability IDs; 0xFF = empty
 _LEARNED_ARTS = 0x57
 _LEARNED_ABILITIES = 0x61
 LEARNED_ABILITIES = 240
+# Which classes the unit has mastered: one byte per class ID (data/classes.json, 100 classes) from _CLASS_MASTERED to the
+# end of the slot, 1 once mastered. Checked on a battle where Lorenz (Cavalier) and Ignatz (Mercenary) mastered their
+# classes: each one's byte for that class went 0 -> 1 mid-battle, its mastery ability's learned bit was set, and its
+# progress toward the class (a u16 per class from 0x112, 98 before) went back to 0. The flag matched the learned mastery
+# arts and abilities of the 15-unit army before and after, and Noble and Commoner read 1 on exactly the units that
+# mastered them (units still in those classes read 0). Progress
+# is not the marker: a Warlock at 100 progress wasn't flagged or given its ability.
+_CLASS_MASTERED = 0x1E7
+CLASS_COUNT = 100
 # 3 equipped combat art IDs (data/combat-arts.json: Sunder 0, Wrath Strike 1 ... Pneuma Gale 79); 80 and up
 # = empty slot. Checked on all 15 units of a save (Manuela: Wrath Strike, Grounder, Hexblade; Lysithea: Draw Back only).
 _ARTS = 0x84
@@ -158,6 +167,13 @@ class RosterUnit:
     # The assigned battalion's cumulative experience and endurance left (None with no battalion).
     battalion_exp: int | None = None
     battalion_endurance: int | None = None
+    mastered_classes: tuple[int, ...] = ()  # IDs of the classes it has mastered
+
+
+def decode_mastered_classes(record: bytes) -> tuple[int, ...]:
+    """The IDs of the classes a roster slot has mastered; a truncated slot yields none."""
+    flags = record[_CLASS_MASTERED : _CLASS_MASTERED + CLASS_COUNT]
+    return tuple(class_id for class_id, flag in enumerate(flags) if flag == 1)
 
 
 def decode_roster(data: bytes) -> list[RosterUnit]:
@@ -188,6 +204,7 @@ def decode_roster(data: bytes) -> list[RosterUnit]:
                 decode_skill_progress(s),
                 battalion_exp,
                 battalion_endurance,
+                decode_mastered_classes(s),
             )
         )
     return units

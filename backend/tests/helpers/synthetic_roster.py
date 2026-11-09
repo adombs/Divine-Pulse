@@ -74,6 +74,8 @@ CLASSES = {
     85: ("War Monk", {"def": 1}, {}, "War Cleric"), 40: ("Gremory", {}, {}, None), 41: ("Wyvern Lord", {}, {}, None),
     42: ("Armored Knight", {}, {}, None), 43: ("Pegasus Knight", {}, {}, None),
 }
+# class id -> (tier, mastery ability, mastery art); classes left out are tier 0 with no mastery reward
+MASTERY = {0: (0, 3, None), 1: (0, 3, None), 4: (1, 3, 50), 5: (1, 3, 53), 7: (2, 7, None), 14: (2, 8, None), 85: (2, None, None)}
 NAME = b"\x1bN0Byleth\x1bN1".ljust(fe3h.PLAYER_NAME_SIZE, b"\0")
 
 
@@ -93,6 +95,7 @@ class Slot:
     equipped: int = fe3h.EQUIPPED_WEAPON
     counter: int = 20  # the battle counter
     flags: int = fe3h.IN_ARMY
+    mastered_classes: tuple[int, ...] = ()  # class IDs
 
 
 def build_slot(s: Slot) -> bytes:
@@ -118,6 +121,8 @@ def build_slot(s: Slot) -> bytes:
     out[fe3h._SPELL_IDS : fe3h._SPELL_IDS + fe3h.SPELL_SLOTS] = bytes(i for i, _ in spells)
     out[fe3h._SPELL_USES : fe3h._SPELL_USES + fe3h.SPELL_SLOTS] = bytes(u for _, u in spells)
     out[fe3h._FLAGS] = s.flags
+    for class_id in s.mastered_classes:
+        out[fe3h._CLASS_MASTERED + class_id] = 1
     struct.pack_into("<H", out, fe3h._BATTLES, s.counter)
     return bytes(out)
 
@@ -208,8 +213,9 @@ def write_roster_tables(root: Path) -> None:
     ]})
     write("data/items.json", {"items": [{"id": i, "name": n} for i, n in ITEMS.items()]})
     write("data/classes.json", {"classes": [
-        {"id": i, "name": n, "boosts": b, "mounted": m, "female_name": f, "mastery_ability": None,
-         "mastery_art": None, "abilities": [], "types": TYPES.get(i, {})}
+        {"id": i, "name": n, "boosts": b, "mounted": m, "female_name": f,
+         "tier": MASTERY.get(i, (0, None, None))[0], "mastery_ability": MASTERY.get(i, (0, None, None))[1],
+         "mastery_art": MASTERY.get(i, (0, None, None))[2], "abilities": [], "types": TYPES.get(i, {})}
         for i, (n, b, m, f) in CLASSES.items()
     ]})
     write("data/characters.json", {"characters": [

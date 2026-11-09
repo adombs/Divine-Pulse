@@ -95,6 +95,8 @@ class Unit(BaseModel):
     battalion_endurance: int | None = Field(default=None, ge=0)
     gambit_uses: int | None = Field(default=None, ge=0)
     skills: dict[SkillKey, SkillProgress] = Field(default_factory=dict)
+    # Classes the unit has mastered, read from the game (None until read: older runs; [] when it has mastered none).
+    mastered_classes: list[str] | None = None
     source: Literal["scan", "memory", "manual"] = "manual"
     game_id: int | None = Field(default=None, ge=0)
     updated_at: datetime = Field(default_factory=now)

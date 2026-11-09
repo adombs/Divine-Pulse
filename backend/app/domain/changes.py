@@ -50,6 +50,7 @@ def same_unit(a: Unit, b: Unit) -> bool:
         "battalion_endurance",
         "gambit_uses",
         "skills",
+        "mastered_classes",
         "source",
         "look",
     )

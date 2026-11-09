@@ -45,6 +45,7 @@ class GameClass:
     boosts: dict[str, int] = field(default_factory=dict)
     mounted: dict[str, int] = field(default_factory=dict)
     female_name: str | None = None
+    tier: int = 0
 
 
 @dataclass(frozen=True)
@@ -101,6 +102,17 @@ def unit_name(unit: RosterUnit, data: GameData, player_name: str | None) -> str:
         return player_name
     character = data.characters.get(unit.character)
     return character.name if character else f"Character {unit.character}"
+
+
+def mastered_classes(unit: RosterUnit, data: GameData, female: bool) -> list[str]:
+    """The names of the classes the unit has mastered (the game's own flag for each), lowest tier first and, within a
+    tier, in class order; a name shared by variants of a class comes once."""
+    ranked = sorted((c for c in unit.mastered_classes if c in data.classes), key=lambda c: (data.classes[c].tier, c))
+    found: dict[str, None] = {}
+    for class_id in ranked:
+        game_class = data.classes[class_id]
+        found[tidy_class(game_class.female_name if female and game_class.female_name else game_class.name)] = None
+    return list(found)
 
 
 def to_reading(
@@ -176,6 +188,7 @@ def to_reading(
             gambit_uses=gambit_uses if battalion and in_battle else None,
             battalion_bonus=battalion_bonus if modifiers is not None else None,
             skills=unit.skills,
+            mastered_classes=mastered_classes(unit, data, character.gender == "Female"),
         ),
         class_name=tidy_class(class_name) if class_name else None,
         gender=character.gender or None,
