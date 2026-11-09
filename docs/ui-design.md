@@ -71,8 +71,8 @@ fills the sheet: the header stays put and the view below fits the screen (the Ov
 16:9 / 16:10; the Settings text size slider scales everything).
 
 - **Header:** the battle's name with its chapter ("Chapter 7: Battle of the Eagle and Lion", battle/scenarios.ts,
-  from the game's scenario id; Part II chapters by route, from the house leader fighting), its kind (Main battle,
-  Paralogue, Auxiliary battle, Cindered Shadows) and place when known, Live (or its date), and the numbers worth a
+  from the game's scenario id; Part II chapters by route, from the house leader fighting), its kind (Mission,
+  Auxiliary, Paralogue, Quest or DLC Battle; see below) and place when known, Live (or its date), and the numbers worth a
   glance in game: time, turn, units on the map, army HP, enemies, Divine Pulse, outlook (on the Overview they're
   cards instead; elsewhere they're small cards under the header). Actions: Copy Summary, Export Video; for a recording Live Battle
   (while one runs) and Delete. Export Video (battle/ReplayExport.tsx) opens a window with the video's frame previewed
@@ -118,6 +118,14 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
   of the run, newest first, searchable by name, kind, place, result, date and unit. Opening one shows it on the Battle page as a
   recording (`#/battle/<id>`). On wide screens the page fits the sheet: the
   characters fill the rest and scroll in their own columns.
+- **Battle kinds:** every battle is one of five kinds, read from its scenario id (battle/scenarios.ts; nothing is
+  stored, so older recordings take the same kinds): Mission Battles (the story, ids 0-37), Auxiliary Battles (61-80),
+  Paralogue Battles (38-60, 93, 94, 97) and DLC Battles (81-85, the extra auxiliary battles, and 86-92, Cindered
+  Shadows). A Quest Battle runs on an ordinary auxiliary scenario and map, so the scenario can't say: the game's memory
+  holds the quest it is for (`Battle.quest`, its row in the quest table, a byte in the global data at
+  app/data/battle_fields.json "quest"; 151 or more when none), and a quest of `app/data/quest_battles.json` (the quests
+  that have a battle) makes it a Quest Battle, titled with the quest's name (text category `quest_title`). A tag says it
+  in the singular ("Mission Battle"), filters and counts in the plural ("Mission Battles").
 - **Totals, Records and Characters:** the run's finished battles added up and each character over the battles they were in;
   it's a route of its own (`#/history/stats/<unit key>`) so other pages can link to a character's stats.
 

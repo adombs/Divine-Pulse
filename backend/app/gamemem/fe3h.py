@@ -125,6 +125,7 @@ BATTLE_COPY_READ = GAMBIT_USES + 1
 BATTLE_SCANS = 3
 BATTLE_RESCAN_S = 10.0
 NO_SCENARIO = 0xFF  # the scenario id outside a battle (seen at the title screen)
+QUESTS = 151  # the quest table's rows; the battle's quest field reads this (or more) when the battle is not for a quest
 
 STAT_ORDER = ("str", "mag", "dex", "spd", "lck", "def", "res", "mv", "cha")
 EMPTY_SLOT = 0xFFFF
@@ -468,7 +469,7 @@ class GameMemory:
         from .battle import fields
 
         f = fields()
-        out: dict[str, int | None] = {"turn": None, "divine_pulse_charges": None, "scenario": None, "map": None, "cursor_x": None, "cursor_y": None}
+        out: dict[str, int | None] = {"turn": None, "divine_pulse_charges": None, "scenario": None, "map": None, "quest": None, "cursor_x": None, "cursor_y": None}
         if self._process is None or not self._copies:
             return out
         base = self._main + self.GLOBALS[0]
@@ -481,6 +482,8 @@ class GameMemory:
             out["scenario"] = scenario if scenario < NO_SCENARIO else None
         if f.map is not None and (data := self._process.read(base + f.map, 2)):
             out["map"] = struct.unpack("<H", data)[0]
+        if f.quest is not None and (data := self._process.read(base + f.quest, 1)):
+            out["quest"] = data[0] if data[0] < QUESTS else None
         for name in ("cursor_x", "cursor_y"):
             if (at := getattr(f, name)) is not None and (data := self._process.read(base + at, 4)):
                 out[name] = struct.unpack("<i", data)[0]

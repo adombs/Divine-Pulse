@@ -314,6 +314,8 @@ class Battle(BaseModel):
     scenario: int | None = None
     map_name: str = ""
     map_id: int | None = None
+    # The quest the battle is for, as the game's quest table numbers it (None: not for a quest, or not read).
+    quest: int | None = None
     # The tile the game's map cursor is on, as last read (None: not read). The minimap follows it.
     cursor: tuple[int, int] | None = None
     # Every action, as the game's Divine Pulse list shows them (from the game's history; empty if it couldn't be read).
@@ -522,6 +524,7 @@ class BattleSample:
     map_id: int | None = None  # which map it's on (the import's data/maps.json), with `terrain`
     cursor: tuple[int, int] | None = None  # the tile the map cursor is on, once located
     hidden: frozenset[str] = frozenset()  # uids of other units in the pool but off the map now (scanner)
+    quest: int | None = None  # the quest the battle is for (its row in the game's quest table), once located
 
 
 # Time allowed to work out the fights between two reads (gamemem/pairing.py), and the most a pairing that the combat

@@ -55,6 +55,7 @@ class BattleFields:
     divine_pulse_charges: int | None = None  # u8 in the global data
     scenario: int | None = None  # u16 in the global data: which battle this is (app/data/scenarios.json)
     map: int | None = None  # u16 in the global data: which map the battle is on (the import's data/maps.json)
+    quest: int | None = None  # u8 in the global data: the quest this battle is for (its row in the quest table); 151 for none
     cursor_x: int | None = None  # i32 each in the global data: the tile the map cursor is on
     cursor_y: int | None = None
 
@@ -79,6 +80,7 @@ class BattleFields:
             divine_pulse_charges=offset(globals_.get("divine_pulse_charges")),
             scenario=offset(globals_.get("scenario")),
             map=offset(globals_.get("map")),
+            quest=offset(globals_.get("quest")),
             cursor_x=offset(globals_.get("cursor_x")),
             cursor_y=offset(globals_.get("cursor_y")),
         )
