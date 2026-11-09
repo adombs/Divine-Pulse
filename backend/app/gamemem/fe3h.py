@@ -93,7 +93,8 @@ LEARNED_ABILITIES = 240
 # end of the slot, 1 once mastered. Checked on a battle where Lorenz (Cavalier) and Ignatz (Mercenary) mastered their
 # classes: each one's byte for that class went 0 -> 1 mid-battle, its mastery ability's learned bit was set, and its
 # progress toward the class (a u16 per class from 0x112, 98 before) went back to 0. The flag matched the learned mastery
-# arts and abilities of the 15-unit army before and after, and the starting Noble/Commoner class reads 1 too. Progress
+# arts and abilities of the 15-unit army before and after, and Noble and Commoner read 1 on exactly the units that
+# mastered them (units still in those classes read 0). Progress
 # is not the marker: a Warlock at 100 progress wasn't flagged or given its ability.
 _CLASS_MASTERED = 0x1E7
 CLASS_COUNT = 100

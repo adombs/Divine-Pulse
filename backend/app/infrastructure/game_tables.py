@@ -146,10 +146,9 @@ def _memory(_generation: tuple) -> dict:
             "boosts": {key: value for key, value in row["boosts"].items() if value},
             "mounted": {key: value for key, value in row["mounted"].items() if value},
             **({"female_name": row["female_name"]} if row.get("female_name") else {}),
-            # Classes a unit can master: past the starting Noble/Commoner (tier 0, which the game flags from the start)
-            # and with a reward to show for it.
-            "masterable": isinstance(row.get("tier"), int) and row["tier"] >= 1
-            and (row["mastery_ability"] is not None or row["mastery_art"] is not None),
+            # The game's own tier (0 Noble and Commoner, 1-5 up to Master, 6 story and DLC classes): the order mastered
+            # classes are listed in.
+            "tier": row["tier"] if isinstance(row.get("tier"), int) else 0,
         }
         for row in classes
     }

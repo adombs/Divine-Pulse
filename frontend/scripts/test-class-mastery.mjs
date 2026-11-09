@@ -17,14 +17,14 @@ test("a unit that was never read has no mastery list, one that mastered nothing 
   assert.deepEqual(masteredClasses([], CLASSES), []);
 });
 
-test("mastered classes are ordered by tier, keeping the game's order within a tier", () => {
-  const result = masteredClasses(["Warlock", "Dancer", "Monk", "Mage", "Fighter", "War Master"], CLASSES);
-  assert.deepEqual(result.map((c) => c.name), ["Monk", "Fighter", "Mage", "Warlock", "War Master", "Dancer"]);
-  assert.deepEqual(result.map((c) => c.tier), ["Beginner", "Beginner", "Intermediate", "Advanced", "Master", "Unique"]);
+test("mastered classes keep the game's order (lowest tier first) and each gets its tier", () => {
+  const result = masteredClasses(["Noble", "Fighter", "Monk", "Mage", "Warlock", "Dancer"], [...CLASSES, { name: "Noble", tier: "Unique" }]);
+  assert.deepEqual(result.map((c) => c.name), ["Noble", "Fighter", "Monk", "Mage", "Warlock", "Dancer"]);
+  assert.deepEqual(result.map((c) => c.tier), ["Unique", "Beginner", "Beginner", "Intermediate", "Advanced", "Unique"]);
 });
 
-test("a class the Archive doesn't know keeps its name, has no tier and comes last", () => {
-  const result = masteredClasses(["Mystery Class", "Fighter"], CLASSES);
+test("a class the Archive doesn't know keeps its name and its place, with no tier", () => {
+  const result = masteredClasses(["Fighter", "Mystery Class"], CLASSES);
   assert.deepEqual(result, [{ name: "Fighter", tier: "Beginner" }, { name: "Mystery Class", tier: null }]);
 });
 

@@ -75,7 +75,7 @@ CLASSES = {
     42: ("Armored Knight", {}, {}, None), 43: ("Pegasus Knight", {}, {}, None),
 }
 # class id -> (tier, mastery ability, mastery art); classes left out are tier 0 with no mastery reward
-MASTERY = {0: (0, 3, None), 4: (1, 3, 50), 5: (1, 3, 53), 7: (2, 7, None), 14: (2, 8, None), 85: (2, None, None)}
+MASTERY = {0: (0, 3, None), 1: (0, 3, None), 4: (1, 3, 50), 5: (1, 3, 53), 7: (2, 7, None), 14: (2, 8, None), 85: (2, None, None)}
 NAME = b"\x1bN0Byleth\x1bN1".ljust(fe3h.PLAYER_NAME_SIZE, b"\0")
 
 

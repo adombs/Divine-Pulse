@@ -6,7 +6,7 @@ import { ClassLink } from "../Links";
 import { TierIcon } from "../reference/TierIcon";
 
 /**
- * The classes a unit has mastered, lowest tier first, each with its tier's plate (as the Archive's Classes show it).
+ * The classes a unit has mastered, lowest tier first (the order the game read them in), each with its tier's plate (as the Archive's Classes show it).
  * Says so when the game hasn't been read for it yet (a unit saved before mastery was read) rather than claiming none.
  */
 export function ClassMasteryPanel({ unit }: { unit: Unit }) {

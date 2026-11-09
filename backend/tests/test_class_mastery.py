@@ -12,7 +12,7 @@ from app.gamemem.fe3h import RosterUnit, decode_mastered_classes, decode_roster
 from app.gamemem.units import GameData, to_reading
 from helpers.synthetic_roster import KEYS, Slot, build_slot
 
-FIGHTER, MONK, MERCENARY, MAGE, NOBLE = 4, 5, 7, 14, 0
+FIGHTER, MONK, MERCENARY, MAGE, NOBLE, COMMONER = 4, 5, 7, 14, 0, 1
 
 
 @pytest.fixture
@@ -62,25 +62,26 @@ def test_mastering_a_class_flips_its_flag_and_nothing_else_of_the_unit_reading(d
     struct.pack_into("<H", after, 0x112 + 2 * MERCENARY, 0)
     after[fe3h._CLASS_MASTERED + MERCENARY] = 1
 
-    assert to_reading(decode_roster(bytes(before))[0], data, bonuses).abilities.mastered_classes == []
-    assert to_reading(decode_roster(bytes(after))[0], data, bonuses).abilities.mastered_classes == ["Mercenary"]
+    assert to_reading(decode_roster(bytes(before))[0], data, bonuses).abilities.mastered_classes == ["Noble"]
+    assert to_reading(decode_roster(bytes(after))[0], data, bonuses).abilities.mastered_classes == ["Noble", "Mercenary"]
 
 
-def test_the_names_come_out_once_each_in_class_order(data, bonuses):
-    assert mastered(data, bonuses, mastered=(MAGE, FIGHTER, MONK)) == ["Fighter", "Monk", "Mage"]
+def test_the_names_come_out_once_each_lowest_tier_first(data, bonuses):
+    assert mastered(data, bonuses, mastered=(MAGE, MONK, FIGHTER, COMMONER, NOBLE)) == [
+        "Noble", "Commoner", "Fighter", "Monk", "Mage"]
 
 
-def test_the_starting_classes_are_not_listed_though_the_game_flags_them(data, bonuses):
-    assert mastered(data, bonuses, mastered=(NOBLE, FIGHTER)) == ["Fighter"]
+def test_noble_and_commoner_are_mastered_like_any_other_class(data, bonuses):
+    """Units master them (the flag is 0 on a unit still in the class), and they lead the list as the game's tier 0."""
+    assert mastered(data, bonuses, mastered=(COMMONER,), class_id=COMMONER) == ["Commoner"]
+    assert mastered(data, bonuses, mastered=(), class_id=NOBLE) == []
 
 
-def test_a_class_without_a_mastery_reward_or_unknown_to_the_import_is_not_listed(data, bonuses):
-    assert mastered(data, bonuses, mastered=(85, 77, 99)) == []
+def test_a_class_unknown_to_the_import_is_not_listed(data, bonuses):
+    assert mastered(data, bonuses, mastered=(FIGHTER, 98, 99)) == ["Fighter"]
 
 
-def test_a_female_unit_gets_the_female_class_name(data, bonuses, monkeypatch):
-    monkeypatch.setitem(data.classes, 85, type(data.classes[85])(**{**data.classes[85].__dict__, "masterable": True}))
-
+def test_a_female_unit_gets_the_female_class_name(data, bonuses):
     assert to_reading(unit(mastered=(85,), character=23), data, bonuses).abilities.mastered_classes == ["War Cleric"]
     assert to_reading(unit(mastered=(85,), character=32), data, bonuses).abilities.mastered_classes == ["War Monk"]
 

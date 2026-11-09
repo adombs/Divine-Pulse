@@ -45,7 +45,7 @@ class GameClass:
     boosts: dict[str, int] = field(default_factory=dict)
     mounted: dict[str, int] = field(default_factory=dict)
     female_name: str | None = None
-    masterable: bool = False
+    tier: int = 0
 
 
 @dataclass(frozen=True)
@@ -105,14 +105,13 @@ def unit_name(unit: RosterUnit, data: GameData, player_name: str | None) -> str:
 
 
 def mastered_classes(unit: RosterUnit, data: GameData, female: bool) -> list[str]:
-    """The names of the classes the unit has mastered (the game's own flag for each), in class order and once each
-    (variants of a class share a name). The starting Noble and Commoner, which the game flags from the start, and classes
-    with no mastery reward are left out."""
+    """The names of the classes the unit has mastered (the game's own flag for each), lowest tier first and, within a
+    tier, in class order; a name shared by variants of a class comes once."""
+    ranked = sorted((c for c in unit.mastered_classes if c in data.classes), key=lambda c: (data.classes[c].tier, c))
     found: dict[str, None] = {}
-    for class_id in sorted(unit.mastered_classes):
-        game_class = data.classes.get(class_id)
-        if game_class is not None and game_class.masterable:
-            found[tidy_class(game_class.female_name if female and game_class.female_name else game_class.name)] = None
+    for class_id in ranked:
+        game_class = data.classes[class_id]
+        found[tidy_class(game_class.female_name if female and game_class.female_name else game_class.name)] = None
     return list(found)
 
 
