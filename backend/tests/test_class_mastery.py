@@ -1,4 +1,4 @@
-"""Class mastery: the per-class progress in a roster slot and which classes a unit counts as having mastered."""
+"""Class mastery: the game's per-class "mastered" flags in a roster slot and the class names a unit reading carries."""
 
 import struct
 
@@ -8,7 +8,7 @@ from app.bonuses import BonusTable
 from app.config import BONUSES_FILE
 from app.domain.units import Unit
 from app.gamemem import fe3h
-from app.gamemem.fe3h import MASTERY_PROGRESS, RosterUnit, decode_class_progress, decode_roster
+from app.gamemem.fe3h import RosterUnit, decode_mastered_classes, decode_roster
 from app.gamemem.units import GameData, to_reading
 from helpers.synthetic_roster import KEYS, Slot, build_slot
 
@@ -25,71 +25,64 @@ def bonuses():
     return BonusTable.load(BONUSES_FILE)
 
 
-def unit(class_progress=None, learned_arts=(), class_id=MERCENARY, character=0) -> RosterUnit:
-    raw = {k: 10 for k in KEYS}
-    return RosterUnit(character, 20, class_id, raw, (), None, learned_arts=tuple(learned_arts),
-                      class_progress=class_progress or {})
+def unit(mastered=(), class_id=MERCENARY, character=0) -> RosterUnit:
+    return RosterUnit(character, 20, class_id, {k: 10 for k in KEYS}, (), None, mastered_classes=tuple(mastered))
 
 
 def mastered(data, bonuses, **kwargs) -> list[str]:
     return to_reading(unit(**kwargs), data, bonuses).abilities.mastered_classes
 
 
-def test_decodes_the_progress_of_each_class_by_id():
-    slot = build_slot(Slot(4, class_id=MERCENARY, class_progress={MERCENARY: 69, 42: 9, 99: 100}))
+def test_decodes_the_mastered_classes_by_id():
+    slot = build_slot(Slot(4, class_id=MERCENARY, mastered_classes=(NOBLE, FIGHTER, 99)))
 
-    assert decode_class_progress(slot) == {MERCENARY: 69, 42: 9, 99: 100}
-    assert decode_roster(slot)[0].class_progress == {MERCENARY: 69, 42: 9, 99: 100}
-
-
-def test_a_slot_with_no_progress_or_a_truncated_one_reads_none():
-    assert decode_class_progress(build_slot(Slot(4))) == {}
-    assert decode_class_progress(build_slot(Slot(4))[: fe3h._CLASS_PROGRESS + 10]) == {}
+    assert decode_mastered_classes(slot) == (NOBLE, FIGHTER, 99)
+    assert decode_roster(slot)[0].mastered_classes == (NOBLE, FIGHTER, 99)
 
 
-def test_the_progress_field_ends_where_the_next_field_starts():
+def test_a_slot_with_no_flags_or_a_truncated_one_reads_none():
+    assert decode_mastered_classes(build_slot(Slot(4))) == ()
+    assert decode_mastered_classes(build_slot(Slot(4))[: fe3h._CLASS_MASTERED + 3]) == ()
+
+
+def test_only_a_flag_of_one_counts_and_the_field_ends_with_the_slot():
     slot = bytearray(build_slot(Slot(4)))
-    struct.pack_into("<H", slot, fe3h._CLASS_PROGRESS + 2 * fe3h.CLASS_COUNT, 7)  # the field after class 99
+    slot[fe3h._CLASS_MASTERED + FIGHTER] = 2
+    slot[fe3h._CLASS_MASTERED + MONK] = 1
+    assert fe3h._CLASS_MASTERED + fe3h.CLASS_COUNT == fe3h.SLOT_SIZE - 1  # class 99's flag is the slot's last byte but one
 
-    assert decode_class_progress(bytes(slot)) == {}
-
-
-def test_a_class_at_the_maximum_progress_is_mastered(data, bonuses):
-    assert mastered(data, bonuses, class_progress={MERCENARY: MASTERY_PROGRESS}) == ["Mercenary"]
+    assert decode_mastered_classes(bytes(slot)) == (MONK,)
 
 
-def test_progress_short_of_the_maximum_is_not_mastery(data, bonuses):
-    assert mastered(data, bonuses, class_progress={MERCENARY: MASTERY_PROGRESS - 1, MAGE: 3}) == []
+def test_mastering_a_class_flips_its_flag_and_nothing_else_of_the_unit_reading(data, bonuses):
+    """What the user's battle showed: the unit's progress toward the class went back to 0 and its flag went to 1."""
+    before = bytearray(build_slot(Slot(0, class_id=MERCENARY, mastered_classes=(NOBLE,))))
+    struct.pack_into("<H", before, 0x112 + 2 * MERCENARY, 98)  # nearly there, not yet mastered
+    after = bytearray(before)
+    struct.pack_into("<H", after, 0x112 + 2 * MERCENARY, 0)
+    after[fe3h._CLASS_MASTERED + MERCENARY] = 1
+
+    assert to_reading(decode_roster(bytes(before))[0], data, bonuses).abilities.mastered_classes == []
+    assert to_reading(decode_roster(bytes(after))[0], data, bonuses).abilities.mastered_classes == ["Mercenary"]
 
 
-def test_a_learned_mastery_art_marks_its_class_even_though_progress_reads_zero(data, bonuses):
-    assert mastered(data, bonuses, learned_arts=(50, 53), class_progress={FIGHTER: 1}) == ["Fighter", "Monk"]
+def test_the_names_come_out_once_each_in_class_order(data, bonuses):
+    assert mastered(data, bonuses, mastered=(MAGE, FIGHTER, MONK)) == ["Fighter", "Monk", "Mage"]
 
 
-def test_a_mastery_art_below_the_mastery_range_proves_nothing(data, bonuses, monkeypatch):
-    game_class = data.classes[FIGHTER]
-    monkeypatch.setitem(data.classes, FIGHTER, type(game_class)(**{**game_class.__dict__, "mastery_art": 3}))
-
-    assert mastered(data, bonuses, learned_arts=(3,)) == []
+def test_the_starting_classes_are_not_listed_though_the_game_flags_them(data, bonuses):
+    assert mastered(data, bonuses, mastered=(NOBLE, FIGHTER)) == ["Fighter"]
 
 
-def test_classes_come_out_once_each_in_class_order_and_the_starting_classes_never_count(data, bonuses):
-    result = mastered(data, bonuses, learned_arts=(53, 50),
-                      class_progress={MAGE: 100, FIGHTER: 100, NOBLE: 100, 77: 100})
-
-    assert result == ["Fighter", "Monk", "Mage"]
+def test_a_class_without_a_mastery_reward_or_unknown_to_the_import_is_not_listed(data, bonuses):
+    assert mastered(data, bonuses, mastered=(85, 77, 99)) == []
 
 
-def test_a_class_without_a_mastery_reward_is_not_listed(data, bonuses):
-    assert mastered(data, bonuses, class_progress={85: 100}) == []
+def test_a_female_unit_gets_the_female_class_name(data, bonuses, monkeypatch):
+    monkeypatch.setitem(data.classes, 85, type(data.classes[85])(**{**data.classes[85].__dict__, "masterable": True}))
 
-
-def test_a_female_unit_gets_the_female_class_name(data, bonuses):
-    reading = to_reading(unit(class_progress={85: 100}, character=23), data, bonuses)
-
-    assert reading.abilities.mastered_classes == []  # no reward: still not listed
-    data.classes[85] = type(data.classes[85])(**{**data.classes[85].__dict__, "masterable": True})
-    assert to_reading(unit(class_progress={85: 100}, character=23), data, bonuses).abilities.mastered_classes == ["War Cleric"]
+    assert to_reading(unit(mastered=(85,), character=23), data, bonuses).abilities.mastered_classes == ["War Cleric"]
+    assert to_reading(unit(mastered=(85,), character=32), data, bonuses).abilities.mastered_classes == ["War Monk"]
 
 
 def test_a_stored_unit_keeps_the_field_and_an_older_one_loads_without_it():

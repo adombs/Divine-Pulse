@@ -95,7 +95,7 @@ class Slot:
     equipped: int = fe3h.EQUIPPED_WEAPON
     counter: int = 20  # the battle counter
     flags: int = fe3h.IN_ARMY
-    class_progress: dict[int, int] = field(default_factory=dict)  # class ID -> mastery progress
+    mastered_classes: tuple[int, ...] = ()  # class IDs
 
 
 def build_slot(s: Slot) -> bytes:
@@ -121,8 +121,8 @@ def build_slot(s: Slot) -> bytes:
     out[fe3h._SPELL_IDS : fe3h._SPELL_IDS + fe3h.SPELL_SLOTS] = bytes(i for i, _ in spells)
     out[fe3h._SPELL_USES : fe3h._SPELL_USES + fe3h.SPELL_SLOTS] = bytes(u for _, u in spells)
     out[fe3h._FLAGS] = s.flags
-    for class_id, progress in s.class_progress.items():
-        struct.pack_into("<H", out, fe3h._CLASS_PROGRESS + 2 * class_id, progress)
+    for class_id in s.mastered_classes:
+        out[fe3h._CLASS_MASTERED + class_id] = 1
     struct.pack_into("<H", out, fe3h._BATTLES, s.counter)
     return bytes(out)
 

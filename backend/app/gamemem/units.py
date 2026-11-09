@@ -22,15 +22,12 @@ from ..infrastructure import game_tables
 from ..domain import battalions as battalion_rules
 from ..domain.units import VALUE_KEYS, byleth_look
 from ..domain.readings import AbilityInfo, UnitStatsReading
-from .fe3h import EQUIPPED_WEAPON, MASTERY_PROGRESS, RosterUnit
+from .fe3h import EQUIPPED_WEAPON, RosterUnit
 
 SCREEN_ID = "memory"
 SCREEN_TITLE = "Game memory"
 # Byleth's character IDs (male, female): the only character the player can rename.
 BYLETH_IDS = (0, 1)
-# Combat arts below this ID are learned through weapon skill ranks; from here on they are class mastery rewards (or a
-# character's own), so a learned one proves the class was mastered.
-FIRST_MASTERY_ART = 50
 
 
 @dataclass(frozen=True)
@@ -49,7 +46,6 @@ class GameClass:
     mounted: dict[str, int] = field(default_factory=dict)
     female_name: str | None = None
     masterable: bool = False
-    mastery_art: int | None = None
 
 
 @dataclass(frozen=True)
@@ -109,19 +105,13 @@ def unit_name(unit: RosterUnit, data: GameData, player_name: str | None) -> str:
 
 
 def mastered_classes(unit: RosterUnit, data: GameData, female: bool) -> list[str]:
-    """The classes the unit has mastered, by class ID. A class counts when its progress has reached the maximum, or
-    when its mastery art is learned (the game reads 0 progress for those: it appears to reset once mastered). Classes
-    whose mastery reward is only an ability can't be told apart that way, so those are listed from their progress alone."""
-    learned = set(unit.learned_arts)
+    """The names of the classes the unit has mastered (the game's own flag for each), in class order and once each
+    (variants of a class share a name). The starting Noble and Commoner, which the game flags from the start, and classes
+    with no mastery reward are left out."""
     found: dict[str, None] = {}
-    for class_id in sorted(data.classes):
-        game_class = data.classes[class_id]
-        if not game_class.masterable:
-            continue
-        art = game_class.mastery_art
-        if unit.class_progress.get(class_id, 0) >= MASTERY_PROGRESS or (
-            art is not None and art >= FIRST_MASTERY_ART and art in learned
-        ):
+    for class_id in sorted(unit.mastered_classes):
+        game_class = data.classes.get(class_id)
+        if game_class is not None and game_class.masterable:
             found[tidy_class(game_class.female_name if female and game_class.female_name else game_class.name)] = None
     return list(found)
 
