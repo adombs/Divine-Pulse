@@ -16,7 +16,6 @@ const TOPICS: { key: LedgerPart; label: string; icon: "attack" | "growth" | "his
   { key: "combat", label: "Combat", icon: "attack" }, { key: "growth", label: "Growth & Supplies", icon: "growth" }, { key: "records", label: "Records", icon: "history" },
 ];
 const numberFormat = new Intl.NumberFormat();
-const partialNote = <span className="run-stats-partial" title="Some battles did not record this, so the real total is higher">partial</span>;
 const unknown = (reason = "Not fully recorded") => <span className="run-stats-unknown" title={reason} aria-label={reason}>—</span>;
 
 export function RunStatsPopup({ kind, onClose, battles, error, onRetry }: Props) {
@@ -38,7 +37,7 @@ function RunLedger({ kind, battles: source }: { kind: LedgerKind; battles: Battl
   const [recordGroup, setRecordGroup] = useState("");
   const id = useId();
   const data = useMemo(() => buildRunLedger(source, kind), [source, kind]);
-  const { battles, run, rows, sums, partial } = data;
+  const { battles, run, rows, sums } = data;
   const topics = kind === "characters" ? TOPICS : TOPICS.slice(0, 2);
   const groups = [...new Set(data.columns.records.map((column) => column.group!))];
   const columns = data.columns[part].map((column, index) => ({ ...column, index })).filter((column) => part !== "records" || !recordGroup || column.group === recordGroup);
@@ -62,7 +61,7 @@ function RunLedger({ kind, battles: source }: { kind: LedgerKind; battles: Battl
   return <div className="run-stats-ledger">
     <header className="run-stats-overview"><div className="run-stats-scope"><h3>Entire run</h3>
       <span className="run-stats-duration"><b>{clock(run.seconds)}</b> in battle</span></div>
-      <dl className="run-stats-totals">{figures.map(({ label, sum, icon }) => <div key={label}><dt><Icon name={icon} />{label}</dt><dd>{sum.value === null ? unknown() : <>{numberFormat.format(sum.value)}{sum.partial && partialNote}</>}</dd></div>)}</dl>
+      <dl className="run-stats-totals">{figures.map(({ label, sum, icon }) => <div key={label}><dt><Icon name={icon} />{label}</dt><dd>{sum.value === null ? unknown() : numberFormat.format(sum.value)}</dd></div>)}</dl>
     </header>
     {!battles.length ? <div className="run-stats-state"><Icon name={CONCEPT_ICON.history} /><h3>No recorded battles yet</h3><p>Record a battle in this run to see totals and comparisons here.</p></div> : <>
       <div className="run-stats-toolbar"><div className="run-stats-topics" role="tablist" aria-label="Statistics topic">{topics.map((t, index) => <button
@@ -86,7 +85,7 @@ function RunLedger({ kind, battles: source }: { kind: LedgerKind; battles: Battl
                 return <td key={column.key} className={active ? "is-sorted" : undefined}>{active && value !== null && maxSorted > 0 && <span className="run-stats-cell-bar" style={{ width: `${Math.max(0, value) / maxSorted * 100}%` }} aria-hidden="true" />}
                   <span className="run-stats-cell-value">{part === "records" && value === null ? unknown("Battle-wide record; no character recipient") : formatValue(value, column.key)}</span></td>;
               })}</tr>)}</tbody>
-            <tfoot><tr><th scope="row">Run total</th>{columns.map((column) => <td key={column.key} className={sort?.column === column.index ? "is-sorted" : undefined}>{formatValue(data.totals[part][column.index], column.key)}{part === "combat" && partial.has(column.key) && partialNote}</td>)}</tr></tfoot>
+            <tfoot><tr><th scope="row">Run total</th>{columns.map((column) => <td key={column.key} className={sort?.column === column.index ? "is-sorted" : undefined}>{formatValue(data.totals[part][column.index], column.key)}</td>)}</tr></tfoot>
           </table>{!shown.length && <div className="run-stats-no-matches" role="status"><Icon name={CONCEPT_ICON.search} /><strong>No {kind} match this search</strong><button type="button" className="btn small" onClick={() => setQuery("")}>Clear search</button></div>}
         </div>
       </section>
