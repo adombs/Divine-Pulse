@@ -1,16 +1,16 @@
 /**
  * The battle themes a replay video can play (extracted at import: backend gamefiles/extract/music.py writes
- * data/music.json and audio/bgm/<id>.ogg, each the theme's calm Rain version), the theme each battle plays in the game
+ * data/music.json and audio/bgm/<id>.ogg: each theme's calm Rain version and its intense Thunder one, which imports
+ * from before Thunder was added lack), the theme each battle plays in the game
  * (by scenario id), and the soundtrack of a video: the theme looped seamlessly for as long as the video runs, faded out
  * at the end.
  */
 import { gameAssetUrl, loadGameJson } from "../gameAssets";
+import { mixPiece, soundPlan } from "./soundtrack";
 
-export interface Theme {
+/** One recording of a theme: its audio file and the loop the game plays. */
+export interface Track {
   id: string;
-  title: string;
-  /** Where it plays, for grouping the picker ("Part I", "Final battles", ...). */
-  group: string;
   file: string;
   rate: number;
   channels: number;
@@ -18,6 +18,22 @@ export interface Theme {
   /** The loop the game plays (in samples): after the intro, from loop_start for loop_length, over and over. */
   loop_start: number;
   loop_length: number;
+}
+
+/** A theme is its Rain version (the Track itself) and, once imported, its Thunder one. */
+export interface Theme extends Track {
+  title: string;
+  /** Where it plays, for grouping the picker ("Part I", "Final battles", ...). */
+  group: string;
+  thunder?: Track;
+}
+
+/** The two versions of a theme: the calm one, and the intense one. */
+export type Version = "rain" | "thunder";
+
+/** The recording of a theme in a version; its Rain one when it has no Thunder one. */
+export function recording(theme: Theme, version: Version): Track {
+  return version === "thunder" && theme.thunder ? theme.thunder : theme;
 }
 
 export interface Music {
@@ -42,9 +58,9 @@ export function defaultTheme(music: Music, scenario: number | null | undefined):
   return music.themes.find((t) => t.id === id) ?? music.themes[0];
 }
 
-/** A theme's audio, fetched and decoded once. */
+/** A recording's audio, fetched and decoded once. */
 const decoded = new Map<string, Promise<AudioBuffer>>();
-function themeAudio(theme: Theme): Promise<AudioBuffer> {
+function themeAudio(theme: Track): Promise<AudioBuffer> {
   let found = decoded.get(theme.id);
   if (!found) {
     found = (async () => {
@@ -60,40 +76,34 @@ function themeAudio(theme: Theme): Promise<AudioBuffer> {
   return found;
 }
 
-/** How long the music fades out at the end of a video (s). */
-const FADE_OUT = 2.5;
+/** The soundtrack is made this long a piece at a time (s). */
+const PIECE = 1;
 
 /**
- * The soundtrack of a video `seconds` long: the theme from its start, looping as the game loops it, at `volume`
- * (0-1), faded out over the last seconds.
+ * The soundtrack of a video `seconds` long, in pieces of a second: the theme from its start, looping as the game loops
+ * it, at `volume` (0-1), faded out over the last seconds. Only one piece is made at a time (and the theme's decoded
+ * audio is dropped when the last one is), so a long video needs no more memory than a short one.
  */
-export async function soundtrack(theme: Theme, seconds: number, volume: number): Promise<AudioBuffer> {
-  const audio = await themeAudio(theme);
-  const rate = audio.sampleRate;
-  const context = new OfflineAudioContext(audio.numberOfChannels, Math.max(1, Math.ceil(seconds * rate)), rate);
-  const source = context.createBufferSource();
-  source.buffer = audio;
-  const start = theme.loop_start / theme.rate;
-  const end = (theme.loop_start + theme.loop_length) / theme.rate;
-  if (theme.loop_length > 0 && end <= audio.duration + 0.01) {
-    source.loop = true;
-    source.loopStart = start;
-    source.loopEnd = Math.min(end, audio.duration);
+export async function* soundtrack(theme: Track, seconds: number, volume: number): AsyncGenerator<AudioBuffer> {
+  try {
+    const audio = await themeAudio(theme);
+    const plan = soundPlan(theme, audio, seconds, volume);
+    const input = Array.from({ length: audio.numberOfChannels }, (_, c) => audio.getChannelData(c));
+    const step = Math.round(PIECE * audio.sampleRate);
+    for (let from = 0; from < plan.total; from += step) {
+      const piece = new AudioBuffer({ length: Math.min(step, plan.total - from), numberOfChannels: input.length, sampleRate: audio.sampleRate });
+      mixPiece(input, Array.from({ length: input.length }, (_, c) => piece.getChannelData(c)), from, plan);
+      yield piece;
+    }
+  } finally {
+    decoded.delete(theme.id);
   }
-  const gain = context.createGain();
-  const fade = Math.min(FADE_OUT, seconds / 3);
-  gain.gain.setValueAtTime(volume, 0);
-  gain.gain.setValueAtTime(volume, Math.max(0, seconds - fade));
-  gain.gain.linearRampToValueAtTime(0, seconds);
-  source.connect(gain).connect(context.destination);
-  source.start(0);
-  return context.startRendering();
 }
 
 let previewing: { audio: HTMLAudioElement; id: string } | null = null;
 
 /** Plays a theme from its start (or stops it, if it's the one playing). Returns whether it's playing now. */
-export function previewTheme(theme: Theme | null, volume = 0.8): boolean {
+export function previewTheme(theme: Track | null, volume = 0.8): boolean {
   const same = previewing?.id === theme?.id;
   previewing?.audio.pause();
   previewing = null;

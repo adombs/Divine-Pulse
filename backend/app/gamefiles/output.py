@@ -16,7 +16,7 @@ from PIL import Image
 MANIFEST = "manifest.json"
 # Raised when an extractor's output changes in a way the app relies on, so an
 # older import is reported as needing a new one.
-FORMAT = 5  # the map themes' music (audio/bgm, data/music.json)
+FORMAT = 6  # the map themes' music, Rain and Thunder (audio/bgm, data/music.json)
 
 
 def pixel_hash(image: Image.Image) -> str:

@@ -48,9 +48,14 @@
 .replay-stage-map .map-zoom { transition: none; }
 
 .replay-stage-log {
-  grid-area: log; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 10px 12px 8px;
+  grid-area: log; display: flex; flex-direction: column; min-width: 0; min-height: 0; padding: 10px 8px 8px;
   background: var(--paper-2); border: 1px solid var(--row-border); border-radius: 4px;
 }
+/* The video's log rows: the time right-aligned in a column just wide enough for it, a tight even gap to the icon and on
+   to the text, which gets the width that frees (the same in the preview and in the exported frames, which are taken of
+   this very box). */
+.replay-stage-log .log-row { grid-template-columns: 2.2rem 1.45rem minmax(0, 1fr); gap: 0.4rem; padding: 0.26rem 0.3rem; }
+.replay-stage-log .log-time { text-align: right; }
 .replay-stage-log-title { display: flex; align-items: center; gap: 0.4rem; padding: 0 0 6px; border-bottom: 1px solid var(--line); font: 600 1.1rem var(--display); }
 .replay-stage-log-title .icon { color: var(--accent); }
 /* The newest row at the bottom; older ones go up and fade out at the top (no scrolling in a picture). */

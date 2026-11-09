@@ -78,8 +78,9 @@ fills the sheet: the header stays put and the view below fits the screen (the Ov
   (while one runs) and Delete. Export Video (battle/ReplayExport.tsx) opens a window with the video's frame previewed
   as it plays (title strip with the "by Adombs" credit, the map with its turn banner and no legend, the log as a
   list up to the step shown) and options down the right: orientation, turns, speed, camera, zoom, music (the battle
-  themes imported with the game files, the battle's own first) and the video's resolution, frame rate, quality and theme;
-  the export button stays at the foot of the options. The map takes all
+  themes imported with the game files, the battle's own first, in its Rain or Thunder version, and a 0-100% volume) and the video's resolution, frame rate, quality and theme;
+  the export button stays at the foot of the options. A video is written to a temporary file in the page's
+  private storage as it is made, and the soundtrack a second at a time, so memory doesn't grow with its length. The map takes all
   the room its view needs and the log the rest; zoomed in, the camera's view widens to fill that room. Tabs: **Overview · Units · More Stats**.
 - **Overview:** three columns. The map (as big as it fits, with the replay timeline under it), the Units
   (UnitStatus.tsx: everyone on the board but objects, filterable by team, as at the replay's step; HP, and warnings

@@ -52,9 +52,10 @@ export async function saveFiles(kind: MediaKind, files: { name: string; blob: Bl
   if (!token) return null;
   try {
     for (const [index, file] of files.entries()) {
-      const bytes = new Uint8Array(await file.blob.arrayBuffer());
-      for (let at = 0; at < bytes.length; at += CHUNK) {
-        await api.write_media_chunk(token, index, base64(bytes.subarray(at, at + CHUNK)));
+      // Read a piece at a time (the file may be on disk): a long video is never in memory whole.
+      for (let at = 0; at < file.blob.size; at += CHUNK) {
+        const bytes = new Uint8Array(await file.blob.slice(at, at + CHUNK).arrayBuffer());
+        await api.write_media_chunk(token, index, base64(bytes));
       }
     }
     return await api.finish_media_save(token);
