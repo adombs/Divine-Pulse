@@ -34,10 +34,10 @@ import { StepSlider } from "./Slider";
 const WIDTH = 1500;
 /** The image sizes offered: how many times the preview's size each image is saved at. */
 const SIZES: [number, string][] = [
-  [1, "Small: for chats and messages"],
-  [1.5, "Medium: for most uses"],
-  [2, "Large: for big screens"],
-  [3, "Extra large: for printing"],
+  [1, "S"],
+  [1.5, "M"],
+  [2, "L"],
+  [3, "XL"],
 ];
 const IMAGE_OPTIONS_KEY = "divine-pulse-export-team";
 
@@ -53,9 +53,9 @@ interface ImageOptions {
 }
 type ExportFace = "portrait" | "sprite" | "both";
 const FACES: [ExportFace, string][] = [
-  ["both", "Portrait and sprite"],
   ["portrait", "Portrait"],
   ["sprite", "Sprite"],
+  ["both", "Both"],
 ];
 const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, loadouts: true, stats: true, fallen: true, face: "both" };
 
@@ -158,15 +158,15 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
   const ledger = useMemo(() => (battles ? buildRunLedger(battles, "characters") : null), [battles]);
   // Ordering every unit at once: by BST, by deployments or by when they joined (each a fresh layout with no gaps), or
   // "custom" once a unit is dragged.
-  const [orderBy, setOrderBy] = useState<OrderBy>("joined");
+  const [orderBy, setOrderBy] = useState<OrderBy>("joined:asc");
   // The join order needs the run's battles, so it is laid out again once they are read (unless a unit was moved by hand).
   useEffect(() => {
-    if (ledger && orderBy === "joined") setPlaced(orderUnits(units, "joined", ledger.characters));
+    if (ledger && orderBy !== "custom") setPlaced(orderFor(units, orderBy, ledger.characters));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ledger]);
   const applyOrder = (by: OrderBy) => {
     setOrderBy(by);
-    if (by !== "custom") setPlaced(orderUnits(units, by, ledger?.characters ?? []));
+    if (by !== "custom") setPlaced(orderFor(units, by, ledger?.characters ?? []));
   };
 
   const loadouts = useRef<HTMLDivElement>(null);
@@ -256,7 +256,6 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
               valueText={`${perRow} side by side`}
               variant="timeline"
               slim
-              after={<span className="team-layout-value">{perRow}</span>}
             />
           </fieldset>
           <fieldset className="export-group checklist team-export-units" disabled={working}>
@@ -271,7 +270,7 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
               <select value={orderBy} onChange={(e) => applyOrder(e.target.value as OrderBy)}>
                 <option value="custom">Custom</option>
                 {ORDER_BY.map(([id, label]) => (
-                  <option key={id} value={id} disabled={id === "deployments" && !ledger}>{label}</option>
+                  <option key={id} value={id} disabled={id.startsWith("deployments") && !ledger}>{label}</option>
                 ))}
               </select>
             </label>
@@ -297,24 +296,20 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
               </label>
             </div>
             <div className="export-pairs">
-              <label className="wide inline">
-                Size
-                <select value={options.size} onChange={(e) => setOption("size", Number(e.target.value))}>
-                  {SIZES.map(([k, label]) => <option key={k} value={k}>{label}</option>)}
-                </select>
-              </label>
+              <div className="wide team-choice">
+                <span className="field-label">Size</span>
+                <Segmented<string> label="Image size" value={String(options.size)} onChange={(v) => setOption("size", Number(v))} options={SIZES.map(([k, label]) => [String(k), label] as const)} />
+              </div>
               {(options.loadouts || options.stats) && (
                 <p className="export-sizes wide">
                   {options.loadouts && <span>Overview <b>{pixels(sizes.overview)}</b></span>}
                   {options.stats && <span>Run statistics <b>{pixels(sizes.stats)}</b></span>}
                 </p>
               )}
-              <label className="wide">
-                Faces
-                <select value={options.face} onChange={(e) => setOption("face", e.target.value as ExportFace)}>
-                  {FACES.map(([f, label]) => <option key={f} value={f}>{label}</option>)}
-                </select>
-              </label>
+              <div className="wide team-choice">
+                <span className="field-label">Faces</span>
+                <Segmented<ExportFace> label="Faces" value={options.face} onChange={(v) => setOption("face", v)} options={FACES} />
+              </div>
             </div>
           </fieldset>
           <ExportActions
@@ -330,29 +325,40 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
   );
 }
 
-type OrderBy = "custom" | "bst" | "deployments" | "joined" | "name";
+type OrderCriterion = "bst" | "deployments" | "joined" | "name";
+type OrderBy = "custom" | `${OrderCriterion}:${"asc" | "desc"}`;
 
-/** The ways to order every unit at once (besides arranging them by hand). */
+/** The ways to order every unit at once (besides arranging them by hand), each both ways. */
 const ORDER_BY: [Exclude<OrderBy, "custom">, string][] = [
-  ["bst", "BST (highest first)"],
-  ["deployments", "Deployments (most first)"],
-  ["joined", "Joined (Byleth first, then by first battle)"],
-  ["name", "Name"],
+  ["name:asc", "Name (Ascending)"],
+  ["name:desc", "Name (Descending)"],
+  ["bst:asc", "BST (Ascending)"],
+  ["bst:desc", "BST (Descending)"],
+  ["deployments:asc", "Deployments (Ascending)"],
+  ["deployments:desc", "Deployments (Descending)"],
+  ["joined:asc", "Joined (Ascending)"],
+  ["joined:desc", "Joined (Descending)"],
 ];
+
+/** The units' keys for an order option such as "bst:desc" (see `orderUnits`). */
+const orderFor = (units: Unit[], by: Exclude<OrderBy, "custom">, characters: Parameters<typeof orderUnits>[2]) => {
+  const [criterion, dir] = by.split(":") as [OrderCriterion, "asc" | "desc"];
+  return orderUnits(units, criterion, characters, dir === "desc");
+};
 
 /**
  * The units' keys in the order asked for. Deployments and joining come from the run's finished battles: joined is
  * when a unit first fought (Byleth first), those who never have go last in the roster's order. Ties keep the roster's order.
  */
-export function orderUnits(units: Unit[], by: Exclude<OrderBy, "custom">, characters: { key: string; battles: number; appearances: { battle: { started_at: string } }[] }[]): string[] {
+export function orderUnits(units: Unit[], by: OrderCriterion, characters: { key: string; battles: number; appearances: { battle: { started_at: string } }[] }[], descending = false): string[] {
   const stats = new Map(characters.map((c) => [c.key, c]));
   const joined = (u: Unit) => {
     const times = stats.get(u.key)?.appearances.map((a) => a.battle.started_at) ?? [];
     return times.length ? times.reduce((a, b) => (a < b ? a : b)) : null;
   };
   const value: Record<typeof by, (a: Unit, b: Unit) => number> = {
-    bst: (a, b) => baseStatTotal(b) - baseStatTotal(a),
-    deployments: (a, b) => (stats.get(b.key)?.battles ?? 0) - (stats.get(a.key)?.battles ?? 0),
+    bst: (a, b) => baseStatTotal(a) - baseStatTotal(b),
+    deployments: (a, b) => (stats.get(a.key)?.battles ?? 0) - (stats.get(b.key)?.battles ?? 0),
     joined: (a, b) => {
       // Byleth is there from the start, ahead of anyone who first fought in the same battle.
       const [ba, bb] = [isByleth(a), isByleth(b)];
@@ -362,7 +368,9 @@ export function orderUnits(units: Unit[], by: Exclude<OrderBy, "custom">, charac
     },
     name: (a, b) => a.name.localeCompare(b.name),
   };
-  return units.map((u, i) => ({ u, i })).sort((a, b) => value[by](a.u, b.u) || a.i - b.i).map(({ u }) => u.key);
+  const ascending = units.map((u, i) => ({ u, i })).sort((a, b) => value[by](a.u, b.u) || a.i - b.i).map(({ u }) => u.key);
+  // Descending is the exact reverse of ascending.
+  return descending ? ascending.reverse() : ascending;
 }
 
 /**
