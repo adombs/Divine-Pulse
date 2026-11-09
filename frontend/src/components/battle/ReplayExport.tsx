@@ -18,7 +18,7 @@ import { clock } from "../../format";
 import { Icon, IconButton } from "../Icon";
 import { Modal } from "../Modal";
 import { ExportActions, type ExportStatus } from "../ExportActions";
-import { NotchedRange } from "../Slider";
+import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
@@ -516,28 +516,14 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
           </fieldset>
           <fieldset className="export-group" disabled={working}>
             <legend>Turns</legend>
-            <div className="export-turns">
-              <label>
-                From
-                <select value={from} onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setFrom(v);
-                  if (to < v) setTo(v);
-                }}>
-                  {turns.map((n) => <option key={n} value={n}>Turn {n}</option>)}
-                </select>
-              </label>
-              <label>
-                To
-                <select value={to} onChange={(e) => {
-                  const v = Number(e.target.value);
-                  setTo(v);
-                  if (from > v) setFrom(v);
-                }}>
-                  {turns.map((n) => <option key={n} value={n}>Turn {n}</option>)}
-                </select>
-              </label>
-            </div>
+            <RangeSlider
+              label="Turns"
+              min={1}
+              max={Math.max(1, turns[turns.length - 1] ?? 1)}
+              start={from}
+              end={to}
+              onChange={(a, b) => { setFrom(a); setTo(b); }}
+            />
           </fieldset>
           <fieldset className="export-group" disabled={working}>
             <legend>Replay</legend>

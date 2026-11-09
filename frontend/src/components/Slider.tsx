@@ -145,3 +145,66 @@ export function StepSlider({
     </span>
   );
 }
+
+/**
+ * A slider with two cursors over whole numbers min..max: the start and the end of a range, which cannot cross. Two
+ * range inputs share one bar; only their thumbs take the pointer, so each cursor is dragged (or keyed: arrows, Home,
+ * End) on its own. A number box at each end takes an exact value, kept in range on blur or Enter.
+ */
+export function RangeSlider(p: {
+  min: number;
+  max: number;
+  start: number;
+  end: number;
+  onChange: (start: number, end: number) => void;
+  label: string;
+}) {
+  const span = Math.max(1, p.max - p.min);
+  const pct = (v: number) => `${((v - p.min) / span) * 100}%`;
+  const clamp = (v: number) => Math.max(p.min, Math.min(p.max, Math.round(v)));
+  const setStart = (v: number) => p.onChange(Math.min(clamp(v), p.end), p.end);
+  const setEnd = (v: number) => p.onChange(p.start, Math.max(clamp(v), p.start));
+  // Both cursors on one spot: the one that can still move away is on top.
+  const startOnTop = p.start === p.end && p.end >= p.max;
+  return (
+    <div className="range2" style={{ ["--a" as string]: pct(p.start), ["--b" as string]: pct(p.end) }}>
+      <TurnBox label={`${p.label}: start`} value={p.start} min={p.min} max={p.max} onCommit={setStart} />
+      <span className="range2-bar">
+        <span className="range2-track" aria-hidden>
+          <span className="range2-fill" />
+        </span>
+        <input
+          type="range" min={p.min} max={p.max} step={1} value={p.start}
+          style={{ zIndex: startOnTop ? 3 : 2 }}
+          onChange={(e) => setStart(Number(e.target.value))}
+          aria-label={`${p.label}: start`} aria-valuetext={`${p.start}`}
+        />
+        <input
+          type="range" min={p.min} max={p.max} step={1} value={p.end}
+          style={{ zIndex: 2 }}
+          onChange={(e) => setEnd(Number(e.target.value))}
+          aria-label={`${p.label}: end`} aria-valuetext={`${p.end}`}
+        />
+      </span>
+      <TurnBox label={`${p.label}: end`} value={p.end} min={p.min} max={p.max} onCommit={setEnd} />
+    </div>
+  );
+}
+
+/** A small number box that holds what is typed until blur or Enter, then hands it up (and shows the kept value). */
+function TurnBox(p: { label: string; value: number; min: number; max: number; onCommit: (v: number) => void }) {
+  const [text, setText] = useState<string | null>(null);
+  const commit = () => {
+    if (text !== null && text.trim() !== "" && Number.isFinite(Number(text))) p.onCommit(Number(text));
+    setText(null);
+  };
+  return (
+    <input
+      className="range2-box" type="number" inputMode="numeric" min={p.min} max={p.max} step={1}
+      value={text ?? p.value} aria-label={p.label}
+      onChange={(e) => setText(e.target.value)}
+      onBlur={commit}
+      onKeyDown={(e) => { if (e.key === "Enter") commit(); }}
+    />
+  );
+}
