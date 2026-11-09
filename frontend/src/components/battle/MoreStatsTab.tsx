@@ -12,7 +12,7 @@ import { CSSProperties, KeyboardEvent, ReactNode, useMemo, useRef, useState } fr
 import type { Battle } from "../../api";
 import { useNav } from "../../nav";
 import { characterKeyOfName } from "../../portraits";
-import { PortraitFlip } from "../character/CharacterFace";
+import { SpriteFace } from "../character/CharacterFace";
 import { armySprite } from "./map";
 import { Modal } from "../Modal";
 import { CharacterPopup } from "../CharacterPopup";
@@ -214,7 +214,8 @@ function RunCards({ battle, history, children }: { battle: Battle; history: Batt
         {c && (
           <RunCharacterCard
             stats={c}
-            face={<PortraitFlip portrait={<UnitFace id={id} name={c.name} size="lg" />} sprite={unit ? armySprite(unit) : null} name={c.name} className={unit?.class_name} size={88} />}
+            face={<span className="cv-face"><UnitFace id={id} name={c.name} size="lg" look="portraits" /></span>}
+            backFace={<SpriteFace sprite={unit ? armySprite(unit) : null} name={c.name} className={unit?.class_name} />}
             className={unit?.class_name}
             icon={<HouseMark id={id} />}
             onOpen={(battleId, at) => { setKey(null); go({ page: "battle", id: battleId, q: at }); }}

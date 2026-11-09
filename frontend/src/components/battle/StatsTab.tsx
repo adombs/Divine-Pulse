@@ -19,7 +19,7 @@ import { Carousel } from "./Carousel";
 import { battleName } from "./scenarios";
 import { Num } from "./parts";
 import { RunCharacterCard } from "./RunCharacterCard";
-import { PortraitFlip, unitSprite } from "../character/CharacterFace";
+import { SpriteFace, unitSprite } from "../character/CharacterFace";
 import { CharacterStats, characterStats, leader, RunStats, runStats, timelines } from "./stats";
 import { Icon } from "../Icon";
 import { CONCEPT_ICON } from "../../icons/concepts";
@@ -169,7 +169,8 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
           return (
             <RunCharacterCard
               stats={current}
-              face={<PortraitFlip portrait={unit ? <Portrait unit={unit} part2={part2} size={88} /> : <span className="award-initial">{current.name[0]}</span>} sprite={unit ? unitSprite(unit) : null} name={current.name} className={unit?.class_name} size={88} />}
+              face={<span className="cv-face">{unit ? <Portrait unit={unit} part2={part2} size={104} /> : <span className="award-initial">{current.name[0]}</span>}</span>}
+              backFace={<SpriteFace sprite={unit ? unitSprite(unit) : null} name={current.name} className={unit?.class_name} />}
               className={unit?.class_name}
               icon={popupIcon}
               onOpen={onOpen}

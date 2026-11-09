@@ -24,7 +24,7 @@ import { StepSlider } from "../Slider";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
-import { defaultTheme, loadMusic, previewTheme, recording, soundtrack, THEME_GROUPS, type Music, type Theme, type Version } from "../../exporting/music";
+import { defaultTheme, loadMusic, previewTheme, recording, setPreviewVolume, soundtrack, THEME_GROUPS, type Music, type Theme, type Version } from "../../exporting/music";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap } from "./map";
@@ -555,7 +555,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
                   <select aria-label="Battle theme" value={themeId} disabled={!music} onChange={(e) => {
                     setThemeId(e.target.value);
                     const next = music?.themes.find((m) => m.id === e.target.value);
-                    if (previewing) setPreviewing(previewTheme(next ? recording(next, versionOf(next)) : null, volume || 0.5));
+                    if (previewing) setPreviewing(previewTheme(next ? recording(next, versionOf(next)) : null, volume));
                   }}>
                     <option value="">No music</option>
                     {THEME_GROUPS.map((group) => {
@@ -572,7 +572,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
                     label={previewing ? "Stop listening" : "Listen to it"}
                     pressed={previewing}
                     disabled={!track}
-                    onClick={() => setPreviewing(previewTheme(track, volume || 0.5))}
+                    onClick={() => setPreviewing(previewTheme(track, volume))}
                   />
                 </div>
                 <Segmented<Version>
@@ -582,7 +582,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
                   onChange={(v) => {
                     setOption("version", v);
                     // The listening follows the toggle.
-                    if (previewing && theme) setPreviewing(previewTheme(recording(theme, v), volume || 0.5));
+                    if (previewing && theme) setPreviewing(previewTheme(recording(theme, v), volume));
                   }}
                   options={[
                     ["rain", "Rain", "The calm version"],
@@ -594,7 +594,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
                   label="Volume"
                   stops={101}
                   value={options.volume}
-                  onChange={(v) => setOption("volume", v)}
+                  onChange={(v) => { setOption("volume", v); setPreviewVolume(v / 100); }}
                   valueText={`${options.volume}%`}
                   variant="timeline"
                   slim
