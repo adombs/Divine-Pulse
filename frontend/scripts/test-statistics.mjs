@@ -215,6 +215,17 @@ test("award aggregation uses persistent identity and handles missing legacy evid
     "a partial kill ranking cannot prove an MVP");
 });
 
+test("Export Team's join order puts Byleth first, then by first battle", async () => {
+  const { orderUnits } = await vite.ssrLoadModule("/src/components/TeamExport.tsx");
+  const mk = (key, name, character) => ({ key, name, character, class_name: "Test Class", personal_ability: "", stats: {} });
+  const units = [mk("seteth", "Seteth", 33), mk("hilda", "Hilda", 23), mk("byleth", "Byleth", 1)];
+  const when = (started_at) => [{ battle: { started_at } }];
+  const characters = [{ key: "seteth", battles: 1, appearances: when("2026-01-01") }, { key: "hilda", battles: 1, appearances: when("2026-01-02") },
+    { key: "byleth", battles: 2, appearances: when("2026-01-01") }];
+  assert.deepEqual(orderUnits(units, "joined", characters), ["byleth", "seteth", "hilda"]);
+  assert.deepEqual(orderUnits(units, "joined", []), ["byleth", "seteth", "hilda"], "before the battles are read, Byleth still leads");
+});
+
 test("Export Team leaves out units that died unless the fallen are included", async () => {
   const { pickRows } = await vite.ssrLoadModule("/src/components/TeamExport.tsx");
   const mk = (key, dead = false) => ({ key, name: key, death: dead ? { battle_id: null, manual: true } : null });

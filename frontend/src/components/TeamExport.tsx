@@ -22,6 +22,7 @@ import { safeFilename, saveFiles } from "../exporting/save";
 import { GearIcon } from "./battle/gameIcons";
 import { SpriteFigure, unitSprite, useHasSprite } from "./character/CharacterFace";
 import { AWARDS } from "./battle/moreStats";
+import { isByleth } from "../portraits";
 import { buildRunLedger, type LedgerRow } from "./battle/runStatsLedger";
 import { ExportActions, type ExportStatus } from "./ExportActions";
 import { Icon } from "./Icon";
@@ -110,7 +111,7 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
   // The units in the order the images show them (the roster's to begin with); dragging a row moves it.
   // The units in slots, row by row (`perRow` to a row) as the loadouts show them; a slot can be empty (null). They
   // start in the roster's order; dragging a unit to another slot moves it there, or swaps it with the one there.
-  const [placed, setPlaced] = useState<(string | null)[]>(() => units.map((u) => u.key));
+  const [placed, setPlaced] = useState<(string | null)[]>(() => orderUnits(units, "joined", []));
   const byKey = useMemo(() => new Map(units.map((u) => [u.key, u])), [units]);
   // How many units the loadouts put side by side (the unit list on the right is laid out the same way).
   const [perRow, setPerRow] = useState(readPerRow);
@@ -157,7 +158,12 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
   const ledger = useMemo(() => (battles ? buildRunLedger(battles, "characters") : null), [battles]);
   // Ordering every unit at once: by BST, by deployments or by when they joined (each a fresh layout with no gaps), or
   // "custom" once a unit is dragged.
-  const [orderBy, setOrderBy] = useState<OrderBy>("custom");
+  const [orderBy, setOrderBy] = useState<OrderBy>("joined");
+  // The join order needs the run's battles, so it is laid out again once they are read (unless a unit was moved by hand).
+  useEffect(() => {
+    if (ledger && orderBy === "joined") setPlaced(orderUnits(units, "joined", ledger.characters));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ledger]);
   const applyOrder = (by: OrderBy) => {
     setOrderBy(by);
     if (by !== "custom") setPlaced(orderUnits(units, by, ledger?.characters ?? []));
@@ -265,7 +271,7 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
               <select value={orderBy} onChange={(e) => applyOrder(e.target.value as OrderBy)}>
                 <option value="custom">Custom</option>
                 {ORDER_BY.map(([id, label]) => (
-                  <option key={id} value={id} disabled={(id === "deployments" || id === "joined") && !ledger}>{label}</option>
+                  <option key={id} value={id} disabled={id === "deployments" && !ledger}>{label}</option>
                 ))}
               </select>
             </label>
@@ -330,13 +336,13 @@ type OrderBy = "custom" | "bst" | "deployments" | "joined" | "name";
 const ORDER_BY: [Exclude<OrderBy, "custom">, string][] = [
   ["bst", "BST (highest first)"],
   ["deployments", "Deployments (most first)"],
-  ["joined", "Joined (first battle, earliest first)"],
+  ["joined", "Joined (Byleth first, then by first battle)"],
   ["name", "Name"],
 ];
 
 /**
  * The units' keys in the order asked for. Deployments and joining come from the run's finished battles: joined is
- * when a unit first fought, those who never have go last in the roster's order. Ties keep the roster's order.
+ * when a unit first fought (Byleth first), those who never have go last in the roster's order. Ties keep the roster's order.
  */
 export function orderUnits(units: Unit[], by: Exclude<OrderBy, "custom">, characters: { key: string; battles: number; appearances: { battle: { started_at: string } }[] }[]): string[] {
   const stats = new Map(characters.map((c) => [c.key, c]));
@@ -348,6 +354,9 @@ export function orderUnits(units: Unit[], by: Exclude<OrderBy, "custom">, charac
     bst: (a, b) => baseStatTotal(b) - baseStatTotal(a),
     deployments: (a, b) => (stats.get(b.key)?.battles ?? 0) - (stats.get(a.key)?.battles ?? 0),
     joined: (a, b) => {
+      // Byleth is there from the start, ahead of anyone who first fought in the same battle.
+      const [ba, bb] = [isByleth(a), isByleth(b)];
+      if (ba !== bb) return ba ? -1 : 1;
       const [ja, jb] = [joined(a), joined(b)];
       return ja === jb ? 0 : ja === null ? 1 : jb === null ? -1 : ja.localeCompare(jb);
     },

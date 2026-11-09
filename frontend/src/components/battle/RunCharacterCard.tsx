@@ -25,6 +25,8 @@ interface Props {
   stats: CharacterStats;
   /** The face beside the facts (a roster portrait, or the battle's face for the unit). */
   face: ReactNode;
+  /** The face on the back of the card: the map sprite. */
+  backFace?: ReactNode;
   /** Class shown by the face, when the current unit is available. */
   className?: string;
   icon?: ReactNode;
@@ -38,7 +40,7 @@ interface Props {
 
 const avg = (total: number | null, n: number) => (total === null ? null : n ? Math.round((10 * total) / n) / 10 : 0);
 
-export function RunCharacterCard({ stats: c, face, className, icon, onOpen, onRoster, onThisBattle }: Props) {
+export function RunCharacterCard({ stats: c, face, backFace, className, icon, onOpen, onRoster, onThisBattle }: Props) {
   const ref = useReference();
   const character = ref?.characters.find((person) => person.name === c.name || person.full_name === c.name);
   const level = c.first_level !== c.level ? `${c.first_level} → ${c.level}` : String(c.level);
@@ -50,7 +52,7 @@ export function RunCharacterCard({ stats: c, face, className, icon, onOpen, onRo
   );
   return (
     <DetailCard title={c.name} scope="stats" icon={icon} label={`${c.name} over this run's battles`} actions={actions}>
-      <CharacterHero key={c.key} name={c.name} layout="flip" scope="stats" face={face} facts={[
+      <CharacterHero key={c.key} name={c.name} layout="flip" scope="stats" face={face} backFace={backFace} facts={[
         ["Class", (className || c.class_name) ? <ClassLink name={className || c.class_name} /> : "—"],
         ["Level", level],
         ["Battles", c.battles],
