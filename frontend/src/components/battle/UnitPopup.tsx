@@ -25,6 +25,7 @@ import { crestsOf } from "./factions";
 import { crestLabel } from "../../reference/crests";
 import { MapSection } from "./Minimap";
 import { alertsFor, armyId, enemies, enemyId, Item, LOW_WEAPON, statGains, tally } from "./model";
+import { hasFallen } from "./marks";
 import { AbilityLink, ArtLink, ClassLink, CrestLink } from "../Links";
 import { GearIcon } from "./gameIcons";
 import { Gains, Supplies, UnitFace, useBattleNav } from "./parts";
@@ -101,6 +102,12 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
     <span className="form-error" title="Left the battle">Left</span>
   ) : u.adjutant_of ? (
     <span title={`Adjutant to ${nameOf(battle, u.adjutant_of)}`}>Adjutant</span>
+  ) : hasFallen(u) ? (
+    // Falling comes first; what else was wrong with the unit (a broken weapon) follows it.
+    <>
+      <span className="form-error" title="Out of HP: it fell in this battle">Fell</span>
+      {alerts.length > 0 && <span className="warn-text" title={`Also: ${alerts.join(", ")}`}> · {lowLabel(alerts)}</span>}
+    </>
   ) : alerts.length ? (
     <span className="warn-text" title={`Running low: ${alerts.join(", ")}`}>{lowLabel(alerts)}</span>
   ) : "Alive";
