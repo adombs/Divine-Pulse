@@ -1956,6 +1956,7 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .in-run.fallen { color: var(--red); }
 .death-status { display: inline-flex; align-items: center; gap: 0.3rem; text-align: left; }
 .death-status > .icon { color: var(--red); flex: none; }
+.death-status.alive > .icon { color: var(--green); }
 .death-status > .muted { margin-left: 0.3rem; }
 
 /* Roster fit: the search shrinks before the toolbar wraps, and a narrower window trims the table's columns instead of

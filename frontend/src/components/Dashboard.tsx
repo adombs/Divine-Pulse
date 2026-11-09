@@ -1,6 +1,6 @@
 import { CONCEPT_ICON } from "../icons/concepts";
 import "./character/panels.css";
-import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties, type ReactNode } from "react";
+import { Fragment, useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import { Icon, IconButton } from "./Icon";
 import { api, LABELS, RunSummary, STAT_KEYS, StatKey, Unit, VALUE_KEYS, ValueKey } from "../api";
 import { characterKeyOfUnit } from "../portraits";
@@ -403,12 +403,12 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
 
 const needsCheck = (u: Unit) => u.boosted_unexplained.length > 0;
 
-/** A dead unit's status: where it fell, a link to that step of the battle's replay. */
+/** A unit's status: Alive, or Fallen with a link to that step of the battle's replay (the tooltip says where). */
 function DeathLink({ unit }: { unit: Unit }) {
   const nav = useNav();
   const d = unit.death;
-  if (!d) return null;
-  const label = <><Icon name={CONCEPT_ICON.dead} />Fell{d.battle_name ? ` · ${d.battle_name}` : ""}{d.turn != null ? `, turn ${d.turn}` : ""}</>;
+  if (!d) return <span className="death-status alive"><Icon name={CONCEPT_ICON.heal} />Alive</span>;
+  const label = <><Icon name={CONCEPT_ICON.dead} />Fallen</>;
   if (!d.battle_id) return <span className="death-status" title={deathText(unit)}>{label}{!d.manual && <span className="muted">(no recorded battle)</span>}</span>;
   return (
     <button
@@ -560,7 +560,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
           ["Name", <CharLink key="name" charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills in the Archive">{unit.full_name || unit.name}</CharLink>],
           ["Class", unit.class_name ? <ClassLink key="class" name={unit.class_name} /> : "—"],
           ["Crest", crests.length ? <span className="crest-marks">{crests.map((c) => <span key={`${c.name}-${c.major}`}><CrestLink name={c.name}>{crestLabel(c.name, c.major)}</CrestLink></span>)}</span> : "None"],
-          ...(unit.death ? [["Status", <DeathLink key="status" unit={unit} />] as [string, ReactNode]] : []),
+          ["Status", <DeathLink key="status" unit={unit} />],
         ]}
         backFacts={[
           ["Gender", unit.gender || character?.gender || "—"],

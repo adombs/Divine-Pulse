@@ -12,7 +12,7 @@ import { AffiliationIcon } from "../AffiliationIcon";
 import { CharacterPopup } from "../CharacterPopup";
 import { SpoilerButton } from "../common";
 import { characterKeyOfUnit } from "../../portraits";
-import { IconButton } from "../Icon";
+import { Icon, IconButton } from "../Icon";
 import { DetailCard, Section } from "../layout";
 import { CharacterHero } from "../character/CharacterHero";
 import { SpriteFace } from "../character/CharacterFace";
@@ -105,12 +105,13 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
   ) : hasFallen(u) ? (
     // Falling comes first; what else was wrong with the unit (a broken weapon) follows it.
     <>
-      <span className="form-error" title="Out of HP: it fell in this battle">Fell</span>
+      <button type="button" className="ref-link death-status" title="Out of HP: it fell in this battle. Open the replay at that step."
+        onClick={() => nav.go({ page: "battle", id: battle.id, fell: u.key })}><Icon name={CONCEPT_ICON.dead} />Fallen</button>
       {alerts.length > 0 && <span className="warn-text" title={`Also: ${alerts.join(", ")}`}> · {lowLabel(alerts)}</span>}
     </>
   ) : alerts.length ? (
     <span className="warn-text" title={`Running low: ${alerts.join(", ")}`}>{lowLabel(alerts)}</span>
-  ) : "Alive";
+  ) : <span className="death-status alive"><Icon name={CONCEPT_ICON.heal} />Alive</span>;
   const ref = useReference();
   const character = roster ? ref?.characters.find((c) => c.key === characterKeyOfUnit(roster)) : undefined;
   const equipment = (u.inventory ?? []).filter((i) => i.kind !== "spell");
