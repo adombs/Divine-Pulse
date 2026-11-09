@@ -211,23 +211,6 @@ export default function App() {
     },
   });
 
-  // In-battle filter: which units are in the battle in progress, and whether the Roster shows
-  // only them. It switches on when a battle starts and off when it ends.
-  const [battleOnly, setBattleOnly] = useState(false);
-  const battleKeys = auto?.battle ?? [];
-  const inBattle = loaded && battleKeys.length > 0;
-  const wasInBattle = useRef(false);
-  useEffect(() => {
-    if (inBattle && !wasInBattle.current) {
-      setBattleOnly(true);
-      toasts.push({ kind: "info", title: `Battle started · showing the ${battleKeys.length} unit${battleKeys.length === 1 ? "" : "s"} in it`, ttl: 3000 });
-    } else if (!inBattle && wasInBattle.current) {
-      setBattleOnly(false);
-    }
-    wasInBattle.current = inBattle;
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [inBattle, toasts]);
-
   // Open the Battle page once per live battle in this session.
   const battleActive = battle?.active === true;
   useEffect(() => {
@@ -405,9 +388,6 @@ export default function App() {
                 part2={part2}
                 onGoToRuns={() => setPage("runs")}
                 toasts={toasts}
-                battleKeys={battleKeys}
-                battleOnly={battleOnly && inBattle}
-                onBattleOnly={setBattleOnly}
               />
             )}
             {loaded && page === "battle" && (

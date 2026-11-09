@@ -120,14 +120,9 @@ interface Props {
   part2: boolean;
   onGoToRuns: () => void;
   toasts: ToastState;
-  /** Units in the battle in progress (game memory only; empty outside a battle). */
-  battleKeys: string[];
-  /** Show only the units in the battle. */
-  battleOnly: boolean;
-  onBattleOnly: (on: boolean) => void;
 }
 
-export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, battleKeys, battleOnly, onBattleOnly }: Props) {
+export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: Props) {
   const { sort, header: sortHeader } = useSort<SortKey>({ key: "ebst", dir: -1 }, ["name"]);
   const [mode, setMode] = useState<Mode>("displayed");
   const [filter, setFilter] = useState("");
@@ -162,11 +157,8 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
   }, [flashKey]);
   const show = (key: string) => setSelected(key);
 
-  const battleSet = useMemo(() => new Set(battleKeys), [battleKeys]);
-
   const sorted = useMemo(() => {
     const list = units.filter((u) => {
-      if (battleOnly && !battleSet.has(u.key)) return false;
       if (!searchMatches(filter, u.name, u.full_name, u.class_name)) return false;
       const key = characterKeyOfUnit(u);
       const dead = !!u.death;
@@ -179,7 +171,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
       return Number(!!a.death) - Number(!!b.death)
         || compareValues(valueOf(a, sort.key, mode, lens), valueOf(b, sort.key, mode, lens)) * sort.dir || a.name.localeCompare(b.name);
     });
-  }, [units, sort, mode, filter, lens, people, houseOf, battleOnly, battleSet]);
+  }, [units, sort, mode, filter, lens, people, houseOf]);
 
   // With none picked, the first row's card shows.
   const current = units.find((u) => u.key === selected) ?? sorted[0] ?? null;
@@ -242,7 +234,6 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
         actions={<TeamExportButton run={run} units={[...sorted, ...units.filter((u) => !sorted.includes(u))]} part2={part2} />}
         status={
           <>
-            {battleOnly && <StatusChip tone="live">Showing the {battleSet.size} in battle</StatusChip>}
             {toCheck > 0 && (
               <StatusChip tone="warn" title="Some values couldn't be read or have an unknown bonus. Units marked ! show which.">
                 {toCheck} to check
@@ -277,11 +268,6 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
           <FilterMenu count={peopleCount} onClear={clearPeople} chips={<PeopleFilterChips fields={["affiliation", "status"]} />}>
             <PeopleFilterFields fields={["affiliation", "status"]} />
           </FilterMenu>
-          {battleKeys.length > 0 && (
-            <span className="battle-filter" title="Units in the battle in progress, read from game memory">
-              <span className="filter-label"><Icon name={CONCEPT_ICON.battle} /><Switch checked={battleOnly} onChange={onBattleOnly} label={`In battle · ${battleKeys.length}`} /></span>
-            </span>
-          )}
           {units.length > 0 && (
             <span className="battle-filter" title="Give every unit the same offense and defense types, to compare them on equal terms. Units keep their own.">
               <Switch checked={compare.on} onChange={(on) => setCompare({ ...compare, on })} label="Compare as" />
@@ -404,7 +390,6 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts, bat
                 onReset={() => {
                   setFilter("");
                   clearPeople();
-                  onBattleOnly(false);
                 }}
               />
             )}
