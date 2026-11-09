@@ -85,18 +85,17 @@
 /* The face inside the card (Roster, Archive): portrait on the front, map sprite on the back. */
 .cv-hero.carded { grid-template-columns: minmax(0, 1fr); grid-template-areas: "facts"; }
 .cv-information .cv-info-side.with-face {
-  position: relative; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "face facts";
-  column-gap: 0.8rem; align-items: center; padding: 0.5rem 0.75rem;
+  position: relative; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: 1fr auto; grid-template-areas: "face facts" "turn facts";
+  column-gap: 0.8rem; row-gap: 0.2rem; align-items: center; padding: 0.5rem 0.75rem;
 }
-.cv-info-side.with-face > .cv-info-face { grid-area: face; display: grid; place-items: center; padding: 4px; }
+.cv-info-side.with-face > .cv-info-face { grid-area: face; display: grid; place-items: center; padding: 4px; align-self: center; }
 .cv-info-side.with-face > .cv-facts { grid-area: facts; }
-/* The turn button is a symbol in the card's top right corner, so it takes no row of its own. */
-.cv-info-side.with-face > .cv-information-toggle { position: absolute; top: 0.3rem; right: 0.3rem; margin: 0; z-index: 1; }
-.cv-info-side.with-face > .cv-facts > .cv-fact:first-child { padding-right: 1.9rem; }
+/* The turn button is a symbol in the card's bottom left corner, under the face, so it takes no row of the facts. */
+.cv-info-side.with-face > .cv-information-toggle { grid-area: turn; justify-self: start; align-self: end; margin: 0; }
 .cv-information .cv-facts { grid-area: auto; grid-template-columns: minmax(0, 1fr); }
 .character-card .card-main { overflow-x: hidden; }
 .cv-information-toggle {
-  display: grid; place-items: center; width: 1.65rem; height: 1.65rem; margin: 0.15rem auto 0;
+  display: grid; place-items: center; width: 1.65rem; height: 1.65rem; margin: 0.15rem auto 0 0;
   padding: 0; border: 1px solid var(--line); border-radius: 50%; background: var(--paper-2);
   color: var(--ink-soft); font-size: 1rem; cursor: pointer; transition: color 0.15s, border-color 0.15s;
 }

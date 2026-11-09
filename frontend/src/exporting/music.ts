@@ -102,6 +102,11 @@ export async function* soundtrack(theme: Track, seconds: number, volume: number)
 
 let previewing: { audio: HTMLAudioElement; id: string } | null = null;
 
+/** Sets the volume (0 to 1) of the theme being listened to, so the listener hears what the video will have. */
+export function setPreviewVolume(volume: number): void {
+  if (previewing) previewing.audio.volume = Math.min(1, Math.max(0, volume));
+}
+
 /** Plays a theme from its start (or stops it, if it's the one playing). Returns whether it's playing now. */
 export function previewTheme(theme: Track | null, volume = 0.8): boolean {
   const same = previewing?.id === theme?.id;

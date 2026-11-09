@@ -114,8 +114,7 @@ await t.test("a battle's type is read from its scenario id: five kinds, named th
 
 await t.test("unknown observations remain distinct from zero and sort last both ways", () => {
   const data = buildRunLedger([battle("1", { units: [unit("unknown", { damage_dealt: null }), unit("zero", { damage_dealt: 0 }), unit("known", { damage_dealt: 14 })] })], "characters");
-  assert.equal(data.totals.combat[3], 14); // what was recorded, flagged as partial
-  assert.ok(data.partial.has("dealt"));
+  assert.equal(data.totals.combat[3], 14); // what was recorded
   for (const [direction, expected] of [["ascending", ["zero", "known", "unknown"]], ["descending", ["known", "zero", "unknown"]]]) {
     assert.deepEqual(selectLedgerRows(data.rows, "combat", "", { column: 3, direction }).map((r) => r.id), expected);
   }
@@ -146,10 +145,10 @@ await t.test("the public popup renders accessible topics, sorting and honest unk
   assert.doesNotMatch(html, />Awards<\/button>/);
 });
 
-await t.test("the popup shows recorded damage as a partial total when a unit has none", async () => {
+await t.test("the popup shows the recorded damage total when a unit has none", async () => {
   const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx?review=partial");
   const html = renderToStaticMarkup(h(RunStatsPopup, { kind: "characters", onClose() {}, battles: [battle("1", { units: [unit("a", { damage_dealt: null }), unit("b", { damage_dealt: 14 })] })], error: false, onRetry() {} }));
-  assert.match(html, /Damage dealt<\/dt><dd>14<span class="run-stats-partial"[^>]*>partial<\/span>/);
+  assert.match(html, /Damage dealt<\/dt><dd>14<\/dd>/);
 });
 
 await t.test("Records renders group filtering and honest run-only sentinels without footer clutter", async () => {

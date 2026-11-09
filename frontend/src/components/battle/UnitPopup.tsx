@@ -2,6 +2,7 @@
  * A unit in one battle, in the character popup (opened from the Units tab, the Overview's unit list, the map and the
  * log): its class, level and HP, its fights, growth, inventory, where it went on the map, who it fought and what it did.
  */
+import { ClassMasteryPanel } from "../character/ClassMastery";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import "../character/panels.css";
 import type { Battle, BattleUnit, EnemyStats, InventoryItem, Unit, Usage } from "../../api";
@@ -157,6 +158,9 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
       </Section>
       <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={u.battalion || (u.battalion === "" ? "No battalion" : "Unknown for this battle")}>
         <BattalionPanel unit={u} scope="battle" />
+      </Section>
+      <Section title="Class Mastery" icon={CONCEPT_ICON.classes} summary={roster?.mastered_classes ? plural(roster.mastered_classes.length, "class", "classes") : "Not read yet"}>
+        {roster ? <ClassMasteryPanel unit={roster} /> : <p className="muted">Not read yet.</p>}
       </Section>
       <Section title="Growth" icon={CONCEPT_ICON.growth} summary={growthSummary(u.level_ups, gained)}>
         <div className="battle-growth-panel">
