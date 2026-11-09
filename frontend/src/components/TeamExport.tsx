@@ -1,7 +1,7 @@
 /**
  * Export Team (the Roster page's header, beside Back): two images of the units picked (all of them unless some are
  * left out), previewed as they will be saved. Overview: each unit's portrait and map sprite, stats, BST, equipment, spells, combat arts,
- * abilities and battalion as last read. Run statistics: each unit's combat and growth over the run's finished battles
+ * abilities, mastered classes and battalion as last read. Run statistics: each unit's combat and growth over the run's finished battles
  * (History's Character Stats, `buildRunLedger`) and its three most telling records.
  *
  * Both are drawn from the page itself (snapshot.ts), at 1.5 times their size here.
@@ -13,6 +13,9 @@ import { api, LABELS, type Battle, type RunSummary, type Unit, type ValueKey } f
 import { tidyAbility } from "../appearance";
 import { plural } from "../format";
 import { deathText } from "../deaths";
+import { masteredClasses } from "../classMastery";
+import { useReference } from "../reference/types";
+import { TierIcon } from "./reference/TierIcon";
 import { AbilityIcon, ArtIcon, ItemIcon } from "../reference/icons";
 import { elementPng } from "../exporting/snapshot";
 import { safeFilename, saveFiles } from "../exporting/save";
@@ -592,6 +595,7 @@ function LoadoutCard({ unit, part2, face }: { unit: Unit; part2: boolean; face: 
   const carried = (unit.inventory ?? []).filter((it) => it.kind !== "spell");
   const spells = (unit.inventory ?? []).filter((it) => it.kind === "spell");
   const abilities = [unit.personal_ability, ...unit.abilities].filter(Boolean).map(tidyAbility);
+  const reference = useReference();
   const pieces: Piece[] = [{
     key: "head",
     node: (
@@ -641,6 +645,12 @@ function LoadoutCard({ unit, part2, face }: { unit: Unit; part2: boolean; face: 
   section("Spells", spells.map((it, i) => ({ key: `${it.id}-${i}`, icon: <GearIcon kind="spell" weapon={it.weapon} name={it.name} />, name: it.name, uses: it.full ? `${it.uses}/${it.full}` : String(it.uses) })));
   section("Combat Arts", (unit.combat_arts ?? []).map((a) => ({ key: a, icon: <ArtIcon name={a} />, name: a })));
   section("Abilities", abilities.map((a, i) => ({ key: `${a}-${i}`, icon: <AbilityIcon name={a} />, name: a })));
+  // None mastered (or not read yet): no section, rather than a title over nothing.
+  section("Class Mastery", (masteredClasses(unit.mastered_classes, reference?.classes) ?? []).map((c) => ({
+    key: c.name,
+    icon: c.tier ? <TierIcon tier={c.tier} size={22} decorative /> : <span />,
+    name: c.name,
+  })));
   pieces.push({
     key: "battalion",
     node: (

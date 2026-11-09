@@ -146,6 +146,10 @@ def _memory(_generation: tuple) -> dict:
             "boosts": {key: value for key, value in row["boosts"].items() if value},
             "mounted": {key: value for key, value in row["mounted"].items() if value},
             **({"female_name": row["female_name"]} if row.get("female_name") else {}),
+            # Classes a unit can master: past the starting Noble/Commoner (tier 0) and with a reward to show for it.
+            "masterable": isinstance(row.get("tier"), int) and row["tier"] >= 1
+            and (row["mastery_ability"] is not None or row["mastery_art"] is not None),
+            **({"mastery_art": row["mastery_art"]} if isinstance(row["mastery_art"], int) else {}),
         }
         for row in classes
     }

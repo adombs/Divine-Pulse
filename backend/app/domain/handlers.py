@@ -95,6 +95,8 @@ def apply_unit_stats(
                 unit.battalion_id = None
         if ability.skills is not None:
             unit.skills = dict(ability.skills)
+        if ability.mastered_classes is not None:
+            unit.mastered_classes = list(ability.mastered_classes)
     if reading.game_id is not None:
         unit.game_id = reading.game_id
     if reading.look is not None:

@@ -89,6 +89,13 @@ _ABILITIES = 0x7F  # 5 equipped ability IDs; 0xFF = empty
 _LEARNED_ARTS = 0x57
 _LEARNED_ABILITIES = 0x61
 LEARNED_ABILITIES = 240
+# Class mastery progress: one u16 per class ID (data/classes.json, 100 classes) from _CLASS_PROGRESS to the field
+# that follows (+0x1DA). Read from the 15-unit save we have: every unit's current class holds a value there (Mercenary
+# 69, Archer 72, Warlock 100), classes used earlier keep a smaller one, and none exceeds 100 -- the game's class table
+# holds no mastery requirement, so 100 is the highest value seen. Classes whose mastery art is learned read 0 there.
+_CLASS_PROGRESS = 0x112
+CLASS_COUNT = 100
+MASTERY_PROGRESS = 100
 # 3 equipped combat art IDs (data/combat-arts.json: Sunder 0, Wrath Strike 1 ... Pneuma Gale 79); 80 and up
 # = empty slot. Checked on all 15 units of a save (Manuela: Wrath Strike, Grounder, Hexblade; Lysithea: Draw Back only).
 _ARTS = 0x84
@@ -157,6 +164,15 @@ class RosterUnit:
     # The assigned battalion's cumulative experience and endurance left (None with no battalion).
     battalion_exp: int | None = None
     battalion_endurance: int | None = None
+    class_progress: dict[int, int] = field(default_factory=dict)  # class ID -> mastery progress (non-zero only)
+
+
+def decode_class_progress(record: bytes) -> dict[int, int]:
+    """The non-zero class mastery progress of a roster slot, by class ID; a truncated slot yields none."""
+    if len(record) < _CLASS_PROGRESS + CLASS_COUNT * 2:
+        return {}
+    values = struct.unpack_from(f"<{CLASS_COUNT}H", record, _CLASS_PROGRESS)
+    return {class_id: value for class_id, value in enumerate(values) if value}
 
 
 def decode_roster(data: bytes) -> list[RosterUnit]:
@@ -187,6 +203,7 @@ def decode_roster(data: bytes) -> list[RosterUnit]:
                 decode_skill_progress(s),
                 battalion_exp,
                 battalion_endurance,
+                decode_class_progress(s),
             )
         )
     return units

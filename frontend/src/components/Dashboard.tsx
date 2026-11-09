@@ -34,6 +34,7 @@ import { DetailCard, EmptyState, MasterDetail, PageHeader, Section, StatusChip }
 import { CharacterHero } from "./character/CharacterHero";
 import { SpriteFace, unitSprite } from "./character/CharacterFace";
 import { BattalionPanel } from "./character/Battalion";
+import { ClassMasteryPanel } from "./character/ClassMastery";
 import { tidyAbility } from "../appearance";
 import { TeamExportButton } from "./TeamExport";
 import { plural } from "../format";
@@ -734,6 +735,10 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
             </ul>
           </>
         )}
+      </Section>
+
+      <Section title="Class Mastery" icon={CONCEPT_ICON.classes} summary={unit.mastered_classes ? plural(unit.mastered_classes.length, "class", "classes") : "Not read yet"}>
+        <ClassMasteryPanel unit={unit} />
       </Section>
 
       <Section title="Battalion" icon={CONCEPT_ICON.battalion} summary={unit.battalion || (unit.battalion === "" ? "No battalion" : "Not read yet")}>

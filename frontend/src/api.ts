@@ -76,6 +76,8 @@ export interface Unit {
   gambit_uses?: number | null;
   /** Current skill progress from game memory, when its roster fields are known. */
   skills?: Partial<Record<SkillKey, { rank: string; exp: number }>>;
+  /** The classes it has mastered, as read from game memory (null/absent: not read yet; [] none). */
+  mastered_classes?: string[] | null;
   updated_at: string;
   /** Dead (Classic mode): the battle and step of its log where it fell. null/absent while alive. */
   death?: Death | null;

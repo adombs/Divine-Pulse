@@ -24,6 +24,7 @@ class AbilityInfo:
     learned_arts: list[str] | None = None
     battalion: str | None = None
     skills: dict[SkillKey, SkillProgress] | None = None
+    mastered_classes: list[str] | None = None
     battalion_id: int | None = None  # meaningful only alongside a named assignment
     # Runtime state of a named assignment (None: not read): cumulative experience, endurance left, and gambit uses
     # left (battle only).

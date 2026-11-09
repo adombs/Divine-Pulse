@@ -22,12 +22,15 @@ from ..infrastructure import game_tables
 from ..domain import battalions as battalion_rules
 from ..domain.units import VALUE_KEYS, byleth_look
 from ..domain.readings import AbilityInfo, UnitStatsReading
-from .fe3h import EQUIPPED_WEAPON, RosterUnit
+from .fe3h import EQUIPPED_WEAPON, MASTERY_PROGRESS, RosterUnit
 
 SCREEN_ID = "memory"
 SCREEN_TITLE = "Game memory"
 # Byleth's character IDs (male, female): the only character the player can rename.
 BYLETH_IDS = (0, 1)
+# Combat arts below this ID are learned through weapon skill ranks; from here on they are class mastery rewards (or a
+# character's own), so a learned one proves the class was mastered.
+FIRST_MASTERY_ART = 50
 
 
 @dataclass(frozen=True)
@@ -45,6 +48,8 @@ class GameClass:
     boosts: dict[str, int] = field(default_factory=dict)
     mounted: dict[str, int] = field(default_factory=dict)
     female_name: str | None = None
+    masterable: bool = False
+    mastery_art: int | None = None
 
 
 @dataclass(frozen=True)
@@ -101,6 +106,24 @@ def unit_name(unit: RosterUnit, data: GameData, player_name: str | None) -> str:
         return player_name
     character = data.characters.get(unit.character)
     return character.name if character else f"Character {unit.character}"
+
+
+def mastered_classes(unit: RosterUnit, data: GameData, female: bool) -> list[str]:
+    """The classes the unit has mastered, by class ID. A class counts when its progress has reached the maximum, or
+    when its mastery art is learned (the game reads 0 progress for those: it appears to reset once mastered). Classes
+    whose mastery reward is only an ability can't be told apart that way, so those are listed from their progress alone."""
+    learned = set(unit.learned_arts)
+    found: dict[str, None] = {}
+    for class_id in sorted(data.classes):
+        game_class = data.classes[class_id]
+        if not game_class.masterable:
+            continue
+        art = game_class.mastery_art
+        if unit.class_progress.get(class_id, 0) >= MASTERY_PROGRESS or (
+            art is not None and art >= FIRST_MASTERY_ART and art in learned
+        ):
+            found[tidy_class(game_class.female_name if female and game_class.female_name else game_class.name)] = None
+    return list(found)
 
 
 def to_reading(
@@ -176,6 +199,7 @@ def to_reading(
             gambit_uses=gambit_uses if battalion and in_battle else None,
             battalion_bonus=battalion_bonus if modifiers is not None else None,
             skills=unit.skills,
+            mastered_classes=mastered_classes(unit, data, character.gender == "Female"),
         ),
         class_name=tidy_class(class_name) if class_name else None,
         gender=character.gender or None,
