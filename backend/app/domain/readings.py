@@ -47,3 +47,4 @@ class UnitStatsReading(Reading):
     gender: str | None = None
     game_id: int | None = None
     look: str | None = None  # Byleth's hair: "dark" or "green"
+    birthday: str | None = None  # Byleth's birthday as the player set it ("3/5")

@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- The outlook no longer weighs army strength, and its explanations are short ("Dimitri 8/28 HP, 2 enemies in reach").
+- Units on your side no longer count as threats in the outlook (the house leaders and Jeralt in the prologue).
+- Draw Edelgard, Dimitri and Claude as your units in the prologue, where the game has them before they join your army.
+- Draw each unit's map sprite as the game does: generic units get their class's head in their army's colour (red-haired thieves), Jeralt and other named units without a head of their own get their class's sprite (Jeralt as a Paladin), and Byleth shows as a Commoner. Re-import your game files once to get the heads.
+- Show Byleth's birthday as you set it in the game.
+
 ## 1.4.2 (2026-11-10)
 
 - Keep each battle on the map it was played on when it ends. The game resets its map number to 0 as a battle ends, while the units are still on the field, and the map was taken from that last read: this is what put Battle in the Outskirts (including the quest Something to Prove), Battle at Magdred Way and Battle in the Forest on the prologue's map.

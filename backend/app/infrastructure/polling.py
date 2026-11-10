@@ -36,7 +36,7 @@ from .game_assets import game_assets
 from . import game_tables
 from ..gamemem.battle import FlagWatch
 from ..gamemem.combat import weapon_kind
-from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_dead, decode_player_name, decode_roster
+from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_dead, decode_player_birthday, decode_player_name, decode_roster
 from ..gamemem.readers import emulators_for
 from ..gamemem.recorder import BattleRecorder
 from ..gamemem.units import SCREEN_TITLE as MEMORY_TITLE
@@ -718,6 +718,7 @@ class Scanner:
                     data,
                     self.bonuses,
                     player_name=player_name,
+                    player_birthday=decode_player_birthday(snapshot.player_name),
                     current_personal=stored.personal_ability if stored else None,
                     scenario=snapshot.scenario,
                     in_battle=bool(snapshot.in_battle),

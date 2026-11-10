@@ -17,7 +17,7 @@ export const TEAM_LABEL: Record<Team, string> = { player: "Yours", ally: "Ally",
 export function teamOf(e?: EnemyStats): Team {
   if (!e) return "player";
   if (isObject(e)) return "object";
-  return e.side === "ally" || e.side === "third" ? e.side : "enemy";
+  return e.side === "player" || e.side === "ally" || e.side === "third" ? e.side : "enemy";
 }
 
 /** A unit's army as the dot the log puts before names (yours blue, enemies red, allies green, a third army yellow). */

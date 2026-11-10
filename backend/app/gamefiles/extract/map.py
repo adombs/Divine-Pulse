@@ -65,6 +65,10 @@ FIRST_SPRITE, LAST_SPRITE, BODY_SLOT = 100, 177, 309  # sprite ids 100-177: slot
 MOUNTED = (116, 117, 135, 136, 137, 138, 139, 150, 151, 152, 155, 156, 157, 158, 159, 160, 161, 162)
 MOUNT_SLOT = 1395
 GENERIC_HEADS = {"m": 1348, "f": 1360}
+# Generic units' heads: one per body sprite id, in four army colours (slot CLASS_HEAD + 4 x (id - FIRST_SPRITE) +
+# colour). Checked against the game's own unit list: Thieves and Ruffians (sprite 112) get the red-haired thief's head,
+# Jeralt as a Paladin (135) the blond one in green; Noble and Commoner (108-111) have none, as they have no body.
+CLASS_HEAD = 1056
 # Finished character sprites, by character ID. Byleth to Seteth (0-26) take four slots each (an army colour per slot) at
 # 4 x ID. Flayn (27) to Jeralt (35) take eight (two looks) from slot 112, the slots before it being unused; Rhea (36)
 # and Sothis (37) follow with four each. Only 0-34 have a head of their own (slot 1021 + ID): Jeralt, Rhea and Sothis
@@ -277,6 +281,18 @@ def class_sprites(ctx: Context) -> None:
             atlas.alpha_composite(image, (c * w, r * h))
 
     head_slots = [GENERIC_HEADS["m"], GENERIC_HEADS["f"], *(CHARACTER_HEAD + c for c in range(HEADED_CHARACTERS))]
+    # Each class's generic head, a row per army in ARMIES order.
+    class_heads: dict[str, dict[str, int]] = {}
+    head_rows: dict[int, int] = {}
+    for cls, ids in class_sprite_ids(ctx).items():
+        for gender, sprite_id in ids.items():
+            if sprite_id not in head_rows:
+                first = CLASS_HEAD + 4 * (sprite_id - FIRST_SPRITE)
+                if any(part(first + c) is None for _, c in ARMIES):
+                    continue
+                head_rows[sprite_id] = len(head_slots)
+                head_slots += [first + c for _, c in ARMIES]
+            class_heads.setdefault(str(cls), {})[gender] = head_rows[sprite_id]
     green_heads = {}
     for character, (_, head_slot) in GREEN_BYLETH.items():
         green_heads[str(character)] = len(head_slots)
@@ -301,6 +317,8 @@ def class_sprites(ctx: Context) -> None:
             "head_at": [HEAD_X, SPRITE_TOP + HEAD_Y],
             "mounted_head_at": [HEAD_X, SPRITE_TOP + MOUNTED_HEAD_Y],
             "heads": {"m": 0, "f": 1, "characters": {str(c): 2 + c for c in range(HEADED_CHARACTERS)}, "rows": len(head_slots)},
+            # A generic unit's head by class and gender: its first row, then one row per army as in "armies".
+            "class_heads": class_heads,
             # Looks of a character that changes with the story: Byleth's green hair, by character ID.
             "looks": {"green": {"characters": green_rows, "heads": green_heads}},
         },

@@ -478,7 +478,7 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
       <Group title="Tracking and reference notes">
         <div className="set-prose">
           <p>Battles are recorded while the tracker reads the game. Each one is filed in History when it ends.</p>
-          <p>Battle outlook is a rough estimate based on units at risk of falling, current HP, relative army strength, progress, losses, and level-ups. Losing Byleth or a house leader loses the battle.</p>
+          <p>Battle outlook is a rough chance of winning. It goes up as other units go down (5 of 10 other units down) and with level-ups. It goes down as your units lose HP or fall, and when a unit is low on HP with enemies in reach (Dimitri 8/28 HP, 2 enemies in reach). Losing Byleth or a house leader loses the battle.</p>
           <p>For eBST, Offense and Defense each count as one value: Auto uses the higher of the pair, Flex the average. Click HP, Mv, Dex, Spd, Lck or Cha to count it too. eBST is everything counted added up and divided by how many went in.</p>
           <p>Return a lost item to its owner for +20 support. Liked gifts give +20, neutral +10, disliked nothing. Anyone not listed is neutral.</p>
           {reference && <Sources sources={reference.sources} />}

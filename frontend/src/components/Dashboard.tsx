@@ -565,7 +565,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
         backFacts={[
           ["Gender", unit.gender || character?.gender || "—"],
           ["Affiliation", character?.house || "—"],
-          ["Birthday", character?.birthday || "—"],
+          ["Birthday", unit.birthday || character?.birthday || "—"],
           ["Height", character?.height || "—"],
         ]}
       />

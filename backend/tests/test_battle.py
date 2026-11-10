@@ -189,23 +189,23 @@ def test_outlook_moves_the_right_way():
     stronger = outlook(battle(army_power=2000, enemy_power=1000, enemies_start=10, enemies_now=10))["chance"]
     progress = outlook(battle(army_power=1000, enemy_power=1000, enemies_start=10, enemies_now=3))["chance"]
     pulses = outlook(battle(army_power=1000, enemy_power=1000, enemies_start=10, enemies_now=10, divine_pulses=3))["chance"]
-    assert stronger > even and progress > even
+    assert progress > even
+    assert stronger == even  # strength isn't a factor
     assert pulses == even
     hurt = battle(army_power=1000, enemy_power=1000, enemies_start=10, enemies_now=10)
     hurt.units[0].on_map = hurt.units[1].on_map = False
     assert outlook(hurt)["chance"] < even
-    hopeless = outlook(battle(army_power=10, enemy_power=10000, enemies_start=10, enemies_now=10))
-    assert hopeless["chance"] < 0.15 and hopeless["confidence"] == "low"
-    won = outlook(battle(army_power=1000, enemy_power=10, enemies_start=10, enemies_now=1))
+    assert outlook(battle())["confidence"] == "low"
+    won = outlook(battle(enemies_start=10, enemies_now=1, army_hp=100, army_max_hp=100, enemy_hp=5, enemy_max_hp=100))
     assert won["chance"] == 0.97  # capped: never certain
 
 
 def test_outlook_explains_itself():
-    result = outlook(battle(army_power=400, enemy_power=1000, enemies_start=10, enemies_now=5, divine_pulses=1))  # 2.5x: a bit better than even
+    result = outlook(battle(army_power=400, enemy_power=1000, enemies_start=10, enemies_now=5, divine_pulses=1))
     by_label = {f["label"]: f for f in result["factors"]}
-    assert by_label["Strength"]["points"] > 0 and by_label["Progress"]["points"] > 0
+    assert "Strength" not in by_label and by_label["Progress"]["points"] > 0
     assert "Divine Pulse" not in by_label
-    assert "5 of 10" in by_label["Progress"]["detail"]
+    assert by_label["Progress"]["detail"] == "5 of 10 other units down"
 
 
 def test_outlook_weighs_units_at_risk_by_whether_losing_them_loses_the_battle():
@@ -226,11 +226,26 @@ def test_outlook_weighs_units_at_risk_by_whether_losing_them_loses_the_battle():
     assert two["chance"] > 0.3  # bad, but the battle goes on without them
     assert [(r["key"], r["level"], r["critical"], r["near"]) for r in leader["at_risk"]] == [("byleth", "danger", True, 1)]
     labels = {f["label"]: f["detail"] for f in leader["factors"]}
-    assert labels["Defeat risk"] == "Losing them loses the battle: U0 8/30 HP, 1 in reach"
+    assert labels["Defeat risk"] == "U0 8/30 HP, 1 enemy in reach"
     # No other unit in reach: not at risk.
     b = battle(army_power=1000, enemy_power=1000, enemies_start=10, enemies_now=10, units=[BattleUnitStats(key="byleth", name="Byleth", start_level=10, level=10, start=STATS, now=STATS, hp=8, x=0, y=0)])
     b.enemy_stats = {1: EnemyStats(slot=1, label="Bandit 1", x=20, y=20)}
     assert outlook(b)["at_risk"] == []
+
+
+def test_units_on_your_side_dont_put_yours_at_risk():
+    # The prologue: the house leaders (your side, not in the roster yet) and Jeralt (an ally) stand next to Byleth.
+    b = battle(units=[BattleUnitStats(key="byleth", name="Byleth", start_level=1, level=1, start=STATS, now=STATS, hp=27, x=10, y=17)])
+    b.enemy_stats = {
+        s: EnemyStats(slot=s, label=name, x=x, y=y, side=side)
+        for s, name, x, y, side in ((1, "Edelgard", 9, 17, "player"), (2, "Dimitri", 11, 17, "player"),
+                                    (3, "Claude", 10, 18, "player"), (4, "Jeralt", 9, 19, "ally"))
+    }
+    assert outlook(b)["at_risk"] == []
+    b.enemy_stats[5] = EnemyStats(slot=5, label="Thief 1", x=10, y=16, side="enemy")
+    b.enemy_stats[6] = EnemyStats(slot=6, label="Thief 2", x=9, y=16, side="enemy")
+    b.enemy_stats[7] = EnemyStats(slot=7, label="Thief 3", x=11, y=16, side="enemy")
+    assert outlook(b)["at_risk"][0]["near"] == 3
 
 
 def _turn(phase, *, acted=0, enemy_acted=(), leader_hp=30, ones=4):
@@ -250,7 +265,7 @@ def test_byleth_exposed_at_the_start_of_the_enemy_phase_is_really_bad():
     start = _turn(1, leader_hp=8)  # a quarter of his HP, three bandits in reach, none has moved yet
     assert start["at_risk"][0]["key"] == "byleth"
     assert start["chance"] < 0.25
-    assert any("enemy phase: 3 units still to act" in f["detail"] for f in start["factors"] if f["label"] == "Defeat risk")
+    assert any("enemy phase, 3 still to act" in f["detail"] for f in start["factors"] if f["label"] == "Defeat risk")
     assert _turn(1)["at_risk"][0]["near"] == 3 and _turn(1)["chance"] < _turn(1, enemy_acted=["e:1", "e:2", "e:3"])["chance"]  # a crowd around him even at full HP
 
 
@@ -590,7 +605,7 @@ def test_losing_byleth_sinks_the_outlook():
     def unit(key, on_map=True):
         return BattleUnitStats(key=key, name=key.capitalize(), start_level=10, level=10, start=dict(STATS), now=dict(STATS), on_map=on_map)
 
-    fine = battle(army_power=2000, enemy_power=1000, units=[unit("byleth"), unit("lysithea", on_map=False)])
+    fine = battle(army_power=2000, enemy_power=1000, units=[unit("byleth"), unit("lysithea")])
     lost = battle(army_power=2000, enemy_power=1000, units=[unit("byleth", on_map=False), unit("lysithea")])
     assert outlook(fine)["chance"] > 0.5
     assert outlook(lost)["chance"] <= 0.1 and any(f["label"] == "Defeat" for f in outlook(lost)["factors"])

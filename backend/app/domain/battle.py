@@ -183,20 +183,22 @@ class Branch(BaseModel):
     map_presence: dict[str, list[tuple[int, bool]]] = Field(default_factory=dict)
 
 
-# The army another unit is in: "ally" fights on your side, "third" against both; "object" isn't a unit at all but a
-# thing on the map with HP of its own (a breakable wall).
-Side = Literal["enemy", "ally", "third", "object"]
+# The army another unit is in: "player" is yours though it isn't in your roster yet (the house leaders in the
+# prologue), "ally" fights on your side, "third" against both; "object" isn't a unit at all but a thing on the map
+# with HP of its own (a breakable wall).
+Side = Literal["player", "enemy", "ally", "third", "object"]
 # Team 4 (seen live, The Remire Calamity): the breakable walls, which the game keeps as units (class Noble).
 OBJECT_TEAM = 4
 OBJECT_NAMES = frozenset({"Breakable Wall"})
 
 
 def side_of(team: int | None, name: str = "") -> Side:
-    """The army for a unit record's team byte (gamemem.battle.TEAM): 1 enemy, 3 a third army; 0 (your side, not your
-    unit) and 2 allies; 4 objects (breakable walls, also known by name). Unread: enemy."""
+    """The army for a unit record's team byte (gamemem.battle.TEAM), as the game colours it: 0 yours (seen live: Edelgard,
+    Dimitri and Claude in the prologue, before they're in the roster), 1 enemy, 2 allies (Jeralt there), 3 a third
+    army; 4 objects (breakable walls, also known by name). Unread: enemy."""
     if team == OBJECT_TEAM or name in OBJECT_NAMES:
         return "object"
-    return "third" if team == 3 else "ally" if team in (0, 2) else "enemy"
+    return {0: "player", 2: "ally", 3: "third"}.get(team, "enemy")
 
 
 class EnemyStats(BaseModel):

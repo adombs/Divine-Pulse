@@ -53,6 +53,8 @@ export interface Unit {
   ebst_effective: EbstConfig;
   /** Byleth's hair as the game has it now (game memory only): green from the Sothis merge on. */
   look?: "dark" | "green" | null;
+  /** Byleth's birthday as the player set it ("3/5", month/day; game memory only). */
+  birthday?: string | null;
   blue: ValueKey[];
   boosted_unexplained: ValueKey[];
   personal_ability: string;
@@ -323,7 +325,7 @@ export interface EnemyStats {
   class_id?: number | null;
   female?: boolean;
   /** "object": not a unit but a thing with HP of its own (a breakable wall). */
-  side?: "enemy" | "ally" | "third" | "object";
+  side?: "player" | "enemy" | "ally" | "third" | "object";
   character?: number | null;
   /** The faction ID on its battle record, as the game has it now (null or absent: not read). */
   allegiance?: number | null;

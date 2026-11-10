@@ -130,6 +130,9 @@ export interface SpriteIndex {
   head_at: [number, number];
   mounted_head_at: [number, number];
   heads: { m: number; f: number; characters: Record<string, number>; rows: number };
+  /** Class ID -> the first row of its generic head by gender, then a row per army in `armies` order (absent in imports
+   * made before the importer read them). */
+  class_heads?: Record<string, { m?: number; f?: number }>;
   /** Other looks of a character, by character ID: finished sprite rows and head rows (absent in imports made before
    * the importer read them, which then draw the first look). */
   looks?: Record<string, { characters: Record<string, number>; heads: Record<string, number> }>;
@@ -164,28 +167,40 @@ interface Layers {
   mounted: boolean;
 }
 
-/** The atlas rows to draw a unit from: its class's body with a head (a character's own, else a generic one by
- * gender), or for a character in Noble / Commoner (no body) or with no head of their own, their finished sprite. Null: no sprite for it. */
+/** The head the game gives a unit with no head of its own: its class's generic head in its army's colour (Thieves get
+ * the red-haired thief's head as enemies, a Paladin the blond one), else the plain generic head of imports made
+ * before the importer read class heads. */
+function classHead(index: SpriteIndex, s: Sprite, gender: "m" | "f"): number {
+  const first = s.classId === null ? undefined : index.class_heads?.[s.classId]?.[gender];
+  const army = index.armies.indexOf(s.side === "object" ? "enemy" : s.side);
+  return first !== undefined && army >= 0 ? first + army : index.heads[gender];
+}
+
+/** The atlas rows to draw a unit from, as the game picks them from the unit's class, gender, army and character (all
+ * read from memory): the class's body with the character's own head, else the class's generic head in the army's
+ * colour; a character in Noble / Commoner (no body), or with no head of their own in a class with no body (Rhea,
+ * Sothis), wears their finished sprite. Null: no sprite for it. */
 export function spriteLayers(index: SpriteIndex, s: Sprite, named: boolean): Layers | null {
   // A character's uncovered head can identify a masked class before the story does.
   if (!spoilerShown("identities") && s.classId !== null && [47, 48, 59, 91].includes(s.classId)) named = false;
   const finished = s.classId === null ? undefined : index.finished_classes?.[s.classId];
   const finishedRow = finished && (s.female ? finished.f ?? finished.m : finished.m ?? finished.f);
   if (finishedRow !== undefined) return { row: finishedRow, head: null, mounted: false };
+  // Only the green look has its own sprites; the dark one (before the Sothis merge) is the default art.
   const look = s.look && s.character !== null ? index.looks?.[s.look] : undefined;
   const bodies = s.classId === null ? undefined : index.classes[s.classId];
-  const body = bodies && (s.female ? (bodies.f ?? bodies.m) : (bodies.m ?? bodies.f));
-  if (named) {
-    if (s.character === null) return null;
-    const key = String(s.character);
-    const own = s.look ? look?.characters[key] : index.characters[s.character];
-    if ((s.classId === 0 || s.classId === 1) && own !== undefined) return { row: own, head: null, mounted: false };
-    const head = s.look ? look?.heads[key] : index.heads.characters[s.character];
-    // Jeralt, Rhea and Sothis have no head apart from their finished sprite, so it stands in for any class.
-    if (head === undefined && own !== undefined) return { row: own, head: null, mounted: false };
-    return body === undefined || head === undefined ? null : { row: body, head, mounted: index.mounted.includes(body) };
-  }
-  return body === undefined ? null : { row: body, head: s.female ? index.heads.f : index.heads.m, mounted: index.mounted.includes(body) };
+  const gender: "m" | "f" = bodies ? (s.female ? (bodies.f !== undefined ? "f" : "m") : (bodies.m !== undefined ? "m" : "f")) : s.female ? "f" : "m";
+  const body = bodies?.[gender];
+  const generic = () => (body === undefined ? null : { row: body, head: classHead(index, s, gender), mounted: index.mounted.includes(body) });
+  if (!named || s.character === null) return generic();
+  const key = String(s.character);
+  const own = look ? look.characters[key] : index.characters[s.character];
+  if ((s.classId === 0 || s.classId === 1) && own !== undefined) return { row: own, head: null, mounted: false };
+  const head = look ? look.heads[key] : index.heads.characters[s.character];
+  if (head !== undefined) return body === undefined ? null : { row: body, head, mounted: index.mounted.includes(body) };
+  // No head of their own (Jeralt, Kostas, the other named NPCs): the class's generic one, as the game draws them.
+  if (body !== undefined) return generic();
+  return own !== undefined ? { row: own, head: null, mounted: false } : null;
 }
 
 /** A unit's sprite standing on the tile at (0, 0) to (1, 1): as wide as the tile, its feet on the tile's bottom edge. */

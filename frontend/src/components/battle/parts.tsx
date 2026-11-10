@@ -618,7 +618,7 @@ export function UnitFace({ id, name, size = "md", look }: { id: string; name: st
   const sprites = useSprites();
   const portrait = nav.portrait?.(id);
   // Yours blue, enemies red, allies green, a third army yellow, as on the map.
-  const side = who?.army || id.startsWith("a:") ? "player" : who?.enemy && isObject(who.enemy) ? "object" : who?.enemy?.side === "ally" || who?.enemy?.side === "third" ? who.enemy.side : "enemy";
+  const side = who?.army || id.startsWith("a:") ? "player" : who?.enemy && isObject(who.enemy) ? "object" : who?.enemy?.side === "player" || who?.enemy?.side === "ally" || who?.enemy?.side === "third" ? who.enemy.side : "enemy";
   const army = `team-${side}`;
   const sprite = want !== "sprites" || !sprites ? null : who?.unit ? armySprite(who.unit) : who?.enemy ? spriteOf(who.enemy) : null;
   const layers = sprite && sprites ? spriteLayers(sprites, sprite, sprite.character !== null) : null;

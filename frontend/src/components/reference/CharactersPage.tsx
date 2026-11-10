@@ -278,7 +278,7 @@ function CharacterCard({
             </span>
           ) : c.gender],
           ["Affiliation", c.house || "—"],
-          ["Birthday", c.birthday || "—"],
+          ["Birthday", unit?.birthday || c.birthday || "—"],
           ["Height", c.height || "—"],
         ]}
       />
