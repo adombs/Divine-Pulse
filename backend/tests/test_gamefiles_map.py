@@ -108,6 +108,14 @@ def test_terrain_effects_and_names(tmp_path):
     assert tiles["39"]["avo"] == -20 and tiles["80"]["heal"] == -10
 
 
+def test_scenario_maps_come_from_byte_32_and_need_a_grid(tmp_path):
+    def scenario_row(map_id: int) -> bytes:
+        return bytes(maps.SCENARIO_MAP_BYTE) + bytes([map_id]) + bytes(13)
+
+    ctx = FakeContext(tmp_path, [scenario_row(3), scenario_row(1), scenario_row(99), bytes(4)], [])
+    assert maps.scenario_maps(ctx, {1: [[2]], 3: [[2]]}) == {"0": 3, "1": 1}  # no grid for 99, and a short row
+
+
 def test_terrain_ids_are_capped(tmp_path):
     ctx = FakeContext(tmp_path, [stage_row(0, 0, 0, 0, 0, 2)] * 128, [])
     maps.terrain(ctx)

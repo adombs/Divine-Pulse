@@ -68,6 +68,62 @@ def test_the_battle_is_matched_to_its_map():
     assert not fits(map_grids()[SMALL_MAP_ID], [(30, 2)])  # off the map
 
 
+def test_the_scenario_table_beats_a_stale_game_map_value(monkeypatch):
+    both = [(1, 1), (2, 2)]  # fits both maps, like a battle's opening positions
+    monkeypatch.setattr(t, "scenario_maps", lambda: {66: BIG_MAP_ID})
+    assert battle_map(SMALL_MAP_ID, both, scenario=66)[0] == BIG_MAP_ID  # the game's value read as another map
+    assert battle_map(SMALL_MAP_ID, both, scenario=5)[0] == SMALL_MAP_ID  # a scenario not in the table: the game's value
+    assert battle_map(SMALL_MAP_ID, both)[0] == SMALL_MAP_ID
+
+
+def test_the_game_map_is_tried_when_the_table_map_does_not_fit(monkeypatch):
+    units = [(2, 2), (12, 18), (5, 10)]  # only the big map holds them
+    monkeypatch.setattr(t, "scenario_maps", lambda: {66: SMALL_MAP_ID})
+    assert battle_map(BIG_MAP_ID, units, scenario=66)[0] == BIG_MAP_ID
+
+
+def test_a_map_the_units_have_walked_off_is_not_taken(monkeypatch):
+    both = [(1, 1), (2, 2)]  # fit both maps now
+    monkeypatch.setattr(t, "scenario_maps", lambda: {66: SMALL_MAP_ID})
+    walked = [(12, 18), (5, 10), (2, 15), (10, 12)]  # earlier this battle, on tiles only the big map has
+    assert battle_map(SMALL_MAP_ID, both, scenario=66, seen=walked)[0] == BIG_MAP_ID
+    assert battle_map(SMALL_MAP_ID, both, scenario=66, seen=[])[0] == SMALL_MAP_ID
+
+
+def test_the_reader_remembers_positions_for_one_battle_only(monkeypatch):
+    from types import SimpleNamespace
+
+    from app.gamemem.fe3h import GameMemory
+
+    memory = GameMemory(emulators=())
+    memory._process, memory._copies = object(), {1: 1}
+    located = {"map": SMALL_MAP_ID, "scenario": 66}
+    monkeypatch.setattr(memory, "battle_globals", lambda: located)
+    monkeypatch.setattr(t, "scenario_maps", lambda: {66: SMALL_MAP_ID})
+
+    def at(*positions):
+        return memory.battle_terrain([SimpleNamespace(x=x, y=y, hp=10) for x, y in positions])
+
+    assert at((12, 18), (5, 10), (2, 15), (10, 12))[0] == BIG_MAP_ID  # walked where only the big map has room
+    assert at((1, 1), (2, 2))[0] == BIG_MAP_ID  # fits both now, but the small map was walked off this battle
+    memory._generation += 1  # the next battle
+    assert at((1, 1), (2, 2))[0] == SMALL_MAP_ID
+
+
+def test_a_table_and_game_disagreement_is_logged_once(monkeypatch, caplog):
+    monkeypatch.setattr(t, "scenario_maps", lambda: {66: BIG_MAP_ID})
+    monkeypatch.setattr(t, "_disagreements", set())
+    both = [(1, 1), (2, 2)]
+    with caplog.at_level("WARNING", logger=t.__name__):
+        battle_map(SMALL_MAP_ID, both, scenario=66)
+        battle_map(SMALL_MAP_ID, both, scenario=66)
+        battle_map(0, both, scenario=66)  # the game's value reading 0: the known case, not logged
+        battle_map(BIG_MAP_ID, both, scenario=66)  # agreement
+    assert [r.getMessage() for r in caplog.records] == [
+        f"scenario 66: the scenario table says map {BIG_MAP_ID}, the game says map {SMALL_MAP_ID}"
+    ]
+
+
 def grid_bytes(rows: list[list[int]], second: int = 0) -> bytes:
     body = bytearray(GRID * GRID * 2)
     for y, row in enumerate(rows):
