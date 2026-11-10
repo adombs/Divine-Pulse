@@ -235,7 +235,6 @@ function BattleCard({
       <div className="bc-thumb">
         <Thumb battle={b} part2={part2} />
         {live && <span className="bc-live">Live</span>}
-        {name.kind && <span className="bc-kind">{KIND_LABEL[name.kind]}</span>}
       </div>
       <div className="bc-body">
         <h3 className="bc-title">
@@ -271,6 +270,7 @@ function BattleCard({
             })}
             {deployed.length > FACES && <span className="bc-face more">+{deployed.length - FACES}</span>}
           </span>
+          {name.kind && <span className="bc-kind" title={KIND_LABEL[name.kind]}>{KIND_LABEL[name.kind].replace(/ Battle$/, "")}</span>}
         </div>
       </div>
     </li>
@@ -333,6 +333,10 @@ function closeUp(board: Board): Zoom | null {
   return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
 }
 
-function shortDate(iso: string): string {
-  return new Date(iso).toLocaleString(undefined, { month: "short", day: "numeric", hour: "numeric", minute: "2-digit" });
+/** When the battle started: mm/dd/yyyy and the time ("11/09/2026 2:33 AM"). */
+export function shortDate(iso: string): string {
+  const d = new Date(iso);
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const time = d.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" });
+  return `${pad(d.getMonth() + 1)}/${pad(d.getDate())}/${d.getFullYear()} ${time}`;
 }

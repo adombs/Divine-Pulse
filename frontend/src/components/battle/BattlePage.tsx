@@ -8,7 +8,7 @@ import { api, Battle, RunRoute, Unit } from "../../api";
 import { PageHeader, StatusChip, Tab } from "../layout";
 import { useNav } from "../../nav";
 import { Icon } from "../Icon";
-import { faceUrl, portraitUrl } from "../../portraits";
+import { faceUrl, isCharacterFace, portraitUrl } from "../../portraits";
 import { PortraitPhaseContext } from "../../appearance";
 import { armyId, enemies, enemyId, people, timeline } from "./model";
 import type { MapLook } from "./mapIcons";
@@ -22,7 +22,7 @@ import { UnitPopup } from "./UnitPopup";
 import { isObject } from "./map";
 import { factionOf } from "./factions";
 import { useSpoiler } from "../../spoilers";
-import { expressionPaths, HURT_EXPRESSION, personFor, usePortraitData } from "../../persons";
+import { personFor, usePortraitData } from "../../persons";
 
 type View = "overview" | "units" | "more";
 
@@ -141,23 +141,18 @@ export function BattleView(p: ViewProps) {
     }
     return out;
   }, [p.roster, p.part2, automatic, battle.units, battle.enemy_stats, showIdentities, showLaterPortraits]);
+  // A face from the imported game files, only for an enemy who isn't a known character (a boss or soldier the game gives
+  // a face of its own, ahead of a generic one): a character keeps the one portrait it has on every page, whatever its HP.
   const importedFaces = useMemo(() => {
     const out = new Map<string, string>();
-    for (const u of battle.units) {
-      if (u.hp != null && u.now.hp > 0 && u.hp / u.now.hp < 0.25) {
-        const later = automatic && (u.character === 0 || u.character === 1) && u.look
-          ? u.look === "green" : p.part2 && showLaterPortraits;
-        const face = expressionPaths(portraitData, u.character, later)[HURT_EXPRESSION];
-        if (face) out.set(armyId(u.key), face);
-      }
-    }
     for (const [slot, e] of Object.entries(battle.enemy_stats ?? {})) {
+      if (isCharacterFace({ character: e.character, name: e.name || e.label })) continue;
       const id = (e as typeof e & { person_id?: number | null }).person_id;
       const face = isObject(e) ? null : personFor(portraitData, id)?.face;
       if (face) out.set(enemyId(slot), face);
     }
     return out;
-  }, [battle.units, battle.enemy_stats, portraitData, p.part2, automatic, showLaterPortraits]);
+  }, [battle.enemy_stats, portraitData]);
   const houses = useMemo(() => {
     const out = new Map<string, string>();
     const set = (id: string, house: string | undefined) => { if (house) out.set(id, house); };

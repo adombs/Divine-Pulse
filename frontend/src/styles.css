@@ -404,6 +404,8 @@ tr.flash td { animation: flash 1.6s ease-out; }
 }
 .stat-toggle::before {
   content: ""; flex: none; width: 0.5rem; height: 0.5rem; transform: rotate(45deg);
+  /* Turned 45°, the square's corners reach about 2.5px past its box: room for them, so the left tip isn't cut off. */
+  margin-inline: 3px;
   border: 1.5px solid var(--accent); background: transparent; transition: background 0.12s;
 }
 .stat-toggle[aria-pressed="true"]::before,
@@ -1383,7 +1385,8 @@ code.path { word-break: break-all; font-size: 0.9rem; }
   border: 1px solid var(--row-border); border-radius: 6px;
 }
 .rh-label { font: 700 0.66rem var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); white-space: nowrap; }
-.rh-note { font-size: 0.8rem; color: var(--ink-soft); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A figure's note wraps to a second line rather than lose its end ("551 attacks · 135 spells · 5 items"). */
+.rh-note { font-size: 0.8rem; line-height: 1.25; color: var(--ink-soft); overflow-wrap: anywhere; }
 .rh-record {
   display: grid; grid-template-columns: auto auto; align-items: baseline; justify-content: start; gap: 0 0.6rem;
   padding-right: 1.2rem; border-right: 1px solid var(--line);
@@ -1436,15 +1439,15 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .bc-thumb .minimap .map-piece { transition: none; }
 .bc-blank { position: absolute; inset: 0; display: grid; place-items: center; color: color-mix(in srgb, var(--ink-soft) 45%, transparent); }
 .bc-blank svg { width: 3.2rem; height: auto; }
- .bc-kind {
-  position: absolute; left: 0.4rem; font: 700 0.6rem var(--ui); letter-spacing: 0.07em; text-transform: uppercase;
-  padding: 0.14rem 0.4rem; border-radius: 3px; backdrop-filter: blur(2px);
-  max-width: calc(100% - 0.8rem); overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+/* The battle's kind, at the right of the card's bottom row beside its units' faces. */
+.bc-kind {
+  flex: none; margin-left: auto; white-space: nowrap; font: 700 0.6rem var(--ui); letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 0.14rem 0.4rem; border-radius: 3px; color: var(--ink); background: var(--paper-2); border: 1px solid var(--row-border);
 }
-.bc-kind { bottom: 0.45rem; color: var(--ink); background: color-mix(in srgb, var(--row) 85%, transparent); border: 1px solid var(--row-border); }
 
 .bc-body { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.45rem 0.6rem 0.45rem; min-width: 0; }
-.bc-title { margin: 0; font: 700 1.02rem/1.2 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A long battle name ("Chapter 12: The Battle of Garreg Mach") wraps rather than lose its end. */
+.bc-title { margin: 0; font: 700 1.02rem/1.2 var(--display); overflow-wrap: anywhere; }
 .bc-open { border: 0; background: none; padding: 0; font: inherit; color: var(--ink); text-align: left; cursor: pointer; }
 .bc-open::after { content: ""; position: absolute; inset: 0; z-index: 1; }
 .bc-open:focus-visible { outline: none; }
@@ -1483,7 +1486,9 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .award-lead { flex: none; display: grid; place-items: center; min-width: 32px; }
 .award-initial { width: 32px; height: 32px; display: grid; place-items: center; border-radius: 50%; background: var(--paper-2); font: 700 0.95rem var(--display); }
 .award-text { display: grid; min-width: 0; }
-.award-label, .award-name, .award-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.award-label, .award-value { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A battle's name ("Chapter 11: Conflict in the Holy Tomb") wraps rather than lose its end. */
+.award-name { overflow-wrap: anywhere; }
 .award-label { font: 700 0.6rem var(--ui); letter-spacing: 0.05em; text-transform: uppercase; color: var(--ink-soft); }
 .award-name { font: 700 0.94rem/1.15 var(--display); }
 .award-value { font-size: 0.78rem; color: var(--ink-soft); }

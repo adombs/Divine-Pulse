@@ -49,17 +49,16 @@
 .team-card-head { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; }
 .team-card-head .portrait { width: 64px; height: 64px; border-radius: 50%; background: var(--face-wash-blue); box-shadow: 0 0 0 2px var(--team-player); }
 /* A unit's face: its portrait, its map sprite in a disc like it, or the portrait with the sprite on its corner. */
-.team-face { position: relative; display: block; }
 .team-face-sprite {
   display: grid; place-items: center; flex: none; width: var(--face); height: var(--face); border-radius: 50%; overflow: hidden;
   background: radial-gradient(circle, var(--paper) 55%, var(--paper-2)); box-shadow: 0 0 0 2px var(--team-player);
 }
 .team-face-sprite .cv-sprite { display: block; width: 86%; height: 86%; margin-top: -2%; }
-.team-face-sprite.corner { position: absolute; right: -8px; bottom: -6px; width: calc(var(--face) * 0.6); height: calc(var(--face) * 0.6); }
 .team-stats-unit .team-face-sprite { box-shadow: 0 0 0 1.5px var(--team-player); }
 .team-card.fallen .team-face-sprite, .team-stats tr.fallen .team-face-sprite { filter: grayscale(1); }
 .team-card-name { display: grid; min-width: 0; line-height: 1.15; }
-.team-card-name b { font: 600 1.3rem var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A long name (with a fallen unit's mark after it) wraps rather than lose its end or the mark. */
+.team-card-name b { font: 600 1.3rem/1.15 var(--display); overflow-wrap: anywhere; }
 .team-card-name span { color: var(--ink-soft); font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .team-card-bst { display: grid; justify-items: center; padding: 3px 9px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font: 700 1.15rem/1.05 var(--nums); font-variant-numeric: tabular-nums; }
 .team-card-bst small { font: 600 0.66rem var(--display); letter-spacing: 0.08em; text-transform: uppercase; }

@@ -17,7 +17,7 @@ import { masteredClasses } from "../classMastery";
 import { useReference } from "../reference/types";
 import { TierIcon } from "./reference/TierIcon";
 import { AbilityIcon, ArtIcon, ItemIcon } from "../reference/icons";
-import { elementPng } from "../exporting/snapshot";
+import { elementPng, picturePixels, pictureSize } from "../exporting/snapshot";
 import { safeFilename, saveFiles } from "../exporting/save";
 import { GearIcon } from "./battle/gameIcons";
 import { SpriteFigure, unitSprite, useHasSprite } from "./character/CharacterFace";
@@ -46,18 +46,17 @@ interface ImageOptions {
   size: number;
   loadouts: boolean;
   stats: boolean;
-  /** Whether units that died (Classic mode) are in the images: greyed, with the fell mark. */
+  /** Whether units that died (Classic mode) are in the images (greyed). */
   fallen: boolean;
-  /** How a unit's face is drawn: its portrait, its map sprite, or the portrait with the sprite on its corner. */
+  /** How a unit's face is drawn: its portrait or its map sprite. */
   face: ExportFace;
 }
-type ExportFace = "portrait" | "sprite" | "both";
+type ExportFace = "portrait" | "sprite";
 const FACES: [ExportFace, string][] = [
   ["portrait", "Portrait"],
   ["sprite", "Sprite"],
-  ["both", "Both"],
 ];
-const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, loadouts: true, stats: true, fallen: true, face: "both" };
+const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, loadouts: true, stats: true, fallen: true, face: "portrait" };
 
 function loadImageOptions(): ImageOptions {
   try {
@@ -175,8 +174,8 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
   const [sizes, setSizes] = useState<{ overview: [number, number]; stats: [number, number] }>({ overview: [0, 0], stats: [0, 0] });
   useEffect(() => {
     const measure = () => setSizes({
-      overview: [loadouts.current?.offsetWidth ?? 0, loadouts.current?.offsetHeight ?? 0],
-      stats: [stats.current?.offsetWidth ?? 0, stats.current?.offsetHeight ?? 0],
+      overview: loadouts.current ? pictureSize(loadouts.current) : [0, 0],
+      stats: stats.current ? pictureSize(stats.current) : [0, 0],
     });
     const observer = new ResizeObserver(measure);
     if (loadouts.current) observer.observe(loadouts.current);
@@ -184,7 +183,8 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
     measure();
     return () => observer.disconnect();
   }, []);
-  const pixels = ([w, h]: [number, number]) => `${Math.round(w * options.size).toLocaleString()} × ${Math.round(h * options.size).toLocaleString()} px`;
+  // Exactly the saved PNG's size (elementPng makes it from the same measure).
+  const pixels = (size: [number, number]) => picturePixels(size, options.size).map((n) => n.toLocaleString()).join(" × ") + " px";
   // Each preview fits the window by default; "Full size" shows it as the page draws it, to read, scrolling sideways.
   const [fullSize, setFullSize] = useState({ overview: false, stats: false });
   const [status, setStatus] = useState<ExportStatus>({ kind: "idle" });
@@ -388,7 +388,7 @@ export function pickRows(slots: (string | null)[], byKey: Map<string, Unit>, lef
   return rows;
 }
 
-/** The mark by a fallen unit's name in the images and the unit list: the app's dead icon, with where it fell. */
+/** The mark by a fallen unit's name in the unit list: the app's dead icon, with where it fell. */
 function FellMark({ unit }: { unit: Unit }) {
   if (!unit.death) return null;
   return (
@@ -581,25 +581,17 @@ export function packColumns(heights: number[], titles: boolean[], room: number):
 }
 
 /**
- * A unit's face in an image: its portrait, its map sprite in its class (in a disc like the portrait's), or the portrait
- * with the sprite as a medallion on its corner. A unit with no sprite (the game's sprites aren't imported, or none
- * fits) keeps its portrait: an exported image should never carry a "missing" mark.
+ * A unit's face in an image: its portrait, or its map sprite in its class (in a disc like the portrait's). A unit with
+ * no sprite (the game's sprites aren't imported, or none fits) keeps its portrait: an exported image should never carry
+ * a "missing" mark.
  */
 function UnitFaceImage({ unit, part2, size, face }: { unit: Unit; part2: boolean; size: number; face: ExportFace }) {
   const sprite = useMemo(() => unitSprite(unit), [unit]);
   const has = useHasSprite(sprite);
-  const label = `${unit.name}'s map sprite${unit.class_name ? ` as a ${unit.class_name}` : ""}`;
-  const disc = (corner: boolean) => (
-    <span className={`team-face-sprite${corner ? " corner" : ""}`} style={{ "--face": `${size}px` } as React.CSSProperties} role="img" aria-label={label}>
-      <SpriteFigure sprite={sprite} />
-    </span>
-  );
   if (!has || face === "portrait") return <Portrait unit={unit} part2={part2} size={size} />;
-  if (face === "sprite") return disc(false);
   return (
-    <span className="team-face">
-      <Portrait unit={unit} part2={part2} size={size} />
-      {disc(true)}
+    <span className="team-face-sprite" style={{ "--face": `${size}px` } as React.CSSProperties} role="img" aria-label={`${unit.name}'s map sprite${unit.class_name ? ` as a ${unit.class_name}` : ""}`}>
+      <SpriteFigure sprite={sprite} />
     </span>
   );
 }
@@ -618,7 +610,7 @@ function LoadoutCard({ unit, part2, face }: { unit: Unit; part2: boolean; face: 
         <header className="team-card-head">
           <UnitFaceImage unit={unit} part2={part2} size={64} face={face} />
           <div className="team-card-name">
-            <b>{unit.name}<FellMark unit={unit} /></b>
+            <b>{unit.name}</b>
             <span>{unit.class_name || "—"}</span>
           </div>
           <span className="team-card-bst" title="Base stat total: the base stats added up, without bonuses">
@@ -760,7 +752,7 @@ function StatsTable({ units, rows, totals, part2, face }: { units: Unit[]; rows:
                 <span>
                   <UnitFaceImage unit={u} part2={part2} size={32} face={face} />
                   <span>
-                    <b>{u.name}<FellMark unit={u} /></b>
+                    <b>{u.name}</b>
                     <small>{u.class_name}</small>
                   </span>
                 </span>

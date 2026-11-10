@@ -281,6 +281,13 @@ function classNamed(text: string): ManifestGeneric | undefined {
 /** A unit's face: its character's portrait (Part II once the story is there, other looks as it changes class or
  * name), else a generic one for its class and gender; null when there is none. Works for IDs not seen before. An
  * object (a breakable wall) has the battle map's icon for it, so it looks the same everywhere. */
+/** Whether a face is a known character's own portrait (the one the Roster and Characters pages draw), not a generic. */
+export function isCharacterFace(f: Face): boolean {
+  if (f.character != null && CHARACTERS[String(f.character)]) return true;
+  const key = NAME_KEY.get(norm(f.name ?? ""));
+  return !!key && LOOKS.has(key);
+}
+
 export function faceUrl(f: Face, part2: boolean, automatic = true): string | null {
   if (f.object || OBJECT_NAMES.has(f.name ?? "")) return objectIcon(f.name ?? "");
   const entry = f.character != null ? CHARACTERS[String(f.character)] : undefined;
