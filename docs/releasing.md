@@ -48,6 +48,11 @@ Both packages require Windows 10 or 11 (64-bit) with Microsoft Edge WebView2. Th
    checks and build, validates the artifacts and checksums, and scans the portable zip for prohibited game content.
    It then tags the merged commit, pushes only the tag, and creates a GitHub draft release with the installer, portable
    ZIP, checksum file, and changelog notes. It never publishes the draft or pushes to `main`.
+
+   **Release notes.** An `x.y.0` release's draft gets its `CHANGELOG.md` section; rewrite it on GitHub as needed
+   before publishing. A hotfix `x.y.z` gets the published notes of `x.y.(z-1)`, which are `x.y.0`'s notes with
+   each earlier hotfix appended, plus its own changelog bullets under `## Hotfix x.y.z`. So publish each release before
+   finalizing the next hotfix, and edit a hotfix's bullets on its draft: later hotfixes carry them as published.
 5. **Test and publish.** Try the installer and portable ZIP on a clean PC (or fresh Windows user account). Inspect
    the draft's version, notes, files, and checksums before publishing it manually on GitHub.
 
