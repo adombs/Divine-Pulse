@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.4.2 (2026-11-09)
+
 - Draw each battle on the right map. Some battles (Battle at Magdred Way and Battle in the Outskirts every time, Battle in the Forest now and then) were drawn on the prologue's map: the game's map number read as 0 for them, and the units' opening positions fit that map too. The map now comes from the game's own table of which map each battle is fought on, then the game's map number, then the only map the units fit; a map is only taken if every tile the units have stood on this battle fits it. A difference between the table and a non-zero map number from the game is written to the log. Re-import your game files once to get the table (until then, maps are found as before). Battles already recorded keep the map they were saved with.
 
 ## 1.4.1 (2026-11-09)
