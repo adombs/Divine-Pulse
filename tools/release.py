@@ -160,11 +160,17 @@ def release_notes(version: str) -> str:
     previous = previous_release(version)
     if previous is None:
         return own
-    published = subprocess.run(["gh", "release", "view", f"v{previous}", "--json", "body", "--jq", ".body"],
-                               cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
-    if published.returncode or not published.stdout.strip():
+    notes = published_notes(previous)
+    if not notes:
         fail(f"couldn't read the published notes of v{previous}, which hotfix {version}'s notes build on")
-    return hotfix_notes(version, published.stdout, own)
+    return hotfix_notes(version, notes, own)
+
+
+def published_notes(version: str) -> str | None:
+    """A GitHub release's notes as they stand (None if they can't be read)."""
+    found = subprocess.run(["gh", "release", "view", f"v{version}", "--json", "body", "--jq", ".body"],
+                           cwd=ROOT, capture_output=True, text=True, encoding="utf-8")
+    return found.stdout.strip() or None if found.returncode == 0 else None
 
 
 def app_version() -> str | None:

@@ -112,12 +112,46 @@ def test_finalize_checks_remote_main_and_pushes_only_the_tag(
     monkeypatch.setattr(release, "preflight_push", lambda tag: None)
     monkeypatch.setattr(release, "build_and_check", lambda version: artifacts)
     monkeypatch.setattr(release, "create_draft", lambda *args: drafts.append(args))
+    monkeypatch.setattr(release, "published_notes", lambda version: f"Notes of {version}.")
     release.finalize("1.2.10")
 
     assert [call for call in calls if call[0] == "push"] == [("push", "origin", "refs/tags/v1.2.10")]
     assert len([call for call in calls if call[0] == "ls-remote"]) == 2
     assert repo_git(release_repo, "rev-parse", "v1.2.10^{commit}") == head
-    assert drafts == [("v1.2.10", "1.2.10", artifacts)]
+    assert drafts == [("v1.2.10", "1.2.10", artifacts, "Notes of 1.2.9.\n\n## Hotfix 1.2.10\n\n- A change.")]
+
+
+def test_finalize_stops_before_building_when_the_previous_notes_cannot_be_read(
+    release_repo: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _prepared_main(release_repo)
+    head = repo_git(release_repo, "rev-parse", "HEAD")
+    real_git = release.git
+    built = []
+    monkeypatch.setattr(release, "git", lambda *args: f"{head}\trefs/heads/main" if args[0] == "ls-remote"
+                        else real_git(*args))
+    monkeypatch.setattr(release, "preflight_push", lambda tag: None)
+    monkeypatch.setattr(release, "build_and_check", lambda version: built.append(version) or [])
+    monkeypatch.setattr(release, "published_notes", lambda version: None)
+    with pytest.raises(SystemExit, match="v1.2.9"):
+        release.finalize("1.2.10")
+    assert built == []
+    assert repo_git(release_repo, "tag", "--list") == ""
+
+
+def test_hotfix_notes_build_on_the_previous_release(release_repo: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    (release_repo / "CHANGELOG.md").write_text(
+        "# Changelog\n\n## Unreleased\n\n## 1.5.2 (2026-11-12)\n\n- Second fix.\n\n"
+        "## 1.5.1 (2026-11-11)\n\n- First fix.\n\n## 1.5.0 (2026-11-10)\n\n- New things.\n", encoding="utf-8")
+    published = {"1.5.0": "Hand-written 1.5.0 notes.", "1.5.1": "Hand-written 1.5.0 notes.\n\n## Hotfix 1.5.1\n\n- Fix one."}
+    monkeypatch.setattr(release, "published_notes", published.get)
+
+    assert release.release_notes("1.5.0") == "- New things."  # a minor release: its own changelog section
+    assert release.release_notes("1.5.1") == "Hand-written 1.5.0 notes.\n\n## Hotfix 1.5.1\n\n- First fix."
+    # The previous hotfix's notes as published (edited on GitHub), then this one's bullets.
+    assert release.release_notes("1.5.2") == (
+        "Hand-written 1.5.0 notes.\n\n## Hotfix 1.5.1\n\n- Fix one.\n\n## Hotfix 1.5.2\n\n- Second fix.")
+    assert release.previous_release("2.0.0") is None and release.previous_release("1.4.10") == "1.4.9"
 
 
 def test_finalize_does_not_tag_when_remote_main_changes_during_build(
@@ -136,6 +170,7 @@ def test_finalize_does_not_tag_when_remote_main_changes_during_build(
     monkeypatch.setattr(release, "git", stub_git)
     monkeypatch.setattr(release, "preflight_push", lambda tag: None)
     monkeypatch.setattr(release, "build_and_check", lambda version: [])
+    monkeypatch.setattr(release, "published_notes", lambda version: f"Notes of {version}.")
     with pytest.raises(SystemExit, match="origin/main"):
         release.finalize("1.2.10")
     assert repo_git(release_repo, "tag", "--list") == ""
