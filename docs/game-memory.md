@@ -120,11 +120,14 @@ blue (yours, team 0), green (ally, team 2), red (enemy, team 1), yellow (third a
 | Student's head | `1021 + character` (characters 0-34) | The character |
 | Generic head | `1056 + 4 × (sprite − 100) + colour` | The same sprite ID as the body |
 | Finished sprite (head drawn in) | `4 × character` (0-26), `112 + 8 × (character − 27)` (27-35), Rhea `184`, Sothis `188` | The character |
+| Second look, in their own class | `112 + 8 × (character − 27) + 4` (27-35) | The character and class (Jeralt as a Paladin) |
 
 Checked against the game's own unit list (prologue): Thieves and Ruffians (classes 49 and 50) share sprite 112 and
 draw head `1056 + 48 + colour`, the red-haired thief in red; Kostas (character 43, no head of his own) draws the same.
-Jeralt as a Paladin (class 51, sprite 135) draws the Paladin body with head `1056 + 140 + 1`, blond, in green, not his
-finished War Master sprite. Noble and Commoner (sprites 108-111) have no body (the importer builds headless ones from
+Jeralt as a Paladin (class 51) draws his own second look, slots `180`-`183` (`112 + 8 × 8 + 4` + colour): mounted,
+with his own head, not the Paladin body with its generic helmet head (`1056 + 140` + colour) and not his first look on
+foot (`176`-`179`). The faculty characters 27-35 each have such a second look in their own class (Flayn in white,
+Hanneman's hat, Gilbert's shield, Shamir's bow…); only Jeralt needs it, the others having heads of their own. Noble and Commoner (sprites 108-111) have no body (the importer builds headless ones from
 characters' finished sprites for generic Nobles and Commoners); Noble's generic head slots (`1088`-`1095`) are empty,
 Commoner's (`1096`-`1103`) hold grey heads. A student in either class wears their finished sprite (Byleth as a
 Commoner, the house leaders as Nobles).

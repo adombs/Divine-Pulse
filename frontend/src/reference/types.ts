@@ -70,6 +70,8 @@ export interface Character {
   age: string;
   birthday: string;
   height: string;
+  /** Byleth only: the height for each gender (`height` then shows both). */
+  heights?: { male: string; female: string };
   skills: Record<SkillKey, { initial: string; aptitude: Aptitude }>;
   budding: { skill: SkillKey; unlock: string; description: string } | null;
   personal: { name: string; description: string }[];
@@ -221,6 +223,16 @@ export interface ReferenceData {
   items: ReferenceItem[];
   battalions?: Battalion[];
 }
+
+/** A character's height for the unit's gender: Byleth's depends on it; unknown gender shows both. */
+export function heightOf(c: Character | undefined, female: boolean | undefined): string {
+  if (!c) return "";
+  if (c.heights && female !== undefined) return female ? c.heights.female : c.heights.male;
+  return c.height;
+}
+
+/** "Female" / "Male" (a unit's gender) as a flag; "" is unknown. */
+export const isFemale = (gender: string | undefined): boolean | undefined => (gender === "Female" ? true : gender === "Male" ? false : undefined);
 
 let cache: Promise<ReferenceData> | null = null;
 

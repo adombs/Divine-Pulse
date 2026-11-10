@@ -67,7 +67,7 @@ MOUNT_SLOT = 1395
 GENERIC_HEADS = {"m": 1348, "f": 1360}
 # Generic units' heads: one per body sprite id, in four army colours (slot CLASS_HEAD + 4 x (id - FIRST_SPRITE) +
 # colour). Checked against the game's own unit list: Thieves and Ruffians (sprite 112) get the red-haired thief's head,
-# Jeralt as a Paladin (135) the blond one in green; Noble and Commoner (108-111) have none, as they have no body.
+# Noble and Commoner (108-111) have none, as they have no body.
 CLASS_HEAD = 1056
 # Finished character sprites, by character ID. Byleth to Seteth (0-26) take four slots each (an army colour per slot) at
 # 4 x ID. Flayn (27) to Jeralt (35) take eight (two looks) from slot 112, the slots before it being unused; Rhea (36)
@@ -96,6 +96,10 @@ SPRITE_SIZE, SPRITE_TOP = 32, 6
 # Generic Noble (0) and Commoner (1) units wear a character's finished sprite with the head taken off.
 GENERIC_BODIES = {0: {"m": 6, "f": 23}, 1: {"m": 20, "f": 25}}
 FINISHED_CLASSES = {42: {"m": 668, "f": 672}, 44: {"m": 680}, 17: {"m": 684}}
+# A character's finished sprite in their own class: the second look of the eight-slot characters, by character ID and
+# class ID. Only Jeralt needs it, having no head of his own: as a Paladin (51) the game draws him mounted with his own
+# head (slots 180-183), not the Paladin's helmet. Checked against the sprite slots.
+CHARACTER_CLASSES = {35: {51: 4}}
 
 
 def decode_grid(data: bytes) -> tuple[list[list[int]], list[list[int]]] | None:
@@ -270,6 +274,11 @@ def class_sprites(ctx: Context) -> None:
         for gender, slot in genders.items():
             finished.setdefault(str(cls), {})[gender] = len(cells)
             cells.append([cell(part(slot + c)) for _, c in ARMIES])
+    character_classes: dict[str, dict[str, int]] = {}
+    for character, by_class in CHARACTER_CLASSES.items():
+        for cls, offset in by_class.items():
+            character_classes.setdefault(str(character), {})[str(cls)] = len(cells)
+            cells.append([cell(part(character_slot(character) + offset + c)) for _, c in ARMIES])
     green_rows: dict[str, int] = {}
     for character, (slot, _) in GREEN_BYLETH.items():
         green_rows[str(character)] = len(cells)
@@ -313,6 +322,8 @@ def class_sprites(ctx: Context) -> None:
             "mounted": mounted,
             "characters": characters,
             "finished_classes": finished,
+            # A character's finished sprite in a class, by character ID then class ID (Jeralt as a Paladin).
+            "character_classes": character_classes,
             "head_cell": [HEAD_SIZE, HEAD_SIZE],
             "head_at": [HEAD_X, SPRITE_TOP + HEAD_Y],
             "mounted_head_at": [HEAD_X, SPRITE_TOP + MOUNTED_HEAD_Y],

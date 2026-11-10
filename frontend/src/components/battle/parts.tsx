@@ -622,7 +622,7 @@ export function keyNumbers(battle: Battle, seconds: number): KeyNumber[] {
 export function UnitFace({ id, name, size = "md", look }: { id: string; name: string; size?: "sm" | "md" | "lg"; look?: FaceLook }) {
   const nav = useBattleNav();
   const who = nav.people.get(id);
-  const mine = who?.army || id.startsWith("a:");
+  const mine = who?.army || id.startsWith("a:") || who?.enemy?.side === "player";
   const want = look ?? (mine ? nav.mapLook?.myFaces : nav.mapLook?.otherFaces) ?? "portraits";
   const sprites = useSprites();
   const portrait = nav.portrait?.(id);

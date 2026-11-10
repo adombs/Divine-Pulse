@@ -30,7 +30,7 @@ import { AbilityLink, ArtLink, ClassLink, CrestLink } from "../Links";
 import { GearIcon } from "./gameIcons";
 import { Gains, Supplies, UnitFace, useBattleNav } from "./parts";
 import { AbilityIcon, CrestMark } from "../../reference/icons";
-import { useReference } from "../../reference/types";
+import { heightOf, isFemale, useReference } from "../../reference/types";
 import { itemSummary, spellSummary } from "../../reference/gameData";
 import { HpBar } from "./HpBar";
 import { EquipMark } from "../EquipMark";
@@ -149,7 +149,7 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
           ["Gender", roster?.gender || character?.gender || "—"],
           ["Affiliation", battleNav.house?.(id) || "—"],
           ["Birthday", roster?.birthday || character?.birthday || "—"],
-          ["Height", character?.height || "—"],
+          ["Height", heightOf(character, isFemale(roster?.gender) ?? u.female) || "—"],
         ]}
       />
       <Section title="Equipment" icon={CONCEPT_ICON.equipment} summary={inventorySummary(equipment)} open>
@@ -223,7 +223,7 @@ function EnemyCard({ enemy: e, battle, items }: { enemy: EnemyStats; battle: Bat
           ["Gender", character?.gender || (e.female === undefined ? "—" : e.female ? "Female" : "Male")],
           ["Affiliation", nav.house?.(id) || "—"],
           ["Birthday", character?.birthday || "—"],
-          ["Height", character?.height || "—"],
+          ["Height", heightOf(character, e.female) || "—"],
         ]}
       />
       {!isObject(e) && <>

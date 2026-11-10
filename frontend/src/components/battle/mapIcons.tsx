@@ -125,6 +125,9 @@ export interface SpriteIndex {
   characters: Record<string, number>;
   /** Special classes with verified complete sprites (heads already included). */
   finished_classes?: Record<string, { m?: number; f?: number }>;
+  /** A character's finished sprite in a class, by character ID then class ID (Jeralt as a Paladin; absent in imports
+   * made before the importer read them). */
+  character_classes?: Record<string, Record<string, number>>;
   /** map-heads.png: one head's size, where it goes in a body's cell (higher on a mount), and its rows. */
   head_cell: [number, number];
   head_at: [number, number];
@@ -195,6 +198,9 @@ export function spriteLayers(index: SpriteIndex, s: Sprite, named: boolean): Lay
   if (!named || s.character === null) return generic();
   const key = String(s.character);
   const own = look ? look.characters[key] : index.characters[s.character];
+  // A character's own sprite in their class (Jeralt mounted as a Paladin).
+  const inClass = s.classId === null ? undefined : index.character_classes?.[key]?.[s.classId];
+  if (inClass !== undefined) return { row: inClass, head: null, mounted: false };
   if ((s.classId === 0 || s.classId === 1) && own !== undefined) return { row: own, head: null, mounted: false };
   const head = look ? look.heads[key] : index.heads.characters[s.character];
   if (head !== undefined) return body === undefined ? null : { row: body, head, mounted: index.mounted.includes(body) };

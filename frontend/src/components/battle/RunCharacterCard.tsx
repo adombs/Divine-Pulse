@@ -12,7 +12,7 @@ import { clock, plural } from "../../format";
 import { DetailCard, Section } from "../layout";
 import { ClassLink } from "../Links";
 import { CharacterHero } from "../character/CharacterHero";
-import { useReference } from "../../reference/types";
+import { heightOf, useReference } from "../../reference/types";
 import { IconButton } from "../Icon";
 import { BattleKindChip } from "./BattleList";
 import { battleName } from "./scenarios";
@@ -29,6 +29,8 @@ interface Props {
   backFace?: ReactNode;
   /** Class shown by the face, when the current unit is available. */
   className?: string;
+  /** Whether the unit is female, when known: Byleth's height depends on it. */
+  female?: boolean;
   icon?: ReactNode;
   /** Open one of their battles (at this character). */
   onOpen: (battleId: string, key?: string) => void;
@@ -40,7 +42,7 @@ interface Props {
 
 const avg = (total: number | null, n: number) => (total === null ? null : n ? Math.round((10 * total) / n) / 10 : 0);
 
-export function RunCharacterCard({ stats: c, face, backFace, className, icon, onOpen, onRoster, onThisBattle }: Props) {
+export function RunCharacterCard({ stats: c, face, backFace, className, female, icon, onOpen, onRoster, onThisBattle }: Props) {
   const ref = useReference();
   const character = ref?.characters.find((person) => person.name === c.name || person.full_name === c.name);
   const level = c.first_level !== c.level ? `${c.first_level} → ${c.level}` : String(c.level);
@@ -63,7 +65,7 @@ export function RunCharacterCard({ stats: c, face, backFace, className, icon, on
         ["Gender", character?.gender || "—"],
         ["Affiliation", character?.house || "—"],
         ["Birthday", character?.birthday || "—"],
-        ["Height", character?.height || "—"],
+        ["Height", heightOf(character, female) || "—"],
       ]} />
       <Section title="Combat" icon={CONCEPT_ICON.attack}>
         <CombatLedger c={c} />

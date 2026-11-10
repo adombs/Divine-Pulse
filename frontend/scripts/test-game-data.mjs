@@ -108,6 +108,8 @@ const characterFiles = {
 };
 const [byleth, partly, hidden] = buildCharacters(characterFiles, {}, [0, 2, 3], [2, 3], [2], [], [2]);
 assert.equal(byleth.height, "170 cm (male) / 160 cm (female)");
+assert.deepEqual(byleth.heights, { male: "170 cm", female: "160 cm" });
+assert.equal(partly.heights, undefined);
 assert.equal(byleth.full_name, "Unit 0");
 assert.equal(partly.age, "26 (by appearance)");
 assert.deepEqual(partly.abilities, [{ name: "Learned", rank: "C", skill: "authority" }]);
