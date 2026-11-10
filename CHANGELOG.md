@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Battle cards (History and All Battles) show their kind (Mission, Auxiliary, Quest, Paralogue, DLC) at the right of the bottom row beside the units, instead of over the map, and the date as mm/dd/yyyy with the time. Long battle names, figure notes, record names and a fallen unit's name in Export Team now wrap instead of being cut off, and the eBST diamonds on the Roster's stat panel are no longer clipped.
+
 - Save Export Team's images at exactly the size the dialog shows, with nothing cut off: the picture was drawn from the page's styles as the browser re-wrote them, and Chromium writes a `font` or `border` shorthand that uses a variable and is then partly overridden (as in the run statistics' column headings) as blanks, so the image was laid out in the wrong font, came out a different size from the one shown and lost its edges. The styles are now read as written, and the image starts from the same inherited font as the page. Battle videos are drawn the same way and benefit too.
 - Show each character's one portrait on the battle page whatever their HP: a unit under a quarter of its HP no longer swaps to the game's hurt expression (Marianne's eyes-closed face), so the battle page matches the Roster and the exports. Enemies who aren't known characters still show the game's own face for them.
 

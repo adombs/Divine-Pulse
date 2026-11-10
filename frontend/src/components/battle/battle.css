@@ -197,4 +197,5 @@
 /* Keep names readable while letting the HP meter use only the space it needs. */
 .battle-page .unit-status-row { grid-template-columns: 1.5rem minmax(0, 1fr) minmax(4.5rem, 6rem); }
 .battle-page .unit-status-row:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.battle-card .bc-open { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* A long battle name ("Chapter 12: The Battle of Garreg Mach") wraps rather than lose its end. */
+.battle-card .bc-open { display: block; max-width: 100%; overflow-wrap: anywhere; }

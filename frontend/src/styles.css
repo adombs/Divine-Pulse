@@ -1439,13 +1439,11 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .bc-thumb .minimap .map-piece { transition: none; }
 .bc-blank { position: absolute; inset: 0; display: grid; place-items: center; color: color-mix(in srgb, var(--ink-soft) 45%, transparent); }
 .bc-blank svg { width: 3.2rem; height: auto; }
- .bc-kind {
-  position: absolute; left: 0.4rem; font: 700 0.6rem var(--ui); letter-spacing: 0.07em; text-transform: uppercase;
-  padding: 0.14rem 0.4rem; border-radius: 3px; backdrop-filter: blur(2px);
-  /* "Auxiliary Battle" and "Paralogue Battle" don't fit the map square on one line: they wrap rather than lose their end. */
-  max-width: calc(100% - 0.8rem); line-height: 1.25; overflow-wrap: anywhere;
+/* The battle's kind, at the right of the card's bottom row beside its units' faces. */
+.bc-kind {
+  flex: none; margin-left: auto; white-space: nowrap; font: 700 0.6rem var(--ui); letter-spacing: 0.07em; text-transform: uppercase;
+  padding: 0.14rem 0.4rem; border-radius: 3px; color: var(--ink); background: var(--paper-2); border: 1px solid var(--row-border);
 }
-.bc-kind { bottom: 0.45rem; color: var(--ink); background: color-mix(in srgb, var(--row) 85%, transparent); border: 1px solid var(--row-border); }
 
 .bc-body { display: flex; flex-direction: column; gap: 0.25rem; padding: 0.45rem 0.6rem 0.45rem; min-width: 0; }
 /* A long battle name ("Chapter 12: The Battle of Garreg Mach") wraps rather than lose its end. */
