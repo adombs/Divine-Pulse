@@ -251,3 +251,8 @@ def test_map_family_on_a_real_dump(tmp_path):
             row = sprites["characters"][str(character)]
             cell = atlas.crop((0, row * atlas_h + maps.SPRITE_TOP, maps.SPRITE_SIZE, row * atlas_h + atlas_h))
             assert cell.tobytes() == expected.tobytes(), character
+
+
+def test_jeralt_as_a_paladin_wears_his_own_mounted_sprite():
+    # His second look (slots 180-183) is the mounted Paladin with his own head; he has no head slot to put on a body.
+    assert maps.character_slot(35) + maps.CHARACTER_CLASSES[35][51] == 180

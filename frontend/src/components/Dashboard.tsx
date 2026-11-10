@@ -7,7 +7,7 @@ import { characterKeyOfUnit } from "../portraits";
 import { useNav } from "../nav";
 import { searchMatches } from "../fuzzy";
 import { passes, usePeopleFilters } from "../filters";
-import { useReference } from "../reference/types";
+import { heightOf, isFemale, useReference } from "../reference/types";
 import { crestLabel } from "../reference/crests";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "./PeopleFilters";
 import { FilterMenu, NoMatches, SearchBox, Segmented, compareValues, useSort } from "./common";
@@ -566,7 +566,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
           ["Gender", unit.gender || character?.gender || "—"],
           ["Affiliation", character?.house || "—"],
           ["Birthday", unit.birthday || character?.birthday || "—"],
-          ["Height", character?.height || "—"],
+          ["Height", heightOf(character, isFemale(unit.gender)) || "—"],
         ]}
       />
 

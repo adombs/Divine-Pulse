@@ -218,6 +218,7 @@ function RunCards({ battle, history, children }: { battle: Battle; history: Batt
             face={<span className="cv-face"><UnitFace id={id} name={c.name} size="lg" look="portraits" /></span>}
             backFace={<SpriteFace sprite={unit ? armySprite(unit) : null} name={c.name} className={unit?.class_name} />}
             className={unit?.class_name}
+            female={unit?.female}
             icon={<HouseMark id={id} />}
             onOpen={(battleId, at) => { setKey(null); go({ page: "battle", id: battleId, q: at }); }}
             onRoster={parent.ebstConfig?.(c.key) ? () => go({ page: "roster", id: c.key }) : undefined}

@@ -7,6 +7,7 @@ import type { Battle, Unit } from "../../api";
 import { compareValues, useSort } from "../common";
 import { MasterDetail, Section } from "../layout";
 import { characterKeyOfUnit } from "../../portraits";
+import { isFemale } from "../../reference/types";
 import { useNav } from "../../nav";
 import { Portrait } from "../ui";
 import { useAffiliationIcon } from "../AffiliationIcon";
@@ -172,6 +173,7 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
               face={<span className="cv-face">{unit ? <Portrait unit={unit} part2={part2} size={104} /> : <span className="award-initial">{current.name[0]}</span>}</span>}
               backFace={<SpriteFace sprite={unit ? unitSprite(unit) : null} name={current.name} className={unit?.class_name} />}
               className={unit?.class_name}
+              female={isFemale(unit?.gender)}
               icon={popupIcon}
               onOpen={onOpen}
               onRoster={unit ? () => nav.go({ page: "roster", id: unit.key }) : undefined}

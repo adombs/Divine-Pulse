@@ -498,7 +498,8 @@ const Token = memo(function Token({
   const label = [describe(p, tile), !p.army && !p.object ? (WEAPON_LABEL[p.weapon] ?? "Unarmed") : null].filter(Boolean).join(" · ");
   const army = p.sprite.side;
   const named = p.army || p.sprite.character !== null;
-  const want = p.army ? look.mine : look.others;
+  // Your army's settings cover every unit on your side: the house leaders in the prologue come from the battle records.
+  const want = p.army || army === "player" ? look.mine : look.others;
   // A unit with no map sprite shows its portrait instead, on the map only; with no portrait either it shows "?".
   const layers = p.object || want !== "sprites" || !sprites ? null : spriteLayers(sprites, p.sprite, named);
   const importedFaceUrl = useGameImageUrl(importedFace ?? "");

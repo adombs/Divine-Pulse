@@ -17,6 +17,7 @@ import {
   STAT_KEYS,
   STAT_LABEL,
   StatKey,
+  heightOf,
 } from "../../reference/types";
 import { KeyPortrait } from "../ui";
 import { AffiliationIcon } from "../AffiliationIcon";
@@ -279,7 +280,7 @@ function CharacterCard({
           ) : c.gender],
           ["Affiliation", c.house || "—"],
           ["Birthday", unit?.birthday || c.birthday || "—"],
-          ["Height", c.height || "—"],
+          ["Height", heightOf(c, isByleth ? bylethGender === "f" : undefined) || "—"],
         ]}
       />
 
