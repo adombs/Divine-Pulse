@@ -2,16 +2,13 @@
 
 ## Unreleased
 
-- Export Team draws each unit's face as its portrait or its map sprite (Portrait to begin with); the portrait with the sprite on its corner is gone, and a saved choice of it becomes Portrait. Fallen units stay greyed in both images, without the skull by their name (the unit list in the dialog keeps it).
-
-- Battle cards (History and All Battles) show their kind (Mission, Auxiliary, Quest, Paralogue, DLC) at the right of the bottom row beside the units, instead of over the map, and the date as mm/dd/yyyy with the time. Long battle names, figure notes, record names now wrap instead of being cut off, and the eBST diamonds on the Roster's stat panel are no longer clipped.
-
-- Save Export Team's images at exactly the size the dialog shows, with nothing cut off: the picture was drawn from the page's styles as the browser re-wrote them, and Chromium writes a `font` or `border` shorthand that uses a variable and is then partly overridden (as in the run statistics' column headings) as blanks, so the image was laid out in the wrong font, came out a different size from the one shown and lost its edges. The styles are now read as written, and the image starts from the same inherited font as the page. Battle videos are drawn the same way and benefit too.
-- Show each character's one portrait on the battle page whatever their HP: a unit under a quarter of its HP no longer swaps to the game's hurt expression (Marianne's eyes-closed face), so the battle page matches the Roster and the exports. Enemies who aren't known characters still show the game's own face for them.
-
-- Count a battle's fights and kills from the game's battle history instead of its own counters, which the game rewrites when a battle ends (finished battles showed no fights and no kills). Battles recorded before this keep the numbers they were saved with.
-- Count a unit that fell as lost wherever losses are shown (History's cards and Flawless filter, the battle's Units count and comparison, the run's Units Lost, the outlook and the best unit).
-- Add up what was recorded in battle and run totals (damage, healing, movement, fights and kills): an adjutant, which is in the battle without being on the map, has no numbers of its own, and it no longer turns the army's totals into dashes.
+- Export Team images now save at exactly the size shown in the dialog, with nothing cut off.
+- Battle cards show the battle type beside the units, and dates as mm/dd/yyyy with the time.
+- Each character now has the same portrait on the battle page as everywhere else.
+- Long names and labels that were cut off (battle names, History figures and records, the Roster's stat markers) now show in full.
+- Finished battles now show their fights and kills.
+- Units that fell are counted as lost everywhere losses are shown.
+- Battle and run totals no longer turn into dashes when an adjutant is deployed.
 
 ## 1.4.0 (2026-11-08)
 
