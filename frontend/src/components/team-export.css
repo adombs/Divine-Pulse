@@ -59,7 +59,8 @@
 .team-stats-unit .team-face-sprite { box-shadow: 0 0 0 1.5px var(--team-player); }
 .team-card.fallen .team-face-sprite, .team-stats tr.fallen .team-face-sprite { filter: grayscale(1); }
 .team-card-name { display: grid; min-width: 0; line-height: 1.15; }
-.team-card-name b { font: 600 1.3rem var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+/* A long name (with a fallen unit's mark after it) wraps rather than lose its end or the mark. */
+.team-card-name b { font: 600 1.3rem/1.15 var(--display); overflow-wrap: anywhere; }
 .team-card-name span { color: var(--ink-soft); font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .team-card-bst { display: grid; justify-items: center; padding: 3px 9px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font: 700 1.15rem/1.05 var(--nums); font-variant-numeric: tabular-nums; }
 .team-card-bst small { font: 600 0.66rem var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
