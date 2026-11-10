@@ -6,7 +6,8 @@ curve. Each factor is reported with how many percentage points it moves the esti
 Units at risk of falling weigh the most: one whose loss loses the battle (Byleth, a house leader) takes the estimate
 near the bottom; others cost less, since the battle goes on without them.
 
-The estimate compares remaining HP on both sides. It also accounts for progress, losses and level-ups.
+The estimate compares how healthy both sides are (the average share of HP left, unit by unit, so a big unit doesn't
+outweigh the rest). It also accounts for progress, losses and level-ups.
 """
 
 from __future__ import annotations
@@ -14,7 +15,7 @@ from __future__ import annotations
 import heapq
 import math
 
-from .battle import CRITICAL, Battle
+from .battle import CRITICAL, FOES, Battle
 
 BASE = 0.6  # the player usually wins: a battle starts in their favour
 PROGRESS_WEIGHT = 2.5
@@ -189,6 +190,34 @@ def _risk_text(r: dict) -> str:
     return f"{r['name']} {r['hp']}/{r['max_hp']} HP{near}{wait}"
 
 
+def _mean(shares: list[float]) -> float | None:
+    return sum(shares) / len(shares) if shares else None
+
+
+def health(battle: Battle) -> tuple[float | None, float | None]:
+    """(your side, the enemies): the average share of max HP each unit still standing on the map has left. Your side is
+    the army and your units outside the roster (the house leaders in the prologue); the enemies include a third army.
+    Allies and objects count for neither. None for a side whose HP isn't read."""
+    mine = [u.hp / u.now["hp"] for u in battle.units if u.on_map and u.hp is not None and u.hp > 0 and u.now.get("hp")]
+    mine += [e.hp / e.max_hp for e in battle.enemy_stats.values() if e.side == "player" and e.on_map and e.hp and e.max_hp]
+    theirs = [e.hp / e.max_hp for e in battle.enemy_stats.values() if e.side in FOES and e.on_map and e.hp and e.max_hp]
+    return _mean(mine), _mean(theirs)
+
+
+def progress(battle: Battle) -> tuple[int, int]:
+    """(enemies down, enemies faced): the enemy and third-army units that have been on the map (reinforcements still to
+    come aren't faced yet), and how many of them are no longer standing. From the battle's own totals when its units
+    aren't tracked one by one."""
+    faced = [
+        e for e in battle.enemy_stats.values()
+        if e.side in FOES and (e.on_map or e.left or e.defeated_by or (e.hp is not None and e.hp <= 0))
+    ]
+    if not faced:
+        return max(0, battle.enemies_start - battle.enemies_now), battle.enemies_start
+    standing = sum(1 for e in faced if e.on_map and not e.defeated_by and (e.hp is None or e.hp > 0))
+    return len(faced) - standing, len(faced)
+
+
 def _timing(battle: Battle) -> str:
     """Where the turn stands, for the risk factors' explanation."""
     phase, spent = turn_phase(battle)
@@ -205,25 +234,18 @@ def _timing(battle: Battle) -> str:
 def factors(battle: Battle) -> list[tuple[str, float, str]]:
     """(label, score contribution, explanation) for each factor that applies."""
     out: list[tuple[str, float, str]] = []
-    if battle.army_hp is not None and battle.army_max_hp and battle.enemy_hp is not None and battle.enemy_max_hp:
-        mine, theirs = battle.army_hp / battle.army_max_hp, battle.enemy_hp / battle.enemy_max_hp
+    mine, theirs = health(battle)
+    if mine is not None and theirs is not None:
         out.append(
             (
                 "Health",
                 HEALTH_WEIGHT * (mine - theirs),
-                f"Your HP {mine:.0%}, theirs {theirs:.0%}",
+                f"Your army {mine:.0%} HP, the enemy {theirs:.0%}",
             )
         )
-    if battle.enemies_start > 0:
-        cleared = 1 - battle.enemies_now / battle.enemies_start
-        if cleared:
-            out.append(
-                (
-                    "Progress",
-                    PROGRESS_WEIGHT * cleared,
-                    f"{battle.enemies_start - battle.enemies_now} of {battle.enemies_start} other units down",
-                )
-            )
+    gone, faced = progress(battle)
+    if faced and gone:
+        out.append(("Progress", PROGRESS_WEIGHT * gone / faced, f"{gone} of {faced} enemies down"))
     deployed = len(battle.units)
     lost = sum(1 for u in battle.units if u.fell)
     critical = [u.name for u in battle.units if not u.on_map and u.key in CRITICAL]
@@ -269,7 +291,7 @@ def outlook(battle: Battle) -> dict:
     return {
         "chance": round(chance, 3),
         # Without current HP the estimate can't see how hurt either side is.
-        "confidence": "medium" if battle.army_hp is not None and battle.enemy_hp is not None else "low",
+        "confidence": "medium" if None not in health(battle) else "low",
         "factors": [
             {"label": label, "points": round((chance - _chance(total - score)) * 100, 1), "detail": detail}
             for label, score, detail in parts

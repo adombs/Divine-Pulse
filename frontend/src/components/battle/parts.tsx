@@ -13,7 +13,7 @@ import { GearIcon, WeaponIcon } from "./gameIcons";
 import { ArtIcon } from "../../reference/icons";
 import { AbilityLink, ArtLink, GambitLink, ItemLink, SpellLink } from "../Links";
 import { nameParts } from "../../reference/links";
-import { isLost } from "./marks";
+import { isLost, TEAM_LABEL, TeamCount, teamCounts, TeamTag } from "./marks";
 import { battleSummary, hpShare, ICON, Item, mergeHits, STAT_LABEL, STAT_ORDER, TEXT, Who } from "./model";
 
 /** Opening a unit's card from anywhere on the page (names in the log, opponents, highlights). */
@@ -578,6 +578,19 @@ export interface KeyNumber {
   suffix?: string;
   title?: string;
   tone?: "bad";
+  /** Counts by army, each after its army's coloured dot (`value` holds the same as text). */
+  teams?: TeamCount[];
+}
+
+/** The "On the map" key number: units on the map by army, only the armies in the battle. */
+export function teamNumber(teams: TeamCount[]): KeyNumber | null {
+  if (!teams.length) return null;
+  return {
+    label: "On the map",
+    value: teams.map((c) => `${c.now}/${c.of}`).join(" · "),
+    title: teams.map((c) => `${TEAM_LABEL[c.team]}: ${c.now} of ${c.of} on the map`).join(", "),
+    teams,
+  };
 }
 
 /** The numbers worth a glance in game: time, turn, units, HP, enemies, Divine Pulse. */
@@ -591,12 +604,8 @@ export function keyNumbers(battle: Battle, seconds: number): KeyNumber[] {
     { label: "Units", value: `${onMap}/${battle.units.length}`, title: lost ? `${lost} left the battle` : "Your units on the map", tone: lost ? "bad" : undefined },
   ];
   if (army !== null) out.push({ label: "HP", value: `${Math.round(army * 100)}%`, title: `${battle.army_hp} / ${battle.army_max_hp} HP` });
-  if (battle.enemies_start > 0)
-    out.push({
-      label: "Enemies",
-      value: `${battle.enemies_now}/${battle.enemies_start}`,
-      title: battle.enemies_defeated !== null ? `${battle.enemies_defeated} killed` : "Other units on the map",
-    });
+  const teams = teamNumber(teamCounts(battle));
+  if (teams) out.push(teams);
   out.push({
     label: "Divine Pulse",
     value: String(battle.divine_pulse_charges ?? battle.divine_pulses),
@@ -645,10 +654,21 @@ export function KeyStats({ battle, seconds, except = [], numbers }: { battle: Ba
       {(numbers ?? keyNumbers(battle, seconds))
         .filter((n) => !except.includes(n.label))
         .map((n) => (
-          <li key={n.label} className={`stat-card${n.tone ? ` ${n.tone}` : ""}`} title={n.title}>
+          <li key={n.label} className={`stat-card${n.tone ? ` ${n.tone}` : ""}${n.teams && n.teams.length > 1 ? " wide" : ""}`} title={n.title}>
             <span className="stat-card-label">{n.label}</span>
             <span className="stat-card-value">
-              {n.value}
+              {n.teams ? (
+                <span className="stat-card-teams">
+                  {n.teams.map((c) => (
+                    <span key={c.team} className="stat-card-team">
+                      <TeamTag team={c.team} />
+                      {c.now}/{c.of}
+                    </span>
+                  ))}
+                </span>
+              ) : (
+                n.value
+              )}
               {n.suffix && <span className="stat-card-suffix"> {n.suffix}</span>}
             </span>
           </li>

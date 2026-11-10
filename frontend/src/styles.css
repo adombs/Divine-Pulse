@@ -956,6 +956,9 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .stat-card-value { font: 1.2rem/1.15 var(--nums); font-variant-numeric: tabular-nums lining-nums; white-space: nowrap; }
 .stat-card.bad .stat-card-value { color: var(--red); }
 .stat-card-suffix { font: 0.85rem var(--ui); color: var(--ink-soft); }
+.stat-card.wide { grid-column: span 2; }
+.stat-card-teams { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 0 0.55rem; }
+.stat-card-team { display: inline-flex; align-items: center; gap: 0.2rem; }
 .overview .block:first-child > .sec-head { margin-top: 0; }
 .overview-cards .stat-cards { grid-auto-flow: row; grid-template-columns: repeat(auto-fit, minmax(4.6rem, 1fr)); }
 .overview-cards .outlook { padding: 0.4rem 0.8rem; }
@@ -1289,6 +1292,9 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-key::before { content: ""; display: inline-block; width: 0.7rem; height: 0.7rem; flex: none; }
 .map-key.ally::before, .map-key.foe::before, .map-key.low::before, .map-key.down::before, .map-key.wall::before { width: 0.85rem; height: 0.8rem; border-radius: 3px; background: var(--team-player); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.8); }
 .map-key.foe::before { background: var(--team-enemy); }
+.map-key.team-ally::before, .map-key.team-third::before { width: 0.85rem; height: 0.8rem; border-radius: 3px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.8); }
+.map-key.team-ally::before { background: var(--team-ally); }
+.map-key.team-third::before { background: var(--team-third); }
 .map-key.wall::before { background: var(--map-wall) center / cover; box-shadow: none; }
 .map-key.down::before { filter: grayscale(1); opacity: 0.55; }
 .map-key.low::before { filter: drop-shadow(0 0 2px rgb(255 70 50 / 0.95)); }
@@ -1815,7 +1821,9 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .map-key-toggle:hover { background: color-mix(in srgb, var(--row-hover) 70%, transparent); }
 .map-count { display: inline-flex; align-items: center; gap: 0.32rem; }
 .map-count::before { content: ""; width: 0.75rem; height: 0.7rem; border-radius: 3px; background: var(--team-player); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.8); }
-.map-count.foe::before { background: var(--team-enemy); }
+.map-count.foe::before, .map-count.team-enemy::before { background: var(--team-enemy); }
+.map-count.team-ally::before { background: var(--team-ally); }
+.map-count.team-third::before { background: var(--team-third); }
 .map-count.down::before { background: #6d655c; opacity: 0.7; }
 .map-count.low { font: 600 0.78rem var(--ui); color: var(--red); }
 .map-count.low::before { display: none; }

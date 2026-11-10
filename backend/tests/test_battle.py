@@ -179,6 +179,19 @@ def test_switching_runs_closes_the_battle():
 # Outlook
 
 
+def hp_battle(mine: list[int], foes: list[int], allies: list[int] = (), **fields) -> Battle:
+    """A battle whose units have the HP given, out of 30 each (far apart, so none is at risk)."""
+    b = battle(**fields)
+    for i, u in enumerate(b.units):
+        u.hp, u.x, u.y = (mine[i] if i < len(mine) else 0), i, 0
+        u.on_map = i < len(mine)
+    b.enemy_stats = {
+        s: EnemyStats(slot=s, label=f"U{s}", hp=hp, max_hp=30, x=30, y=30 + s, side=side)
+        for s, (hp, side) in enumerate([*((h, "enemy") for h in foes), *((h, "ally") for h in allies)], 1)
+    }
+    return b
+
+
 def battle(**fields) -> Battle:
     units = [BattleUnitStats(key=f"u{i}", name=f"U{i}", start_level=10, level=10, start=STATS, now=STATS) for i in range(4)]
     return Battle(id="b", run_id="r", started_at=T0, **{"units": units, **fields})
@@ -196,7 +209,7 @@ def test_outlook_moves_the_right_way():
     hurt.units[0].on_map = hurt.units[1].on_map = False
     assert outlook(hurt)["chance"] < even
     assert outlook(battle())["confidence"] == "low"
-    won = outlook(battle(enemies_start=10, enemies_now=1, army_hp=100, army_max_hp=100, enemy_hp=5, enemy_max_hp=100))
+    won = outlook(hp_battle([30, 30, 30, 30], [3, *[0] * 9]))  # 9 of 10 enemies down
     assert won["chance"] == 0.97  # capped: never certain
 
 
@@ -205,7 +218,7 @@ def test_outlook_explains_itself():
     by_label = {f["label"]: f for f in result["factors"]}
     assert "Strength" not in by_label and by_label["Progress"]["points"] > 0
     assert "Divine Pulse" not in by_label
-    assert by_label["Progress"]["detail"] == "5 of 10 other units down"
+    assert by_label["Progress"]["detail"] == "5 of 10 enemies down"
 
 
 def test_outlook_weighs_units_at_risk_by_whether_losing_them_loses_the_battle():
@@ -527,11 +540,29 @@ def test_turn_or_charges_going_back_is_a_divine_pulse():
 
 
 def test_outlook_uses_health_when_known():
-    hurt = battle(army_power=1000, enemy_power=1000, army_hp=20, army_max_hp=100, enemy_hp=90, enemy_max_hp=100)
-    fine = battle(army_power=1000, enemy_power=1000, army_hp=95, army_max_hp=100, enemy_hp=30, enemy_max_hp=100)
+    hurt = hp_battle([6, 6, 6, 6], [27, 27])
+    fine = hp_battle([30, 27, 30, 27], [9, 9])
     assert outlook(fine)["chance"] > outlook(hurt)["chance"]
     assert outlook(fine)["confidence"] == "medium" and outlook(battle())["confidence"] == "low"
     assert any(f["label"] == "Health" for f in outlook(fine)["factors"])
+
+
+def test_outlook_progress_counts_only_enemies_that_have_been_on_the_map():
+    b = hp_battle([30], [15, 0, 0], allies=[30], enemies_start=11, enemies_now=7)  # stale totals from an older count
+    b.enemy_stats[9] = EnemyStats(slot=9, label="Reinforcement", hp=20, max_hp=20, on_map=False, side="enemy")
+    detail = next(f["detail"] for f in outlook(b)["factors"] if f["label"] == "Progress")
+    assert detail == "2 of 3 enemies down"
+
+
+def test_outlook_health_is_each_units_share_of_hp_not_the_pool():
+    # 30/30 and 10/60: 58% on average (the pool would say 40/90, 44%).
+    def hurt_giant(**extra):
+        b = hp_battle([30, 10], [15, 15], **extra)
+        b.units[1].now = {**STATS, "hp": 60}
+        return next(f["detail"] for f in outlook(b)["factors"] if f["label"] == "Health")
+
+    assert hurt_giant() == "Your army 58% HP, the enemy 50%"
+    assert hurt_giant(allies=[1]) == hurt_giant()  # allies count for neither side
 
 
 

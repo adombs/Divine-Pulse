@@ -4,7 +4,7 @@
  * as small icons, each saying what it means on hover.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
-import type { AtRisk, BattleUnit, EnemyStats } from "../../api";
+import type { AtRisk, Battle, BattleUnit, EnemyStats } from "../../api";
 import { plural } from "../../format";
 import { Icon, IconName } from "../Icon";
 import { isObject } from "./map";
@@ -18,6 +18,35 @@ export function teamOf(e?: EnemyStats): Team {
   if (!e) return "player";
   if (isObject(e)) return "object";
   return e.side === "player" || e.side === "ally" || e.side === "third" ? e.side : "enemy";
+}
+
+/** How many units of one army are on the map now, of how many have been in the battle. */
+export interface TeamCount {
+  team: Team;
+  now: number;
+  of: number;
+}
+
+const TEAM_ORDER: Team[] = ["player", "ally", "enemy", "third"];
+
+/** Units on the map by army, yours first (your army and your units outside the roster, as the house leaders in the
+ * prologue). An army shows only once it has had a unit in the battle; reinforcements still to come don't count yet. */
+export function teamCounts(battle: Battle): TeamCount[] {
+  const counts = new Map<Team, TeamCount>(TEAM_ORDER.map((team) => [team, { team, now: 0, of: 0 }]));
+  for (const u of battle.units) {
+    const c = counts.get("player")!;
+    c.of += 1;
+    if (!isLost(u)) c.now += 1;
+  }
+  for (const e of Object.values(battle.enemy_stats ?? {})) {
+    const team = teamOf(e);
+    const c = counts.get(team);
+    const defeated = (e.hp !== null && e.hp !== undefined && e.hp <= 0) || !!e.defeated_by;
+    if (!c || !(e.on_map || e.left || defeated)) continue;
+    c.of += 1;
+    if (e.on_map && !defeated) c.now += 1;
+  }
+  return TEAM_ORDER.map((team) => counts.get(team)!).filter((c) => c.of > 0);
 }
 
 /** A unit's army as the dot the log puts before names (yours blue, enemies red, allies green, a third army yellow). */

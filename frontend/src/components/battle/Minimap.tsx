@@ -645,8 +645,9 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
     }
   };
   const { pieces } = board;
-  const mine = pieces.filter((p) => p.army && !p.down).length;
-  const others = pieces.filter((p) => !p.army && !p.object && !p.down).length;
+  // Standing units by army: your army with your units outside the roster (team 0), allies, enemies, a third army.
+  const standing = (side: string) => pieces.filter((p) => !p.object && !p.down && (p.army ? "player" : p.sprite.side) === side).length;
+  const teams = (["player", "ally", "enemy", "third"] as const).map((side) => [side, standing(side)] as const).filter(([side, n]) => n > 0 || side === "player");
   const down = pieces.filter((p) => p.down && !p.object).length;
   const low = pieces.filter((p) => p.army && isLow(p)).length;
   if (mode === "hidden") {
@@ -663,12 +664,11 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
     <div ref={panel} className={`map-key-panel${open ? " open" : ""}${narrow ? " narrow" : ""}`} role="group" aria-label="Map Legend">
       <div className="map-key-head">
         <button type="button" className="map-key-toggle" aria-expanded={open} onClick={() => setMode(open ? "closed" : "open")} title={open ? "Close the legend" : "Open the legend"}>
-          <span className="map-count ally" title="Your units on the map">
-            {mine}
-          </span>
-          <span className="map-count foe" title="Other units on the map">
-            {others}
-          </span>
+          {teams.map(([side, n]) => (
+            <span key={side} className={`map-count team-${side}`} title={COUNT_TITLE[side]}>
+              {n}
+            </span>
+          ))}
           {down > 0 && (
             <span className="map-count down" title="Killed">
               {down}
@@ -691,6 +691,8 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
     </div>
   );
 }
+
+const COUNT_TITLE = { player: "Your units on the map", ally: "Allies on the map", enemy: "Enemies on the map", third: "Third army on the map" };
 
 type KeyMode = "open" | "closed" | "hidden";
 
@@ -725,7 +727,9 @@ function MapLegend({ replay, board }: { replay?: boolean; board?: Board }) {
       <p className="sub-title">Units</p>
       <p className="map-legend">
         <span className="map-key ally">Yours</span>
-        <span className="map-key foe">Others</span>
+        <span className="map-key foe">Enemies</span>
+        {board?.pieces.some((p) => !p.army && p.sprite.side === "ally") && <span className="map-key team-ally">Allies</span>}
+        {board?.pieces.some((p) => !p.army && p.sprite.side === "third") && <span className="map-key team-third">Third Army</span>}
         {walls && <span className="map-key wall">Breakable Walls</span>}
         <span className="map-key low">Low HP</span>
         <span className="map-key down">Killed</span>

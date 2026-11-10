@@ -3,7 +3,10 @@
 ## Unreleased
 
 - The outlook no longer weighs army strength, and its explanations are short ("Dimitri 8/28 HP, 2 enemies in reach").
+- The outlook compares each side's health unit by unit (your army's average share of HP against the enemy's) instead of adding all HP up, and counts progress against the enemies alone.
 - Units on your side no longer count as threats in the outlook (the house leaders and Jeralt in the prologue).
+- The Enemies count is now On the map, with a count for each army in the battle in its colour (yours, allies, enemies, third army); the map's legend counts the same way. Allies are no longer counted as enemies.
+- Space the map's speed, camera and zoom controls evenly.
 - Draw Edelgard, Dimitri and Claude as your units in the prologue, where the game has them before they join your army.
 - Draw each unit's map sprite as the game does: generic units get their class's head in their army's colour (red-haired thieves), Jeralt and other named units without a head of their own get their class's sprite (Jeralt as a Paladin), and Byleth shows as a Commoner. Re-import your game files once to get the heads.
 - Show Byleth's birthday as you set it in the game.
