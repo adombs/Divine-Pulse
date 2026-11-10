@@ -517,8 +517,14 @@ class GameMemory:
 
         if self._process is None or not self._copies:
             return None
-        positions = [(u.x, u.y) for u in units if u.x is not None and u.y is not None and u.hp and (u.x, u.y) != (0, 0)]
+        from .battle import fields
+
         located = self.battle_globals()
+        if fields().scenario is not None and located.get("scenario") is None:
+            # The battle is over (the scenario reads NO_SCENARIO): the game resets its map value to 0 then, while the
+            # units are still in memory and may fit map 0. No map: the battle keeps the one it was played on.
+            return None
+        positions = [(u.x, u.y) for u in units if u.x is not None and u.y is not None and u.hp and (u.x, u.y) != (0, 0)]
         battle = (self._generation, located.get("scenario"))
         if battle != self._seen_battle:  # a new battle, a new connection or another scenario: start over
             self._seen_battle, self._seen_positions = battle, set()

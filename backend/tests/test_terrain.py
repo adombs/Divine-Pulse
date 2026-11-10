@@ -110,6 +110,24 @@ def test_the_reader_remembers_positions_for_one_battle_only(monkeypatch):
     assert at((1, 1), (2, 2))[0] == SMALL_MAP_ID
 
 
+def test_the_reader_picks_no_map_once_the_battle_is_over(monkeypatch):
+    from types import SimpleNamespace
+
+    from app.gamemem.fe3h import GameMemory
+
+    memory = GameMemory(emulators=())
+    memory._process, memory._copies = object(), {1: 1}
+    located = {"map": BIG_MAP_ID, "scenario": 66}
+    monkeypatch.setattr(memory, "battle_globals", lambda: located)
+    monkeypatch.setattr(t, "scenario_maps", lambda: {66: BIG_MAP_ID})
+    units = [SimpleNamespace(x=x, y=y, hp=10) for x, y in ((1, 1), (2, 2))]  # fit both maps
+    assert memory.battle_terrain(units)[0] == BIG_MAP_ID
+    # The battle ends: the game resets the scenario and its map value (to the small map here, map 0 in the game)
+    # while the units are still in memory. Picking a map then would replace the one the battle was played on.
+    located.update(map=SMALL_MAP_ID, scenario=None)
+    assert memory.battle_terrain(units) is None
+
+
 def test_a_table_and_game_disagreement_is_logged_once(monkeypatch, caplog):
     monkeypatch.setattr(t, "scenario_maps", lambda: {66: BIG_MAP_ID})
     monkeypatch.setattr(t, "_disagreements", set())
