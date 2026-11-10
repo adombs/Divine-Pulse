@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.4.1 (2026-11-09)
+
 - Export Team images now save at exactly the size shown in the dialog, with nothing cut off.
 - Battle cards show the battle type beside the units, and dates as mm/dd/yyyy with the time.
 - Each character now has the same portrait on the battle page as everywhere else.
