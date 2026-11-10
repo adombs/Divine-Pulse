@@ -2,10 +2,9 @@
 
 ## Unreleased
 
-- Keep each battle on the map it was played on when it ends. The game resets its map number to 0 as a battle ends, while the units are still on the field, and the tracker took the prologue's map from that last read (Battle in the Outskirts, including the quest Something to Prove, and Battle at Magdred Way still ended on it in 1.4.2). Battles already recorded keep the map they were saved with.
+## 1.4.2 (2026-11-10)
 
-## 1.4.2 (2026-11-09)
-
+- Keep each battle on the map it was played on when it ends. The game resets its map number to 0 as a battle ends, while the units are still on the field, and the map was taken from that last read: this is what put Battle in the Outskirts (including the quest Something to Prove), Battle at Magdred Way and Battle in the Forest on the prologue's map.
 - Draw each battle on the right map. Some battles (Battle at Magdred Way and Battle in the Outskirts every time, Battle in the Forest now and then) were drawn on the prologue's map: the game's map number read as 0 for them, and the units' opening positions fit that map too. The map now comes from the game's own table of which map each battle is fought on, then the game's map number, then the only map the units fit; a map is only taken if every tile the units have stood on this battle fits it. A difference between the table and a non-zero map number from the game is written to the log. Re-import your game files once to get the table (until then, maps are found as before). Battles already recorded keep the map they were saved with.
 
 ## 1.4.1 (2026-11-09)
