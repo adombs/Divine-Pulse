@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.4.3 (2026-11-10)
+
 - The outlook no longer weighs army strength, and its explanations are short ("Dimitri 8/28 HP, 2 enemies in reach").
 - The outlook compares each side's health unit by unit (your army's average share of HP against the enemy's) instead of adding all HP up, and counts progress against the enemies alone.
 - Units on your side no longer count as threats in the outlook (the house leaders and Jeralt in the prologue).
