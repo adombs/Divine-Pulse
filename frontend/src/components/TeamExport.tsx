@@ -17,7 +17,7 @@ import { masteredClasses } from "../classMastery";
 import { useReference } from "../reference/types";
 import { TierIcon } from "./reference/TierIcon";
 import { AbilityIcon, ArtIcon, ItemIcon } from "../reference/icons";
-import { elementPng } from "../exporting/snapshot";
+import { elementPng, picturePixels, pictureSize } from "../exporting/snapshot";
 import { safeFilename, saveFiles } from "../exporting/save";
 import { GearIcon } from "./battle/gameIcons";
 import { SpriteFigure, unitSprite, useHasSprite } from "./character/CharacterFace";
@@ -175,8 +175,8 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
   const [sizes, setSizes] = useState<{ overview: [number, number]; stats: [number, number] }>({ overview: [0, 0], stats: [0, 0] });
   useEffect(() => {
     const measure = () => setSizes({
-      overview: [loadouts.current?.offsetWidth ?? 0, loadouts.current?.offsetHeight ?? 0],
-      stats: [stats.current?.offsetWidth ?? 0, stats.current?.offsetHeight ?? 0],
+      overview: loadouts.current ? pictureSize(loadouts.current) : [0, 0],
+      stats: stats.current ? pictureSize(stats.current) : [0, 0],
     });
     const observer = new ResizeObserver(measure);
     if (loadouts.current) observer.observe(loadouts.current);
@@ -184,7 +184,8 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
     measure();
     return () => observer.disconnect();
   }, []);
-  const pixels = ([w, h]: [number, number]) => `${Math.round(w * options.size).toLocaleString()} × ${Math.round(h * options.size).toLocaleString()} px`;
+  // Exactly the saved PNG's size (elementPng makes it from the same measure).
+  const pixels = (size: [number, number]) => picturePixels(size, options.size).map((n) => n.toLocaleString()).join(" × ") + " px";
   // Each preview fits the window by default; "Full size" shows it as the page draws it, to read, scrolling sideways.
   const [fullSize, setFullSize] = useState({ overview: false, stats: false });
   const [status, setStatus] = useState<ExportStatus>({ kind: "idle" });

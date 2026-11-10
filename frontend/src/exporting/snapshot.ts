@@ -98,18 +98,81 @@ function keepRule(text: string, set: StyleSet): boolean {
   return MAP_SELECTOR.test(text.slice(0, text.indexOf("{")));
 }
 
+/**
+ * A style sheet's top-level rules as its author wrote them (comments dropped), split where each rule ends. The source is
+ * read rather than the browser's `cssText`: Chromium writes a shorthand that uses `var()` and is then partly overridden
+ * in the same rule (`font: 600 0.82rem var(--display); line-height: 1.15`) as empty longhands (`font-size: ;`), which
+ * a copy then ignores, so the picture would be laid out in the wrong font and come out a different size.
+ */
+export function splitRules(css: string): string[] {
+  const rules: string[] = [];
+  let depth = 0;
+  let start = 0;
+  let out = "";
+  for (let i = 0; i < css.length; i++) {
+    const c = css[i];
+    if (c === "/" && css[i + 1] === "*") {
+      const end = css.indexOf("*/", i + 2);
+      i = end < 0 ? css.length : end + 1;
+      continue;
+    }
+    if (c === '"' || c === "'") {
+      let j = i + 1;
+      while (j < css.length && css[j] !== c) j += css[j] === "\\" ? 2 : 1;
+      out += css.slice(i, j + 1);
+      i = j;
+      continue;
+    }
+    out += c;
+    if (c === "{") depth++;
+    else if (c === "}" && --depth === 0) {
+      rules.push(out.slice(start).trim());
+      start = out.length;
+    } else if (c === ";" && depth === 0) {
+      // A statement (@import, @charset, @layer a, b;): its sheet's own rules come separately.
+      start = out.length;
+    }
+  }
+  return rules.filter(Boolean);
+}
+
+/** Every relative `url(...)` in a sheet's source made absolute against the sheet's own address. */
+const absoluteUrls = (css: string, base: string) => css.replace(URL_IN_CSS, (all, q: string, url: string) => (
+  /^(data:|#|[a-z][a-z0-9+.-]*:)/i.test(url) ? all : `url(${q}${new URL(url, base).href}${q})`
+));
+
+/** A sheet's rules as written: a <style>'s text, a <link>'s file, or (neither readable) the browser's own `cssText`. */
+async function sheetRules(sheet: CSSStyleSheet): Promise<string[]> {
+  const node = sheet.ownerNode;
+  let source: string | null = null;
+  if (node instanceof HTMLStyleElement) source = node.textContent;
+  else if (sheet.href) {
+    try {
+      const response = await fetch(sheet.href);
+      if (response.ok) source = absoluteUrls(await response.text(), sheet.href);
+    } catch {
+      // Read from the CSSOM below.
+    }
+  }
+  const rules = Array.from(sheet.cssRules);
+  // Sheets it @imports aren't in its text: read each of those the same way.
+  const imported = await Promise.all(rules.filter((r): r is CSSImportRule => r instanceof CSSImportRule && !!r.styleSheet).map((r) => sheetRules(r.styleSheet!)));
+  const own = source !== null ? splitRules(source) : rules.filter((r) => !(r instanceof CSSImportRule)).map((r) => r.cssText);
+  return [...imported.flat(), ...own];
+}
+
 /** The page's styles, made to apply inside a picture: `:root` and `html` become the wrapper. */
 async function pageCss(set: StyleSet): Promise<string> {
   const parts: string[] = [];
   for (const sheet of Array.from(document.styleSheets)) {
-    let rules: CSSRuleList;
+    let rules: string[];
     try {
-      rules = sheet.cssRules;
+      rules = await sheetRules(sheet);
     } catch {
       continue;
     }
-    for (const rule of Array.from(rules)) {
-      const text = rule.cssText.replace(/:root\b/g, ".snapshot-root").replace(/(^|[\s,}])html\b/g, "$1.snapshot-root");
+    for (const rule of rules) {
+      const text = rule.replace(/:root\b/g, ".snapshot-root").replace(/(^|[\s,}])html\b/g, "$1.snapshot-root");
       if (keepRule(text, set)) parts.push(text);
     }
   }
@@ -162,6 +225,12 @@ export interface Snapshotter {
   image(svg: string, into?: HTMLImageElement): Promise<HTMLImageElement>;
 }
 
+/** The inherited properties a picture's wrapper takes from where the element stands on the page. */
+const INHERITED = [
+  "font-family", "font-size", "font-weight", "font-style", "font-stretch", "font-variant-numeric", "font-feature-settings",
+  "line-height", "color", "letter-spacing", "word-spacing", "text-transform", "text-align", "direction",
+];
+
 /** Gets the page's styles and fonts ready (read once, then kept). */
 export async function snapshotter(): Promise<Snapshotter> {
   await document.fonts.ready;
@@ -201,9 +270,13 @@ export async function snapshotter(): Promise<Snapshotter> {
     shareImages(copy);
     const body = new XMLSerializer().serializeToString(copy);
     const css = `${styles[layer.styles ?? "all"]}\n${layer.css ?? ""}`;
+    // What the element inherits where it stands (the body's font and line height, say), so the copy starts from the
+    // same text as the page: the page's <body> doesn't come along, and the wrapper alone would have the root's.
+    const around = getComputedStyle(el.parentElement ?? root);
+    const inherited = INHERITED.map((p) => `${p}:${around.getPropertyValue(p)}`).join(";");
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}" viewBox="0 0 ${width} ${height}" style="font-size:${fontSize}">`
       + `<foreignObject x="0" y="0" width="${width}" height="${height}">`
-      + `<div xmlns="http://www.w3.org/1999/xhtml" class="snapshot-root" style="${escapeAttr(rootStyle)};width:${width}px;height:${height}px;overflow:hidden;margin:0;font-size:${fontSize}">`
+      + `<div xmlns="http://www.w3.org/1999/xhtml" class="snapshot-root" style="${escapeAttr(`${rootStyle};width:${width}px;height:${height}px;overflow:hidden;margin:0;${inherited}`)}">`
       + `<style>${escapeText(css)}</style>${body}</div></foreignObject></svg>`;
   };
 
@@ -272,15 +345,24 @@ function outermostSvg(node: Element): Element | null {
 const escapeAttr = (s: string) => s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;");
 const escapeText = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-/** A picture of an element as a PNG, `scale` times its size on the page. */
+/**
+ * The size (CSS pixels) a picture of an element is made at: its box, or what it draws past that. Export dialogs show
+ * this times the chosen scale, so what they promise is exactly what is saved.
+ */
+export function pictureSize(el: HTMLElement): [number, number] {
+  return [Math.max(el.offsetWidth, el.scrollWidth), Math.max(el.offsetHeight, el.scrollHeight)];
+}
+
+/** A picture's size in pixels at `scale`, as the PNG will be. */
+export const picturePixels = ([w, h]: [number, number], scale: number): [number, number] => [Math.round(w * scale), Math.round(h * scale)];
+
+/** A picture of an element as a PNG, `scale` times its size on the page (`pictureSize`). */
 export async function elementPng(el: HTMLElement, scale = 2): Promise<Blob> {
   const snap = await snapshotter();
-  const width = el.offsetWidth;
-  const height = el.offsetHeight;
+  const [width, height] = pictureSize(el);
   const img = await snap.image(await snap.svg(el, width, height, scale));
   const canvas = document.createElement("canvas");
-  canvas.width = Math.round(width * scale);
-  canvas.height = Math.round(height * scale);
+  [canvas.width, canvas.height] = picturePixels([width, height], scale);
   canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Couldn't make the image"))), "image/png"));
 }
