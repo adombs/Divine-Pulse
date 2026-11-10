@@ -393,6 +393,9 @@ class GameMemory:
         self._history: dict[tuple[int, bytes], tuple[object, bytes]] = {}
         self._history_count = 0
         self._history_raw: list[tuple[int, bytes]] = []
+        # Every tile a unit has stood on this battle (battle_terrain), and the (generation, scenario) it is for.
+        self._seen_positions: set[tuple[int, int]] = set()
+        self._seen_battle: tuple[int, int | None] | None = None
 
     def close(self) -> None:
         if self._process is not None:
@@ -515,7 +518,14 @@ class GameMemory:
         if self._process is None or not self._copies:
             return None
         positions = [(u.x, u.y) for u in units if u.x is not None and u.y is not None and u.hp and (u.x, u.y) != (0, 0)]
-        return t.battle_map(self.battle_globals().get("map"), positions)
+        located = self.battle_globals()
+        battle = (self._generation, located.get("scenario"))
+        if battle != self._seen_battle:  # a new battle, a new connection or another scenario: start over
+            self._seen_battle, self._seen_positions = battle, set()
+        found = t.battle_map(located.get("map"), positions, located.get("scenario"), self._seen_positions)
+        if found is not None:  # only positions a map was found with: a garbled early read must not veto the right map
+            self._seen_positions.update(positions)
+        return found
 
     def battle_history(self, units: list) -> tuple[list, int | None] | None:
         """The game's battle history, the list behind the Divine Pulse screen (gamemem.history.HistoryEntry,

@@ -219,6 +219,23 @@ def maps() -> dict:
 
 
 @lru_cache(maxsize=2)
+def _scenario_maps(_generation: tuple) -> dict:
+    source = game_assets().json("data/maps.json")
+    scenarios = source.get("scenarios") if isinstance(source, dict) else None
+    if not isinstance(scenarios, dict):
+        return {}  # an import from before the table existed: the game's own map value is all there is
+    try:
+        return {int(scenario): int(map_id) for scenario, map_id in scenarios.items()}
+    except (TypeError, ValueError):
+        return {}
+
+
+def scenario_maps() -> dict:
+    """Scenario id -> the id of the map it is fought on (data/maps.json "scenarios")."""
+    return _scenario_maps(generation())
+
+
+@lru_cache(maxsize=2)
 def _terrain(_generation: tuple) -> list:
     kinds = json.loads((DATA / "terrain_kinds.json").read_text(encoding="utf-8"))
     source = game_assets().json("data/terrain.json")

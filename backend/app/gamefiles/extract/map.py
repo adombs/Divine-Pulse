@@ -28,6 +28,7 @@ TERRAIN_IDS = 115
 FIRST_TERRAIN_ENTRY, MAX_MAPS = 365, 256
 CINDERED_FIRST_MAP = 38  # the Cindered Shadows grids, in order, are maps 38-41
 TERRAIN_NAME = 5502  # F2[5502 + terrain id]
+SCENARIO_FILE, SCENARIO_MAP_BYTE = "fixed_scenario.bin", 32  # each scenario row's map id (checked against recorded battles)
 MOVE_GROUPS = {
     0: "Impassable", 1: "Fliers only", 2: "Normal", 3: "Forest", 4: "Sand", 5: "Thicket", 6: "Shoal / snow",
     9: "Swamp / flames / crater", 10: "Special", 11: "Stairs", 12: "Wasteland",
@@ -139,10 +140,26 @@ def maps(ctx: Context) -> dict[int, list[list[int]]]:
     grids = dict(sorted(grids.items()))
     ctx.out.json(
         "data/maps.json",
-        {"maps": {str(m): hex_rows(g) for m, g in grids.items()}},
-        source=f"DATA {FIRST_TERRAIN_ENTRY} + map id (maps 38-41: Cindered Shadows DATA 465-468)",
+        {"maps": {str(m): hex_rows(g) for m, g in grids.items()}, "scenarios": scenario_maps(ctx, grids)},
+        source=f"DATA {FIRST_TERRAIN_ENTRY} + map id (maps 38-41: Cindered Shadows DATA 465-468); "
+        f"nx/data/{SCENARIO_FILE} section 0 byte {SCENARIO_MAP_BYTE} (scenarios)",
     )
     return grids
+
+
+def scenario_maps(ctx: Context, grids: dict[int, list[list[int]]]) -> dict[str, int]:
+    """Scenario id -> the map it is fought on (fixed_scenario.bin section 0, byte 32), for maps that have a grid.
+    The game's in-memory map value can read 0 for a battle, so the scenario is the reliable way to the map."""
+    try:
+        rows = ctx.table(SCENARIO_FILE, 0)
+    except FileNotFoundError:
+        ctx.skip(f"{SCENARIO_FILE} not found: no scenario -> map table")
+        return {}
+    return {
+        str(scenario): row[SCENARIO_MAP_BYTE]
+        for scenario, row in enumerate(rows)
+        if len(row) > SCENARIO_MAP_BYTE and row[SCENARIO_MAP_BYTE] in grids
+    }
 
 
 def terrain(ctx: Context) -> None:

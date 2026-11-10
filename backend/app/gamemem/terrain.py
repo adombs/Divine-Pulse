@@ -2,9 +2,13 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from dataclasses import dataclass
+import logging
 
 from ..infrastructure import game_tables
+
+log = logging.getLogger(__name__)
 
 GRID = 32  # tiles across and down in a terrain grid
 HEADER = 8
@@ -105,15 +109,53 @@ def fits(grid: tuple[tuple[int, ...], ...], positions: list[tuple[int, int]], al
     return True
 
 
-def battle_map(map_id: int | None, positions: list[tuple[int, int]]) -> tuple[int, tuple[tuple[int, ...], ...]] | None:
-    """The battle's map id and grid: the map the game says (`map_id`) if every unit fits on it, else the only map
-    every unit fits on. None when no map (or more than one, without the game's id) fits. The game's map may have a
-    few units on tiles its table calls impassable (levers, altars, a raised drawbridge: event tiles), so one in ten is
-    let off for it."""
+def scenario_maps() -> dict[int, int]:
+    """Scenario id -> map id from the game's scenario table; empty if the import has none."""
+    try:
+        return game_tables.scenario_maps()
+    except (OSError, ValueError, KeyError, TypeError, AttributeError):
+        return {}
+
+
+_disagreements: set[tuple[int, int, int]] = set()  # (scenario, table map, game map) already logged
+
+
+def _note_disagreement(scenario: int, table_map: int, game_map: int | None) -> None:
+    """Log, once each, a scenario whose table map differs from a non-zero map the game reports: a sign of a wrong
+    table entry (the game's value reading 0 is the known case the table is there for)."""
+    if not game_map or game_map == table_map or (scenario, table_map, game_map) in _disagreements:
+        return
+    _disagreements.add((scenario, table_map, game_map))
+    log.warning("scenario %d: the scenario table says map %d, the game says map %d", scenario, table_map, game_map)
+
+
+def battle_map(
+    map_id: int | None,
+    positions: list[tuple[int, int]],
+    scenario: int | None = None,
+    seen: Iterable[tuple[int, int]] = (),
+) -> tuple[int, tuple[tuple[int, ...], ...]] | None:
+    """The battle's map id and grid. Tried in order, each only if the units fit on it: the map the game's scenario
+    table gives for `scenario` (the game's in-memory `map_id` reads 0 for some battles, and opening positions can fit
+    map 0), then the map the game says (`map_id`), then the only map every unit fits on. None when none of them
+    does. "Fit" is checked on where the units stand now (`positions`) and on every tile a unit has stood on this
+    battle (`seen`), so a map they have walked off is not taken. The game's map may have a few units on tiles its
+    table calls impassable (levers, altars, a raised drawbridge: event tiles), so one in ten is let off for it."""
     grids = map_grids()
-    if map_id is not None and map_id in grids and fits(grids[map_id], positions, allowed=len(positions) // 10):
-        return map_id, grids[map_id]
+    history = list(dict.fromkeys(seen))
+
+    def holds(grid: tuple[tuple[int, ...], ...], tolerant: bool) -> bool:
+        return fits(grid, positions, allowed=len(positions) // 10 if tolerant else 0) and fits(
+            grid, history, allowed=len(history) // 10
+        )
+
+    table_map = scenario_maps().get(scenario) if scenario is not None else None
+    if table_map is not None:
+        _note_disagreement(scenario, table_map, map_id)
+    for candidate in dict.fromkeys(m for m in (table_map, map_id) if m is not None):
+        if candidate in grids and holds(grids[candidate], tolerant=True):
+            return candidate, grids[candidate]
     if len(positions) < 2:
         return None
-    candidates = [(m, g) for m, g in grids.items() if fits(g, positions)]
+    candidates = [(m, g) for m, g in grids.items() if holds(g, tolerant=False)]
     return candidates[0] if len(candidates) == 1 else None
