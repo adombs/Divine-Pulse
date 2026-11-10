@@ -472,7 +472,7 @@ export function battleSummary(battle: Battle, seconds: number): string {
   lines.push(
     `Units: ${battle.units.length} · level-ups: ${battle.level_ups} · stat points: +${battle.stat_points} · weapon attacks: ${battle.weapon_uses} · spells: ${battle.spells_cast} · items: ${battle.item_uses} · Divine Pulse: ${battle.divine_pulses}`,
   );
-  if (battle.enemies_start) lines.push(`Other units on the map: ${battle.enemies_now} of ${battle.enemies_start}`);
+  if (battle.enemies_start) lines.push(`Enemies on the map: ${battle.enemies_now} of ${battle.enemies_start}`);
   const located = [
     battle.turn !== null && `turn ${battle.turn}`,
     battle.enemies_defeated !== null && `${battle.enemies_defeated} killed`,

@@ -6,7 +6,8 @@ curve. Each factor is reported with how many percentage points it moves the esti
 Units at risk of falling weigh the most: one whose loss loses the battle (Byleth, a house leader) takes the estimate
 near the bottom; others cost less, since the battle goes on without them.
 
-The estimate compares remaining HP and strength on both sides. It also accounts for progress, losses and level-ups.
+The estimate compares how healthy both sides are (the average share of HP left, unit by unit, so a big unit doesn't
+outweigh the rest). It also accounts for progress, losses and level-ups.
 """
 
 from __future__ import annotations
@@ -14,13 +15,9 @@ from __future__ import annotations
 import heapq
 import math
 
-from .battle import CRITICAL, Battle
+from .battle import CRITICAL, FOES, Battle
 
 BASE = 0.6  # the player usually wins: a battle starts in their favour
-STRENGTH_WEIGHT = 1.2
-# A map is about even when the other units add up to this many times the army's strength: the player picks the
-# fights, and enemies come a few at a time. (Seen live: an ordinary Hard map started at 3.1x.)
-STRENGTH_PAR = 3.0
 PROGRESS_WEIGHT = 2.5
 LOSS_WEIGHT = 2.5
 LEVEL_UP_WEIGHT = 0.05
@@ -50,6 +47,10 @@ RISK_CAP = 2.0  # the most units that aren't critical can take off together
 PENDING = 0.35
 
 LOW, HIGH = 0.03, 0.97
+
+# Units on your side never threaten yours: units of your own not in the roster yet (the house leaders in the prologue),
+# allies, and objects (breakable walls).
+FRIENDLY = frozenset({"player", "ally", "object"})
 
 
 def _chance(score: float) -> float:
@@ -93,6 +94,7 @@ def _threats(battle: Battle, spent: set[str] | None = None) -> dict[tuple[int, i
         e
         for e in battle.enemy_stats.values()
         if e.on_map and e.x is not None and e.y is not None and (e.hp is None or e.hp > 0) and f"e:{e.slot}" not in spent
+        and e.side not in FRIENDLY
     ]
     if not others:
         return None
@@ -182,9 +184,38 @@ def _weight(r: dict) -> float:
 
 
 def _risk_text(r: dict) -> str:
-    near = "" if r["near"] is None else f", {r['near']} in reach"
+    """"Dimitri 8/28 HP, 2 enemies in reach, can still move"."""
+    near = "" if r["near"] is None else f", {r['near']} {'enemy' if r['near'] == 1 else 'enemies'} in reach"
     wait = ", can still move" if r["pending"] else ""
     return f"{r['name']} {r['hp']}/{r['max_hp']} HP{near}{wait}"
+
+
+def _mean(shares: list[float]) -> float | None:
+    return sum(shares) / len(shares) if shares else None
+
+
+def health(battle: Battle) -> tuple[float | None, float | None]:
+    """(your side, the enemies): the average share of max HP each unit still standing on the map has left. Your side is
+    the army and your units outside the roster (the house leaders in the prologue); the enemies include a third army.
+    Allies and objects count for neither. None for a side whose HP isn't read."""
+    mine = [u.hp / u.now["hp"] for u in battle.units if u.on_map and u.hp is not None and u.hp > 0 and u.now.get("hp")]
+    mine += [e.hp / e.max_hp for e in battle.enemy_stats.values() if e.side == "player" and e.on_map and e.hp and e.max_hp]
+    theirs = [e.hp / e.max_hp for e in battle.enemy_stats.values() if e.side in FOES and e.on_map and e.hp and e.max_hp]
+    return _mean(mine), _mean(theirs)
+
+
+def progress(battle: Battle) -> tuple[int, int]:
+    """(enemies down, enemies faced): the enemy and third-army units that have been on the map (reinforcements still to
+    come aren't faced yet), and how many of them are no longer standing. From the battle's own totals when its units
+    aren't tracked one by one."""
+    faced = [
+        e for e in battle.enemy_stats.values()
+        if e.side in FOES and (e.on_map or e.left or e.defeated_by or (e.hp is not None and e.hp <= 0))
+    ]
+    if not faced:
+        return max(0, battle.enemies_start - battle.enemies_now), battle.enemies_start
+    standing = sum(1 for e in faced if e.on_map and not e.defeated_by and (e.hp is None or e.hp > 0))
+    return len(faced) - standing, len(faced)
 
 
 def _timing(battle: Battle) -> str:
@@ -193,51 +224,34 @@ def _timing(battle: Battle) -> str:
     if phase == 0:
         known = [u for u in battle.units if u.on_map and u.acted is not None]
         if known:
-            return f" (player phase: {sum(1 for u in known if u.acted)} of {len(known)} units have acted)"
+            return f" · {sum(1 for u in known if u.acted)} of {len(known)} units acted"
     elif phase == 1:
-        left = sum(1 for e in battle.enemy_stats.values() if e.on_map and f"e:{e.slot}" not in spent)
-        return f" (enemy phase: {left} units still to act)"
+        left = sum(1 for e in battle.enemy_stats.values() if e.on_map and e.side not in FRIENDLY and f"e:{e.slot}" not in spent)
+        return f" · enemy phase, {left} still to act"
     return ""
 
 
 def factors(battle: Battle) -> list[tuple[str, float, str]]:
     """(label, score contribution, explanation) for each factor that applies."""
     out: list[tuple[str, float, str]] = []
-    if battle.army_hp is not None and battle.army_max_hp and battle.enemy_hp is not None and battle.enemy_max_hp:
-        mine, theirs = battle.army_hp / battle.army_max_hp, battle.enemy_hp / battle.enemy_max_hp
+    mine, theirs = health(battle)
+    if mine is not None and theirs is not None:
         out.append(
             (
                 "Health",
                 HEALTH_WEIGHT * (mine - theirs),
-                f"Your units have {mine:.0%} of their HP, the other units {theirs:.0%}",
+                f"Your army {mine:.0%} HP, the enemy {theirs:.0%}",
             )
         )
-    if battle.enemy_power > 0 and battle.army_power > 0:
-        ratio = battle.army_power / battle.enemy_power
-        edge = min(10.0, max(0.1, ratio * STRENGTH_PAR))
-        out.append(
-            (
-                "Strength",
-                STRENGTH_WEIGHT * math.log(edge),
-                f"The other units on the map have {1 / ratio:.1f}× your army's strength (about {STRENGTH_PAR:.0f}× is an even map)",
-            )
-        )
-    if battle.enemies_start > 0:
-        cleared = 1 - battle.enemies_now / battle.enemies_start
-        if cleared:
-            out.append(
-                (
-                    "Progress",
-                    PROGRESS_WEIGHT * cleared,
-                    f"{battle.enemies_start - battle.enemies_now} of {battle.enemies_start} other units gone from the map",
-                )
-            )
+    gone, faced = progress(battle)
+    if faced and gone:
+        out.append(("Progress", PROGRESS_WEIGHT * gone / faced, f"{gone} of {faced} enemies down"))
     deployed = len(battle.units)
     lost = sum(1 for u in battle.units if u.fell)
     critical = [u.name for u in battle.units if not u.on_map and u.key in CRITICAL]
     if critical:
         out.append(
-            ("Defeat", -CRITICAL_WEIGHT, f"{' and '.join(critical)} left the battle: losing them loses the battle")
+            ("Defeat", -CRITICAL_WEIGHT, f"{' and '.join(critical)} {'is' if len(critical) == 1 else 'are'} out: that loses the battle")
         )
     risks = at_risk(battle)
     leaders = [r for r in risks if r["critical"]]
@@ -247,7 +261,7 @@ def factors(battle: Battle) -> list[tuple[str, float, str]]:
             (
                 "Defeat risk",
                 -score,
-                f"Losing them loses the battle: {'; '.join(_risk_text(r) for r in leaders)}{_timing(battle)}",
+                f"{'; '.join(_risk_text(r) for r in leaders)}{_timing(battle)}",
             )
         )
     rest = [r for r in risks if not r["critical"]]
@@ -255,13 +269,13 @@ def factors(battle: Battle) -> list[tuple[str, float, str]]:
         score = min(RISK_CAP, sum(RISK_WEIGHT[False, r["level"]] * _weight(r) for r in rest))
         out.append(("At risk", -score, "; ".join(_risk_text(r) for r in rest) + _timing(battle)))
     if deployed and lost:
-        out.append(("Losses", -LOSS_WEIGHT * lost / deployed, f"{lost} of {deployed} units no longer on the map"))
+        out.append(("Losses", -LOSS_WEIGHT * lost / deployed, f"{lost} of {deployed} of your units lost"))
     if battle.level_ups:
         out.append(
             (
                 "Momentum",
                 min(LEVEL_UP_CAP, LEVEL_UP_WEIGHT * battle.level_ups),
-                f"{battle.level_ups} level-up{'s' if battle.level_ups != 1 else ''} so far",
+                f"{battle.level_ups} level-up{'s' if battle.level_ups != 1 else ''}",
             )
         )
     return out
@@ -277,7 +291,7 @@ def outlook(battle: Battle) -> dict:
     return {
         "chance": round(chance, 3),
         # Without current HP the estimate can't see how hurt either side is.
-        "confidence": "medium" if battle.army_hp is not None and battle.enemy_hp is not None else "low",
+        "confidence": "medium" if None not in health(battle) else "low",
         "factors": [
             {"label": label, "points": round((chance - _chance(total - score)) * 100, 1), "detail": detail}
             for label, score, detail in parts

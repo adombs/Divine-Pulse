@@ -67,10 +67,12 @@
 .battle-page .overview .log-icon { width: 1.3rem; height: 1.3rem; }
 
 /* Map controls remain one compact row so the map keeps its height. */
-.battle-page .map-pane-head .map-tools { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; margin: 0; width: 100%; }
-/* Speed and zoom are the same length (icon, bar, value), whatever their number of stops; the camera sits between them. */
-.battle-page .map-pane-head .map-tools > .step-slider { flex: 1 1 0; min-width: 0; max-width: 12.5rem; }
-.battle-page .map-pane-head .map-tools > .camera-mode { flex: none; }
+/* Speed, camera and zoom sit on three columns with the same gap between each: speed and zoom share the space left by
+ * the camera equally, and each value takes only the room its text needs, so no empty box widens one gap. */
+.battle-page .map-pane-head .map-tools { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; column-gap: 1rem; margin: 0; width: 100%; }
+.battle-page .map-pane-head .map-tools > .step-slider { min-width: 0; }
+.battle-page .map-pane-head .map-tools > .camera-mode { flex: none; grid-column: 2; }
+.battle-page .map-pane-head .map-tools .replay-speed-value { min-width: 0; }
 .battle-page .map-tool-label, .map-tools .step-slider > .field-label { display: none; }
 /* Icon, track and value share one centre line (the map's tools and the log tree's zoom). */
 .map-tools { align-items: center; }

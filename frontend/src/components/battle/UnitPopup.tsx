@@ -148,7 +148,7 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
         backFacts={[
           ["Gender", roster?.gender || character?.gender || "—"],
           ["Affiliation", battleNav.house?.(id) || "—"],
-          ["Birthday", character?.birthday || "—"],
+          ["Birthday", roster?.birthday || character?.birthday || "—"],
           ["Height", character?.height || "—"],
         ]}
       />

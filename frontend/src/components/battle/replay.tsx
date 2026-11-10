@@ -17,7 +17,8 @@ import { clock } from "../../format";
 import { hpShare, Item } from "./model";
 import { Action, Board, boardAt, boardNow, Frame, stepAction, stepLabel, turnStarts } from "./map";
 import type { Beat, Chronicle } from "./chronicle";
-import { BattleNavContext, KeyNumber, keyNumbers } from "./parts";
+import { BattleNavContext, KeyNumber, keyNumbers, teamNumber } from "./parts";
+import type { Team, TeamCount } from "./marks";
 
 /** Each stage of a step's animation at normal speed (ms): moving (a base, and per tile, up to a most), acting, the
  * fades, and a pause before the next step while playing (longer at the start of a phase, to read its banner). */
@@ -314,8 +315,16 @@ export function replayStats(battle: Battle, replay: Replay, seconds: number): { 
   const t = beats[at].t;
   const mine = board.pieces.filter((p) => p.army);
   const onMap = mine.filter((p) => !p.down).length;
-  const others = board.pieces.filter((p) => !p.army && !p.object);
-  const alive = others.filter((p) => !p.down).length;
+  const byTeam = new Map<Team, TeamCount>();
+  for (const p of board.pieces) {
+    if (p.object) continue;
+    const team: Team = p.army ? "player" : p.sprite.side === "object" ? "enemy" : p.sprite.side;
+    const c = byTeam.get(team) ?? { team, now: 0, of: 0 };
+    c.of += 1;
+    if (!p.down) c.now += 1;
+    byTeam.set(team, c);
+  }
+  const teams = (["player", "ally", "enemy", "third"] as Team[]).flatMap((team) => byTeam.get(team) ?? []);
   const hps = mine.map((p) => (p.hp === null || !p.max ? null : [p.hp, p.max] as const));
   const army = hps.length && hps.every((h) => h !== null) ? hpShare(hps.reduce((n, h) => n + h![0], 0), hps.reduce((n, h) => n + h![1], 0)) : null;
   const usedBy = pulses.filter((p) => p.t <= t).length;
@@ -326,7 +335,8 @@ export function replayStats(battle: Battle, replay: Replay, seconds: number): { 
     { label: "Units", value: `${onMap}/${mine.length}`, title: mine.length - onMap ? `${mine.length - onMap} left the battle` : "Your units on the map", tone: mine.length - onMap ? "bad" : undefined },
   ];
   if (army !== null) numbers.push({ label: "HP", value: `${Math.round(army * 100)}%` });
-  if (battle.enemies_start > 0) numbers.push({ label: "Enemies", value: `${alive}/${battle.enemies_start}`, title: "Other units on the map" });
+  const onTheMap = teamNumber(teams);
+  if (onTheMap) numbers.push(onTheMap);
   const charges = battle.divine_pulse_charges;
   numbers.push({
     label: "Divine Pulse",

@@ -183,20 +183,23 @@ class Branch(BaseModel):
     map_presence: dict[str, list[tuple[int, bool]]] = Field(default_factory=dict)
 
 
-# The army another unit is in: "ally" fights on your side, "third" against both; "object" isn't a unit at all but a
-# thing on the map with HP of its own (a breakable wall).
-Side = Literal["enemy", "ally", "third", "object"]
+# The army another unit is in: "player" is yours though it isn't in your roster yet (the house leaders in the
+# prologue), "ally" fights on your side, "third" against both; "object" isn't a unit at all but a thing on the map
+# with HP of its own (a breakable wall).
+Side = Literal["player", "enemy", "ally", "third", "object"]
+FOES = frozenset({"enemy", "third"})
 # Team 4 (seen live, The Remire Calamity): the breakable walls, which the game keeps as units (class Noble).
 OBJECT_TEAM = 4
 OBJECT_NAMES = frozenset({"Breakable Wall"})
 
 
 def side_of(team: int | None, name: str = "") -> Side:
-    """The army for a unit record's team byte (gamemem.battle.TEAM): 1 enemy, 3 a third army; 0 (your side, not your
-    unit) and 2 allies; 4 objects (breakable walls, also known by name). Unread: enemy."""
+    """The army for a unit record's team byte (gamemem.battle.TEAM), as the game colours it: 0 yours (seen live: Edelgard,
+    Dimitri and Claude in the prologue, before they're in the roster), 1 enemy, 2 allies (Jeralt there), 3 a third
+    army; 4 objects (breakable walls, also known by name). Unread: enemy."""
     if team == OBJECT_TEAM or name in OBJECT_NAMES:
         return "object"
-    return "third" if team == 3 else "ally" if team in (0, 2) else "enemy"
+    return {0: "player", 2: "ally", 3: "third"}.get(team, "enemy")
 
 
 class EnemyStats(BaseModel):
@@ -283,7 +286,7 @@ class Battle(BaseModel):
     # Seconds the game was away from the battle (quit with a bookmark, then resumed): not counted in its time.
     away_s: float = 0
     units: list[BattleUnitStats] = Field(default_factory=list)
-    # Other units on the map (enemies, as far as the game data tells). Decoding them isn't verified yet.
+    # Enemies and third-army units on the map (not your side's units outside the roster, allies or objects).
     enemies_start: int = 0
     enemies_now: int = 0
     army_power: float = 0
@@ -292,10 +295,10 @@ class Battle(BaseModel):
     # Located-field stats (None until app/data/battle_fields.json has the offsets).
     turn: int | None = None
     divine_pulse_charges: int | None = None
-    enemies_defeated: int | None = None  # other units on the map with no HP left
+    enemies_defeated: int | None = None  # enemies and third-army units on the map with no HP left
     army_hp: int | None = None  # current HP of the army units on the map, and their max
     army_max_hp: int | None = None
-    enemy_hp: int | None = None  # same for the other units on the map
+    enemy_hp: int | None = None  # same for the enemies and third-army units on the map
     enemy_max_hp: int | None = None
     # Names for the other units, "Bandit 3", by pool slot: the game's name for them (else their class), numbered
     # in pool order.
@@ -442,6 +445,11 @@ class EnemySample:
     def is_unit(self) -> bool:
         """A unit, not an object such as a breakable wall (left out of the other units' counts and power)."""
         return self.side != "object"
+
+    @property
+    def is_foe(self) -> bool:
+        """Against you: an enemy or a third army (not your own side's units outside the roster, allies or objects)."""
+        return self.side in FOES
 
 
 @dataclass(frozen=True)

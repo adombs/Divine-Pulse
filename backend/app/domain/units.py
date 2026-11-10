@@ -105,6 +105,8 @@ class Unit(BaseModel):
     ebst_stats: list[OtherKey] = Field(default_factory=lambda: list(DEFAULT_OTHER_KEYS))
     # Byleth's hair as the game has it now: "dark" or "green" (from the Sothis merge on); None until read from memory.
     look: Literal["dark", "green"] | None = None
+    # Byleth's birthday as the player set it ("3/5", month/day); None for everyone else, and until read from memory.
+    birthday: str | None = None
     # Dead (Classic mode, from the game's own flag, or marked by hand): where it fell. None while alive. Older runs load
     # with None.
     death: Death | None = None

@@ -16,6 +16,7 @@ import {
   hasEnding,
 } from "../../../reference/supports";
 import { KeyPortrait } from "../../ui";
+import { unitForCharacter } from "../../../portraits";
 import { DetailCard, EmptyState, MasterDetail, Section } from "../../layout";
 import { NoMatches, SearchBox, Segmented, Spoiler } from "../../common";
 import { Icon } from "../../Icon";
@@ -158,7 +159,7 @@ export function ByCharacter({ data, people, selected, onSelect, pairsFor, routeO
   return (
     <>
       <CharacterRail people={railPeople} selected={me.name} onSelect={onSelect} units={units} part2={part2} />
-      <MasterDetail wide detail={<PersonCard key={me.name} me={me} info={data.people[me.label]} part2={part2} />}>
+      <MasterDetail wide detail={<PersonCard key={me.name} me={me} info={data.people[me.label]} part2={part2} units={units} />}>
         <div className="toolbar">
           <SearchBox placeholder="Search partners" value={q} onChange={setQ} />
           <Segmented
@@ -271,7 +272,7 @@ function Chips({ items, kind = "" }: { items?: string[]; kind?: string }) {
   );
 }
 
-function PersonCard({ me, info, part2 }: { me: Person; info?: MonasteryPerson; part2: boolean }) {
+function PersonCard({ me, info, part2, units }: { me: Person; info?: MonasteryPerson; part2: boolean; units: Unit[] }) {
   const ref = useReference();
   const c = ref?.characters.find((x) => x.key === me.charKey);
   const faculty = /Church|Knights/.test(me.house);
@@ -285,7 +286,7 @@ function PersonCard({ me, info, part2 }: { me: Person; info?: MonasteryPerson; p
             <>
               <dt>Birthday</dt>
               <dd title="On their birthday, tea is free (no activity point) and flowers give a little support">
-                {c?.birthday || (isByleth(me.name) ? "" : "—")}
+                {c?.birthday || (isByleth(me.name) ? unitForCharacter("byleth", units)?.birthday || "" : "—")}
               </dd>
             </>
           )}

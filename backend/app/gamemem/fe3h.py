@@ -268,6 +268,19 @@ def decode_player_name(data: bytes) -> str | None:
     return name if 0 < len(name) <= 20 and name.isprintable() and "�" not in name else None
 
 
+# Byleth's birthday as the player set it, in the bytes after the name: the month (0 = January) at +BIRTH_MONTH and
+# the day at +BIRTH_DAY. Seen live: a save whose Byleth was born on 3/5 held 2 and 5.
+BIRTH_MONTH, BIRTH_DAY = 0x29, 0x2A
+
+
+def decode_player_birthday(data: bytes) -> str | None:
+    """Byleth's birthday as "month/day" ("3/5"), or None if the field doesn't hold a date."""
+    if len(data) <= BIRTH_DAY:
+        return None
+    month, day = data[BIRTH_MONTH] + 1, data[BIRTH_DAY]
+    return f"{month}/{day}" if 1 <= month <= 12 and 1 <= day <= 31 else None
+
+
 def _counter(record: bytes) -> int:
     return struct.unpack_from("<H", record, _BATTLES)[0]
 

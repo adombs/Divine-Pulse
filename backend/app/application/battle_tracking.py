@@ -213,7 +213,7 @@ class BattleTracker:
         self._set_enemies(sample)
         self.battle.enemies_start = self.battle.enemies_now
         names = ", ".join(a.name for a in sample.army)
-        enemies = f"; {self.battle.enemies_now} other units on the map" if sample.enemies else ""
+        enemies = f"; {self.battle.enemies_now} {'enemy' if self.battle.enemies_now == 1 else 'enemies'} on the map" if sample.enemies else ""
         self.battle.events.append(
             BattleEvent(t=0, kind="start", text=f"Battle started with {len(units)} units ({names}){enemies}")
         )
@@ -322,7 +322,7 @@ class BattleTracker:
                 BattleEvent(
                     t=t,
                     kind="enemies",
-                    text=f"{abs(before - battle.enemies_now)} {word} other units on the map ({battle.enemies_now} now)",
+                    text=f"{abs(before - battle.enemies_now)} {word} {'enemy' if abs(before - battle.enemies_now) == 1 else 'enemies'} on the map ({battle.enemies_now} now)",
                 )
             )
             changed = True
@@ -1319,7 +1319,7 @@ class BattleTracker:
                 unit.combats = max(0, a.combats - a.combats_start)
             if None not in (a.victories, a.victories_start):
                 unit.defeats = max(0, a.victories - a.victories_start)
-        enemies = [e for e in sample.enemies if e.hp is not None and e.is_unit]
+        enemies = [e for e in sample.enemies if e.hp is not None and e.is_foe]
         if enemies:
             battle.enemy_hp = sum(max(0, e.hp) for e in enemies)
             battle.enemy_max_hp = sum(e.max_hp for e in enemies)
@@ -1448,7 +1448,7 @@ class BattleTracker:
     def _set_enemies(self, sample: BattleSample) -> None:
         battle = self.battle
         assert battle is not None
-        battle.enemies_now = sum(1 for e in sample.enemies if e.alive and e.is_unit)
+        battle.enemies_now = sum(1 for e in sample.enemies if e.alive and e.is_foe)
 
     def _set_power(self, sample: BattleSample) -> None:
         battle = self.battle

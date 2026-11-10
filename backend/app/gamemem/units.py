@@ -121,6 +121,7 @@ def to_reading(
     bonuses: BonusTable,
     *,
     player_name: str | None = None,
+    player_birthday: str | None = None,
     current_personal: str | None = None,
     scenario: int | None = None,
     in_battle: bool = False,
@@ -194,4 +195,5 @@ def to_reading(
         gender=character.gender or None,
         game_id=unit.character,
         look=byleth_look(scenario, in_battle) if unit.character in BYLETH_IDS else None,
+        birthday=player_birthday if unit.character in BYLETH_IDS else None,
     )

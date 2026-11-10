@@ -101,6 +101,8 @@ def apply_unit_stats(
         unit.game_id = reading.game_id
     if reading.look is not None:
         unit.look = reading.look
+    if reading.birthday is not None:
+        unit.birthday = reading.birthday
     unit.source = "memory" if reading.game_id is not None else "scan"
     unit.updated_at = now()
 

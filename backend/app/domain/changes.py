@@ -53,6 +53,7 @@ def same_unit(a: Unit, b: Unit) -> bool:
         "mastered_classes",
         "source",
         "look",
+        "birthday",
     )
     return (
         all(getattr(a, key) == getattr(b, key) for key in keys)
