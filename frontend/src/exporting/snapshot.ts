@@ -129,7 +129,10 @@ export function splitRules(css: string): string[] {
       rules.push(out.slice(start).trim());
       start = out.length;
     } else if (c === ";" && depth === 0) {
-      // A statement (@import, @charset, @layer a, b;): its sheet's own rules come separately.
+      // A statement: @layer a, b; is kept (it sets the layers' order); @import's sheet is read on its own, and
+      // @charset means nothing inside a picture.
+      const statement = out.slice(start).trim();
+      if (!/^@(import|charset)\b/i.test(statement)) rules.push(statement);
       start = out.length;
     }
   }
@@ -157,8 +160,11 @@ async function sheetRules(sheet: CSSStyleSheet): Promise<string[]> {
   const rules = Array.from(sheet.cssRules);
   // Sheets it @imports aren't in its text: read each of those the same way.
   const imported = await Promise.all(rules.filter((r): r is CSSImportRule => r instanceof CSSImportRule && !!r.styleSheet).map((r) => sheetRules(r.styleSheet!)));
-  const own = source !== null ? splitRules(source) : rules.filter((r) => !(r instanceof CSSImportRule)).map((r) => r.cssText);
-  return [...imported.flat(), ...own];
+  const fromCssom = rules.filter((r) => !(r instanceof CSSImportRule)).map((r) => r.cssText);
+  const written = source !== null ? splitRules(source) : null;
+  // A <style> filled with insertRule() has no text of its own: then the browser's text is the best there is. (The source
+  // can hold a few more rules than the browser kept, ones it can't use such as ::-moz-range-thumb; a copy ignores them too.)
+  return [...imported.flat(), ...(written?.length || !fromCssom.length ? written ?? [] : fromCssom)];
 }
 
 /** The page's styles, made to apply inside a picture: `:root` and `html` become the wrapper. */

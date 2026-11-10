@@ -15,10 +15,13 @@ test("a picture's styles keep a var() shorthand that a longhand overrides, as wr
 test("rules split at their closing brace, nested blocks, strings and comments included", () => {
   const css = `/* a { b } */ :root { --x: "}"; }
 @import url("a.css");
+@charset "utf-8";
+@layer base, app;
 @media (max-width: 600px) { .a { color: red; } .b { content: '{'; } }
 @font-face { font-family: X; src: url(x.woff2); }`;
   assert.deepEqual(splitRules(css), [
     ':root { --x: "}"; }',
+    "@layer base, app;",
     "@media (max-width: 600px) { .a { color: red; } .b { content: '{'; } }",
     "@font-face { font-family: X; src: url(x.woff2); }",
   ]);
