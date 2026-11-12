@@ -2034,7 +2034,9 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .duplicate-modal { width: min(640px, 100%); }
 .duplicate-group + .duplicate-group { margin-top: 1rem; }
 .duplicate-group h3 { margin: 0 0 0.4rem; font: 700 1rem var(--ui); }
-.duplicate-copy { display: flex; flex-wrap: wrap; align-items: center; gap: 0.2rem 0.9rem; padding: 0.35rem 0.6rem; margin-bottom: 0.25rem; background: var(--row); border: 1px solid var(--row-border); cursor: pointer; }
+.duplicate-copy { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; gap: 0.2rem 0.9rem; padding: 0.35rem 0.6rem; background: var(--row); border: 1px solid var(--row-border); cursor: pointer; }
+.duplicate-group [role="radiogroup"] { display: grid; grid-template-columns: auto 1fr auto auto auto; row-gap: 0.25rem; }
 .duplicate-copy.selected { border-color: var(--accent); }
-.duplicate-when { flex: 1 1 11rem; }
+.duplicate-when { display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
+.duplicate-num { text-align: right; font-variant-numeric: tabular-nums; }
 .duplicate-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.6rem; margin-top: 0.4rem; }
