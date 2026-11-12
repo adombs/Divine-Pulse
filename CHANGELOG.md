@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.4.4 (2026-11-12)
+
 - Export Video can make 4:5 videos (1080 × 1350, the shape feed posts show whole), the log under the map.
 
 ## 1.4.3 (2026-11-10)
