@@ -45,4 +45,12 @@ class BattleSupport(Protocol):
 
     def enemy_phase_began(self, before: list[BattleUnit], after: list[BattleUnit]) -> bool: ...
 
+    def threats(
+        self, units: list[BattleUnit], grid: list[list[int]] | None, spent: frozenset[int]
+    ) -> dict[int, tuple[tuple[int, ...], int, float, float]]:
+        """For each of your units on the map (by slot): who could strike it before your next turn, the most damage they
+        can deal together, the HP it loses on average, and the chance it falls (gamemem/threat.py). Empty when the
+        combat data isn't there."""
+        ...
+
     def write_pairing_report(self, directory: Path, name: str, report: dict) -> None: ...

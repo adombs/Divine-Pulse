@@ -473,10 +473,15 @@ def test_a_rewind_takes_back_spells_and_weapon_uses_together():
 
 
 def test_outlook_trend_follows_the_battle():
+    # The outlook is worked out at the start and when your phase ends: it holds while your units act.
+    fight = HistoryStep(1, 0, True)
+    enemy_phase = HistoryStep(1, 1, True)
     tracker = BattleTracker()
-    tracker.update(BattleSample((army(),), enemies(10)), "run", at(0))
-    tracker.update(BattleSample((army(),), enemies(10)), "run", at(5))  # nothing changed: no new point
-    tracker.update(BattleSample((army(),), enemies(4)), "run", at(60))
+    tracker.update(BattleSample((army(),), enemies(10), history=(fight,)), "run", at(0))
+    tracker.update(BattleSample((army(),), enemies(10), history=(fight,)), "run", at(5))  # nothing changed: no new point
+    tracker.update(BattleSample((army(),), enemies(4), history=(fight,)), "run", at(30))  # your phase: it holds
+    assert [p.chance for p in tracker.battle.trend] == [tracker.battle.trend[0].chance]
+    tracker.update(BattleSample((army(),), enemies(4), history=(fight, enemy_phase)), "run", at(60))
     trend = tracker.battle.trend
     assert [p.t for p in trend] == [0, 60] and trend[1].chance > trend[0].chance
 
@@ -1318,3 +1323,81 @@ def test_the_quest_a_battle_is_for_is_kept_and_battles_saved_before_it_load_with
     assert Battle.model_validate(saved).quest == 78
     del saved["quest"]  # a battle file from before the field
     assert Battle.model_validate(saved).quest is None
+
+
+def _winning_blow(monkeypatch, *, filed_at=None):
+    """A Skirmish at Dawn's last fight: Claude (a guest) defeats Kostas, levels up first (the level-up screen comes
+    before the pool's HP changes), and the game files no history entry for it. With `filed_at`, the game does file
+    it (any other fight): the history's entry then comes at that read."""
+    from app.domain.combat import BattleUnit, Fight, Pairing
+
+    claude, kostas = "a:claude", "e:20"
+
+    def entry(phase_start, hp, actor=None, target=None):
+        units = (StepUnit(claude, 26, 13, 8, 26), StepUnit(kostas, hp, 12, 7))
+        return HistoryStep(6, 0, phase_start, STEP_ATTACK if target else 0x0B, actor, target, False, units)
+
+    start, blow = entry(True, 7), entry(False, 0, claude, kostas)
+    paired = []
+
+    def pair_fights(before, after, **kw):
+        paired.append(after)
+        return Pairing((Fight(4, 20, 0, 7, 20, 1.0),), True)
+
+    tracker = BattleTracker()
+    monkeypatch.setattr(tracker.support, "pair_fights", pair_fights)
+
+    def read(n, hp, level=1, history=(start,)):
+        units = (
+            BattleUnit(4, False, level, 0, {"hp": 26}, hp=26, x=13, y=8, combats=3 if hp == 0 else 2, victories=2 if hp == 0 else 1, slot=4),
+            BattleUnit(43, False, 3, 0, {"hp": 29}, hp=hp, x=12, y=7, combats=3 if hp == 0 else 2, slot=20),
+        )
+        army = (ArmySample("claude", "Claude", "Archer", level, dict(STATS, str=STATS["str"] + level - 1), hp=26, x=13, y=8),)
+        enemies = (EnemySample("Thief", 3, 50.0, 29, hp, 20, 12, 7, "Kostas", character=43),)
+        sample = BattleSample(army, enemies, "k", 6, 0, history, units=units, army_slots={4: "claude"})
+        tracker.update(sample, "run", at(n))
+
+    read(0, 7)
+    read(10, 7, level=2)  # the level-up screen
+    read(17, 0, level=2)  # the fight's HP shows once it closes
+    if filed_at is not None:
+        read(filed_at, 0, level=2, history=(start, blow))
+    read(30, 0, level=2, history=(start, blow) if filed_at is not None else (start,))
+    return tracker, tracker.end(at(40)), paired
+
+
+def test_the_action_that_wins_the_map_is_worked_out_and_logged_before_what_followed(monkeypatch):
+    tracker, battle, paired = _winning_blow(monkeypatch)
+    assert [(e.t, e.kind, e.text, e.confidence) for e in battle.log[-2:]] == [
+        (17.0, "attack", "Claude's attack dealt 7 damage to Kostas.", 1.0),
+        (17.0, "defeat", "Claude killed Kostas.", 1.0),
+    ]
+    # Paired with the guest on your side (the pairing only pairs opposite sides).
+    assert [u.army for u in paired[-1] if u.slot == 4] == [True]
+    # The level-up it earned showed first, but follows it.
+    level_up = next(e for e in battle.events if e.kind == "level_up")
+    assert level_up.t == 17.0
+    assert [e.t for e in battle.events] == sorted(e.t for e in battle.events)
+    kostas, claude = battle.enemy_stats[20], battle.units[0]
+    assert (kostas.defeated_by, kostas.damage_taken, claude.damage_dealt) == ("Claude", 7, 7)
+    assert (claude.combats, claude.defeats, kostas.combats) == (1, 1, 1)
+
+
+def test_an_action_the_history_files_after_its_hp_shows_is_not_worked_out_too(monkeypatch):
+    tracker, battle, paired = _winning_blow(monkeypatch, filed_at=18)
+    assert [(e.t, e.kind, e.confidence) for e in battle.log[-2:]] == [(18.0, "attack", None), (18.0, "defeat", None)]
+    assert len([e for e in battle.log if e.kind == "attack"]) == 1 and paired == []
+    # The level-up moves to its fight's entry.
+    assert next(e for e in battle.events if e.kind == "level_up").t == 18.0
+
+
+def test_a_level_up_stays_put_when_a_new_phase_is_logged_next():
+    me, foe = "a:lysithea", "e:5"
+    units = (StepUnit(me, 30, 0, 0), StepUnit(foe, 20, 1, 0))
+    start = HistoryStep(1, 0, True, units=units)
+    enemy_phase = HistoryStep(1, 1, True, units=units)
+    tracker = BattleTracker()
+    tracker.update(BattleSample((army(),), history=(start,)), "run", at(0))
+    tracker.update(BattleSample((army(level=17, mag=21),), history=(start,)), "run", at(10))
+    tracker.update(BattleSample((army(level=17, mag=21),), history=(start, enemy_phase)), "run", at(12))
+    assert next(e for e in tracker.battle.events if e.kind == "level_up").t == 10.0

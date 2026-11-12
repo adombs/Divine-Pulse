@@ -22,6 +22,7 @@ from ..domain.battle import (
     MAP_SIZE,
     MapStep,
     TrendPoint,
+    UnitThreat,
     Battle,
     ArmySample,
     EnemySample,
@@ -42,7 +43,7 @@ from ..domain.battle import (
     _plus_text,
     _looks_like_level_up,
 )
-from ..domain.outlook import outlook
+from ..domain.outlook import outlook, turn_phase
 from ..domain.units import VALUE_KEYS, byleth_look, now
 from ..domain.combat import EQUIPMENT
 from .battle_support import BattleSupport
@@ -59,6 +60,16 @@ def _battalion_fields(a: ArmySample) -> dict:
         "gambit_uses": a.gambit_uses if named else None,
         "rattled": a.rattled,
     }
+
+
+def _with_guests(sample: BattleSample) -> list:
+    """The sample's pool records with guest units (in army_slots, but not the army's own records: Claude, Dimitri and
+    Edelgard in A Skirmish at Dawn) on your side, as the fight pairing needs them: it only pairs units of opposite
+    sides."""
+    return [
+        replace(u, army=True) if not u.army and u.slot in sample.army_slots else u
+        for u in sample.units
+    ]
 
 
 class BattleTracker:
@@ -91,6 +102,13 @@ class BattleTracker:
         self._resumed_times: dict[int, float] = {}
         # Other units seen so far, on the map or off it (Battle.map_presence).
         self._presence_seen: set[str] = set()
+        # The game files no history entry for the action that wins the map (see _settle_unfiled). Each unit's HP as
+        # the history last left it, the newest read that matched it, and (when HP has changed without an entry
+        # since) when that was first seen, the read it was last seen changing in, and what differed.
+        self._history_hp: dict[str, int] = {}
+        self._filed: tuple[BattleSample, float] | None = None
+        self._unfiled: tuple[float, BattleSample, dict[str, int]] | None = None
+        self._phase: int | None = None  # the phase in progress as of the last read (0 your phase)
 
     def resume(self, battle: Battle) -> None:
         """Carry on with a battle saved before the tracker restarted (see storage.BattleStore.load_active)."""
@@ -181,6 +199,8 @@ class BattleTracker:
     def end(self, at: datetime | None = None) -> Battle | None:
         if self.battle is not None and self.check_dir is not None:
             self._write_pairing_check()
+        if self.battle is not None and self._settle_unfiled():
+            self._order_growth()
         battle, self.battle, self._last = self.battle, None, None
         self._reset_history()
         if battle is None:
@@ -235,6 +255,8 @@ class BattleTracker:
         if sample.history:
             self._apply_history(sample, 0, rewound=False)
             self._track_presence(sample)
+        self._phase = self._phase_now()
+        self._evaluate_outlook(sample)
         self._last = sample
 
     def _step(self, sample: BattleSample, at: datetime) -> bool:
@@ -344,12 +366,23 @@ class BattleTracker:
                 changed = True
             if self._track_presence(sample):
                 changed = True
+            self._watch_unfiled(sample, t)
         elif self.estimate_fights and not went_back and self._last is not None and self._pair(self._last, sample, t):
+            changed = True
+        if self._order_growth():
             changed = True
         self._note_origins(sample)  # (after pairing: fights in a read that starts a turn belong to the turn before)
         self._note_phase(
             self._last, sample
         )  # (after pairing too: fights in the read where it began may be your units')
+        # The outlook is worked out at the start of the battle and when your phase ends (from the last read of it,
+        # before the other armies move), and holds in between.
+        phase = self._phase_now()
+        if went_back:
+            changed = self._evaluate_outlook(sample) or changed
+        elif self._phase == 0 and phase != 0:
+            changed = self._evaluate_outlook(self._last or sample) or changed
+        self._phase = phase
         self._last = sample
         return changed
 
@@ -455,8 +488,8 @@ class BattleTracker:
             return None
 
         return self.support.pair_fights(
-            list(last.units),
-            list(sample.units),
+            _with_guests(last),
+            _with_guests(sample),
             budget=PAIRING_BUDGET_S,
             origins=self._origins,
             enemy_phase=self._enemy_phase,
@@ -559,7 +592,7 @@ class BattleTracker:
     def _note_phase(self, last: BattleSample | None, sample: BattleSample) -> None:
         if last is None or (sample.turn and sample.turn != last.turn):
             self._enemy_phase = False
-        elif last.units and sample.units and self.support.enemy_phase_began(list(last.units), list(sample.units)):
+        elif last.units and sample.units and self.support.enemy_phase_began(_with_guests(last), _with_guests(sample)):
             self._enemy_phase = True
 
     def _note_origins(self, sample: BattleSample) -> None:
@@ -657,6 +690,132 @@ class BattleTracker:
                         )
                     )
         return True
+
+    def _phase_now(self) -> int:
+        """The phase in progress: from the game's history when it has phases, else as worked out from the reads."""
+        battle = self.battle
+        assert battle is not None
+        phase, _ = turn_phase(battle)
+        if phase is None:
+            return 1 if self._enemy_phase else 0
+        return phase
+
+    def _evaluate_outlook(self, sample: BattleSample | None) -> bool:
+        """Work out the outlook (Battle.outlook_at) from where everyone stands in `sample`: what the other armies could
+        do to each of your units before your next turn (Battle.threats), all of them still to act. Only at the start
+        of the battle, when your phase ends and after a Divine Pulse: it holds in between. Returns whether it
+        changed."""
+        battle = self.battle
+        assert battle is not None
+        if sample is not None and sample.units:
+            found = self.support.threats(list(sample.units), battle.terrain, frozenset())
+            battle.threats = {
+                sample.army_slots[slot]: UnitThreat(
+                    attackers=[f"e:{a}" for a in attackers], max_damage=most, expected=expected, death=death
+                )
+                for slot, (attackers, most, expected, death) in found.items()
+                if slot in sample.army_slots
+            }
+        before = battle.outlook_at
+        battle.outlook_at = None
+        battle.outlook_at = outlook(battle)
+        return battle.outlook_at != before
+
+    def _off_history(self, sample: BattleSample) -> dict[str, int] | None:
+        """The units whose HP in this read isn't what the game's history last left it at (uid -> HP now). None when
+        there is nothing to compare."""
+        if not sample.units or not self._history_hp:
+            return None
+        off = {}
+        for u in sample.units:
+            if u.hp is None or u.off_map:
+                continue
+            uid = f"a:{sample.army_slots[u.slot]}" if u.slot in sample.army_slots else f"e:{u.slot}"
+            filed = self._history_hp.get(uid)
+            if filed is not None and filed != u.hp:
+                off[uid] = u.hp
+        return off
+
+    def _watch_unfiled(self, sample: BattleSample, t: float) -> None:
+        """Note HP changes the game's history doesn't account for. They're usually an entry still to come (HP
+        changes a moment before the game files the action), so nothing is logged now: see _settle_unfiled."""
+        off = self._off_history(sample)
+        if off is None:
+            return
+        if not off:
+            self._filed, self._unfiled = (sample, t), None
+        elif self._unfiled is None:
+            self._unfiled = (t, sample, off)
+        elif off != self._unfiled[2]:
+            self._unfiled = (self._unfiled[0], sample, off)
+
+    def _settle_unfiled(self) -> bool:
+        """The battle is over with HP changes the game's history never accounted for: the game files no entry for
+        the action that wins the map (seen in A Skirmish at Dawn: Claude's attack that defeated Kostas). Work that
+        fight out from the reads before and after it (as when the history can't be read) and log it when it
+        happened, before anything later. Returns whether anything was added."""
+        battle = self.battle
+        assert battle is not None
+        filed, unfiled = self._filed, self._unfiled
+        self._filed = self._unfiled = None
+        if not self.estimate_fights or filed is None or unfiled is None:
+            return False
+        before, since = filed
+        # The reads matched the newest entry once it was in: else they never matched (something the history and the
+        # pool disagree on for good), and the last read that did is no fair "before".
+        if self._history_times and since < self._history_times[-1]:
+            return False
+        at, after, _ = unfiled
+        count = len(battle.log)
+        if not self._pair(before, after, at):
+            return False
+        added = battle.log[count:]
+        del battle.log[count:]
+        where = next((i for i, e in enumerate(battle.log) if e.t > added[0].t), len(battle.log))
+        battle.log[where:where] = added
+        # The history's counts of fights and defeats (see _replay) don't have it either.
+        units = {f"a:{u.key}": u for u in battle.units}
+        for e in added:
+            sides = {e.actor_id, e.target_id} if e.kind == "attack" else {e.actor_id} if e.kind == "defeat" else set()
+            for uid in sides - {None}:
+                stats = units.get(uid) if uid.startswith("a:") else battle.enemy_stats.get(int(uid[2:]))
+                if stats is None:
+                    continue
+                if e.kind == "attack":
+                    stats.combats = (stats.combats or 0) + 1
+                else:
+                    stats.defeats = (stats.defeats or 0) + 1
+        return True
+
+    def _order_growth(self) -> bool:
+        """A level-up shows on screen before the game files the action that earned it (its entry comes once the
+        level-up screen closes, and an action worked out from HP changes once its HP shows), so it would read as
+        happening before that action. Move it to when the action was logged, if the next actions logged involve the
+        unit. Returns whether any moved."""
+        battle = self.battle
+        assert battle is not None
+        moved = False
+        for ev in battle.events:
+            if ev.kind != "level_up" or ev.unit is None:
+                continue
+            nxt = min((e.t for e in battle.log if e.t >= ev.t and e.kind != "pulse"), default=None)
+            if nxt is None or nxt == ev.t:
+                continue
+            uid = f"a:{ev.unit}"
+            # Logged in the same read as the level-up (log times are rounded to 0.1 s): already in order.
+            if any(abs(e.t - ev.t) <= 0.05 and uid in (e.actor_id, e.target_id) for e in battle.log):
+                continue
+            for e in battle.log:
+                if e.t != nxt or e.kind == "pulse":
+                    continue
+                if e.kind == "phase":  # a new phase began first: not the action that earned it
+                    break
+                if uid in (e.actor_id, e.target_id):
+                    ev.t, moved = nxt, True
+                    break
+        if moved:
+            battle.events.sort(key=lambda e: e.t)
+        return moved
 
     def _track_enemies(self, sample: BattleSample) -> bool:
         """Per-unit stats for the other units on the map (Battle.enemy_stats), as this read shows them: who each
@@ -1265,6 +1424,7 @@ class BattleTracker:
 
         battle.log = log
         battle.map_steps = map_steps
+        self._history_hp = {uid: u.hp for uid, u in state.items()}
         for unit in battle.units:
             uid = f"a:{unit.key}"
             if uid in state:

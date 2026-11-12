@@ -440,9 +440,14 @@ export interface AtRisk {
   phase?: number | null;
   /** Enemy phase: the share of the reach on it at the phase's start that is still to act (1 = all of it). */
   left?: number;
+  /** Chance it falls before your next turn, where it stands (hit, avoid and crits counted), when worked out. */
+  death?: number;
+  /** The most damage the units that can strike it could deal together. */
+  max_damage?: number;
 }
 
 export interface Outlook {
+  /** With confidence "high": the chance of getting through the turn without losing the battle; else of winning it. */
   chance: number;
   confidence: "low" | "medium" | "high";
   factors: OutlookFactor[];

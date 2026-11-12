@@ -465,9 +465,9 @@ export function OutlookCard({ outlook, trend, seconds, events, at }: { outlook: 
       <div className="outlook-head">
         <span className="outlook-label">Outlook</span>
         <span className="outlook-pct">{pct}%</span>
-        <span className="muted">chance of winning · {outlook.confidence} confidence</span>
+        <span className="muted">{outlook.confidence === "high" ? "chance of getting through this turn" : "chance of winning"} · {outlook.confidence} confidence</span>
       </div>
-      <div className="outlook-bar" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label="Estimated chance of winning">
+      <div className="outlook-bar" role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={outlook.confidence === "high" ? "Estimated chance of getting through this turn" : "Estimated chance of winning"}>
         <span style={{ width: `${pct}%` }} />
       </div>
       <TrendChart trend={trend} seconds={seconds} events={events} at={at} />

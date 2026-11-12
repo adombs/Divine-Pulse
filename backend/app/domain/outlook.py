@@ -1,7 +1,18 @@
-"""Estimated chance of winning the battle in progress.
+"""Estimated chance of getting through the turn in progress without losing the battle.
 
-A transparent heuristic, not a simulation: a few factors are added up and squashed into 3-97% with a logistic
-curve. Each factor is reported with how many percentage points it moves the estimate, so the page can show why.
+With every unit's position and combat numbers read (Battle.threats, gamemem/threat.py), 1 - outlook is the chance the
+battle is lost before your next turn: that a unit whose loss loses it (Byleth, a house leader) falls to what the other
+armies can bring against it. Each threat counts the most units that can reach it (walked through terrain, one to each
+free tile around it), and every way their attacks can go (true Hit against Avo, Crit, doubling, the unit's counter).
+A unit that can't take enough damage to fall costs nothing, however many can reach it; units whose loss doesn't lose
+the battle are listed but don't move the chance. It's worked out at the start of the battle and when your phase ends,
+with your army where it stands and every other unit still to act, and holds in between (Battle.outlook_at): moving
+units around during your phase doesn't change it.
+
+Without those numbers (older battles, positions not read) it falls back to a transparent heuristic: a few factors
+added up and squashed into 3-97% with a logistic curve.
+
+Each factor is reported with how many percentage points it moves the estimate, so the page can show why.
 
 Units at risk of falling weigh the most: one whose loss loses the battle (Byleth, a house leader) takes the estimate
 near the bottom; others cost less, since the battle goes on without them.
@@ -32,7 +43,8 @@ CRITICAL_WEIGHT = 6.0  # enough to take any battle to the bottom of the scale
 # A unit boxed in by others can't be hit by melee at all.
 MOVE = 5  # most units move 4-6
 WEAPON_RANGE = {"bow": (2, 2), "reason": (1, 2), "faith": (1, 2), "dark": (1, 2)}  # anything else: (1, 1)
-MOVE_COST = {"Forest": 2, "Sand": 2, "Shoal / snow": 2, "Thicket": 3, "Wasteland": 2, "Swamp / flames / crater": 2}
+# On foot (the Fire Emblem Wiki's Three Houses terrain table, infantry; gamemem/threat.py has every kind of unit).
+MOVE_COST = {"Forest": 2, "Sand": 2, "Shoal / snow": 2, "Thicket": 2}
 DANGER_HP = 0.35  # share of max HP: in danger with another unit in reach
 EXPOSED_HP = 0.6  # exposed with another unit in reach
 CROWD = 3  # exposed whatever its HP with this many in reach
@@ -281,10 +293,85 @@ def factors(battle: Battle) -> list[tuple[str, float, str]]:
     return out
 
 
+TURN_LOW, TURN_HIGH = 0.01, 0.99
+
+
+def turn_risks(battle: Battle) -> list[dict] | None:
+    """Your units on the map that could fall before your next turn, from Battle.threats (None without it): at_risk()'s
+    fields plus "death" (chance it falls where it stands) and "max_damage"."""
+    if not battle.threats:
+        return None
+    phase, _ = turn_phase(battle)
+    out = []
+    for u in battle.units:
+        threat = battle.threats.get(u.key)
+        max_hp = u.now.get("hp", 0)
+        if threat is None or not u.on_map or u.hp is None or u.hp <= 0 or not max_hp or threat.death <= 0:
+            continue
+        out.append(
+            {
+                "key": u.key,
+                "name": u.name,
+                "hp": u.hp,
+                "max_hp": max_hp,
+                "near": len(threat.attackers),
+                "level": "danger" if threat.death >= DANGER_DEATH else "exposed",
+                "critical": u.key in CRITICAL,
+                "pending": False,
+                "phase": phase,
+                "left": 1.0,
+                "death": threat.death,
+                "max_damage": threat.max_damage,
+            }
+        )
+    return sorted(out, key=lambda r: (not r["critical"], -r["death"]))
+
+
+DANGER_DEATH = 0.25  # chance to fall from which a unit is in danger rather than exposed
+
+
+def _death_text(r: dict) -> str:
+    """"Byleth 18/30 HP, 3 enemies can strike (up to 42 damage), 34% to fall"."""
+    n = r["near"]
+    return (
+        f"{r['name']} {r['hp']}/{r['max_hp']} HP, {n} {'enemy' if n == 1 else 'enemies'} can strike "
+        f"(up to {r['max_damage']} damage), {r['death']:.0%} to fall"
+    )
+
+
+def _turn_outlook(battle: Battle, risks: list[dict]) -> dict:
+    critical = [u.name for u in battle.units if not u.on_map and u.key in CRITICAL and u.fell]
+    leaders = [r for r in risks if r["critical"]]
+    survive = 0.0 if critical else 1.0
+    for r in leaders:
+        survive *= 1 - r["death"]
+    chance = min(TURN_HIGH, max(TURN_LOW, survive))
+    factors = []
+    if critical:
+        factors.append(
+            {"label": "Defeat", "points": round((chance - TURN_HIGH) * 100, 1),
+             "detail": f"{' and '.join(critical)} {'is' if len(critical) == 1 else 'are'} out: that loses the battle"}
+        )
+    for r in leaders:
+        # What this unit's risk takes off, the others' kept (unclamped, so each shows even at the bottom of the scale).
+        without = 0.0 if critical else survive / max(1e-9, 1 - r["death"])
+        factors.append({"label": "Defeat risk", "points": round((survive - without) * 100, 1), "detail": _death_text(r)})
+    rest = [r for r in risks if not r["critical"]]
+    if rest:
+        factors.append({"label": "At risk", "points": 0.0, "detail": "; ".join(_death_text(r) for r in rest) + " · losing them doesn't lose the battle"})
+    return {"chance": round(chance, 3), "confidence": "high", "factors": factors, "at_risk": risks}
+
+
 def outlook(battle: Battle) -> dict:
     """{"chance": 0-1, "confidence": "low" | "medium", "factors": [{"label", "points", "detail"}], "at_risk": [...]}.
 
-    `points` is how much the factor moves the chance, in percentage points (with every other factor kept)."""
+    `points` is how much the factor moves the chance, in percentage points (with every other factor kept). Once worked
+    out by the tracker (Battle.outlook_at), that holds until the next time it's worked out."""
+    if battle.outlook_at is not None:
+        return battle.outlook_at
+    risks = turn_risks(battle)
+    if risks is not None:
+        return _turn_outlook(battle, risks)
     parts = factors(battle)
     total = BASE + sum(score for _, score, _ in parts)
     chance = _chance(total)

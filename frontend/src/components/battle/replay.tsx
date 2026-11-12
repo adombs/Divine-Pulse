@@ -16,7 +16,7 @@ import { plural } from "../../format";
 import { clock } from "../../format";
 import { hpShare, Item } from "./model";
 import { Action, Board, boardAt, boardNow, Frame, Piece, stepAction, stepLabel, turnStarts } from "./map";
-import { actionKinds, type Beat, type Chronicle } from "./chronicle";
+import { actionKinds, type Chronicle } from "./chronicle";
 import { abilityIconUrl, artIconUrl, itemIconUrl, spellIconUrl } from "../../reference/icons";
 import { actingBeats, beatLabels, type LabelIcons, type MapLabel } from "./replayLabels";
 import { BattleNavContext, KeyNumber, keyNumbers, teamNumber } from "./parts";
@@ -30,8 +30,8 @@ const FADE_MS = 420;
 const HOLD_MS = 220;
 const PHASE_HOLD_MS = 650;
 
-/** A Divine Pulse's rewind (ms at normal speed): the badge popping in, each undone step (played at this many times the
- * speed of a step going forward), then the badge fading away. */
+/** A Divine Pulse's rewind (ms at normal speed): the badge popping in, each undone action (taking 1 / REWIND_SPEED of
+ * the time it took going forward at the same speed: its move, its action and its pause), then the badge fading away. */
 const REWIND_IN_MS = 380;
 const REWIND_OUT_MS = 520;
 const REWIND_SPEED = 2;
@@ -103,9 +103,24 @@ interface RewindPlan {
   total: number;
 }
 
-function rewindPlan(battle: Battle, beat: Beat, speed: number): RewindPlan {
-  const boards = beat.undo.map((f) => boardAt(battle, f));
-  const timings = boards.slice(1).map((after, i) => timing(boards[i], after, null, false, speed * REWIND_SPEED));
+function rewindPlan(battle: Battle, chron: Chronicle, index: number, speed: number): RewindPlan {
+  const { beats } = chron;
+  const beat = beats[index];
+  const steps = beats.map((b) => b.step);
+  const all = beats.map((b) => b.frame);
+  const kinds = actionKinds(chron.items);
+  const labelled = actingBeats(chron.items);
+  // The actions it undoes: the beats played forward just before it whose frames it rewinds through, last first (the
+  // still steps that playing forward skips are skipped here too).
+  const undone = new Set(beat.undo.slice(0, -1));
+  const forward: number[] = [];
+  for (let j = index - 1; j >= 0 && beats[j].pulse === null && undone.has(beats[j].frame); j--) forward.push(j);
+  const frames = [...forward.map((j) => beats[j].frame), beat.undo[beat.undo.length - 1]];
+  const boards = frames.map((f) => boardAt(battle, f));
+  // Each played backwards, from its own map to the one before it, at twice the speed it played forward.
+  const timings = forward.map((j, i) =>
+    timing(boards[i], boards[i + 1], stepAction(steps, all, j, kinds), !steps[j]?.actor, speed * REWIND_SPEED, labelled.has(j)),
+  );
   const run = timings.reduce((n, t) => n + t.total, 0);
   return { boards, timings, total: (REWIND_IN_MS + REWIND_OUT_MS) / speed + run };
 }
@@ -148,7 +163,7 @@ export function beatDurations(battle: Battle, chron: Chronicle, speed: number): 
   const labelled = actingBeats(chron.items);
   const boards = all.map((f) => boardAt(battle, f));
   return beats.map((beat, i) => {
-    if (beat.pulse !== null) return rewindPlan(battle, beat, speed).total;
+    if (beat.pulse !== null) return rewindPlan(battle, chron, i, speed).total;
     if (i === 0) return PHASE_HOLD_MS / speed;
     return timing(boards[i - 1], boards[i], stepAction(steps, all, i, kinds), !steps[i]?.actor, speed, labelled.has(i)).total;
   });
@@ -201,7 +216,7 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const action = useMemo(() => (at === null ? null : stepAction(steps, all, at, kinds)), [steps, all, at, kinds]);
   const current = at === null ? null : beats[at];
   const running = animating !== null && at !== null && animating.step === at;
-  const plan = useMemo(() => (running && current && current.pulse !== null ? rewindPlan(battle, current, speed) : null), [running, current, battle, speed]);
+  const plan = useMemo(() => (running && at !== null && current && current.pulse !== null ? rewindPlan(battle, chron, at, speed) : null), [running, at, current, battle, chron, speed]);
   const anim = useMemo(() => {
     if (!running || at === null || at === 0 || plan) return null;
     const before = boardOf(at - 1);

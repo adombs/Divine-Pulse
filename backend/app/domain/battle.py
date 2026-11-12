@@ -273,6 +273,15 @@ class TerrainTile(BaseModel):
     wall_hp: int = 0  # a breakable wall's HP (0: not breakable)
 
 
+class UnitThreat(BaseModel):
+    """What the other armies could do to one of your units before your next turn (gamemem/threat.py)."""
+
+    attackers: list[str] = Field(default_factory=list)  # uids ("e:<slot>") of those that could strike it, strongest first
+    max_damage: int = 0  # the most they can deal together: every hit landing as a critical
+    expected: float = 0.0  # HP it loses on average
+    death: float = 0.0  # chance it falls (0-1), with Hit, Avo and Crit
+
+
 class TrendPoint(BaseModel):
     t: float  # seconds since the battle started
     chance: float  # outlook at that moment (0-1)
@@ -478,6 +487,12 @@ class Battle(BaseModel):
     branches: list[Branch] = Field(default_factory=list)
     # The outlook over the battle: a point whenever it changed.
     trend: list[TrendPoint] = Field(default_factory=list)
+    # What the other armies could do to each of your units on the map before your next turn, as last worked out
+    # (unit key -> UnitThreat; gamemem/threat.py). Empty when it can't be (no positions or combat data).
+    threats: dict[str, UnitThreat] = Field(default_factory=dict)
+    # The outlook (domain/outlook.outlook) as last worked out: at the start of the battle, when your phase ends and
+    # after a Divine Pulse. It holds in between (None: not worked out yet, so it's worked out on demand).
+    outlook_at: dict | None = None
 
     def seconds(self, at: datetime | None = None) -> float:
         end = self.ended_at or at or now()
