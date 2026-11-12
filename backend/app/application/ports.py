@@ -6,7 +6,7 @@ emulator implements it.
 
 from __future__ import annotations
 
-from collections.abc import Collection
+from collections.abc import Collection, Mapping
 from typing import Any, Protocol
 from pathlib import Path
 
@@ -28,6 +28,7 @@ class RunRepository(Protocol):
     def rename(self, run_id: str, name: str) -> Run: ...
     def delete(self, run_id: str) -> None: ...
     def put_unit(self, run_id: str, key: str, unit: Unit) -> None: ...
+    def apply_units(self, run_id: str, units: Mapping[str, Unit | None]) -> None: ...
     def set_ebst(self, run_id: str, config: EbstConfig) -> None: ...
 
 

@@ -45,6 +45,7 @@ from ..inventory import EQUIPMENT, item_name
 from ..handlers import handle
 from ..application.roster_tracking import RosterUpdates
 from ..application.battle_tracking import BattleTracker
+from ..application.death_links import relink_deaths
 from .battle_data import quest_battles
 from .battle_support import DefaultBattleSupport
 from ..domain import deaths, duplicates
@@ -464,6 +465,7 @@ class Scanner:
             moved = self.battle_store.discard(battle.run_id, losers)
             if not moved:
                 return
+            relink_deaths(self.store, battle.run_id, self.battle_store.list(battle.run_id), self.events)
             self.events.publish("battle", {"active": False, "history": True})
             self.events.publish(
                 "duplicate_battles",

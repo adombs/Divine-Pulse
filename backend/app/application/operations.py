@@ -15,6 +15,7 @@ from ..domain.text import normalize
 from ..domain.ebst import EbstConfig
 from ..domain.runs import Run, RunSummary
 from ..domain.units import Unit
+from .death_links import relink_deaths
 from .ports import (
     BattleRepository,
     EventPublisher,
@@ -242,12 +243,14 @@ class BackendOperations:
         if keep not in known or any(i not in known for i in discard):
             raise DuplicateInvalid("A battle is not in this run's history.")
         self.battles.discard(run_id, discard)
+        relink_deaths(self.runs, run_id, self.battles.list(run_id), self.events)
         self._history_changed()
         return self.duplicate_groups(run_id)
 
     def restore_battles(self, run_id: str, ids: list[str]) -> dict[str, Any]:
         self._require_run(run_id)
         self.battles.restore(run_id, ids)
+        relink_deaths(self.runs, run_id, self.battles.list(run_id), self.events)
         self._history_changed()
         return self.duplicate_groups(run_id)
 
