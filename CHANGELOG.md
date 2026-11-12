@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+## 1.4.4 (2026-11-12)
+
+- Export Video can make 1.91:1 (2064 × 1080) and 4:5 (1080 × 1350) videos. Its choices are now named by aspect ratio: 16:9, 1.91:1, 9:16 and 4:5.
+
 ## 1.4.3 (2026-11-10)
 
 - The outlook no longer weighs army strength, and its explanations are short ("Dimitri 8/28 HP, 2 enemies in reach").

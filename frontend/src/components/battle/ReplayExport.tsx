@@ -1,8 +1,8 @@
 /**
  * Export a battle's replay as an MP4 video (the battle page's header, beside Copy Summary). A window previews the video
  * as it will be: a title strip, the map with the turn in its corner (no legend), and the log as a list beside it
- * (landscape) or under it (portrait), the log showing what has happened up to the step on the map. Beside the preview:
- * the orientation, the turns to cover, the replay's own speed, camera and zoom (the map's controls), the battle theme
+ * (16:9, 1.91:1) or under it (9:16, 4:5), the log showing what has happened up to the step on the map. Beside the preview:
+ * the aspect ratio (16:9, 1.91:1, 9:16 or 4:5), the turns to cover, the replay's own speed, camera and zoom (the map's controls), the battle theme
  * to play under it (music.ts), and the video's resolution, frame rate and quality.
  *
  * The preview and the video run on one clock (ms into the video): each moment poses the replay (`useReplay`'s manual
@@ -33,10 +33,14 @@ import { ItemList, useBattleNav } from "./parts";
 import { beatDurations, beatFocus, beatOf, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
 import { battleName, KIND_LABEL } from "./scenarios";
 
-type Orientation = "landscape" | "portrait";
+/** The frame's shape: 16:9, 1.91:1 (`wide`, laid out like 16:9), 9:16, or 4:5 (`feed`, laid out like 9:16). */
+type Orientation = "landscape" | "wide" | "portrait" | "feed";
+const ORIENTATIONS: readonly Orientation[] = ["landscape", "wide", "portrait", "feed"];
+/** Whether a frame has the log beside the map (the wide ones) rather than under it. */
+const logBeside = (o: Orientation) => o === "landscape" || o === "wide";
 
 /** The video's frame in CSS pixels; it is drawn at a resolution's scale times that (1.5: 1920 × 1080). */
-const STAGE: Record<Orientation, [number, number]> = { landscape: [1280, 720], portrait: [720, 1280] };
+const STAGE: Record<Orientation, [number, number]> = { landscape: [1280, 720], wide: [1376, 720], portrait: [720, 1280], feed: [720, 900] };
 /** The resolutions offered, by their short side, and the scale each draws the frame at. */
 const RESOLUTIONS: [number, string, number][] = [
   [720, "720p HD", 1],
@@ -91,7 +95,8 @@ const MAP_LAYER: Layer = {
 
 function loadOrientation(): Orientation {
   try {
-    return localStorage.getItem(ORIENTATION_KEY) === "portrait" ? "portrait" : "landscape";
+    const kept = localStorage.getItem(ORIENTATION_KEY);
+    return ORIENTATIONS.find((o) => o === kept) ?? "landscape";
   } catch {
     return "landscape";
   }
@@ -125,22 +130,22 @@ export function ReplayExportButton({ battle, route }: { battle: Battle; route?: 
   );
 }
 
-/** The frame's padding, the gap between its parts, the title strip's height (a line taller in portrait), the map
+/** The frame's padding, the gap between its parts, the title strip's height (a line taller in the narrow frames), the map
  * frame's own padding and border, and the least room the log keeps (px). */
 const PAD = 16;
 const GAP = 12;
-const TITLE_H: Record<Orientation, number> = { landscape: 46, portrait: 76 };
+const TITLE_H: Record<Orientation, number> = { landscape: 46, wide: 46, portrait: 76, feed: 76 };
 const MAP_FRAME = 14;
-const LOG_MIN: Record<Orientation, number> = { landscape: 380, portrait: 360 };
+const LOG_MIN: Record<Orientation, number> = { landscape: 380, wide: 380, portrait: 360, feed: 240 };
 
-/** The most room the map can have: the whole height (landscape) or width (portrait) and all but the log's least. */
+/** The most room the map can have: the whole height (log beside) or width (log under) and all but the log's least. */
 function mapRoom(orientation: Orientation): [number, number] {
   const [width, height] = STAGE[orientation];
   const innerW = width - 2 * PAD;
   const innerH = height - 2 * PAD - TITLE_H[orientation] - GAP;
-  return orientation === "landscape"
-    ? [innerW - GAP - LOG_MIN.landscape - MAP_FRAME, innerH - MAP_FRAME]
-    : [innerW - MAP_FRAME, innerH - GAP - LOG_MIN.portrait - MAP_FRAME];
+  return logBeside(orientation)
+    ? [innerW - GAP - LOG_MIN[orientation] - MAP_FRAME, innerH - MAP_FRAME]
+    : [innerW - MAP_FRAME, innerH - GAP - LOG_MIN[orientation] - MAP_FRAME];
 }
 
 /**
@@ -150,8 +155,8 @@ function mapRoom(orientation: Orientation): [number, number] {
 function viewSize(orientation: Orientation, tiles: number, board: { w: number; h: number }): [number, number] {
   if (!tiles) return [board.w + 0.3, board.h + 0.3];
   const [w, h] = mapRoom(orientation);
-  const across = orientation === "landscape" ? tiles * (w / h) : tiles;
-  const down = orientation === "landscape" ? tiles : tiles * (h / w);
+  const across = logBeside(orientation) ? tiles * (w / h) : tiles;
+  const down = logBeside(orientation) ? tiles : tiles * (h / w);
   return [Math.min(across, board.w), Math.min(down, board.h)];
 }
 
@@ -164,17 +169,17 @@ function viewAround([cx, cy]: [number, number], [w, h]: [number, number], board:
 
 /**
  * The rows and columns of a frame: the title strip across the top, then the map on the left and the log beside it
- * (landscape), or the map and the log under it (portrait). The map gets what its view's shape needs (`aspect`, its
+ * (16:9, 1.91:1), or the map and the log under it (9:16, 4:5). The map gets what its view's shape needs (`aspect`, its
  * width over its height) of the room `mapRoom` allows; the log, the rest.
  */
 function stageLayout(orientation: Orientation, aspect: number): { columns: string; rows: string } {
   const [w, h] = mapRoom(orientation);
-  if (orientation === "landscape") {
+  if (logBeside(orientation)) {
     const mapW = Math.round(Math.min(h * aspect, w) + MAP_FRAME);
-    return { columns: `${mapW}px minmax(0, 1fr)`, rows: `${TITLE_H.landscape}px minmax(0, 1fr)` };
+    return { columns: `${mapW}px minmax(0, 1fr)`, rows: `${TITLE_H[orientation]}px minmax(0, 1fr)` };
   }
   const mapH = Math.round(Math.min(w / aspect, h) + MAP_FRAME);
-  return { columns: "minmax(0, 1fr)", rows: `${TITLE_H.portrait}px ${mapH}px minmax(0, 1fr)` };
+  return { columns: "minmax(0, 1fr)", rows: `${TITLE_H[orientation]}px ${mapH}px minmax(0, 1fr)` };
 }
 
 /** Where the video stands: a beat, and how far into it (ms). */
@@ -503,14 +508,16 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
         </ScaledStage>
         <aside className="export-side" aria-label="Video options">
           <fieldset className="export-group" disabled={working}>
-            <legend>Orientation</legend>
+            <legend>Aspect ratio</legend>
             <Segmented<Orientation>
-              label="Orientation"
+              label="Aspect ratio"
               value={orientation}
               onChange={setOrientation}
               options={[
-                ["landscape", <><Icon name={CONCEPT_ICON.landscape} /> Landscape</>, "1920 × 1080, the log beside the map"],
-                ["portrait", <><Icon name={CONCEPT_ICON.portrait} /> Portrait</>, "1080 × 1920, the log under the map"],
+                ["landscape", "16:9", "1920 × 1080, the log beside the map"],
+                ["wide", "1.91:1", "2064 × 1080, the log beside the map"],
+                ["portrait", "9:16", "1080 × 1920, the log under the map"],
+                ["feed", "4:5", "1080 × 1350, the log under the map"],
               ]}
             />
           </fieldset>
@@ -694,7 +701,7 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, route
   return (
     // The picture is taken of the outer box, exactly the frame's size.
     <div ref={ref} className="replay-stage-theme">
-    <div className={`replay-stage ${orientation}`} style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows }}>
+    <div className={`replay-stage ${logBeside(orientation) ? "landscape" : "portrait"} ${orientation}`} style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows }}>
       <header className="replay-stage-title">
         <CardBanner title={name.title} icon={<RunIcon route={route} />} />
         <div className="replay-stage-meta">
