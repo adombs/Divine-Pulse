@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
 import { assetIssues, onAssetIssuesChange } from "../requiredAssets";
 import { gameAssetsStatus, loadGameAssetsStatus, onGameAssetsChange } from "../gameAssets";
+import { CONCEPT_ICON } from "../icons/concepts";
+import { Icon } from "./Icon";
 import "./required-assets.css";
 
 export function GameAssetAlert({ onGameFiles }: { onGameFiles: () => void }) {
@@ -19,7 +21,7 @@ export function GameAssetAlert({ onGameFiles }: { onGameFiles: () => void }) {
   if (!issues.length) {
     if (!outdated) return null;
     return <div className="game-files-alert" role="alert">
-      <p className="game-files-alert-text"><strong>Your game files need importing again.</strong> They were imported by an older version of Divine Pulse, so newer game data is missing.</p>
+      <p className="game-files-alert-text"><Icon name={CONCEPT_ICON.warning} className="game-files-alert-icon" /><strong>Import your game files again.</strong> They're from an older version of Divine Pulse.</p>
       <button type="button" className="btn" onClick={onGameFiles}>Game files</button>
     </div>;
   }
