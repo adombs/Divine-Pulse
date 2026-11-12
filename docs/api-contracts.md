@@ -66,6 +66,17 @@ A battle's identity in a run is `(scenario, quest)`, the quest only when it is i
 | SSE `battle` `{active, history: true}` | published on every change to the history by these routes and by `keep_best` |
 | SSE `duplicate_battles` `{run_id, name, kept, kept_turn, discarded: [id]}` | published only when `keep_best` set copies aside |
 
+## Update check
+
+`GET /api/update` is always 200 with `{current, latest, url, available, checked}`: `current` is the running version, `latest` the newest published GitHub release as "x.y.z" (null until a check succeeds), `url` its release page (only `https://github.com/adombs/Divine-Pulse/releases/...`, else the latest-release page), `available` true only when `latest` is a higher x.y.z than `current`, `checked` true once a check succeeded. Offline, timeout, HTTP error, rate limit or bad JSON leave `checked` false (logged once at info level, no retry).
+
+The check (`infrastructure/update_check.py`, rules in `domain/updates.py`) starts in the app lifespan (only when background work is on, so tests never use the network) in a worker thread, and runs at most once per session: at start when the setting `check_updates` (bool, default true) is on, or the first time it is turned on. It sends `GET https://api.github.com/repos/adombs/Divine-Pulse/releases/latest` (5 s timeout, `User-Agent: Divine-Pulse/<version>`).
+
+| Route / event | Contract |
+| --- | --- |
+| SSE `update` `{current, latest, url, available, checked}` | published when a check succeeds, same payload as `GET /api/update` |
+| `PUT /api/settings` `{check_updates, update_dismissed}` | `check_updates` bool; `update_dismissed` a version like "1.4.4" (the dashboard hides the banner while it equals `latest`); `""` clears it (stored as null); `GET /api/settings` returns null when unset |
+
 ## Game assets (imported from the user's dump)
 
 Assets extracted by `app.gamefiles` live in `GAME_ASSETS_DIR` (`infrastructure/paths.py`: `DIVINE_PULSE_GAME_ASSETS`,

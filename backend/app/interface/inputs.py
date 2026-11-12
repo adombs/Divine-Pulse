@@ -89,6 +89,9 @@ class SettingsIn(Body):
     window_mode: WindowMode | None = None
     memory_reader: MemoryReader | None = None
     duplicate_battles: DuplicateBattles | None = None
+    check_updates: bool | None = None
+    # "" clears the dismissal (None means "not given" and is dropped before saving).
+    update_dismissed: str | None = Field(None, max_length=32)
 
 
 def describe_errors(errors: list[dict]) -> str:

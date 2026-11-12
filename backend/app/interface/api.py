@@ -316,6 +316,11 @@ def check_memory(request: Request) -> dict:
     return _state(request).operations.check_memory()
 
 
+@router.get("/update")
+def update_status(request: Request) -> dict:
+    return _state(request).operations.update_status()
+
+
 @router.get("/health")
 def health() -> dict:
     return {"ok": True, "app": "divine-pulse", "version": __version__}

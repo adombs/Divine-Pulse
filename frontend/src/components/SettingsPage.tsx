@@ -277,6 +277,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const [windowMode, setWindowMode] = useState<Settings["window_mode"]>("windowed");
   const [memoryReader, setMemoryReader] = useState<Settings["memory_reader"]>("eden");
   const [duplicates, setDuplicates] = useState<Settings["duplicate_battles"]>("keep_best");
+  const [checkUpdates, setCheckUpdates] = useState(true);
   // The window mode only applies to the desktop window, not the browser.
   const [desktop, setDesktop] = useState(false);
   const ids = useId();
@@ -288,6 +289,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
     setWindowMode(s.window_mode);
     setMemoryReader(s.memory_reader);
     setDuplicates(s.duplicate_battles ?? "keep_best");
+    setCheckUpdates(s.check_updates ?? true);
     setRecordingLimit(String(s.max_recordings));
   };
 
@@ -310,6 +312,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
         window_mode: windowMode,
         memory_reader: memoryReader,
         duplicate_battles: duplicates,
+        check_updates: checkUpdates,
         max_recordings: count,
       });
       apply(s);
@@ -323,7 +326,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   if (!settings) return <p className="muted">Loading…</p>;
 
   const changed: Partial<Record<SettingsTab, boolean>> = {
-    general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader || duplicates !== (settings.duplicate_battles ?? "keep_best"),
+    general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader || duplicates !== (settings.duplicate_battles ?? "keep_best") || checkUpdates !== (settings.check_updates ?? true),
   };
   const dirty = Object.values(changed).some(Boolean);
 
@@ -415,6 +418,11 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                   <Group title="Battles">
                     <Row label="Repeated battles">
                       <Segmented label="Repeated battles" value={duplicates} onChange={setDuplicates} options={[["keep_best", "Keep Best"], ["ask", "Ask"]]} />
+                    </Row>
+                  </Group>
+                  <Group title="Updates">
+                    <Row label="Check for updates on startup">
+                      <Segmented label="Check for updates on startup" value={checkUpdates ? "on" : "off"} onChange={(v) => setCheckUpdates(v === "on")} options={[["on", "On"], ["off", "Off"]]} />
                     </Row>
                   </Group>
                   {desktop && (

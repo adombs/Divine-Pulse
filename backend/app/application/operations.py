@@ -26,6 +26,7 @@ from .ports import (
     ScannerOperations,
     SettingsRepository,
     SystemInformation,
+    UpdateChecks,
     WindowOperations,
 )
 
@@ -74,6 +75,7 @@ class BackendOperations:
     window: WindowOperations | None = None
     route_resolver: Callable[[Battle], str | None] | None = None
     quest_battles: frozenset[int] = frozenset()
+    updates: UpdateChecks | None = None
 
     def _unique_name(self, name: str, run_id: str | None = None) -> None:
         taken = next(
@@ -204,9 +206,16 @@ class BackendOperations:
     def update_settings(self, changes: dict[str, Any]) -> dict[str, Any]:
         saved = self.settings.update(**changes)
         self.scanner.settings_changed()
+        if self.updates is not None:
+            self.updates.settings_changed()
         if self.window is not None:
             self.window.set_mode(saved.window_mode)
         return saved.model_dump()
+
+    def update_status(self) -> dict[str, Any]:
+        if self.updates is None:
+            return {"current": self.version, "latest": None, "url": None, "available": False, "checked": False}
+        return self.updates.status()
 
     def auto_status(self) -> dict[str, Any]:
         return self.scanner.auto_status()
