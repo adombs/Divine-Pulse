@@ -54,9 +54,6 @@ const ICONS = {
   section: ["gear-six", "fill"],
   log: ["list-bullets"],
   share: ["export"],
-  landscape: ["monitor"],
-  portrait: ["device-mobile"],
-  feed: ["device-tablet"],
   drag: ["dots-six-vertical"],
   // What happened in a battle (the log, model.ts ICON)
   phase: ["flag"],
