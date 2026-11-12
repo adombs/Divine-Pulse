@@ -26,7 +26,7 @@ type State = "alive" | "defeated" | "left";
 const SIDE_OPTIONS: [Team, ReactNode][] = [
   ["player", <span className="filter-label"><span aria-hidden="true"><TeamTag team="player" /></span>Your Units</span>],
   ["enemy", <span className="filter-label"><span aria-hidden="true"><TeamTag team="enemy" /></span>Enemy Units</span>],
-  ["ally", <span className="filter-label"><span aria-hidden="true"><TeamTag team="ally" /></span>Allied Units</span>],
+  ["ally", <span className="filter-label"><span aria-hidden="true"><TeamTag team="ally" /></span>Ally Units</span>],
   ["third", <span className="filter-label"><span aria-hidden="true"><TeamTag team="third" /></span>Third Army</span>],
 ];
 const STATE_OPTIONS: [State, ReactNode][] = [

@@ -24,9 +24,9 @@ type ListTeam = Exclude<Team, "object">;
 
 const TEAMS: readonly (readonly [ListTeam, ReactNode])[] = [
   ["player", <span className="filter-label"><span aria-hidden="true"><TeamTag team="player" /></span>Your Units</span>],
-  ["ally", <span className="filter-label"><span aria-hidden="true"><TeamTag team="ally" /></span>Allies</span>],
+  ["ally", <span className="filter-label"><span aria-hidden="true"><TeamTag team="ally" /></span>Ally Units</span>],
   ["third", <span className="filter-label"><span aria-hidden="true"><TeamTag team="third" /></span>Third Army</span>],
-  ["enemy", <span className="filter-label"><span aria-hidden="true"><TeamTag team="enemy" /></span>Enemies</span>],
+  ["enemy", <span className="filter-label"><span aria-hidden="true"><TeamTag team="enemy" /></span>Enemy Units</span>],
 ];
 const TEAM_ORDER: Record<ListTeam, number> = { player: 0, ally: 1, third: 2, enemy: 3 };
 

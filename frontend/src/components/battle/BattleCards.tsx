@@ -9,7 +9,7 @@ import { EmptyState, Section } from "../layout";
 import { Icon } from "../Icon";
 import { FilterLabel } from "../FilterLabel";
 import { Modal } from "../Modal";
-import { Portrait } from "../ui";
+import { FacePortrait, Portrait } from "../ui";
 import { CheckChips, CheckList, FilterChip, FilterMenu, NoMatches, SearchBox, Segmented } from "../common";
 import { clock, plural } from "../../format";
 import { useNav } from "../../nav";
@@ -264,7 +264,9 @@ function BattleCard({
               const unit = roster.get(u.key);
               return (
                 <span key={u.key} className={`bc-face ${u.on_map ? "" : "gone"}`} title={u.on_map ? u.name : `${u.name} (fell)`}>
-                  {unit ? <Portrait unit={unit} part2={part2} size={22} /> : <span className="bc-initial">{u.name[0]}</span>}
+                  {unit ? <Portrait unit={unit} part2={part2} size={22} />
+                    : u.character != null ? <FacePortrait face={{ character: u.character, female: u.female, classId: u.class_id, name: u.name }} name={u.name} part2={part2} size={22} />
+                    : <span className="bc-initial">{u.name[0]}</span>}
                 </span>
               );
             })}

@@ -4,7 +4,7 @@ import { STAT_INFO } from "../statInfo";
 import { EBST_TYPES, EbstType } from "../ebst";
 import { AffiliationIcon } from "./AffiliationIcon";
 import type { RunRoute, Unit } from "../api";
-import { portraitUrl, portraitUrlForKey } from "../portraits";
+import { faceUrl, portraitUrl, portraitUrlForKey, type Face } from "../portraits";
 import { PortraitPhaseContext } from "../appearance";
 import { PortraitImage } from "./GameImage";
 import { bundledHouse } from "./gameImageSources";
@@ -118,6 +118,12 @@ export function Portrait({ unit, part2, size = 36 }: { unit: Unit; part2: boolea
 export function KeyPortrait({ portraitKey, name, part2, size = 36 }: { portraitKey: string; name: string; part2: boolean; size?: number }) {
   const automatic = useContext(PortraitPhaseContext) === "auto";
   return <PortraitImg url={portraitUrlForKey(portraitKey, part2, undefined, automatic)} name={name} size={size} />;
+}
+
+/** A battle unit's headshot from its own record (a unit with no roster entry, such as a guest). */
+export function FacePortrait({ face, name, part2, size = 36 }: { face: Face; name: string; part2: boolean; size?: number }) {
+  const automatic = useContext(PortraitPhaseContext) === "auto";
+  return <PortraitImg url={faceUrl(face, part2, automatic)} name={name} size={size} />;
 }
 
 function PortraitImg({ url, name, size }: { url: string | null; name: string; size: number }) {

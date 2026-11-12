@@ -25,6 +25,7 @@ from ..domain.battle import (
     HistoryStep,
     StepUnit,
     continues,
+    guest_key,
     power,
     side_of,
 )
@@ -56,9 +57,12 @@ log = logging.getLogger(__name__)
 NEEDS_IMPORT = "Import your game files first"
 
 
-def history_steps(entries: list, start: int | None, keys: dict[int, str], on_map: list) -> tuple[HistoryStep, ...]:
+def history_steps(
+    entries: list, start: int | None, keys: dict[int, str], on_map: list, guests: dict[int, str] | None = None
+) -> tuple[HistoryStep, ...]:
     """The game's battle history (gamemem.history.HistoryEntry) with units named the tracker's way: "a:<key>" for
-    the army, "e:<slot>" for the others. `start`: the pool slot of index 0 (none yet: no history)."""
+    the army (guests included: `guests`, pool slot -> unit key), "e:<slot>" for the others. `start`: the pool slot of
+    index 0 (none yet: no history)."""
     if start is None:
         return ()
     # Army units not on the map (adjutants) are left out: the history lists them too. Other units off the map now
@@ -67,6 +71,7 @@ def history_steps(entries: list, start: int | None, keys: dict[int, str], on_map
     hidden = {f"a:{keys[u.character]}" for u in on_map if u.off_map and u.army and u.character in keys}
     on_map = [u for u in on_map if not u.off_map]
     army = {u.slot: keys[u.character] for u in on_map if u.army and u.character in keys}
+    army.update(guests or {})
     # A unit that fell has no live battle copy any more, so its record no longer reads as the army's. (Some army
     # units also have a second record that isn't theirs to play: only a character with no army record is taken.)
     fielded = {keys[u.character] for u in on_map if u.army and u.character in keys}
@@ -578,12 +583,60 @@ class Scanner:
         # Your own characters are never the other side: the pool also holds a second record of some army units, and
         # the records of your units that fell (still in the roster, no longer in the battle).
         own = {u.character for u in pool if u.army} | {u.character for u in roster}
-        for other in on_map:
+        guest_slots: dict[int, str] = {}
+        for other in sorted(on_map, key=lambda u: u.slot):
             if other.army or other.character in own:
                 continue
             game_class = data.classes.get(other.class_id)
             name, character = _other_name(other.character, data)
             values = {k: v + (game_class.boosts.get(k, 0) if game_class else 0) for k, v in other.raw.items()}
+            if side_of(other.team, name) == "player":
+                # On your side without being in the roster: one of your units for this battle (a guest). The key is
+                # the one the roster gives the character, so it carries over if they join or come back.
+                key = guest_key(
+                    name, character, other.slot, game_class.name if game_class else "", units
+                )
+                if key in keys.values() or key in guest_slots.values():
+                    continue
+                guest_slots[other.slot] = key
+                if character is not None:
+                    keys[other.character] = key
+                army_names[f"a:{key}"] = units[key].name if key in units else name or key
+                accessory_id = next((item for item, _ in other.items if item in EQUIPMENT), None)
+                army.append(
+                    ArmySample(
+                        key,
+                        name or key,
+                        game_class.name if game_class else "",
+                        other.level,
+                        values,
+                        other.items,
+                        other.spell_uses,
+                        other.hp,
+                        other.x,
+                        other.y,
+                        other.combats,
+                        other.victories,
+                        0,  # (a record's counters start at 0 for the battle)
+                        0,
+                        other.acted,
+                        None,
+                        other.class_id,
+                        character,
+                        other.character in data.female,
+                        _weapon(other),
+                        other.spells,
+                        (),
+                        other.equipped == EQUIPPED_WEAPON,
+                        other.item_slot_0,
+                        item_name(accessory_id) if accessory_id is not None else None,
+                        accessory_id,
+                        allegiance=other.allegiance,
+                        rattled=other.rattled,
+                        guest=True,
+                    )
+                )
+                continue
             enemies.append(
                 EnemySample(
                     game_class.name if game_class else "",
@@ -614,7 +667,7 @@ class Scanner:
             )
         terrain_of = getattr(self.memory, "battle_terrain", None)
         on_this_map = terrain_of(on_map) if terrain_of and on_map else None
-        steps = history_steps(*read, keys, pool) if read else ()
+        steps = history_steps(*read, keys, pool, guest_slots) if read else ()
         return BattleSample(
             tuple(sorted(army, key=lambda a: a.key)),
             tuple(sorted(enemies, key=lambda e: (e.class_name, e.level, e.power, e.slot))),
@@ -627,7 +680,7 @@ class Scanner:
             else {},
             # For working out fights from HP changes when the history can't be read (gamemem/pairing.py).
             tuple(on_map),
-            {u.slot: keys[u.character] for u in on_map if u.army and u.character in keys},
+            {**{u.slot: keys[u.character] for u in on_map if u.army and u.character in keys}, **guest_slots},
             on_this_map[1] if on_this_map else None,
             located.get("scenario"),
             on_this_map[0] if on_this_map else None,
@@ -637,7 +690,9 @@ class Scanner:
             # Other units in the pool but not on the map now: reinforcements still to come, and units the story took
             # off it (Tomas when he turns out to be Solon), for when to show them in the replay.
             frozenset(
-                f"e:{u.slot}" for u in pool if (u.off_map or _stand_in(u)) and not u.army and u.character not in own
+                f"e:{u.slot}"
+                for u in pool
+                if (u.off_map or _stand_in(u)) and not u.army and u.character not in own and u.team != 0
             ),
             quest=located.get("quest"),
         )

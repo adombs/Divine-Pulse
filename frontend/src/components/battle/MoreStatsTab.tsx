@@ -42,7 +42,7 @@ const HEAL: Series = { label: "Restored", color: "var(--heal)" };
 const HEALED: Series = { label: "Received", color: "var(--healed)" };
 const WALK: Series = { label: "Tiles", color: "var(--walk)" };
 const FIGHTS: Series = { label: "Fights", color: "var(--accent)" };
-const YOURS: Series = { label: "Yours", color: "var(--dealt)" };
+const YOURS: Series = { label: "Your Units", color: "var(--dealt)" };
 const THEIRS: Series = { label: "Theirs", color: "var(--taken)" };
 
 interface View {

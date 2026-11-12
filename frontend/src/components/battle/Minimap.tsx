@@ -26,9 +26,10 @@ import { Collapse } from "../disclosure";
 import type { Battle } from "../../api";
 import { Section } from "../layout";
 import type { TerrainTile } from "../../api";
-import { Action, Board, boardNow, EMPTY_MINIMAP_INDEX, describe, describeTile, gameMinimap, hasMap, isLow, MINIMAP_TILES, minimapTile, type MinimapIndex, Piece, TILE_MARKS, tileAt, tileMark, tileMarks, terrainRuns } from "./map";
+import { Action, Board, boardNow, EMPTY_MINIMAP_INDEX, describe, describeTile, gameMinimap, hasMap, MINIMAP_TILES, minimapTile, type MinimapIndex, Piece, TILE_MARKS, tileAt, tileMark, tileMarks, terrainRuns } from "./map";
 import { ActionBadge, MapLook, miniBadge, miniImage, objectIcon, SpriteIndex, spriteLayers, TileMarkGlyph, UnitSprite, useSprites, WEAPON_LABEL, WeaponGlyph } from "./mapIcons";
 import { ICON, LOW_HP } from "./model";
+import { TEAM_LABEL } from "./marks";
 import { Icon } from "../Icon";
 import { NotchedRange } from "../Slider";
 import { BattleNavContext, useBattleNav } from "./parts";
@@ -648,9 +649,9 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
   const { pieces } = board;
   // Standing units by army: your army with your units outside the roster (team 0), allies, enemies, a third army.
   const standing = (side: string) => pieces.filter((p) => !p.object && !p.down && (p.army ? "player" : p.sprite.side) === side).length;
-  const teams = (["player", "ally", "enemy", "third"] as const).map((side) => [side, standing(side)] as const).filter(([side, n]) => n > 0 || side === "player");
+  // Every army's count, 0 included, in the legend's order.
+  const teams = (["player", "enemy", "ally", "third"] as const).map((side) => [side, standing(side)] as const);
   const down = pieces.filter((p) => p.down && !p.object).length;
-  const low = pieces.filter((p) => p.army && isLow(p)).length;
   if (mode === "hidden") {
     return (
       <div className="map-key-panel hidden">
@@ -670,16 +671,9 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
               {n}
             </span>
           ))}
-          {down > 0 && (
-            <span className="map-count down" title="Killed">
-              {down}
-            </span>
-          )}
-          {low > 0 && (
-            <span className="map-count low" title="Your units low on HP">
-              {low} low
-            </span>
-          )}
+          <span className="map-count down" title="Killed">
+            {down}
+          </span>
           <Icon name={CONCEPT_ICON.down} className="map-key-caret" />
         </button>
         <button type="button" className="map-key-hide" onClick={() => setMode("hidden")} title="Hide the legend" aria-label="Hide the legend">
@@ -693,7 +687,7 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
   );
 }
 
-const COUNT_TITLE = { player: "Your units on the map", ally: "Allies on the map", enemy: "Enemies on the map", third: "Third army on the map" };
+const COUNT_TITLE = { player: `${TEAM_LABEL.player} on the map`, ally: `${TEAM_LABEL.ally} on the map`, enemy: `${TEAM_LABEL.enemy} on the map`, third: `${TEAM_LABEL.third} on the map` };
 
 type KeyMode = "open" | "closed" | "hidden";
 
@@ -727,12 +721,11 @@ function MapLegend({ replay, board }: { replay?: boolean; board?: Board }) {
     <div className="map-legends">
       <p className="sub-title">Units</p>
       <p className="map-legend">
-        <span className="map-key ally">Yours</span>
-        <span className="map-key foe">Enemies</span>
-        {board?.pieces.some((p) => !p.army && p.sprite.side === "ally") && <span className="map-key team-ally">Allies</span>}
-        {board?.pieces.some((p) => !p.army && p.sprite.side === "third") && <span className="map-key team-third">Third Army</span>}
+        <span className="map-key ally">{TEAM_LABEL.player}</span>
+        <span className="map-key foe">{TEAM_LABEL.enemy}</span>
+        <span className="map-key team-ally">{TEAM_LABEL.ally}</span>
+        <span className="map-key team-third">{TEAM_LABEL.third}</span>
         {walls && <span className="map-key wall">Breakable Walls</span>}
-        <span className="map-key low">Low HP</span>
         <span className="map-key down">Killed</span>
       </p>
       {replay && (

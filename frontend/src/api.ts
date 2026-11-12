@@ -139,6 +139,8 @@ export interface BattleUnit {
   on_map: boolean;
   /** Key of the unit it's the adjutant of: in the battle, not on the map. */
   adjutant_of?: string | null;
+  /** On your side (team 0) in this battle without being in your army's roster: logged as yours, but with no Roster entry. */
+  guest?: boolean;
   /** Spent this battle: weapon durability, consumable items and spell uses. */
   weapon_uses: number;
   item_uses: number;

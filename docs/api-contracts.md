@@ -44,6 +44,8 @@ Battle `enemy_stats` entries include `person_id`, the person-data row for named 
 
 Battle `units` and `enemy_stats` entries include `allegiance`, the faction ID on the unit's battle record (`data/factions.json`), read on every poll so a reveal that changes it shows during the battle; null when not read. Older saved battles without the field load with null.
 
+Battle `units` entries include `guest` (default false): the unit was on your side (team 0) in that battle without being in your army's roster. It is logged and counted as one of your units (`a:<key>` ids in the log, events and map, run totals by `key`) but is never a run unit, a roster entry or a death. Older saved battles that kept such units in `enemy_stats` (side `player`, `e:<slot>`) are upgraded when loaded: they become guest `units` and every `e:<slot>` reference is rewritten to `a:<key>`.
+
 ## Game assets (imported from the user's dump)
 
 Assets extracted by `app.gamefiles` live in `GAME_ASSETS_DIR` (`infrastructure/paths.py`: `DIVINE_PULSE_GAME_ASSETS`,

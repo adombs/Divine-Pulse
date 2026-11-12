@@ -203,6 +203,7 @@ class BattleTracker:
                 start=dict(a.values),
                 now=dict(a.values),
                 adjutant_of=a.adjutant_of,
+                guest=a.guest,
                 **_battalion_fields(a),
             )
             for a in sample.army
@@ -270,6 +271,7 @@ class BattleTracker:
                     start=dict(a.values),
                     now=dict(a.values),
                     adjutant_of=a.adjutant_of,
+                    guest=a.guest,
                     **_battalion_fields(a),
                 )
                 battle.units.append(unit)
@@ -279,6 +281,9 @@ class BattleTracker:
                 continue
             if not unit.on_map:
                 unit.on_map = True
+                changed = True
+            if unit.guest != a.guest:  # joined your army (or left it) during the battle
+                unit.guest = a.guest
                 changed = True
             if unit.adjutant_of != a.adjutant_of:
                 unit.adjutant_of = a.adjutant_of
