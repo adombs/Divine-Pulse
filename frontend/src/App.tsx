@@ -1,6 +1,6 @@
 import { CONCEPT_ICON } from "./icons/concepts";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, AutoStatus, Battle, type GameAssetsJob } from "./api";
 import { useEvents } from "./useEvents";
 import { useBootstrap } from "./useBootstrap";
@@ -14,6 +14,7 @@ import { Toasts, useToasts } from "./components/Toasts";
 import { RunIcon, runIconUrl } from "./components/ui";
 import { PortraitPhaseContext, useAppearance } from "./appearance";
 import { showPart2 } from "./portraits";
+import { rosterUnits } from "./roster";
 import { NavProvider, Page, useNavState } from "./nav";
 import { PeopleFiltersContext, usePeopleFiltersState } from "./filters";
 import { gameAssetsAvailable, gameAssetUrl, loadGameAssetsStatus, onGameAssetsChange } from "./gameAssets";
@@ -340,6 +341,8 @@ export default function App() {
   const tracking = connected && auto?.state === "watching";
   const portraitPhase = appearance.appearance.portraits;
   const part2 = showPart2(portraitPhase, units);
+  // The Roster follows the game's army (plus the dead); everything about history keeps every stored unit.
+  const roster = useMemo(() => rosterUnits(units), [units]);
 
   if (assetsAvailable === null) return null;
   if (!assetsAvailable) return <GameFilesGate toasts={toasts} />;
@@ -405,7 +408,7 @@ export default function App() {
             {loaded && page === "roster" && (
               <Dashboard
                 run={activeRun}
-                units={units}
+                units={roster}
                 flashKey={flashKey}
                 part2={part2}
                 onGoToRuns={() => setPage("runs")}

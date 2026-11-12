@@ -112,6 +112,10 @@ class Unit(BaseModel):
     death: Death | None = None
     # The user said it's alive although the game marks it dead ("Mark as Alive"). Cleared once the game reads it alive.
     marked_alive: bool = False
+    # Whether the game has the unit in the army (its roster slot's in-army flag) as of the last complete read between
+    # battles (domain/membership.py). A unit that left alive keeps everything stored on it, off the Roster, and comes
+    # back with it all. Older runs, and units with no game ID, load as True.
+    in_army: bool = True
 
     def ebst_config(self) -> EbstConfig:
         return EbstConfig(offense=self.ebst_offense, defense=self.ebst_defense, stats=ordered_others(self.ebst_stats))

@@ -31,6 +31,8 @@ export interface BattleNav {
   setReplaySpeed?: (speed: number) => void;
   /** How a unit's eBST is worked out (its roster settings; null when it isn't in the roster). */
   ebstConfig?: (key: string) => EbstConfig | null;
+  /** Whether one of your units is on the Roster (a unit that left the army alive keeps its history but has no card there). */
+  onRoster?: (key: string) => boolean;
   /** The affiliation ("Golden Deer") of one of your units by id, when the roster knows it. */
   house?: (id: string) => string | undefined;
 }

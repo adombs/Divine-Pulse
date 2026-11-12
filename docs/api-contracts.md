@@ -38,6 +38,14 @@ alive although the game marks it dead. Runs saved before these fields load with 
 unknown run or unit. The tracker takes deaths from the game's "Is Dead" roster flag, as `backend/app/domain/deaths.py`
 describes.
 
+Each unit also carries `in_army` (whether the game's roster slot had the in-army flag at the last complete read between
+battles; older runs and units with no game ID are true) and `on_roster` (`in_army` or `death` is set): the Roster shows
+only units with `on_roster`. A unit that left the army alive is never deleted from the list: it keeps its eBST setup,
+death info and battles, and is on the Roster again when the game has it back. Consumers about history (battle statistics,
+History, who has ever joined a run, route and house detection, best unit) use every unit; the Roster page, Team Export,
+the Roster links and the runs' `unit_count` use `on_roster`. The tracker sets `in_army` as
+`backend/app/domain/membership.py` describes.
+
 ## Battle
 
 Battle `enemy_stats` entries include `person_id`, the person-data row for named and generic units, or null when unavailable. Older saved battles without the field load with null.

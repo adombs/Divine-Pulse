@@ -85,6 +85,10 @@ export interface Unit {
   death?: Death | null;
   /** The user said it's alive although the game marks it dead. */
   marked_alive?: boolean;
+  /** Whether the game has it in the army as of the last read between battles (absent/true on older servers). */
+  in_army?: boolean;
+  /** Whether the Roster shows it: in the army, or dead. Units off the Roster keep their history. */
+  on_roster?: boolean;
 }
 
 /** Where a unit died (the game's own "Is Dead" flag, or marked by hand): all empty but `manual` when no fall of it was

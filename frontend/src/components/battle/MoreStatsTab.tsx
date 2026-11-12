@@ -221,7 +221,7 @@ function RunCards({ battle, history, children }: { battle: Battle; history: Batt
             female={unit?.female}
             icon={<HouseMark id={id} />}
             onOpen={(battleId, at) => { setKey(null); go({ page: "battle", id: battleId, q: at }); }}
-            onRoster={parent.ebstConfig?.(c.key) ? () => go({ page: "roster", id: c.key }) : undefined}
+            onRoster={parent.onRoster?.(c.key) ? () => go({ page: "roster", id: c.key }) : undefined}
             onThisBattle={battle.units.some((u) => u.key === c.key) ? () => { setKey(null); parent.open(id); } : undefined}
           />
         )}

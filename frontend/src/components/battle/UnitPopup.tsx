@@ -12,6 +12,7 @@ import { AffiliationIcon } from "../AffiliationIcon";
 import { CharacterPopup } from "../CharacterPopup";
 import { SpoilerButton } from "../common";
 import { characterKeyOfUnit } from "../../portraits";
+import { onRoster } from "../../roster";
 import { Icon, IconButton } from "../Icon";
 import { DetailCard, Section } from "../layout";
 import { CharacterHero } from "../character/CharacterHero";
@@ -126,7 +127,7 @@ function UnitCard({ unit: u, battle, items, roster, part2 }: { unit: BattleUnit;
       actions={
         <>
           <IconButton icon={CONCEPT_ICON.history} label="Run Stats" onClick={() => nav.go({ page: "history", tab: "stats", id: u.key })} />
-          {roster && <IconButton icon={CONCEPT_ICON.roster} label="Open in the Roster" onClick={() => nav.go({ page: "roster", id: roster.key })} />}
+          {roster && onRoster(roster) && <IconButton icon={CONCEPT_ICON.roster} label="Open in the Roster" onClick={() => nav.go({ page: "roster", id: roster.key })} />}
         </>
       }
     >

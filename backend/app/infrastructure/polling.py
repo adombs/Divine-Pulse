@@ -49,7 +49,7 @@ from ..application.battle_tracking import BattleTracker
 from ..application.death_links import relink_deaths
 from .battle_data import quest_battles
 from .battle_support import DefaultBattleSupport
-from ..domain import deaths, duplicates
+from ..domain import deaths, duplicates, membership
 from ..domain.changes import UnitChange
 from ..domain.units import unit_key
 from ..storage import BattleStore, NotFound, RunStore
@@ -832,12 +832,15 @@ class Scanner:
 
 
     def _detect_deaths(self, run, present: set[int], dead: set[int]) -> list[UnitChange]:
-        """Mark the units the game marks dead as dead, and units back in the army alive as alive (domain/deaths.py).
+        """Mark the units the game marks dead as dead, and units back in the army alive as alive (domain/deaths.py), and
+        record who is in the army (domain/membership.py).
         The battles (for where they fell) are only loaded when a unit has newly died."""
         battles = None
         if deaths.newly_dead(run.units, dead) and self.battle_store is not None:
             battles = self.battle_store.list(run.id)
         changed = deaths.detect(run.units, present, dead, battles)
+        # Who is in the army: off the Roster when they left alive, back on it (all they have intact) when they return.
+        changed.update(membership.detect({**run.units, **changed}, present))
         if not changed:
             return []
         out = [UnitChange(key, run.units[key], unit) for key, unit in changed.items()]
@@ -848,7 +851,9 @@ class Scanner:
             return []
         run.units.update(changed)
         for key, unit in changed.items():
-            if unit.death is not None:
+            if not unit.in_army and unit.death is None:
+                log.info("%s left the army: off the Roster", key)
+            elif unit.death is not None:
                 log.info("%s is dead (the game says so); fell in battle %s", key, unit.death.battle_id)
             else:
                 log.info("%s is back in the army: alive", key)

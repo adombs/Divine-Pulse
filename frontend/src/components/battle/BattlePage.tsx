@@ -24,6 +24,7 @@ import { isObject } from "./map";
 import { factionOf } from "./factions";
 import { useSpoiler } from "../../spoilers";
 import { personFor, usePortraitData } from "../../persons";
+import { rosterUnits } from "../../roster";
 
 type View = "overview" | "units" | "more";
 
@@ -178,6 +179,7 @@ export function BattleView(p: ViewProps) {
     }
     return out;
   }, [battle, showIdentities]);
+  const onRosterKeys = useMemo(() => new Set(rosterUnits(p.roster).map((u) => u.key)), [p.roster]);
   const configs = useMemo(() => new Map(p.roster.map((u) => [u.key, u.ebst_effective])), [p.roster]);
   const nav: BattleNav = {
     people: who,
@@ -187,6 +189,7 @@ export function BattleView(p: ViewProps) {
     replaySpeed: p.replaySpeed,
     setReplaySpeed: p.onReplaySpeed,
     ebstConfig: (key) => configs.get(key) ?? null,
+    onRoster: (key) => onRosterKeys.has(key),
     house: (id) => houses.get(id),
     open,
   };
