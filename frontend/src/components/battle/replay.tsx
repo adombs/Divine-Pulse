@@ -15,7 +15,7 @@ import type { Battle } from "../../api";
 import { plural } from "../../format";
 import { clock } from "../../format";
 import { hpShare, Item } from "./model";
-import { Action, Board, boardAt, boardNow, Frame, stepAction, stepLabel, turnStarts } from "./map";
+import { Action, Board, boardAt, boardNow, Frame, Piece, stepAction, stepLabel, turnStarts } from "./map";
 import { actionKinds, type Beat, type Chronicle } from "./chronicle";
 import { abilityIconUrl, artIconUrl, itemIconUrl, spellIconUrl } from "../../reference/icons";
 import { actingBeats, beatLabels, type LabelIcons, type MapLabel } from "./replayLabels";
@@ -302,13 +302,18 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const labels = useMemo<MapLabel[]>(() => {
     if (at === null || beats[at]?.pulse != null) return [];
     const made = beatLabels(chron.items, at, LABEL_ICONS);
-    // A unit the action took off the map (a defeated target) keeps its label where it stood.
+    // A unit the action took off the map (a defeated target) keeps its label where it stood, and every label takes
+    // the army of the unit that did it (its colour).
     const here = new Set(board.pieces.filter((p) => !p.down).map((p) => p.id));
-    if (made.every((l) => here.has(l.unit)) || at === 0) return made;
-    const before = new Map(boardOf(at - 1).pieces.map((p) => [p.id, p]));
+    const now = new Map(board.pieces.map((p) => [p.id, p]));
+    const before = at === 0 ? new Map<string, Piece>() : new Map(boardOf(at - 1).pieces.map((p) => [p.id, p]));
+    const sideOf = (id: string | null) => {
+      const p = id ? (now.get(id) ?? before.get(id)) : undefined;
+      return p ? (p.army ? "player" : p.sprite.side) : id?.startsWith("a:") ? "player" : undefined;
+    };
     return made.map((l) => {
       const p = here.has(l.unit) ? null : before.get(l.unit);
-      return p ? { ...l, at: { x: p.x, y: p.y, span: p.span } } : l;
+      return { ...l, side: sideOf(l.by), ...(p ? { at: { x: p.x, y: p.y, span: p.span } } : {}) };
     });
   }, [chron, beats, at, board]); // eslint-disable-line react-hooks/exhaustive-deps
   const labelsShown = labelOpacity(animation);

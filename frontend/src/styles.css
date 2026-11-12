@@ -1276,6 +1276,11 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-tone.object { --tone: #a89c8c; }
 .map-tone.attack, .map-act.attack, .map-act.fell, .map-act.defeat { --tone: var(--red); }
 .map-tone.heal, .map-act.heal { --tone: var(--green); }
+/* An action's badge in the colour of the army that acted (Minimap.tsx), like its arrow and labels. */
+.map-act.team-player { --tone: var(--team-player); }
+.map-act.team-enemy { --tone: var(--team-enemy); }
+.map-act.team-ally { --tone: var(--team-ally); }
+.map-act.team-third { --tone: var(--team-third); }
 .map-tone.aim { --tone: var(--accent-2); }
 .map-trail { pointer-events: none; animation: fade-in 0.2s ease-out both; }
 .map-trail-shadow { fill: #000; stroke: #000; stroke-width: 0.15; stroke-linecap: round; stroke-linejoin: round; opacity: 0.28; }
@@ -1289,6 +1294,11 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-label { pointer-events: none; --tone: var(--ink-soft); color: var(--tone); filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.45)); }
 .map-label.attack { --tone: var(--red); }
 .map-label.heal { --tone: var(--green); }
+/* Every label takes the colour of the army that acted: yours blue, enemies red, allies green, the Third Army yellow. */
+.map-label.team-player { --tone: var(--team-player); }
+.map-label.team-enemy { --tone: var(--team-enemy); }
+.map-label.team-ally { --tone: var(--team-ally); }
+.map-label.team-third { --tone: var(--team-third); }
 .map-label rect { fill: color-mix(in srgb, var(--tone) 12%, var(--paper)); stroke: var(--tone); stroke-width: 1px; }
 .map-label text { fill: var(--ink); font: 700 12px var(--nums); font-variant-numeric: tabular-nums lining-nums; dominant-baseline: central; }
 .map-label text .value { fill: var(--tone); }

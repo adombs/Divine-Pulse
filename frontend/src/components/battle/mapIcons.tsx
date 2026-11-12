@@ -61,11 +61,11 @@ export const OBJECT_NAMES: ReadonlySet<string> = new Set(Object.keys(OBJECT_ICON
 /** A small round badge with the log's icon for a kind of action (model.ICON: "move", "attack", "heal", "fell"...),
  * centred on (cx, cy), `r` tiles in radius: where a step's unit set out, where an attack landed or a heal was given,
  * a unit that fell. Coloured by its kind (styles.css .map-act). */
-export function ActionBadge({ kind, cx, cy, r = 0.2 }: { kind: string; cx: number; cy: number; r?: number }) {
+export function ActionBadge({ kind, cx, cy, r = 0.2, team }: { kind: string; cx: number; cy: number; r?: number; team?: string }) {
   const paths: Partial<Record<string, string>> = ICON_PATHS[ICON[kind] ?? CONCEPT_ICON.wait];
   const s = r * 1.2;
   return (
-    <g className={`map-act ${kind}`}>
+    <g className={`map-act ${kind}${team ? ` team-${team}` : ""}`}>
       <circle cx={cx} cy={cy} r={r} />
       <svg x={cx - s / 2} y={cy - s / 2} width={s} height={s} viewBox="0 0 256 256" fill="currentColor" dangerouslySetInnerHTML={{ __html: paths.duotone ?? "" }} />
     </g>

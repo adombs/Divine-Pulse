@@ -281,7 +281,8 @@ export function Minimap({ board, selected, focus, action, animation, labels, lab
   // that badge once the action's own pops in is over.
   const moved = !animation || animation.elapsed >= animation.timing.move;
   const acted = !animation || animation.elapsed >= animation.timing.act;
-  const side = actor?.sprite.side ?? "player";
+  // The acting unit's army: its arrows, badges and impact rings take that army's colour (as the replay labels do).
+  const side = actor ? (actor.army ? "player" : actor.sprite.side) : "player";
   const aimed = action?.kind === "attack" || action?.kind === "heal" ? action.kind : null;
   const mid = (n: number) => n + 0.5;
   const pick = (id: string) => onPick?.(id);
@@ -394,13 +395,13 @@ export function Minimap({ board, selected, focus, action, animation, labels, lab
         />
       ))}
       {moved && actor && target && (
-        <g className={`map-tone ${aimed ?? "aim"}`}>
+        <g className={`map-tone ${aimed ? side : "aim"}`}>
           <Trail key={`${actor.id} ${target.id}`} id={`${uid}-aim`} from={[actor.x + actor.span / 2, actor.y + actor.span / 2]} to={[target.x + target.span / 2, target.y + target.span / 2]} gap={[0.36 * actor.span, 0.36 * target.span]} />
         </g>
       )}
       {acted && aimed && actor && (aimed === "heal" || target) && (
         <g transform={`translate(${badgeSpot(actor, target).join(" ")})`}>
-          <ActionBadge kind={aimed} cx={0} cy={0} />
+          <ActionBadge kind={aimed} team={side} cx={0} cy={0} />
         </g>
       )}
       {effects.map((e, i) => {
@@ -410,7 +411,7 @@ export function Minimap({ board, selected, focus, action, animation, labels, lab
         const after = clamp01((e.t - IMPACT) / (1 - IMPACT));
         const scale = 0.55 + 0.45 * ease(grow) + 0.14 * Math.sin(Math.PI * after);
         return (
-          <g key={i} className={`map-effect map-tone ${e.kind}`}>
+          <g key={i} className={`map-effect map-tone ${side}`}>
             {e.kind === "attack"
               ? after > 0 && <circle className="map-effect-ring" cx={e.x} cy={e.y} r={0.22 + 0.36 * after} style={{ opacity: 0.8 * (1 - after) }} />
               : [0, 0.35].map((delay) => {
@@ -419,7 +420,7 @@ export function Minimap({ board, selected, focus, action, animation, labels, lab
                 })}
             {e.kind === "heal" && <circle className="map-effect-glow" cx={e.x} cy={e.y} r={0.42} style={{ opacity: 0.4 * Math.sin(Math.PI * e.t) }} />}
             <g transform={`translate(${e.bx} ${e.by}) scale(${scale})`} style={{ opacity: clamp01(e.t / 0.15) }}>
-              <ActionBadge kind={e.kind} cx={0} cy={0} />
+              <ActionBadge kind={e.kind} team={side} cx={0} cy={0} />
             </g>
           </g>
         );
@@ -492,7 +493,7 @@ function MapLabels({ labels, board, perTile, bounds, opacity }: { labels: MapLab
         }
         boxes.push({ x0: left, x1: left + width * px, y0: y, y1: y + PILL.h * px });
         return (
-          <g key={l.key} data-unit={l.unit} className={`map-label ${l.tone}`} transform={`translate(${left} ${y}) scale(${px})`}>
+          <g key={l.key} data-unit={l.unit} className={`map-label ${l.tone}${l.side ? ` team-${l.side}` : ""}`} transform={`translate(${left} ${y}) scale(${px})`}>
             <rect width={width} height={PILL.h} rx={PILL.h / 2} />
             <LabelIcon label={l} x={PILL.pad} y={(PILL.h - PILL.icon) / 2} />
             {text && (
