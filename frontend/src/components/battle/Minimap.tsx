@@ -492,7 +492,7 @@ function MapLabels({ labels, board, perTile, bounds, opacity }: { labels: MapLab
         }
         boxes.push({ x0: left, x1: left + width * px, y0: y, y1: y + PILL.h * px });
         return (
-          <g key={l.key} data-unit={l.unit} className={`map-label ${l.tone}`} transform={`translate(${left} ${y}) scale(${px})`}>
+          <g key={l.key} data-unit={l.unit} className={`map-label ${l.tone}${l.side ? ` team-${l.side}` : ""}`} transform={`translate(${left} ${y}) scale(${px})`}>
             <rect width={width} height={PILL.h} rx={PILL.h / 2} />
             <LabelIcon label={l} x={PILL.pad} y={(PILL.h - PILL.icon) / 2} />
             {text && (

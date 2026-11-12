@@ -24,6 +24,10 @@ export interface MapLabel {
   /** The number: damage ("12", "12 · 12") or HP restored ("+21"). */
   value: string | null;
   tone: LabelTone;
+  /** The unit that did it (its piece id): the label takes the colour of that unit's army. */
+  by: string | null;
+  /** That unit's army, filled in by the replay from the map (see useReplay). */
+  side?: string;
   /** Where the unit stood before this step, for one no longer on the map after it (a target the action defeated). */
   at?: { x: number; y: number; span: number };
 }
@@ -72,26 +76,26 @@ export function beatLabels(items: Item[], beat: number, icons: LabelIcons): MapL
       const taken = fight.hits.map((h) => h.taken);
       const value = dealt.some((d) => d != null) ? dealt.map((d) => d ?? 0).join(" · ") : null;
       const game = detail ? (icons.art(detail) ?? icons.spell(detail) ?? icons.item(detail)) : null;
-      if (value !== null || detail) out.push({ key, unit: on, kind: detail ? "art" : "attack", game, name: detail, value, tone: "attack" });
-      if (taken.some(num) && item.actor) out.push({ key: `${key}:counter`, unit: item.actor, kind: "attack", game: null, name: null, value: taken.map((t) => t ?? 0).join(" · "), tone: "attack" });
+      if (value !== null || detail) out.push({ key, unit: on, kind: detail ? "art" : "attack", game, name: detail, value, tone: "attack", by: item.actor });
+      if (taken.some(num) && item.actor) out.push({ key: `${key}:counter`, unit: item.actor, kind: "attack", game: null, name: null, value: taken.map((t) => t ?? 0).join(" · "), tone: "attack", by: item.target });
     } else if (item.kind === "heal") {
       const value = num(item.restored) ? `+${item.restored}` : null;
       const game = detail ? icons.spell(detail) : null;
-      if (value !== null || detail) out.push({ key, unit: on, kind: "heal", game, name: value === null ? detail : null, value, tone: "heal" });
+      if (value !== null || detail) out.push({ key, unit: on, kind: "heal", game, name: value === null ? detail : null, value, tone: "heal", by: item.actor });
     } else if (item.kind === "item") {
       const value = num(item.restored) ? `+${item.restored}` : null;
-      if (value !== null || detail) out.push({ key, unit: item.actor ?? on, kind: "item", game: detail ? icons.item(detail) : null, name: detail, value, tone: value ? "heal" : "plain" });
+      if (value !== null || detail) out.push({ key, unit: item.actor ?? on, kind: "item", game: detail ? icons.item(detail) : null, name: detail, value, tone: value ? "heal" : "plain", by: item.actor });
     } else if (item.kind === "art" || item.kind === "spell") {
       const dealt = num(item.dealt);
       const value = dealt ? String(item.dealt) : num(item.restored) ? `+${item.restored}` : null;
       const game = detail ? (item.kind === "art" ? (icons.art(detail) ?? icons.spell(detail)) : (icons.spell(detail) ?? icons.art(detail))) : null;
-      if (value !== null || detail) out.push({ key, unit: on, kind: item.kind, game, name: detail, value, tone: dealt ? "attack" : value ? "heal" : "plain" });
+      if (value !== null || detail) out.push({ key, unit: on, kind: item.kind, game, name: detail, value, tone: dealt ? "attack" : value ? "heal" : "plain", by: item.actor });
     } else if (item.kind === "rally") {
-      if (detail) out.push({ key, unit: on, kind: "rally", game: icons.ability(detail), name: detail, value: null, tone: "plain" });
+      if (detail) out.push({ key, unit: on, kind: "rally", game: icons.ability(detail), name: detail, value: null, tone: "plain", by: item.actor });
     } else if (item.kind === "gambit") {
       const dealt = num(item.dealt);
       const value = dealt ? String(item.dealt) : num(item.restored) ? `+${item.restored}` : null;
-      if (value !== null || detail) out.push({ key, unit: on, kind: "gambit", game: null, name: detail, value, tone: dealt ? "attack" : value ? "heal" : "plain" });
+      if (value !== null || detail) out.push({ key, unit: on, kind: "gambit", game: null, name: detail, value, tone: dealt ? "attack" : value ? "heal" : "plain", by: item.actor });
     }
   });
   return out;

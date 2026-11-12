@@ -1289,6 +1289,11 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-label { pointer-events: none; --tone: var(--ink-soft); color: var(--tone); filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.45)); }
 .map-label.attack { --tone: var(--red); }
 .map-label.heal { --tone: var(--green); }
+/* Every label takes the colour of the army that acted: yours blue, enemies red, allies green, the Third Army yellow. */
+.map-label.team-player { --tone: var(--team-player); }
+.map-label.team-enemy { --tone: var(--team-enemy); }
+.map-label.team-ally { --tone: var(--team-ally); }
+.map-label.team-third { --tone: var(--team-third); }
 .map-label rect { fill: color-mix(in srgb, var(--tone) 12%, var(--paper)); stroke: var(--tone); stroke-width: 1px; }
 .map-label text { fill: var(--ink); font: 700 12px var(--nums); font-variant-numeric: tabular-nums lining-nums; dominant-baseline: central; }
 .map-label text .value { fill: var(--tone); }

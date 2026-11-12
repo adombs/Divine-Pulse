@@ -20,7 +20,7 @@
 - A banner on every page says when your game files need reprocessing, and the app says reprocess (from the same dump), not re-import.
 - Check for updates when the app starts: a banner says when a newer version is out, with a link to download it. Settings > General > Check for updates on startup turns it off.
 - The replay skips steps that show nothing (a phase starting, a unit waiting), so it no longer seems to stall.
-- The replay labels each action on the map: the damage dealt and taken, healing, and the combat art, spell, item or gambit used, with its icon.
+- The replay labels each action on the map: the damage dealt and taken, healing, and the combat art, spell, item or gambit used, with its icon, in the colour of the army that acted (yours blue, enemies red, allies green, the Third Army yellow).
 
 ## 1.4.2 (2026-11-10)
 
