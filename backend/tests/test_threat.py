@@ -118,5 +118,7 @@ def test_how_a_unit_moves_sets_what_terrain_costs_it(monkeypatch):
     rider = Fighter.from_unit(BattleUnit(1, False, 1, 1, dict(thief.unit.raw), hp=30, x=10, y=10, slot=11, team=1), data)
     assert (th.move_kind(thief, data), th.move_kind(rider, data)) == (th.THIEF, th.CAVALRY)
     # Forest costs a thief 1 and a horse 3: six tiles out against two.
-    reach = lambda f, kind: max(abs(x - 10) + abs(y - 10) for x, y in th._stops(f, [f.unit], grid, kind))
+    def reach(f, kind):
+        return max(abs(x - 10) + abs(y - 10) for x, y in th._stops(f, [f.unit], grid, kind))
+
     assert (reach(thief, th.THIEF), reach(rider, th.CAVALRY)) == (6, 2)
