@@ -1381,6 +1381,11 @@ def test_the_action_that_wins_the_map_is_worked_out_and_logged_before_what_follo
     kostas, claude = battle.enemy_stats[20], battle.units[0]
     assert (kostas.defeated_by, kostas.damage_taken, claude.damage_dealt) == ("Claude", 7, 7)
     assert (claude.combats, claude.defeats, kostas.combats) == (1, 1, 1)
+    # It's a step of the replay, as if the game had filed it next, and both its lines point to it (so the log shows
+    # the defeat on the fight's row, as for the game's own entries).
+    step = battle.map_steps[-1]
+    assert (step.step, step.actor, step.target) == (len(battle.map_steps) - 1, "a:claude", "e:20")
+    assert step.units["e:20"][2] == 0 and [e.step for e in battle.log[-2:]] == [step.step, step.step]
 
 
 def test_an_action_the_history_files_after_its_hp_shows_is_not_worked_out_too(monkeypatch):

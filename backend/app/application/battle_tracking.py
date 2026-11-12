@@ -773,6 +773,24 @@ class BattleTracker:
         del battle.log[count:]
         where = next((i for i, e in enumerate(battle.log) if e.t > added[0].t), len(battle.log))
         battle.log[where:where] = added
+        # A step for each fight on the replay's map, where the game would have filed it next: who moved where and
+        # the HP they were left with. Its lines point to it, as a history entry's do.
+        keys = {f"a:{key}": slot for slot, key in after.army_slots.items()}
+        placed = {u.slot: u for u in after.units if u.x is not None and u.y is not None and u.hp is not None}
+        step = None
+        for e in added:
+            if e.kind == "attack":
+                step = len(battle.map_steps)
+                units = {}
+                for uid in (e.actor_id, e.target_id):
+                    slot = keys.get(uid) if uid and uid.startswith("a:") else int(uid[2:]) if uid else None
+                    u = placed.get(slot) if slot is not None else None
+                    if u is not None:
+                        units[uid] = (u.x, u.y, max(0, u.hp))
+                battle.map_steps.append(
+                    MapStep(step=step, turn=e.turn or battle.turn or 0, phase=e.phase or 0, actor=e.actor_id, target=e.target_id, units=units)
+                )
+            e.step = step
         # The history's counts of fights and defeats (see _replay) don't have it either.
         units = {f"a:{u.key}": u for u in battle.units}
         for e in added:

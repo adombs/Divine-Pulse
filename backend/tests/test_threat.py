@@ -91,7 +91,8 @@ def battle_with(threat: dict[str, UnitThreat], acted=True) -> Battle:
 
 def test_outlook_is_the_chance_of_getting_through_the_turn():
     safe = outlook(battle_with({"byleth": UnitThreat(attackers=["e:9"] * 3, max_damage=15), "lysithea": UnitThreat()}))
-    assert safe["chance"] == 0.99 and safe["factors"] == []
+    assert safe["chance"] == 0.99 and [f["label"] for f in safe["factors"]] == ["Safe"]  # always explained
+    assert "Byleth could take up to 15 of 20 HP (3 enemies)" in safe["factors"][0]["detail"]
     risky = outlook(battle_with({"byleth": UnitThreat(attackers=["e:9"], max_damage=30, death=0.4), "lysithea": UnitThreat()}))
     assert risky["chance"] == pytest.approx(0.6) and risky["factors"][0]["points"] == pytest.approx(-40)
     assert "40% to fall" in risky["factors"][0]["detail"]

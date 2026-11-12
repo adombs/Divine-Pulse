@@ -471,24 +471,23 @@ export function OutlookCard({ outlook, trend, seconds, events, at }: { outlook: 
         <span style={{ width: `${pct}%` }} />
       </div>
       <TrendChart trend={trend} seconds={seconds} events={events} at={at} />
-      {outlook.factors.length > 0 && (
-        <div className="outlook-why">
-          <span className="outlook-why-label" tabIndex={0}>
-            <Icon name={CONCEPT_ICON.info} /> Why {pct}%?
-          </span>
-          <ul className="outlook-factors">
-            {outlook.factors.map((f) => (
-              <li key={f.label}>
-                <span className={f.points >= 0 ? "ok-text" : "form-error"}>
-                  {f.points >= 0 ? "+" : ""}
-                  {f.points.toFixed(1)}
-                </span>{" "}
-                <strong>{f.label}</strong> <span className="muted">{f.detail}</span>
-              </li>
-            ))}
-          </ul>
-        </div>
-      )}
+      <div className="outlook-why">
+        <span className="outlook-why-label" tabIndex={0}>
+          <Icon name={CONCEPT_ICON.info} /> Why {pct}%?
+        </span>
+        <ul className="outlook-factors">
+          {outlook.factors.length === 0 && <li className="muted">Nothing has moved it from where a battle starts yet.</li>}
+          {outlook.factors.map((f, i) => (
+            <li key={`${f.label}-${i}`}>
+              <span className={f.points >= 0 ? "ok-text" : "form-error"}>
+                {f.points >= 0 ? "+" : ""}
+                {f.points.toFixed(1)}
+              </span>{" "}
+              <strong>{f.label}</strong> <span className="muted">{f.detail}</span>
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
