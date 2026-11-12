@@ -15,6 +15,7 @@ from ..domain.battle import Battle, BattleUnitStats
 from ..domain.best_unit import best_unit
 from ..domain.ebst import EbstConfig
 from ..domain.runs import MAIN_SCENARIOS, BestUnit, ChapterRef, RunSummary
+from ..domain.membership import on_roster
 from ..domain.units import Unit, byleth_look, now
 from ..domain.runs import Run
 from .saved_models import Run as SavedRun, decode_battle, decode_battles
@@ -155,7 +156,7 @@ class RunStore:
                 RunSummary(
                     id=r.id,
                     name=r.name,
-                    unit_count=len(r.units),
+                    unit_count=sum(map(on_roster, r.units.values())),
                     created_at=r.created_at,
                     updated_at=r.updated_at,
                     route=r.route,

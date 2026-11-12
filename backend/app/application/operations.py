@@ -14,6 +14,7 @@ from ..domain import deaths
 from ..domain.text import normalize
 from ..domain.ebst import EbstConfig
 from ..domain.runs import Run, RunSummary
+from ..domain.membership import on_roster
 from ..domain.units import Unit
 from .ports import (
     BattleRepository,
@@ -101,7 +102,7 @@ class BackendOperations:
         return RunSummary(
             id=run.id,
             name=run.name,
-            unit_count=len(run.units),
+            unit_count=sum(map(on_roster, run.units.values())),
             created_at=run.created_at,
             updated_at=run.updated_at,
             route=run.route,

@@ -10,6 +10,7 @@ import { loadGameJson, loadGameText } from "./gameAssets";
 import { gameLanguage } from "./gameLanguage";
 import { objectIcon, OBJECT_NAMES } from "./components/battle/mapIcons";
 import { bundledPortrait } from "./components/gameImageSources";
+import { onRoster } from "./roster";
 
 export type PortraitPhase = "auto" | "part1" | "part2";
 
@@ -169,9 +170,9 @@ export function characterKeyOfUnit(u: Unit): string | null {
   return k ? (k.startsWith("byleth") ? "byleth" : k) : null;
 }
 
-/** Characters page keys of everyone in the active run. */
+/** Characters page keys of everyone on the active run's Roster (in the army, or dead). */
 export function runCharacterKeys(units: Unit[]): Set<string> {
-  return new Set(units.map(characterKeyOfUnit).filter((k): k is string => !!k));
+  return new Set(units.filter(onRoster).map(characterKeyOfUnit).filter((k): k is string => !!k));
 }
 
 /** Characters page keys of the active run's dead units. */

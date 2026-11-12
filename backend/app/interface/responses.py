@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 
 from ..domain.battle import Battle, BattleUnitStats
 from ..domain.runs import RunSummary
+from ..domain.membership import on_roster
 from ..domain.units import Unit, VALUE_KEYS
 from ..domain.ebst import EbstConfig
 from ..domain.outlook import outlook
@@ -67,6 +68,8 @@ class UnitOut(Unit):
     ebst_effective: EbstConfig
     # Blue on screen, but no known or manual bonus explains it.
     boosted_unexplained: list[str]
+    # Whether the Roster shows it (in the army, or dead); `in_army` alone is the game's in-army flag.
+    on_roster: bool
 
     @classmethod
     def from_unit(cls, key: str, unit: Unit) -> UnitOut:
@@ -81,4 +84,5 @@ class UnitOut(Unit):
             effective_bonuses=effective,
             ebst_effective=cfg,
             boosted_unexplained=unexplained,
+            on_roster=on_roster(unit),
         )

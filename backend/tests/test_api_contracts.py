@@ -239,7 +239,7 @@ def test_marking_a_unit_dead_or_alive(tmp_path):
             log=[LogEntry(t=12.5, turn=1, kind="fell", text="Raphael fell.", unit="raphael", actor_id="a:raphael", step=4)],
         ))
         [unit] = client.get(f"/api/runs/{run_id}/units").json()
-        assert unit["death"] is None
+        assert unit["death"] is None and unit["in_army"] is True and unit["on_roster"] is True
 
         dead = client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": True})
         assert dead.status_code == 200
