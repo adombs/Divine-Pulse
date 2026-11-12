@@ -216,7 +216,7 @@ class BattleTracker:
         names = ", ".join(a.name for a in sample.army)
         enemies = f"; {self.battle.enemies_now} {'enemy' if self.battle.enemies_now == 1 else 'enemies'} on the map" if sample.enemies else ""
         self.battle.events.append(
-            BattleEvent(t=0, kind="start", text=f"Battle started with {len(units)} units ({names}){enemies}")
+            BattleEvent(t=0, kind="start", text=f"Battle started with {len(units)} {'unit' if len(units) == 1 else 'units'} ({names}){enemies}")
         )
         for unit, a in zip(units, sample.army):
             self._set_resources(unit, a)

@@ -441,10 +441,10 @@ export function Supplies({ unit }: { unit: BattleUnit }) {
 }
 
 /** "—" with the reason on hover, for a value that isn't tracked. */
-export function Num({ value }: { value: number | null | undefined }) {
+export function Num({ value, why }: { value: number | null | undefined; why?: string }) {
   if (value === null || value === undefined)
     return (
-      <span className="untracked" title={TEXT.notTracked}>
+      <span className="untracked" title={why ?? TEXT.notTracked}>
         —
       </span>
     );

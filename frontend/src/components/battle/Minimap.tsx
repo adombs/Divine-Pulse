@@ -667,11 +667,11 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
       <div className="map-key-head">
         <button type="button" className="map-key-toggle" aria-expanded={open} onClick={() => setMode(open ? "closed" : "open")} title={open ? "Close the legend" : "Open the legend"}>
           {teams.map(([side, n]) => (
-            <span key={side} className={`map-count team-${side}`} title={COUNT_TITLE[side]}>
+            <span key={side} className={`map-count team-${side}${n ? "" : " zero"}`} title={COUNT_TITLE[side]}>
               {n}
             </span>
           ))}
-          <span className="map-count down" title="Killed">
+          <span className={`map-count down${down ? "" : " zero"}`} title="Killed">
             {down}
           </span>
           <Icon name={CONCEPT_ICON.down} className="map-key-caret" />

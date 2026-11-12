@@ -1824,6 +1824,7 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .map-count.team-ally::before { background: var(--team-ally); }
 .map-count.team-third::before { background: var(--team-third); }
 .map-count.down::before { background: #6d655c; opacity: 0.7; }
+.map-count.zero { opacity: 0.55; }
 .map-key-caret { margin-left: auto; font-size: 0.85rem; color: var(--ink-soft); transition: transform 0.25s ease; }
 .map-key-panel.open .map-key-caret { transform: rotate(180deg); }
 .map-key-hide, .map-key-show {

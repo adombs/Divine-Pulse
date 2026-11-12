@@ -54,6 +54,8 @@ interface Row {
   dealt: number | null;
   taken: number | null;
   healing: number | null;
+  /** Why the numbers are blank when they aren't counted (a guest that never joined your army). */
+  uncounted?: string;
   unit?: BattleUnit;
   enemy?: EnemyStats;
 }
@@ -98,6 +100,7 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
         flags: diedHere(u.key)
           ? [{ icon: CONCEPT_ICON.dead, title: `Died here: ${deathText(diedHere(u.key)!)}`, tone: "bad" as const }]
           : armyFlags(u, battle.active ? risks.get(u.key) : undefined, u.adjutant_of ? nameOf(battle, u.adjutant_of) : undefined),
+        uncounted: counts ? undefined : "Not counted: not in your army",
         fights: counts ? t.fights : null,
         defeats: counts ? t.defeats : null,
         dealt: counts ? u.damage_dealt : null,
@@ -231,16 +234,16 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
                       <Flags flags={r.flags} />
                     </span>
                   </td>
-                  <td className="num"><Num value={r.fights} /></td>
+                  <td className="num"><Num value={r.fights} why={r.uncounted} /></td>
                   <td className="num">
-                    <Num value={r.dealt} />
+                    <Num value={r.dealt} why={r.uncounted} />
                   </td>
                   <td className="num">
-                    <Num value={r.taken} />
+                    <Num value={r.taken} why={r.uncounted} />
                   </td>
-                  <td className="num">{r.army ? <Num value={r.healing} /> : <span className="untracked">·</span>}</td>
+                  <td className="num">{r.army ? <Num value={r.healing} why={r.uncounted} /> : <span className="untracked">·</span>}</td>
                   <td className="num">
-                    <Num value={r.defeats} />
+                    <Num value={r.defeats} why={r.uncounted} />
                   </td>
                 </tr>
               ))}
