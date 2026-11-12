@@ -112,6 +112,18 @@ leaves and comes back. Guests never create or change run units, the roster or de
 
 Battle history entry layout (the Divine Pulse list): see the module docstring and constants in `gamemem/history.py`.
 
+When things show up (recording of A Skirmish at Dawn, Claude's last attack on Kostas):
+
+- **The action that wins the map gets no history entry.** The count stayed at 48 from the previous action until the
+  battle ended, when it dropped to 0. The tracker works that fight out from HP changes at the end of the battle
+  (`BattleTracker._settle_unfiled`).
+- **A level-up shows before its action is filed.** The unit's level and stats change in its battle record when the
+  level-up screen opens (270.4 s). HP, the Battles/Victories counters and the history entry change only once it
+  closes (277.1 s for the HP; 5 s later for Byleth's entry for the Thief 6 fight). The tracker moves the level-up to
+  when its action was logged (`BattleTracker._order_growth`).
+- An action's HP usually reaches the pool a read or two before its history entry (Thief 5's defeat: HP 0 at 248.3 s,
+  entry at 248.9 s).
+
 ## Map sprites: what the game draws and where it comes from
 
 The game builds a generic unit's map sprite at runtime from two pieces of one texture atlas (DATA entry `SPRITES`,
