@@ -29,7 +29,7 @@ test("a unit with no map sprite shows its portrait on the map, and \"?\" when no
   const stubs = `
     const f = globalThis.fallbackFixture;
     const React = f.React, memo = React.memo, createContext = React.createContext;
-    const LOW_HP = 0.25, WEAPON_LABEL = {};
+    const LOW_HP = 0.25, WEAPON_LABEL = {}, TEAM_LABEL = { third: "Third Army" };
     const describe = () => 'Example unit';
     const useGameImageUrl = (path) => path.includes('class-sprites') ? (f.atlas ? path : '') : path;
     const spriteLayers = f.spriteLayers;

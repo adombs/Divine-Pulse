@@ -49,6 +49,7 @@ def _route_snapshot(b: Battle) -> Battle:
                 key=u.key,
                 name=u.name,
                 character=u.character,
+                guest=u.guest,
                 class_name=u.class_name,
                 level=u.level,
                 start_level=u.start_level,

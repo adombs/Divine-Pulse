@@ -44,6 +44,8 @@ Battle `enemy_stats` entries include `person_id`, the person-data row for named 
 
 Battle `units` and `enemy_stats` entries include `allegiance`, the faction ID on the unit's battle record (`data/factions.json`), read on every poll so a reveal that changes it shows during the battle; null when not read. Older saved battles without the field load with null.
 
+Battle `units` entries include `guest` (default false): the unit was on your side (team 0) in that battle without being in your army's roster. It is logged as one of your units (`a:<key>` ids in the log, events and map) but is never a run unit, a roster entry or a death; its battle statistics count only when its `key` is one of the run's units (it joined your army). Older saved battles that kept such units in `enemy_stats` (side `player`, `e:<slot>`) are upgraded when loaded: they become guest `units` and every `e:<slot>` reference is rewritten to `a:<key>`.
+
 ## Duplicate battles
 
 A battle's identity in a run is `(scenario, quest)`, the quest only when it is in `data/quest_battles.json`. Scenarios 61-85 that are not a battle quest are repeatable and never grouped; scenarios 95, 96, 98, 99 and unset ones are ignored; every other battle is one-time, and two or more copies form a duplicate group (`domain/duplicates.py`). The setting `duplicate_battles` (`"keep_best"` default, or `"ask"`, in `GET/PUT /api/settings`) decides what happens when a battle is filed: with `keep_best` the weaker copies move to `data/battles/<run id>.discarded.json` (ranked by won, enemies defeated, turn, log length, id; `won` is `enemies_start > 0 and enemies_now == 0`), with `ask` nothing happens. Groups that exist are listed in both modes.

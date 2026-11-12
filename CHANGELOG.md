@@ -4,7 +4,10 @@
 
 - Warn at the top of every page when your game files were processed by an older version and need reprocessing (it was only shown in Settings > Game files). The app now says reprocess, not re-import, everywhere: it works from the same dump.
 - Find battles you fought more than once in a run (story chapters, paralogues, Cindered Shadows and quest battles; auxiliary battles can repeat). A warning beside Back lists the copies so you can keep one. Settings > General > Repeated battles: Keep Best keeps the most complete copy automatically, with Undo; Ask leaves the choice to you.
-- Remove Low HP from the map's legend.
+- Log every unit that fights on your side (the game's team 0) as one of your units, even before they join your army. Their battles count toward any statistics only once they're in your army, then carry over if they leave and come back; one who never joins doesn't count at all and never appears on the Roster. Saved battles are updated when loaded.
+- Show those units' portraits on the battle cards.
+- Use the game's names for the armies everywhere: Your Units, Enemy Units, Ally Units and Third Army.
+- The map's legend always lists every army, and its counts always show all of them and the killed, 0 included. Low HP is no longer in the legend or the counts.
 
 ## 1.4.3 (2026-11-10)
 

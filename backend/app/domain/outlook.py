@@ -227,7 +227,7 @@ def _timing(battle: Battle) -> str:
             return f" · {sum(1 for u in known if u.acted)} of {len(known)} units acted"
     elif phase == 1:
         left = sum(1 for e in battle.enemy_stats.values() if e.on_map and e.side not in FRIENDLY and f"e:{e.slot}" not in spent)
-        return f" · enemy phase, {left} still to act"
+        return f" · Enemy Phase, {left} still to act"
     return ""
 
 
@@ -240,7 +240,7 @@ def factors(battle: Battle) -> list[tuple[str, float, str]]:
             (
                 "Health",
                 HEALTH_WEIGHT * (mine - theirs),
-                f"Your army {mine:.0%} HP, the enemy {theirs:.0%}",
+                f"Your Units {mine:.0%} HP, Enemy Units {theirs:.0%}",
             )
         )
     gone, faced = progress(battle)

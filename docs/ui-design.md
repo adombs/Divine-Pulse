@@ -107,7 +107,7 @@ fills the sheet: the header stays put and the view below fits the screen (the Ov
   shows where things stand now and says why it can't replay. The same map, with the same replay bar, is on the Overview (picking a
   unit rings it there) and in unit and enemy cards ("On the map": that unit ringed, the others faded).
 - **Units:** everyone in the battle, yours and the others, in one sortable table (HP, status, fights, damage dealt
-  and taken, healing, defeats, any alert), filterable by side (Your Units / Enemy Units / Allied Units / Third Army) and by status (Alive / Killed / Left the Map), and searchable. Selecting one shows its card: level and growth, combat totals, supplies left,
+  and taken, healing, defeats, any alert), filterable by side (Your Units / Enemy Units / Ally Units / Third Army) and by status (Alive / Killed / Left the Map), and searchable. Selecting one shows its card: level and growth, combat totals, supplies left,
   where it is on the map, who it fought (opponents, with damage both ways) and every fight and action it took, as an
   accordion of sections.
 - **Log** (the Overview's right column): every action and event as a tree of timelines or a list grouped by turn (the latest

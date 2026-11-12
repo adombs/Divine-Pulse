@@ -285,7 +285,7 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const lastPhase = [...battle.log].reverse().find((entry) => entry.turn === battle.turn && entry.phase !== null && entry.phase !== undefined)?.phase;
   const finalPhase = lastPhase ?? final?.phase;
   const finalLabel = battle.turn !== null
-    ? `Turn ${battle.turn}${finalPhase === undefined ? "" : ` · ${finalPhase === 0 ? "Player" : finalPhase === 1 ? "Enemy" : "Other"} phase`}`
+    ? `Turn ${battle.turn}${finalPhase === undefined ? "" : ` · ${finalPhase === 0 ? "Player" : finalPhase === 1 ? "Enemy" : "Other"} Phase`}`
     : final ? stepLabel(final) : "At the end";
   const label = at === null ? (battle.active ? "Now" : finalLabel) : current && current.pulse !== null ? `Divine Pulse ${current.pulse + 1} · Turn ${steps[at].turn}` : stepLabel(steps[at]);
   const detail = at === null ? `${plural(steps.length, "step")} to replay` : `step ${at + 1} of ${steps.length}`;

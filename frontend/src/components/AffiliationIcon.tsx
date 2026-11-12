@@ -55,7 +55,7 @@ export function affiliationBanner(house?: string | null, side?: AffiliationSide)
   return own === "other" && army ? army : own ?? army;
 }
 
-const ARMY_NAME: Partial<Record<AffiliationSide, string>> = { player: "Your army", enemy: "Enemy army", ally: "Allied army", third: "Third army" };
+const ARMY_NAME: Partial<Record<AffiliationSide, string>> = { player: "Your Units", enemy: "Enemy Units", ally: "Ally Units", third: "Third Army" };
 
 export function AffiliationIcon({ house, side, bare = false }: { house?: string | null; side?: AffiliationSide; bare?: boolean }) {
   const [showCrests] = useSpoiler("crests");

@@ -92,6 +92,11 @@ are all team 0 and the game draws all four in your colour, but only Byleth has t
 leaders haven't joined yet. Jeralt is team 2 (ally), Kostas and his thieves team 1. `domain/battle.side_of` maps team
 0 to "player" for these units.
 
+The tracker logs any on-map team-0 record that is not an army/roster unit as a guest army unit of that battle
+(`BattleUnitStats.guest`, `a:<key>` ids), by the rule alone: team 0 and not in the roster. Its key is the run unit's
+whose `game_id` is the character, else the name's key, so its stats carry over if the character joins later or
+leaves and comes back. Guests never create or change run units, the roster or deaths. Teams 1-4 are unchanged.
+
 ## Battle globals (offsets from main + `0x19E4000`)
 
 | Offset | Type | Meaning |

@@ -203,6 +203,7 @@ class BattleTracker:
                 start=dict(a.values),
                 now=dict(a.values),
                 adjutant_of=a.adjutant_of,
+                guest=a.guest,
                 **_battalion_fields(a),
             )
             for a in sample.army
@@ -215,7 +216,7 @@ class BattleTracker:
         names = ", ".join(a.name for a in sample.army)
         enemies = f"; {self.battle.enemies_now} {'enemy' if self.battle.enemies_now == 1 else 'enemies'} on the map" if sample.enemies else ""
         self.battle.events.append(
-            BattleEvent(t=0, kind="start", text=f"Battle started with {len(units)} units ({names}){enemies}")
+            BattleEvent(t=0, kind="start", text=f"Battle started with {len(units)} {'unit' if len(units) == 1 else 'units'} ({names}){enemies}")
         )
         for unit, a in zip(units, sample.army):
             self._set_resources(unit, a)
@@ -270,6 +271,7 @@ class BattleTracker:
                     start=dict(a.values),
                     now=dict(a.values),
                     adjutant_of=a.adjutant_of,
+                    guest=a.guest,
                     **_battalion_fields(a),
                 )
                 battle.units.append(unit)
@@ -279,6 +281,9 @@ class BattleTracker:
                 continue
             if not unit.on_map:
                 unit.on_map = True
+                changed = True
+            if unit.guest != a.guest:  # joined your army (or left it) during the battle
+                unit.guest = a.guest
                 changed = True
             if unit.adjutant_of != a.adjutant_of:
                 unit.adjutant_of = a.adjutant_of

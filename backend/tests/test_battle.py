@@ -278,7 +278,7 @@ def test_byleth_exposed_at_the_start_of_the_enemy_phase_is_really_bad():
     start = _turn(1, leader_hp=8)  # a quarter of his HP, three bandits in reach, none has moved yet
     assert start["at_risk"][0]["key"] == "byleth"
     assert start["chance"] < 0.25
-    assert any("enemy phase, 3 still to act" in f["detail"] for f in start["factors"] if f["label"] == "Defeat risk")
+    assert any("Enemy Phase, 3 still to act" in f["detail"] for f in start["factors"] if f["label"] == "Defeat risk")
     assert _turn(1)["at_risk"][0]["near"] == 3 and _turn(1)["chance"] < _turn(1, enemy_acted=["e:1", "e:2", "e:3"])["chance"]  # a crowd around him even at full HP
 
 
@@ -561,7 +561,7 @@ def test_outlook_health_is_each_units_share_of_hp_not_the_pool():
         b.units[1].now = {**STATS, "hp": 60}
         return next(f["detail"] for f in outlook(b)["factors"] if f["label"] == "Health")
 
-    assert hurt_giant() == "Your army 58% HP, the enemy 50%"
+    assert hurt_giant() == "Your Units 58% HP, Enemy Units 50%"
     assert hurt_giant(allies=[1]) == hurt_giant()  # allies count for neither side
 
 

@@ -29,11 +29,14 @@ def best_unit(battles: Iterable[Battle], roster: Collection[str] = ()) -> BestUn
     """The unit with the highest score over the run's finished battles. Ties go to more kills, then fewer falls, a
     higher level, and the earliest in `roster` (unit keys in recruitment order). None if nobody scored anything."""
     totals: dict[str, _Totals] = {}
+    kept = set(roster)
     finished = sorted((b for b in battles if b.ended_at is not None), key=lambda b: b.started_at)
     for battle in finished:
         # A battle's MVP is whoever defeated the most (at least one, ties shared), as on the Stats page.
         most = max((u.defeats or 0 for u in battle.units), default=0)
         for unit in battle.units:
+            if unit.guest and unit.key not in kept:
+                continue  # a guest counts only for a unit the run has; it never becomes the best unit by itself
             total = totals.setdefault(unit.key, _Totals(latest=unit))
             total.latest = unit
             total.mvps += most > 0 and unit.defeats == most

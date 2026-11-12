@@ -151,7 +151,7 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
         <Row label="My unit faces" hint="In battle: unit lists, the log and cards.">
           <Segmented label="My unit faces in battle" value={appearance.myUnitFaces} onChange={(myUnitFaces) => update({ myUnitFaces })} options={FACE_LOOKS} />
         </Row>
-        <Row label="Other unit faces" hint="In battle: enemies, allies and other armies.">
+        <Row label="Other unit faces" hint="In battle: Enemy Units, Ally Units and Third Army.">
           <Segmented label="Other unit faces in battle" value={appearance.otherUnitFaces} onChange={(otherUnitFaces) => update({ otherUnitFaces })} options={FACE_LOOKS} />
         </Row>
       </Group>
@@ -486,7 +486,7 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
       <Group title="Tracking and reference notes">
         <div className="set-prose">
           <p>Battles are recorded while the tracker reads the game. Each one is filed in History when it ends.</p>
-          <p>Battle outlook is a rough chance of winning. It goes up as enemies go down (5 of 10 enemies down) and with level-ups. It compares how healthy each side is, unit by unit (your army 80% HP, the enemy 60%). It goes down as your units fall, and when a unit is low on HP with enemies in reach (Dimitri 8/28 HP, 2 enemies in reach). Losing Byleth or a house leader loses the battle.</p>
+          <p>Battle outlook is a rough chance of winning. It goes up as enemies go down (5 of 10 enemies down) and with level-ups. It compares how healthy each side is, unit by unit (Your Units 80% HP, Enemy Units 60%). It goes down as your units fall, and when a unit is low on HP with enemies in reach (Dimitri 8/28 HP, 2 enemies in reach). Losing Byleth or a house leader loses the battle.</p>
           <p>For eBST, Offense and Defense each count as one value: Auto uses the higher of the pair, Flex the average. Click HP, Mv, Dex, Spd, Lck or Cha to count it too. eBST is everything counted added up and divided by how many went in.</p>
           <p>Return a lost item to its owner for +20 support. Liked gifts give +20, neutral +10, disliked nothing. Anyone not listed is neutral.</p>
           {reference && <Sources sources={reference.sources} />}
