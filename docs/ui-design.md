@@ -32,6 +32,10 @@ implementation, testing, or screenshot work on phone/mobile views unless explici
 9. **Avoid explanatory clutter.** Do not add unsolicited subtitles, repeated counts, sorting hints, or permanent
    footer legends. Unknown values keep their sentinel and accessible reason. In History statistics, character
    sprites sit beside names, numeric columns are centered, and battle types reuse History's colours.
+10. **Annotations take the army's colour.** Everything drawn on the map about an action (the arrow, the action badge,
+   the impact rings and the replay's labels: damage, healing, arts, items) is in the colour of the army of the unit
+   that acted: Your Units blue, Enemy Units red, Ally Units green, Third Army yellow (`--team-*`). Never the action's
+   own colour: an enemy's heal is red, your attack is blue.
 
 ## Page anatomy
 

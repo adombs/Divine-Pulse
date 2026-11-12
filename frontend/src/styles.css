@@ -1276,6 +1276,11 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-tone.object { --tone: #a89c8c; }
 .map-tone.attack, .map-act.attack, .map-act.fell, .map-act.defeat { --tone: var(--red); }
 .map-tone.heal, .map-act.heal { --tone: var(--green); }
+/* An action's badge in the colour of the army that acted (Minimap.tsx), like its arrow and labels. */
+.map-act.team-player { --tone: var(--team-player); }
+.map-act.team-enemy { --tone: var(--team-enemy); }
+.map-act.team-ally { --tone: var(--team-ally); }
+.map-act.team-third { --tone: var(--team-third); }
 .map-tone.aim { --tone: var(--accent-2); }
 .map-trail { pointer-events: none; animation: fade-in 0.2s ease-out both; }
 .map-trail-shadow { fill: #000; stroke: #000; stroke-width: 0.15; stroke-linecap: round; stroke-linejoin: round; opacity: 0.28; }
