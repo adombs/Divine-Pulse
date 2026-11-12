@@ -8,12 +8,15 @@
  *   segment 1: the actions after it up to Divine Pulse 2 (snapshot 1), then Divine Pulse 2, ... the last segment
  *   is what stands (the battle's own map history).
  *
- * The replay steps through the beats (one per action, one per Divine Pulse), and the log has a row for each. Pure
+ * The replay steps through the beats (one per action that animates something, one per Divine Pulse; a still action is
+ * left out, see stillBeats.ts), and the log has a row for each action. Pure
  * functions: the replay and the log only render these.
  */
 import type { Battle, Branch, MapStep } from "../../api";
 import { Frame, frames } from "./map";
 import { build, Item, pulseSummary } from "./model";
+import { actingBeats } from "./replayLabels";
+import { renumber, stillBeats } from "./stillBeats";
 
 /** One notch of the replay: an action, or a use of Divine Pulse. */
 export interface Beat {
@@ -56,6 +59,17 @@ export interface Chronicle {
 
 const EMPTY: Frame = new Map();
 
+/** Which beats attacked and which healed (for the arrows on the map): beat -> "attack" / "heal". */
+export function actionKinds(items: Item[]): Map<number, "attack" | "heal"> {
+  const result = new Map<number, "attack" | "heal">();
+  for (const item of items) {
+    if (item.beat == null || item.rehomed) continue;
+    if (item.kind === "attack") result.set(item.beat, "attack");
+    else if ((item.kind === "heal" || item.kind === "item") && !result.has(item.beat)) result.set(item.beat, "heal");
+  }
+  return result;
+}
+
 /** The replay beat where an army unit (its key) fell in the timeline that stands, the last time it did (null: it
  * didn't, or this recording can't replay it). */
 export function fallBeat(chron: Chronicle, key: string): number | null {
@@ -81,9 +95,9 @@ export function chronicle(battle: Battle): Chronicle {
   const all = snapshots.map((s) => frames(s.steps, s.presence));
 
   // Beats, and the beat of each (segment, history position).
-  const beats: Beat[] = [];
+  let beats: Beat[] = [];
   const at = snapshots.map(() => new Map<number, number>());
-  const pulseBeat: (number | null)[] = branches.map(() => null);
+  let pulseBeat: (number | null)[] = branches.map(() => null);
   // Without a snapshot for every use, only what stands is replayed (as the last segment).
   for (const k of complete ? snapshots.keys() : [P]) {
     const { steps } = snapshots[k];
@@ -149,6 +163,21 @@ export function chronicle(battle: Battle): Chronicle {
     });
   });
   entries.sort((x, y) => x.segment - y.segment || Number(x.pos === Infinity) - Number(y.pos === Infinity) || x.item.t - y.item.t || (x.pos ?? 1e9) - (y.pos ?? 1e9) || x.order - y.order);
+
+  // Still beats (nothing to animate) are not steps of the replay: leave them out, renumber the rest, and point every
+  // index that was at a removed beat at the next one kept.
+  const removed = stillBeats(beats, actionKinds(entries.map((e) => e.item)), actingBeats(entries.map((e) => e.item)));
+  if (removed.size) {
+    const to = renumber(removed, beats.length);
+    const move = (i: number | null | undefined) => (i == null ? i : to[i]);
+    for (const { item } of entries) {
+      if (item.beat != null && removed.has(item.beat)) item.rehomed = true;
+      item.beat = move(item.beat);
+      item.undoneAt = move(item.undoneAt);
+    }
+    pulseBeat = pulseBeat.map((b) => move(b) as number | null);
+    beats = beats.filter((_, i) => !removed.has(i)).map((b, i) => ({ ...b, step: { ...b.step, step: i } }));
+  }
 
   // Turns for what has none (level-ups...): the turn of what came before.
   let turn: number | null = null;

@@ -16,7 +16,9 @@ import { plural } from "../../format";
 import { clock } from "../../format";
 import { hpShare, Item } from "./model";
 import { Action, Board, boardAt, boardNow, Frame, stepAction, stepLabel, turnStarts } from "./map";
-import type { Beat, Chronicle } from "./chronicle";
+import { actionKinds, type Beat, type Chronicle } from "./chronicle";
+import { abilityIconUrl, artIconUrl, itemIconUrl, spellIconUrl } from "../../reference/icons";
+import { actingBeats, beatLabels, type LabelIcons, type MapLabel } from "./replayLabels";
 import { BattleNavContext, KeyNumber, keyNumbers, teamNumber } from "./parts";
 import type { Team, TeamCount } from "./marks";
 
@@ -72,7 +74,7 @@ export interface StepAnimation {
   elapsed: number;
 }
 
-function timing(before: Board, after: Board, action: Action | null, phaseStart: boolean, speed: number): Timing {
+function timing(before: Board, after: Board, action: Action | null, phaseStart: boolean, speed: number, labelled = false): Timing {
   const was = new Map(before.pieces.map((p) => [p.id, p]));
   const now = new Set(after.pieces.map((p) => p.id));
   let tiles = 0;
@@ -87,7 +89,7 @@ function timing(before: Board, after: Board, action: Action | null, phaseStart: 
   }
   const scale = 1 / speed;
   const move = tiles ? Math.min(MOVE_MS.most, MOVE_MS.base + MOVE_MS.tile * tiles) * scale : 0;
-  const act = move + (action && action.kind !== "none" ? ACT_MS * scale : 0);
+  const act = move + ((action && action.kind !== "none") || labelled ? ACT_MS * scale : 0);
   const fade = act + (fades ? FADE_MS * scale : 0);
   return { move, act, fade, total: fade + (phaseStart ? PHASE_HOLD_MS : HOLD_MS) * scale };
 }
@@ -127,15 +129,14 @@ export interface Rewind {
   badge: number;
 }
 
-/** Which beats attacked and which healed (for the arrows on the map). */
-function actionKinds(chron: Chronicle): Map<number, "attack" | "heal"> {
-  const result = new Map<number, "attack" | "heal">();
-  for (const item of chron.items) {
-    if (item.beat == null) continue;
-    if (item.kind === "attack") result.set(item.beat, "attack");
-    else if ((item.kind === "heal" || item.kind === "item") && !result.has(item.beat)) result.set(item.beat, "heal");
-  }
-  return result;
+/** The game's icons for the names on the map's labels. */
+const LABEL_ICONS: LabelIcons = { art: artIconUrl, spell: spellIconUrl, item: itemIconUrl, ability: abilityIconUrl };
+
+/** How visible the labels of a beat being animated are (0-1): they fade in as its action plays and hold to its end. */
+export function labelOpacity(animation: StepAnimation | null): number {
+  if (!animation) return 1;
+  const { timing: t, elapsed } = animation;
+  return Math.max(0, Math.min(1, (elapsed - t.move) / Math.max(120, (t.act - t.move) * 0.4)));
 }
 
 /** How long each beat takes when played (ms), at `speed`: its animation, or the hold of a beat with none to play. */
@@ -143,12 +144,13 @@ export function beatDurations(battle: Battle, chron: Chronicle, speed: number): 
   const { beats } = chron;
   const steps = beats.map((b) => b.step);
   const all = beats.map((b) => b.frame);
-  const kinds = actionKinds(chron);
+  const kinds = actionKinds(chron.items);
+  const labelled = actingBeats(chron.items);
   const boards = all.map((f) => boardAt(battle, f));
   return beats.map((beat, i) => {
     if (beat.pulse !== null) return rewindPlan(battle, beat, speed).total;
     if (i === 0) return PHASE_HOLD_MS / speed;
-    return timing(boards[i - 1], boards[i], stepAction(steps, all, i, kinds), !steps[i]?.actor, speed).total;
+    return timing(boards[i - 1], boards[i], stepAction(steps, all, i, kinds), !steps[i]?.actor, speed, labelled.has(i)).total;
   });
 }
 
@@ -157,7 +159,7 @@ export function beatFocus(battle: Battle, chron: Chronicle): [number, number][][
   const { beats } = chron;
   const steps = beats.map((b) => b.step);
   const all = beats.map((b) => b.frame);
-  const kinds = actionKinds(chron);
+  const kinds = actionKinds(chron.items);
   let last: [number, number][] = [];
   return beats.map((_, i) => {
     const follow = followed({ cursor: null, action: stepAction(steps, all, i, kinds), board: boardAt(battle, all[i]) });
@@ -181,7 +183,8 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const { beats, pulses } = chron;
   const steps = useMemo(() => beats.map((b) => b.step), [beats]);
   const all = useMemo(() => beats.map((b) => b.frame), [beats]);
-  const kinds = useMemo(() => actionKinds(chron), [chron]);
+  const kinds = useMemo(() => actionKinds(chron.items), [chron]);
+  const acting = useMemo(() => actingBeats(chron.items), [chron]);
   const turns = useMemo(() => turnStarts(steps), [steps]);
   // The beat shown (an index into beats), or null for where things stand now.
   const [position, setAt] = useState<number | null>(null);
@@ -202,8 +205,8 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const anim = useMemo(() => {
     if (!running || at === null || at === 0 || plan) return null;
     const before = boardOf(at - 1);
-    return { before, action, timing: timing(before, board, action, !steps[at]?.actor, speed) };
-  }, [running, at, board, action, speed, plan]); // eslint-disable-line react-hooks/exhaustive-deps
+    return { before, action, timing: timing(before, board, action, !steps[at]?.actor, speed, acting.has(at)) };
+  }, [running, at, board, action, speed, plan, acting]); // eslint-disable-line react-hooks/exhaustive-deps
   // How long the beat being animated takes (null: nothing to animate).
   const total = plan ? plan.total : anim ? anim.timing.total : null;
 
@@ -295,7 +298,21 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const rewinding = plan ? rewindAt(plan, elapsed, speed) : null;
   const animation: StepAnimation | null = rewinding ? rewinding.animation : anim ? { ...anim, elapsed } : null;
   const rewind: Rewind | null = rewinding ? { badge: rewinding.badge } : null;
-  return { steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, cursor, go, seek, seeks, next, play, pose, label, detail, army };
+  // The condensed labels of the beat shown, on the units they are about.
+  const labels = useMemo<MapLabel[]>(() => {
+    if (at === null || beats[at]?.pulse != null) return [];
+    const made = beatLabels(chron.items, at, LABEL_ICONS);
+    // A unit the action took off the map (a defeated target) keeps its label where it stood.
+    const here = new Set(board.pieces.filter((p) => !p.down).map((p) => p.id));
+    if (made.every((l) => here.has(l.unit)) || at === 0) return made;
+    const before = new Map(boardOf(at - 1).pieces.map((p) => [p.id, p]));
+    return made.map((l) => {
+      const p = here.has(l.unit) ? null : before.get(l.unit);
+      return p ? { ...l, at: { x: p.x, y: p.y, span: p.span } } : l;
+    });
+  }, [chron, beats, at, board]); // eslint-disable-line react-hooks/exhaustive-deps
+  const labelsShown = labelOpacity(animation);
+  return { steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, labels, labelsShown, cursor, go, seek, seeks, next, play, pose, label, detail, army };
 }
 
 export type Replay = ReturnType<typeof useReplay>;

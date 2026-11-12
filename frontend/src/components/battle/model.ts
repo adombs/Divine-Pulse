@@ -125,6 +125,9 @@ export interface Item {
    * item is not from the chronology), and every beat of a merged double hit. */
   beat?: number | null;
   beats?: number[];
+  /** Its own beat was still (animated nothing) and left out of the replay: `beat` is the next one that is kept. It
+   * shows no labels on the map and plays no arrow. */
+  rehomed?: boolean;
   /** Which Divine Pulse (0 for the first) turned this back, and the beat that use is (null: not on the replay). */
   undoneBy?: number | null;
   undoneAt?: number | null;

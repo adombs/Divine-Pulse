@@ -19,6 +19,8 @@
 - Repeated battles: a warning beside Back lists one-time battles you saved more than once so you can keep one. Settings > General > Repeated battles: Keep Best (keeps the most complete copy), Keep Latest (keeps the newest), both with Undo, or Ask.
 - A banner on every page says when your game files need reprocessing, and the app says reprocess (from the same dump), not re-import.
 - Check for updates when the app starts: a banner says when a newer version is out, with a link to download it. Settings > General > Check for updates on startup turns it off.
+- The replay skips steps that show nothing (a phase starting, a unit waiting), so it no longer seems to stall.
+- The replay labels each action on the map: the damage dealt and taken, healing, and the combat art, spell, item or gambit used, with its icon.
 
 ## 1.4.2 (2026-11-10)
 

@@ -711,6 +711,8 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, route
           board={replay.board}
           action={replay.action}
           animation={replay.animation}
+          labels={replay.labels}
+          labelsShown={replay.labelsShown}
           label={`The battle map at ${replay.label}`}
           zoom={zoom}
           onWheelAt={onWheelAt}
