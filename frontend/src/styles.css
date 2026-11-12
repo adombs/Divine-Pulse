@@ -1285,6 +1285,13 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-trail-head { fill: var(--tone); stroke: var(--tone); stroke-width: 0.05; stroke-linejoin: round; }
 .map-act { pointer-events: none; color: var(--tone, var(--ink-soft)); filter: drop-shadow(0 0.5px 1.2px rgb(0 0 0 / 0.5)); }
 .map-act circle { fill: color-mix(in srgb, var(--tone, var(--ink-soft)) 14%, var(--paper)); stroke: var(--tone, var(--ink-soft)); stroke-width: 0.03; }
+/* The replay's condensed labels (Minimap.tsx MapLabels): pills in screen pixels, damage in the attack colour, healing in the heal colour. */
+.map-label { pointer-events: none; --tone: var(--ink-soft); color: var(--tone); filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.45)); }
+.map-label.attack { --tone: var(--red); }
+.map-label.heal { --tone: var(--green); }
+.map-label rect { fill: color-mix(in srgb, var(--tone) 12%, var(--paper)); stroke: var(--tone); stroke-width: 1px; }
+.map-label text { fill: var(--ink); font: 700 12px var(--nums); font-variant-numeric: tabular-nums lining-nums; dominant-baseline: central; }
+.map-label text .value { fill: var(--tone); }
 .map-caption { margin-top: 0.3rem; }
 
 .map-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; margin: 0.35rem 0 0; }
