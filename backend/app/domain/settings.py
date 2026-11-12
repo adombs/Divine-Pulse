@@ -10,6 +10,8 @@ DEFAULT_BATTLE_INTERVAL = 0.1
 WindowMode = Literal["windowed", "fullscreen"]
 # Where the game is read from: Eden (the emulator) or FE3H Recomp (the native Windows recompilation).
 MemoryReader = Literal["eden", "recomp"]
+# What to do with another copy of a one-time battle in a run: keep the best copy automatically, or ask.
+DuplicateBattles = Literal["keep_best", "ask"]
 GameLanguage = Literal["JP", "ENG_E", "ENG_U", "GER", "FRA_E", "FRA_U", "ESP_E", "ESP_U", "ITA", "KOR", "TWN", "CHN"]
 GAME_LANGUAGES = tuple(GameLanguage.__args__)
 
@@ -39,3 +41,4 @@ class Settings(BaseModel):
     window: WindowGeometry | None = None
     window_mode: WindowMode = "windowed"
     memory_reader: MemoryReader = "eden"
+    duplicate_battles: DuplicateBattles = "keep_best"

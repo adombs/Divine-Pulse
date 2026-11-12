@@ -11,7 +11,7 @@ from typing import Annotated
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from ..domain.text import clean_text
-from ..domain.settings import MemoryReader, WindowMode
+from ..domain.settings import DuplicateBattles, MemoryReader, WindowMode
 from ..domain.ebst import OTHER_KEYS, EbstType, ordered_others
 
 
@@ -43,6 +43,15 @@ class GameDumpIn(Body):
 
 class RunName(Body):
     name: _text(60, what="Run name")  # type: ignore[valid-type]
+
+
+class DuplicatesResolveIn(Body):
+    keep: str = Field(max_length=100)
+    discard: list[str] = Field(max_length=1000)
+
+
+class RestoreIn(Body):
+    ids: list[str] = Field(max_length=1000)
 
 
 class DeadIn(Body):
@@ -79,6 +88,7 @@ class SettingsIn(Body):
     max_recordings: int | None = Field(None, ge=0, le=1000)
     window_mode: WindowMode | None = None
     memory_reader: MemoryReader | None = None
+    duplicate_battles: DuplicateBattles | None = None
 
 
 def describe_errors(errors: list[dict]) -> str:

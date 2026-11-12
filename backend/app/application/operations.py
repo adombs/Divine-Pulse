@@ -10,11 +10,12 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from ..domain import deaths
+from ..domain import deaths, duplicates
 from ..domain.text import normalize
 from ..domain.ebst import EbstConfig
 from ..domain.runs import Run, RunSummary
 from ..domain.units import Unit
+from .death_links import relink_deaths
 from .ports import (
     BattleRepository,
     EventPublisher,
@@ -44,6 +45,10 @@ class BattleMissing(OperationError):
     pass
 
 
+class DuplicateInvalid(OperationError):
+    pass
+
+
 class RunNameTaken(OperationError):
     def __init__(self, name: str):
         self.name = name
@@ -67,6 +72,7 @@ class BackendOperations:
     version: str
     window: WindowOperations | None = None
     route_resolver: Callable[[Battle], str | None] | None = None
+    quest_battles: frozenset[int] = frozenset()
 
     def _unique_name(self, name: str, run_id: str | None = None) -> None:
         taken = next(
@@ -223,6 +229,40 @@ class BackendOperations:
             raise BattleMissing from exc
         self.events.publish("battle", {"active": self.scanner.current_battle() is not None, "history": True})
 
+    def duplicate_groups(self, run_id: str) -> dict[str, Any]:
+        self._require_run(run_id)
+        history = self.battles.list(run_id)
+        return {"groups": [_group_out(group) for group in duplicates.groups(history, self.quest_battles)]}
+
+    def resolve_duplicates(self, run_id: str, keep: str, discard: list[str]) -> dict[str, Any]:
+        """Keep one copy of a battle and set the other copies aside."""
+        self._require_run(run_id)
+        known = {b.id for b in self.run_battles(run_id)}
+        if keep in discard:
+            raise DuplicateInvalid("The battle to keep can't also be discarded.")
+        if keep not in known or any(i not in known for i in discard):
+            raise DuplicateInvalid("A battle is not in this run's history.")
+        self.battles.discard(run_id, discard)
+        relink_deaths(self.runs, run_id, self.battles.list(run_id), self.events)
+        self._history_changed()
+        return self.duplicate_groups(run_id)
+
+    def restore_battles(self, run_id: str, ids: list[str]) -> dict[str, Any]:
+        self._require_run(run_id)
+        self.battles.restore(run_id, ids)
+        relink_deaths(self.runs, run_id, self.battles.list(run_id), self.events)
+        self._history_changed()
+        return self.duplicate_groups(run_id)
+
+    def _require_run(self, run_id: str) -> None:
+        try:
+            self.runs.get(run_id)
+        except MissingRecord as exc:
+            raise RunMissing from exc
+
+    def _history_changed(self) -> None:
+        self.events.publish("battle", {"active": self.scanner.current_battle() is not None, "history": True})
+
     def export_run(self, run_id: str) -> dict[str, Any]:
         try:
             run = self.runs.get(run_id)
@@ -285,3 +325,25 @@ class BackendOperations:
 
     def open_data_folder(self) -> None:
         self.system.open_folder(self.data_dir)
+
+
+def _group_out(group: duplicates.DuplicateGroup) -> dict[str, Any]:
+    return {
+        "scenario": group.scenario,
+        "quest": group.quest,
+        "name": group.name,
+        "best": group.best.id,
+        "battles": [
+            {
+                "id": b.id,
+                "started_at": b.started_at.isoformat(),
+                "ended_at": b.ended_at.isoformat() if b.ended_at else None,
+                "seconds": b.seconds(),
+                "turn": b.turn or 0,
+                "enemies_defeated": b.enemies_defeated or 0,
+                "enemies_start": b.enemies_start,
+                "log_len": len(b.log),
+            }
+            for b in group.battles
+        ],
+    }

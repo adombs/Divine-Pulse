@@ -182,7 +182,7 @@ test("SSE parse and async failures are contained, reconnect stays native, and cl
   source.onerror();
   assert.deepEqual(connections, [true, false]);
   assert.equal(source.closed, false);
-  assert.equal(source.listeners.size, 6);
+  assert.equal(source.listeners.size, 7);
   cleanup();
   assert.equal(source.closed, true);
   assert.equal(source.listeners.size, 0);

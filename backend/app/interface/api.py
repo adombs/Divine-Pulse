@@ -12,13 +12,14 @@ from fastapi.responses import StreamingResponse
 from .. import __version__
 from ..application.operations import (
     BattleMissing,
+    DuplicateInvalid,
     OperationError,
     RunInBattle,
     RunMissing,
     RunNameTaken,
     UnitMissing,
 )
-from .inputs import DeadIn, EbstIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
+from .inputs import DeadIn, DuplicatesResolveIn, RestoreIn, EbstIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
 from ..domain.ebst import EbstConfig
 from ..domain.runs import RunSummary
 from ..domain.runs import Run
@@ -111,6 +112,8 @@ def _state(request: Request) -> RuntimeView:
 def _raise_http(exc: OperationError) -> NoReturn:
     if isinstance(exc, RunNameTaken):
         raise HTTPException(409, str(exc)) from exc
+    if isinstance(exc, DuplicateInvalid):
+        raise HTTPException(400, str(exc)) from exc
     if isinstance(exc, RunInBattle):
         raise HTTPException(400, str(exc)) from exc
     if isinstance(exc, RunMissing):
@@ -286,6 +289,21 @@ def import_battles(run_id: str, body: dict, request: Request) -> dict:
     except (ValidationError, TypeError, ValueError, KeyError) as exc:
         raise HTTPException(422, f"Invalid battles file: {exc}") from exc
     return {"added": _call(_state(request).operations.import_battles, run_id, battles)}
+
+
+@router.get("/runs/{run_id}/battles/duplicates")
+def duplicate_battles(run_id: str, request: Request) -> dict:
+    return _call(_state(request).operations.duplicate_groups, run_id)
+
+
+@router.post("/runs/{run_id}/battles/duplicates/resolve")
+def resolve_duplicates(run_id: str, body: DuplicatesResolveIn, request: Request) -> dict:
+    return _call(_state(request).operations.resolve_duplicates, run_id, body.keep, body.discard)
+
+
+@router.post("/runs/{run_id}/battles/restore")
+def restore_battles(run_id: str, body: RestoreIn, request: Request) -> dict:
+    return _call(_state(request).operations.restore_battles, run_id, body.ids)
 
 
 @router.delete("/runs/{run_id}/battles/{battle_id}")

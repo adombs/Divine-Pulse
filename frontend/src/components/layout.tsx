@@ -10,6 +10,7 @@ import { ScopeTag, type CharacterScope } from "./character/CharacterHero";
 import { Accordion, Collapse, NoAccordion, useDisclosure, useInAccordion } from "./disclosure";
 import { Icon, IconName } from "./Icon";
 import { useNav } from "../nav";
+import { DuplicateWarning } from "./DuplicateBattles";
 import { PopupActions, useInPopup } from "./CharacterPopup";
 
 export interface Tab<T extends string> {
@@ -43,6 +44,7 @@ export function PageHeader<T extends string>({
         right={
           <>
             {actions}
+            <DuplicateWarning />
             <BackButton />
           </>
         }

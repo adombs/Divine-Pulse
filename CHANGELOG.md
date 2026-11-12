@@ -3,6 +3,8 @@
 ## Unreleased
 
 - Warn at the top of every page when your game files were processed by an older version and need reprocessing (it was only shown in Settings > Game files). The app now says reprocess, not re-import, everywhere: it works from the same dump.
+- Find battles you fought more than once in a run (story chapters, paralogues, Cindered Shadows and quest battles; auxiliary battles can repeat). A warning beside Back lists the copies so you can keep one. Settings > General > Repeated battles: Keep Best keeps the most complete copy automatically, with Undo; Ask leaves the choice to you.
+- Remove Low HP from the map's legend.
 
 ## 1.4.3 (2026-11-10)
 

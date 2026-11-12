@@ -45,8 +45,10 @@ from ..inventory import EQUIPMENT, item_name
 from ..handlers import handle
 from ..application.roster_tracking import RosterUpdates
 from ..application.battle_tracking import BattleTracker
+from ..application.death_links import relink_deaths
+from .battle_data import quest_battles
 from .battle_support import DefaultBattleSupport
-from ..domain import deaths
+from ..domain import deaths, duplicates
 from ..domain.changes import UnitChange
 from ..domain.units import unit_key
 from ..storage import BattleStore, NotFound, RunStore
@@ -445,9 +447,33 @@ class Scanner:
         except Exception:
             log.exception("Could not save the battle")
             return
+        self._keep_best_copy(battle)
         # Read the roster again now the battle is filed, even if it hasn't changed: a unit that died in it can now be
         # linked to where it fell (see _detect_deaths).
         self._mem_applied = None
+
+    def _keep_best_copy(self, battle: Battle) -> None:
+        """With "keep best", a battle that is another copy of a one-time battle sets the weaker copies aside."""
+        try:
+            if self.settings.get().duplicate_battles != "keep_best":
+                return
+            group = duplicates.group_of(battle, self.battle_store.list(battle.run_id), quest_battles())
+            if group is None:
+                return
+            best = group.best
+            losers = [b.id for b in group.battles if b.id != best.id]
+            moved = self.battle_store.discard(battle.run_id, losers)
+            if not moved:
+                return
+            relink_deaths(self.store, battle.run_id, self.battle_store.list(battle.run_id), self.events)
+            self.events.publish("battle", {"active": False, "history": True})
+            self.events.publish(
+                "duplicate_battles",
+                {"run_id": battle.run_id, "name": group.name, "kept": best.id, "kept_turn": best.turn or 0,
+                 "discarded": moved},
+            )
+        except Exception:
+            log.exception("Could not settle the duplicate battles")
 
     def _sample_battle(self, snapshot: Snapshot, run_id: str) -> BattleSample:
         """The army units in the battle (on-screen values) and the other units on the map."""

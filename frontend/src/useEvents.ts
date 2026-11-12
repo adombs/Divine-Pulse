@@ -26,6 +26,7 @@ export function useEvents(handlers: EventHandlers): boolean {
       runs_changed: (data) => ref.current.runs_changed?.(data),
       auto: (data) => ref.current.auto?.(data),
       battle: (data) => ref.current.battle?.(data),
+      duplicate_battles: (data) => ref.current.duplicate_battles?.(data),
     }, setConnected);
     return () => { source.removeEventListener("game_assets", gameAssets); unsubscribe(); };
   }, []);
