@@ -1,5 +1,5 @@
 import { CONCEPT_ICON } from "../icons/concepts";
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { api, Battle, RunSummary } from "../api";
 import { ToastState } from "./Toasts";
 import { Icon, IconButton } from "./Icon";
@@ -9,6 +9,7 @@ import { plural } from "../format";
 import { MAX_LEN, cleanText, runNameError } from "../validation";
 import { DetailCard, EmptyState, Facts, ListRow, MasterDetail, PageHeader, RowList, StatusChip } from "./layout";
 import { BattleFacts, BattleKindChip, RunTotals } from "./battle/BattleList";
+import { countedBattles } from "./battle/rosterRule";
 import { RunTransfer } from "./RunTransfer";
 import "./runs.css";
 
@@ -105,6 +106,8 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
   const [battles, setBattles] = useState<Battle[] | null>(null);
   const [battleError, setBattleError] = useState(false);
   const [battleRetry, setBattleRetry] = useState(0);
+  // The run's roster: a guest's numbers count in the totals only once its key is on it (unknown: none counts).
+  const [rosterKeys, setRosterKeys] = useState<ReadonlySet<string> | null>(null);
   const renameError = renaming !== null ? runNameError(renaming, runs, run) : null;
 
   useEffect(() => {
@@ -116,6 +119,17 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
     );
     return () => { cancelled = true; };
   }, [run.id, run.updated_at, battleRetry]);
+
+  useEffect(() => {
+    let cancelled = false;
+    setRosterKeys(null);
+    api.units(run.id).then(
+      (units) => { if (!cancelled) setRosterKeys(new Set(units.map((u) => u.key))); },
+      () => { if (!cancelled) setRosterKeys(new Set()); },
+    );
+    return () => { cancelled = true; };
+  }, [run.id, run.updated_at]);
+  const counted = useMemo(() => (battles && rosterKeys ? countedBattles(battles, rosterKeys) : null), [battles, rosterKeys]);
 
   const fail = (title: string) => (e: unknown) => toasts.push({ kind: "error", title, body: (e as Error).message });
 
@@ -140,7 +154,7 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
     }
   };
 
-  const latest = battles?.slice(0, 3) ?? [];
+  const latest = counted?.slice(0, 3) ?? [];
   return (
     <DetailCard
       title={run.name}
@@ -196,7 +210,7 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
           <p className="muted">No battles recorded in this run. They're recorded while reading game memory with auto mode on.</p>
         ) : (
           <>
-            <RunTotals battles={battles} />
+            {counted && <RunTotals battles={counted} />}
             <ul className="run-battles">
               {latest.map((b) => (
                 <li key={b.id}>

@@ -16,6 +16,7 @@ import { useNav } from "../../nav";
 import { Board, boardNow, hasMap } from "./map";
 import { isLost } from "./marks";
 import { Minimap, Zoom } from "./Minimap";
+import { countedBattle } from "./rosterRule";
 import { battleName, KINDS, KIND_LABEL, KIND_PLURAL, routeOf, searchText, type Kind } from "./scenarios";
 import "./battle-filters.css";
 import "./battle-kinds.css";
@@ -50,12 +51,12 @@ function partOf(b: Battle): "1" | "2" | undefined {
   return routeOf(b) ? "2" : undefined;
 }
 
-function passes(f: BattleFilters, b: Battle): boolean {
+function passes(f: BattleFilters, b: Battle, keys: ReadonlySet<string>): boolean {
   if (f.kinds.length) {
     const kind = battleName(b).kind;
     if (!kind || !f.kinds.includes(kind)) return false;
   }
-  if (f.flawless && lost(b) > 0) return false;
+  if (f.flawless && lost(countedBattle(b, keys)) > 0) return false;
   if (f.pulse !== "any" && (b.divine_pulses > 0) !== (f.pulse === "yes")) return false;
   if (f.part !== "any" && partOf(b) !== f.part) return false;
   return true;
@@ -80,6 +81,7 @@ interface Props {
 }
 
 export function BattleCards({ history, live, roster, part2, onOpenRecording, onStats }: Props) {
+  const rosterKeys = useMemo(() => new Set(roster.keys()), [roster]);
   const [query, setQuery] = useState("");
   const [filters, setFilters] = useState<BattleFilters>(NO_BATTLE_FILTERS);
   const [sort, setSort] = useState<Sort>("newest");
@@ -98,7 +100,7 @@ export function BattleCards({ history, live, roster, part2, onOpenRecording, onS
   const count = filters.kinds.length + (filters.flawless ? 1 : 0) + (filters.pulse !== "any" ? 1 : 0) + (filters.part !== "any" ? 1 : 0);
   const narrowed = words.length > 0 || count > 0;
   const matches = history
-    .filter((b) => passes(filters, b) && words.every((w) => searchText(b).includes(w)))
+    .filter((b) => passes(filters, b, rosterKeys) && words.every((w) => searchText(b).includes(w)))
     .sort((a, b) => compare(sort, a, b));
   const reset = () => {
     setQuery("");
@@ -219,7 +221,10 @@ function BattleCard({
 }) {
   const nav = useNav();
   const name = battleName(b);
-  const fell = lost(b);
+  // Counts and faces are your army's as statistics see it (a guest not on the roster is left out); the map is the battle.
+  const keys = useMemo(() => new Set(roster.keys()), [roster]);
+  const counted = useMemo(() => countedBattle(b, keys), [b, keys]);
+  const fell = lost(counted);
   const tone = live ? "live" : name.kind ?? "unknown";
   const open = () => {
     onOpened?.();
@@ -229,7 +234,7 @@ function BattleCard({
       nav.go({ page: "battle", id: b.id });
     }
   };
-  const deployed = b.units.filter((u) => !u.adjutant_of);
+  const deployed = counted.units.filter((u) => !u.adjutant_of);
   return (
     <li className={`battle-card ${tone}`}>
       <div className="bc-thumb">
@@ -250,7 +255,7 @@ function BattleCard({
           <Stat label="Turns" value={b.turn ?? "—"} />
           <Stat label="Time" value={clock(b.seconds)} />
           <Stat label="Killed" value={b.enemies_defeated ?? "—"} />
-          <Stat label="Lv-ups" value={b.level_ups} />
+          <Stat label="Lv-ups" value={counted.level_ups} />
         </dl>
         {(b.divine_pulses > 0 || fell > 0) && (
           <p className="bc-flags">

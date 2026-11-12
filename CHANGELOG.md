@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Log every unit that fights on your side (the game's team 0) as one of your units, even before they join your army: their battles count toward their totals once they join, and carry over if they leave and come back. They don't appear on the Roster until the game puts them in your army. Saved battles are updated when loaded.
+- Log every unit that fights on your side (the game's team 0) as one of your units, even before they join your army. Their battles count toward any statistics only once they're in your army, then carry over if they leave and come back; one who never joins doesn't count at all and never appears on the Roster. Saved battles are updated when loaded.
 - Show those units' portraits on the battle cards.
 - Use the game's names for the armies everywhere: Your Units, Enemy Units, Ally Units and Third Army.
 - The map's legend always lists every army, and its counts always show all of them and the killed, 0 included. Low HP is no longer in the legend or the counts.
