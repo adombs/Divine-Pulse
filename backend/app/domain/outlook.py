@@ -356,10 +356,29 @@ def _turn_outlook(battle: Battle, risks: list[dict]) -> dict:
         # What this unit's risk takes off, the others' kept (unclamped, so each shows even at the bottom of the scale).
         without = 0.0 if critical else survive / max(1e-9, 1 - r["death"])
         factors.append({"label": "Defeat risk", "points": round((survive - without) * 100, 1), "detail": _death_text(r)})
+    if not critical and not leaders:
+        factors.append({"label": "Safe", "points": 0.0, "detail": _safe_text(battle)})
     rest = [r for r in risks if not r["critical"]]
     if rest:
         factors.append({"label": "At risk", "points": 0.0, "detail": "; ".join(_death_text(r) for r in rest) + " · losing them doesn't lose the battle"})
     return {"chance": round(chance, 3), "confidence": "high", "factors": factors, "at_risk": risks}
+
+
+def _safe_text(battle: Battle) -> str:
+    """Why no unit whose loss loses the battle can fall this turn: "No enemy can bring down Byleth or a house leader
+    before your next turn: Byleth could take up to 18 of 27 HP (2 enemies), Edelgard is out of reach"."""
+    parts = []
+    for u in battle.units:
+        threat = battle.threats.get(u.key)
+        if u.key not in CRITICAL or not u.on_map or threat is None or u.hp is None:
+            continue
+        n = len(threat.attackers)
+        if n:
+            parts.append(f"{u.name} could take up to {threat.max_damage} of {u.hp} HP ({n} {'enemy' if n == 1 else 'enemies'})")
+        else:
+            parts.append(f"{u.name} is out of reach")
+    head = "No enemy can bring down Byleth or a house leader before your next turn"
+    return f"{head}: {', '.join(parts)}" if parts else head
 
 
 def outlook(battle: Battle) -> dict:

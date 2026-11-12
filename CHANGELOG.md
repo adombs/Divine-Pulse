@@ -26,6 +26,8 @@
 - The outlook is now the chance of getting through the turn without losing the battle: 100% minus the chance that Byleth or a house leader falls before your next turn. For each of your units it counts the most enemies that can reach it (walked through the terrain, one to each free tile around it) and every way their attacks can go (Hit against Avo, critical hits, doubling, the unit's counter). A unit that can't take enough damage to fall costs nothing however many can reach it, and other units at risk are listed without moving the chance. It is worked out at the start of the battle and when your phase ends, and holds in between. Without the game files imported it falls back to the previous estimate.
 - Enemies' reach in the outlook uses the game's terrain costs for how each unit moves (infantry, thieves, cavalry, mages, fliers, monsters): cavalry are slowed most by forest, thickets, sand and stairs, thieves cross forest for 1. Wasteland and swamp cost 1 on foot, not 2.
 - A Divine Pulse's rewind in the replay takes half the time each undone action took going forward at your replay speed, its action and pauses included (undone steps skipped their action and played much faster), and skips steps where nothing happens, as playing forward does.
+- The fight that wins the map is a step of the replay too (it was only in the log), and the unit it defeats shows on its row rather than as a line of its own, as for every other fight.
+- The outlook's "Why" always explains it: on a safe turn it says how much damage each of Byleth and the house leaders could take and from how many enemies.
 
 ## 1.4.2 (2026-11-10)
 
