@@ -80,9 +80,9 @@ export function GameFilesSection({ desktop }: { desktop: boolean }) {
         <strong>Game files are available</strong>
         <span className="hint">{[status.version, `${status.files ?? 0} files`, status.created && new Date(status.created).toLocaleString()].filter(Boolean).join(" \u00b7 ")}</span>
         <span className="hint">{status.dlc?.length ? status.dlc.map(dlcName).join(", ") : "No DLC"}</span>
-        {status.outdated && <div className="game-files-warning" role="alert"><Icon name={CONCEPT_ICON.warning} />Import again to update the game data.</div>}
+        {status.outdated && <div className="game-files-warning" role="alert"><Icon name={CONCEPT_ICON.warning} />Reprocess to update the game data.</div>}
         <div className="settings-actions">
-          <button type="button" className="btn" disabled={busy || running} onClick={() => setReimport(true)}>Re-import</button>
+          <button type="button" className="btn" disabled={busy || running} onClick={() => setReimport(true)}>Reprocess</button>
           <button type="button" className="btn" disabled={busy || running} onClick={() => action(async () => setVerification(await api.verifyGameFiles()))}>Check files</button>
           <button type="button" className="btn" disabled={busy || running} onClick={() => setConfirm(true)}>Remove</button>
         </div>

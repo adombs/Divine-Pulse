@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- Warn at the top of every page when your game files were imported by an older version and need importing again (it was only shown in Settings > Game files).
+- Warn at the top of every page when your game files were processed by an older version and need reprocessing (it was only shown in Settings > Game files). The app now says reprocess, not re-import, everywhere: it works from the same dump.
 
 ## 1.4.3 (2026-11-10)
 

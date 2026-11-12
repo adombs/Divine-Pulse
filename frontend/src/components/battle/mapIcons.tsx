@@ -36,7 +36,7 @@ export function WeaponGlyph({ kind, cx, cy, size }: { kind?: string | null; cx: 
   const glyph = useGameImageUrl(miniWeapon(kind));
   return glyph
     ? <image className="map-glyph" href={glyph} x={cx - size / 2} y={cy - size / 2} width={size} height={size} />
-    : <text x={cx} y={cy} className="game-asset-map-missing" data-asset-error="missing"><title>Weapon glyph unavailable; reimport game files.</title>?</text>;
+    : <text x={cx} y={cy} className="game-asset-map-missing" data-asset-error="missing"><title>Weapon glyph unavailable; reprocess your game files.</title>?</text>;
 }
 
 /** The battle minimap's own pieces (mini-*.png, from the game's minimap atlas): its weapon glyphs, terrain tiles,
@@ -213,7 +213,7 @@ export function spriteLayers(index: SpriteIndex, s: Sprite, named: boolean): Lay
 export function UnitSprite({ index, layers, side }: { index: SpriteIndex; layers: Layers; side: Side }) {
   const [w, h] = index.cell;
   const col = index.armies.indexOf(side);
-  if (col < 0) return <text className="game-asset-map-missing" data-asset-error="missing"><title>Army sprite unavailable; reimport game files.</title>?</text>;
+  if (col < 0) return <text className="game-asset-map-missing" data-asset-error="missing"><title>Army sprite unavailable; reprocess your game files.</title>?</text>;
   const top = 1 - h / w;
   const [hw, hh] = index.head_cell;
   const [hx, hy] = layers.mounted ? index.mounted_head_at : index.head_at;

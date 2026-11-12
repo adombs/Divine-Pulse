@@ -320,7 +320,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
           preserveAspectRatio="none"
         />
       ) : (
-        <text x={0} y={0.5} className="game-asset-map-missing" data-asset-error="missing">{terrain ? "Map image unavailable; reimport game files" : "Terrain not recorded"}</text>
+        <text x={0} y={0.5} className="game-asset-map-missing" data-asset-error="missing">{terrain ? "Map image unavailable; reprocess your game files" : "Terrain not recorded"}</text>
       )}
       {terrain && (
         <g className="map-terrain" shapeRendering="crispEdges">
@@ -533,7 +533,7 @@ const Token = memo(function Token({
           <UnitSprite index={sprites} layers={layers} side={army} />
         </g>
       ) : want !== "badges" && !face ? (
-        <g className="map-token unavailable" data-asset-error="missing"><title>{`${p.name}'s ${want === "sprites" ? "map sprite or portrait" : "portrait"} unavailable; reimport game files.`}</title><text x={0.5} y={0.5} className="game-asset-map-missing">?</text></g>
+        <g className="map-token unavailable" data-asset-error="missing"><title>{`${p.name}'s ${want === "sprites" ? "map sprite or portrait" : "portrait"} unavailable; reprocess your game files.`}</title><text x={0.5} y={0.5} className="game-asset-map-missing">?</text></g>
       ) : face ? (
         // A portrait: a rounded badge, a dark shade of the army's colour in a ring of it.
         <g className={`map-token ${army} portrait`}>

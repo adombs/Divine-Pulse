@@ -199,7 +199,7 @@ function BestUnitSprite({ unit, sprites }: { unit: BestUnit; sprites: SpriteInde
           <UnitSprite index={sprites} layers={layers} side="player" />
         </svg>
       )}
-      {(!sprites || !layers) && <span data-asset-error="missing" title="Map sprite unavailable; reimport game files.">Sprite unavailable</span>}
+      {(!sprites || !layers) && <span data-asset-error="missing" title="Map sprite unavailable; reprocess your game files.">Sprite unavailable</span>}
     </span>
   );
 }

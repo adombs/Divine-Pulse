@@ -6,7 +6,7 @@ const listeners = new Set<() => void>();
 export class RequiredGameAssetError extends Error {
   readonly path: string;
   constructor(path: string, message = "Required game file unavailable") {
-    super(`${message}: ${path}. Reimport your game files.`);
+    super(`${message}: ${path}. Reprocess your game files.`);
     this.name = "RequiredGameAssetError";
     this.path = path;
     reportAssetIssue(path, "unreadable");
