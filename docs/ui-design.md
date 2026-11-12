@@ -141,7 +141,7 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
   of Back, previews the two images it saves (an overview of each unit with BST, never eBST, as rows of cards as tall as the unit's
   portrait and stats, the rest flowing into columns beside them, units per row set beside the preview; run statistics) and the units to include, in slots laid out as many side by side as the overview (an empty row more at the
   end); a six-dot handle drags a unit to another slot, empty or not (they swap), and empty slots leave rows short. An Order menu above
-  them lays every unit out by BST, deployments, joining (first battle) or name; dragging makes it Custom.
+  them lays every unit out by BST, deployments, joining (first battle) or name; dragging makes it Custom. The images are as big as their content (Aspect ratio Auto) or padded out to 16:9, 1.91:1, 9:16 or 4:5 around it.
   Dead units are greyed in that list with the fell mark; an "Include fallen units" checkbox above it (only when someone is dead; on by
   default, remembered) puts them in both images greyed with the mark by their name, or leaves them out of both (the statistics follow the
   overview, and their Team totals count whoever is shown).

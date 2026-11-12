@@ -4,7 +4,8 @@
  * abilities, mastered classes and battalion as last read. Run statistics: each unit's combat and growth over the run's finished battles
  * (History's Character Stats, `buildRunLedger`) and its three most telling records.
  *
- * Both are drawn from the page itself (snapshot.ts), at 1.5 times their size here.
+ * Both are drawn from the page itself (snapshot.ts), at 1.5 times their size here. Each is as big as its content (Auto),
+ * or padded out to an aspect ratio (the video export's: 16:9, 1.91:1, 9:16, 4:5), the content in the middle.
  */
 import { CONCEPT_ICON } from "../icons/concepts";
 import "./team-export.css";
@@ -31,7 +32,7 @@ import { Modal } from "./Modal";
 import { CardBanner, Portrait, RunIcon, Segmented } from "./ui";
 import { StepSlider } from "./Slider";
 
-/** Each image's width on the page (CSS pixels); it is saved at its chosen size (SIZES) times that. */
+/** The run statistics image's least width on the page (CSS pixels); it is saved at its chosen size (SIZES) times its size. */
 const WIDTH = 1500;
 /** The image sizes offered: how many times the preview's size each image is saved at. */
 const SIZES: [number, string][] = [
@@ -40,6 +41,16 @@ const SIZES: [number, string][] = [
   [2, "L"],
   [3, "XL"],
 ];
+/** The images' shapes: as big as the content (auto), or padded out to a width over height. */
+type Aspect = "auto" | "16:9" | "1.91:1" | "9:16" | "4:5";
+const ASPECTS: [Aspect, string, string][] = [
+  ["auto", "Auto", "As big as the content"],
+  ["16:9", "16:9", "Padded out to 16:9"],
+  ["1.91:1", "1.91:1", "Padded out to 1.91:1"],
+  ["9:16", "9:16", "Padded out to 9:16"],
+  ["4:5", "4:5", "Padded out to 4:5"],
+];
+const ASPECT_RATIO: Record<Exclude<Aspect, "auto">, number> = { "16:9": 16 / 9, "1.91:1": 1.91, "9:16": 9 / 16, "4:5": 4 / 5 };
 const IMAGE_OPTIONS_KEY = "divine-pulse-export-team";
 
 /** The images' own options, remembered between exports: their size, and which of the two to save. */
@@ -51,13 +62,15 @@ interface ImageOptions {
   fallen: boolean;
   /** How a unit's face is drawn: its portrait or its map sprite. */
   face: ExportFace;
+  /** The images' shape. */
+  aspect: Aspect;
 }
 type ExportFace = "portrait" | "sprite";
 const FACES: [ExportFace, string][] = [
   ["portrait", "Portrait"],
   ["sprite", "Sprite"],
 ];
-const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, loadouts: true, stats: true, fallen: true, face: "portrait" };
+const DEFAULT_IMAGE_OPTIONS: ImageOptions = { size: 1.5, loadouts: true, stats: true, fallen: true, face: "portrait", aspect: "auto" };
 
 function loadImageOptions(): ImageOptions {
   try {
@@ -68,6 +81,7 @@ function loadImageOptions(): ImageOptions {
       stats: saved.stats !== false,
       fallen: saved.fallen !== false,
       face: FACES.some(([f]) => f === saved.face) ? saved.face! : DEFAULT_IMAGE_OPTIONS.face,
+      aspect: ASPECTS.some(([a]) => a === saved.aspect) ? saved.aspect! : DEFAULT_IMAGE_OPTIONS.aspect,
     };
   } catch {
     return DEFAULT_IMAGE_OPTIONS;
@@ -223,7 +237,7 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
               <Segmented size="mini" label="Overview preview" value={fullSize.overview ? "full" : "fit"} onChange={(v) => setFullSize((f) => ({ ...f, overview: v === "full" }))} options={[["fit", "Fit", "Shrink to the window"], ["full", "Full size", "As drawn, to read the details"]]} />
             </figcaption>
             <FitWidth actual={fullSize.overview}>
-              <TeamSheet ref={loadouts} run={run} units={chosen} title="Team Overview" className="team-sheet-loadouts">
+              <TeamSheet ref={loadouts} run={run} units={chosen} title="Team Overview" className="team-sheet-loadouts" width={900} aspect={options.aspect}>
                 <div className="team-rows">
                   {rows.map((row, r) => (
                     <div key={r} className="team-row">
@@ -239,8 +253,8 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
               Run statistics
               <Segmented size="mini" label="Run statistics preview" value={fullSize.stats ? "full" : "fit"} onChange={(v) => setFullSize((f) => ({ ...f, stats: v === "full" }))} options={[["fit", "Fit", "Shrink to the window"], ["full", "Full size", "As drawn, to read the details"]]} />
             </figcaption>
-            <FitWidth width={WIDTH} actual={fullSize.stats}>
-              <TeamSheet ref={stats} run={run} units={chosen} title="Team Run Statistics" note={ledger ? plural(ledger.battles.length, "finished battle") : undefined}>
+            <FitWidth actual={fullSize.stats}>
+              <TeamSheet ref={stats} run={run} units={chosen} title="Team Run Statistics" width={WIDTH} aspect={options.aspect} note={ledger ? plural(ledger.battles.length, "finished battle") : undefined}>
                 {ledger ? <StatsTable units={chosen} rows={ledger.rows} totals={ledger.totals.records} part2={part2} face={options.face} />
                   : <p className="muted">{loadError ?? "Reading the run's battles…"}</p>}
               </TeamSheet>
@@ -298,6 +312,10 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
               </label>
             </div>
             <div className="export-pairs">
+              <div className="wide team-choice">
+                <span className="field-label">Aspect ratio</span>
+                <Segmented<Aspect> label="Aspect ratio" value={options.aspect} onChange={(v) => setOption("aspect", v)} options={ASPECTS} />
+              </div>
               <div className="wide team-choice">
                 <span className="field-label">Size</span>
                 <Segmented<string> label="Image size" value={String(options.size)} onChange={(v) => setOption("size", Number(v))} options={SIZES.map(([k, label]) => [String(k), label] as const)} />
@@ -506,8 +524,8 @@ function UnitSlots({ slots, byKey, left, includeFallen, part2, columns, onToggle
   );
 }
 
-/** An image at its real width (`width`, or as wide as its content), scaled down to fit the preview's width. */
-function FitWidth({ width, actual, children }: { width?: number; actual?: boolean; children: ReactNode }) {
+/** An image at its real width (as wide as its content), scaled down to fit the preview's width. */
+function FitWidth({ actual, children }: { actual?: boolean; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<[number, number, number]>([0, 0, 0]);
@@ -522,19 +540,56 @@ function FitWidth({ width, actual, children }: { width?: number; actual?: boolea
   return (
     <div className={`team-export-room${actual ? " actual" : ""}`} ref={box}>
       <div className="team-export-fit" style={{ height: size[2] * k, width: size[1] * k || undefined }}>
-        <div ref={inner} style={{ width: width ?? "max-content", transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
+        <div ref={inner} style={{ width: "max-content", transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
       </div>
     </div>
   );
 }
 
-/** One image: the run's banner with the date and the credit, then its body. */
-function TeamSheet({ run, units, title, note, className, children, ref }: { run: RunSummary; units: Unit[]; title: string; note?: string; className?: string; children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
+/** The sheet's padding across (team-export.css `.team-sheet`), which its least width includes. */
+const SHEET_PAD_X = 56;
+
+/**
+ * The least size that holds `[w, h]` at a width-over-height `ratio` (null: `[w, h]` itself), whole pixels: the content
+ * keeps its size and the sheet grows around it, wider or taller.
+ */
+export function aspectSize([w, h]: [number, number], ratio: number | null): [number, number] {
+  if (!ratio || !w || !h) return [w, h];
+  return w / h < ratio ? [Math.ceil(h * ratio), h] : [w, Math.ceil(w / ratio)];
+}
+
+/**
+ * One image: the run's banner with the date and the credit, then its body, at least `width` wide. At an aspect ratio
+ * the sheet grows to it around its content, which stays in the middle at its own size (measured on its own, so the
+ * sheet's size never feeds back into it).
+ */
+function TeamSheet({ run, units, title, note, className, width, aspect, children, ref }: { run: RunSummary; units: Unit[]; title: string; note?: string; className?: string; width: number; aspect: Aspect; children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
   const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
+  const sheet = useRef<HTMLDivElement>(null);
+  const content = useRef<HTMLDivElement>(null);
+  // The sheet's size around its content (its padding added), as Auto draws it.
+  const [natural, setNatural] = useState<[number, number]>([0, 0]);
+  useLayoutEffect(() => {
+    const measure = () => {
+      const [s, c] = [sheet.current, content.current];
+      if (!s || !c) return;
+      const style = getComputedStyle(s);
+      const pad = (a: string, b: string) => parseFloat(style.getPropertyValue(a)) + parseFloat(style.getPropertyValue(b));
+      const next: [number, number] = [c.offsetWidth + pad("padding-left", "padding-right"), c.offsetHeight + pad("padding-top", "padding-bottom")];
+      setNatural((now) => (now[0] === next[0] && now[1] === next[1] ? now : next));
+    };
+    const observer = new ResizeObserver(measure);
+    if (content.current) observer.observe(content.current);
+    measure();
+    return () => observer.disconnect();
+  }, []);
+  const [w, h] = aspectSize(natural, aspect === "auto" ? null : ASPECT_RATIO[aspect]);
+  const forced = aspect !== "auto" && natural[0] > 0;
   return (
     // The picture is taken of the outer box, exactly the sheet's size.
     <div ref={ref} className="team-sheet-theme">
-      <div className={`team-sheet${className ? ` ${className}` : ""}`}>
+      <div ref={sheet} className={`team-sheet${className ? ` ${className}` : ""}`} style={forced ? { width: w, height: h } : undefined}>
+        <div ref={content} className="team-sheet-content" style={{ minWidth: width - SHEET_PAD_X }}>
         <header className="team-sheet-title">
           <CardBanner title={`${run.name} · ${title}`} icon={<RunIcon route={run.route} />} />
           <div className="team-sheet-meta">
@@ -543,6 +598,7 @@ function TeamSheet({ run, units, title, note, className, children, ref }: { run:
           </div>
         </header>
         {children}
+        </div>
       </div>
     </div>
   );

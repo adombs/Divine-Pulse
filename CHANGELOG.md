@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Export Team images can be saved at an aspect ratio: Auto (as big as the content, as before), 16:9, 1.91:1, 9:16 or 4:5, the content in the middle.
+
 ## 1.4.4 (2026-11-12)
 
 - Export Video can make 1.91:1 (2064 × 1080) and 4:5 (1080 × 1350) videos. Its choices are now named by aspect ratio: 16:9, 1.91:1, 9:16 and 4:5.
