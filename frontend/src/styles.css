@@ -1290,14 +1290,13 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; margin: 0.35rem 0 0; }
 .map-key { display: inline-flex; align-items: center; gap: 0.3rem; }
 .map-key::before { content: ""; display: inline-block; width: 0.7rem; height: 0.7rem; flex: none; }
-.map-key.ally::before, .map-key.foe::before, .map-key.low::before, .map-key.down::before, .map-key.wall::before { width: 0.85rem; height: 0.8rem; border-radius: 3px; background: var(--team-player); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.8); }
+.map-key.ally::before, .map-key.foe::before, .map-key.down::before, .map-key.wall::before { width: 0.85rem; height: 0.8rem; border-radius: 3px; background: var(--team-player); box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.8); }
 .map-key.foe::before { background: var(--team-enemy); }
 .map-key.team-ally::before, .map-key.team-third::before { width: 0.85rem; height: 0.8rem; border-radius: 3px; box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.8); }
 .map-key.team-ally::before { background: var(--team-ally); }
 .map-key.team-third::before { background: var(--team-third); }
 .map-key.wall::before { background: var(--map-wall) center / cover; box-shadow: none; }
 .map-key.down::before { filter: grayscale(1); opacity: 0.55; }
-.map-key.low::before { filter: drop-shadow(0 0 2px rgb(255 70 50 / 0.95)); }
 /* The replay's marks: the map's badges, the log's icons on a tinted chip. */
 .map-key.act::before { display: none; }
 .map-key.act .icon {
@@ -1825,8 +1824,7 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .map-count.team-ally::before { background: var(--team-ally); }
 .map-count.team-third::before { background: var(--team-third); }
 .map-count.down::before { background: #6d655c; opacity: 0.7; }
-.map-count.low { font: 600 0.78rem var(--ui); color: var(--red); }
-.map-count.low::before { display: none; }
+.map-count.zero { opacity: 0.55; }
 .map-key-caret { margin-left: auto; font-size: 0.85rem; color: var(--ink-soft); transition: transform 0.25s ease; }
 .map-key-panel.open .map-key-caret { transform: rotate(180deg); }
 .map-key-hide, .map-key-show {
@@ -2029,3 +2027,15 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .range2-bar input[type="range"]::-moz-range-thumb { pointer-events: auto; cursor: pointer; box-sizing: border-box; width: var(--thumb); height: var(--h); border-radius: 3px; background: var(--accent); border: 1px solid var(--paper); }
 .range2-bar input[type="range"]:focus-visible { outline: none; }
 .range2-bar input[type="range"]:focus-visible::-webkit-slider-thumb { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Duplicate battles: the header warning and its list. */
+.duplicate-warning { color: var(--amber); border-color: currentColor; display: inline-flex; align-items: center; gap: 0.3rem; font-variant-numeric: tabular-nums; }
+.duplicate-modal { width: min(640px, 100%); }
+.duplicate-group + .duplicate-group { margin-top: 1rem; }
+.duplicate-group h3 { margin: 0 0 0.4rem; font: 700 1rem var(--ui); }
+.duplicate-copy { display: grid; grid-column: 1 / -1; grid-template-columns: subgrid; align-items: center; gap: 0.2rem 0.9rem; padding: 0.35rem 0.6rem; background: var(--row); border: 1px solid var(--row-border); cursor: pointer; }
+.duplicate-group [role="radiogroup"] { display: grid; grid-template-columns: auto 1fr auto auto auto; row-gap: 0.25rem; }
+.duplicate-copy.selected { border-color: var(--accent); }
+.duplicate-when { display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
+.duplicate-num { text-align: right; font-variant-numeric: tabular-nums; }
+.duplicate-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.6rem; margin-top: 0.4rem; }

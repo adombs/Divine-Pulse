@@ -42,7 +42,7 @@ const HEAL: Series = { label: "Restored", color: "var(--heal)" };
 const HEALED: Series = { label: "Received", color: "var(--healed)" };
 const WALK: Series = { label: "Tiles", color: "var(--walk)" };
 const FIGHTS: Series = { label: "Fights", color: "var(--accent)" };
-const YOURS: Series = { label: "Yours", color: "var(--dealt)" };
+const YOURS: Series = { label: "Your Units", color: "var(--dealt)" };
 const THEIRS: Series = { label: "Theirs", color: "var(--taken)" };
 
 interface View {
@@ -221,7 +221,7 @@ function RunCards({ battle, history, children }: { battle: Battle; history: Batt
             female={unit?.female}
             icon={<HouseMark id={id} />}
             onOpen={(battleId, at) => { setKey(null); go({ page: "battle", id: battleId, q: at }); }}
-            onRoster={parent.ebstConfig?.(c.key) ? () => go({ page: "roster", id: c.key }) : undefined}
+            onRoster={parent.onRoster?.(c.key) ? () => go({ page: "roster", id: c.key }) : undefined}
             onThisBattle={battle.units.some((u) => u.key === c.key) ? () => { setKey(null); parent.open(id); } : undefined}
           />
         )}

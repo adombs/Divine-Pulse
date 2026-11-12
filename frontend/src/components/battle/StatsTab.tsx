@@ -7,6 +7,7 @@ import type { Battle, Unit } from "../../api";
 import { compareValues, useSort } from "../common";
 import { MasterDetail, Section } from "../layout";
 import { characterKeyOfUnit } from "../../portraits";
+import { onRoster } from "../../roster";
 import { isFemale } from "../../reference/types";
 import { useNav } from "../../nav";
 import { Portrait } from "../ui";
@@ -176,7 +177,7 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
               female={isFemale(unit?.gender)}
               icon={popupIcon}
               onOpen={onOpen}
-              onRoster={unit ? () => nav.go({ page: "roster", id: unit.key }) : undefined}
+              onRoster={unit && onRoster(unit) ? () => nav.go({ page: "roster", id: unit.key }) : undefined}
             />
           );
         })()}

@@ -65,7 +65,7 @@ function themeAudio(theme: Track): Promise<AudioBuffer> {
   if (!found) {
     found = (async () => {
       const response = await fetch(gameAssetUrl(theme.file));
-      if (!response.ok) throw new Error(`The music file ${theme.file} couldn't be read (${response.status}). Re-import your game files.`);
+      if (!response.ok) throw new Error(`The music file ${theme.file} couldn't be read (${response.status}). Reprocess your game files.`);
       const bytes = await response.arrayBuffer();
       const context = new OfflineAudioContext(theme.channels || 2, 1, theme.rate || 48000);
       return context.decodeAudioData(bytes);

@@ -38,11 +38,33 @@ alive although the game marks it dead. Runs saved before these fields load with 
 unknown run or unit. The tracker takes deaths from the game's "Is Dead" roster flag, as `backend/app/domain/deaths.py`
 describes.
 
+Each unit also carries `in_army` (whether the game's roster slot had the in-army flag at the last complete read between
+battles; older runs and units with no game ID are true) and `on_roster` (`in_army` or `death` is set): the Roster shows
+only units with `on_roster`. A unit that left the army alive is never deleted from the list: it keeps its eBST setup,
+death info and battles, and is on the Roster again when the game has it back. Consumers about history (battle statistics,
+History, who has ever joined a run, route and house detection, best unit) use every unit; the Roster page, Team Export,
+the Roster links and the runs' `unit_count` use `on_roster`. The tracker sets `in_army` as
+`backend/app/domain/membership.py` describes.
+
 ## Battle
 
 Battle `enemy_stats` entries include `person_id`, the person-data row for named and generic units, or null when unavailable. Older saved battles without the field load with null.
 
 Battle `units` and `enemy_stats` entries include `allegiance`, the faction ID on the unit's battle record (`data/factions.json`), read on every poll so a reveal that changes it shows during the battle; null when not read. Older saved battles without the field load with null.
+
+Battle `units` entries include `guest` (default false): the unit was on your side (team 0) in that battle without being in your army's roster. It is logged as one of your units (`a:<key>` ids in the log, events and map) but is never a run unit, a roster entry or a death; its battle statistics count only when its `key` is one of the run's units (it joined your army). Older saved battles that kept such units in `enemy_stats` (side `player`, `e:<slot>`) are upgraded when loaded: they become guest `units` and every `e:<slot>` reference is rewritten to `a:<key>`.
+
+## Duplicate battles
+
+A battle's identity in a run is `(scenario, quest)`, the quest only when it is in `data/quest_battles.json`. Scenarios 61-85 that are not a battle quest are repeatable and never grouped; scenarios 95, 96, 98, 99 and unset ones are ignored; every other battle is one-time, and two or more copies form a duplicate group (`domain/duplicates.py`). The setting `duplicate_battles` (`"keep_best"` default, or `"ask"`, in `GET/PUT /api/settings`) decides what happens when a battle is filed: with `keep_best` the weaker copies move to `data/battles/<run id>.discarded.json` (ranked by won, enemies defeated, turn, log length, id; `won` is `enemies_start > 0 and enemies_now == 0`), with `ask` nothing happens. Groups that exist are listed in both modes.
+
+| Route / event | Contract |
+| --- | --- |
+| `GET /api/runs/{run_id}/battles/duplicates` | 200 `{groups: [{scenario, quest, name, best, battles: [{id, started_at, ended_at, seconds, turn, enemies_defeated, enemies_start, log_len}]}]}`; copies newest first, groups by scenario; 404 for an unknown run |
+| `POST /api/runs/{run_id}/battles/duplicates/resolve` `{keep, discard: [id]}` | moves `discard` to the discarded file and returns `{groups}`; 404 unknown run; 400 if `keep` is in `discard` or an id is not in the run's history; 422 for a bad body |
+| `POST /api/runs/{run_id}/battles/restore` `{ids: [id]}` | moves those battles from the discarded file back into the history (ordered by id) and returns `{groups}`; unknown ids are ignored; 404 unknown run |
+| SSE `battle` `{active, history: true}` | published on every change to the history by these routes and by `keep_best` |
+| SSE `duplicate_battles` `{run_id, name, kept, kept_turn, discarded: [id]}` | published only when `keep_best` set copies aside |
 
 ## Game assets (imported from the user's dump)
 

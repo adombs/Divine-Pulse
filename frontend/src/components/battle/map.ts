@@ -300,11 +300,11 @@ export function describe(p: Piece, tile?: TerrainTile | null): string {
   return [p.name, p.class_name, state, `tile ${p.x}, ${p.y}`, tile ? describeTile(tile) : null].filter(Boolean).join(" · ");
 }
 
-const PHASE: Record<number, string> = { 0: "Player phase", 1: "Enemy phase" };
+const PHASE: Record<number, string> = { 0: "Player Phase", 1: "Enemy Phase" };
 
-/** "Turn 3 · Enemy phase": when a step happened. */
+/** "Turn 3 · Enemy Phase": when a step happened. */
 export function stepLabel(step: MapStep): string {
-  return `Turn ${step.turn} · ${PHASE[step.phase] ?? "Other phase"}`;
+  return `Turn ${step.turn} · ${PHASE[step.phase] ?? "Other Phase"}`;
 }
 
 /** What a step did on the map, for its arrows and animation: who acted, the tile it moved from (null if it didn't

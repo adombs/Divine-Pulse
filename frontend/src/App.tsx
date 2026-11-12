@@ -1,6 +1,6 @@
 import { CONCEPT_ICON } from "./icons/concepts";
 import { ErrorBoundary } from "./components/ErrorBoundary";
-import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { api, AutoStatus, Battle, type GameAssetsJob } from "./api";
 import { useEvents } from "./useEvents";
 import { useBootstrap } from "./useBootstrap";
@@ -9,10 +9,12 @@ import { Home } from "./components/Home";
 import { Icon } from "./components/Icon";
 import { Sidebar } from "./components/Sidebar";
 import "./components/sidebar-motion.css";
+import { DuplicateEvent, refreshDuplicates, restoreDuplicates, setDuplicateRun } from "./duplicateBattles";
 import { Toasts, useToasts } from "./components/Toasts";
 import { RunIcon, runIconUrl } from "./components/ui";
 import { PortraitPhaseContext, useAppearance } from "./appearance";
 import { showPart2 } from "./portraits";
+import { rosterUnits } from "./roster";
 import { NavProvider, Page, useNavState } from "./nav";
 import { PeopleFiltersContext, usePeopleFiltersState } from "./filters";
 import { gameAssetsAvailable, gameAssetUrl, loadGameAssetsStatus, onGameAssetsChange } from "./gameAssets";
@@ -176,6 +178,7 @@ export default function App() {
   const [battleVersion, setBattleVersion] = useState(0);
   const redirectedBattles = useRef(new Set<string>());
   useEffect(() => { void loadBattle(); }, [activeRunId, loadBattle]);
+  useEffect(() => { setDuplicateRun(activeRunId); }, [activeRunId]);
 
   const connected = useEvents({
     game_assets: (data) => updateImport((data as { job?: GameAssetsJob }).job ?? null),
@@ -189,7 +192,27 @@ export default function App() {
       // The history only changes when a battle ends or one is deleted, not on every update of the live battle.
       const d = data as { active?: boolean; history?: boolean } | null;
       if (!d?.active || d.history) setBattleVersion((v) => v + 1);
+      if (!d?.active || d.history) void refreshDuplicates();
       return refresh;
+    },
+    duplicate_battles: (data) => {
+      const d = data as DuplicateEvent | null;
+      if (!d || !Array.isArray(d.discarded)) return;
+      void refreshDuplicates();
+      setBattleVersion((v) => v + 1);
+      toasts.push({
+        kind: "info",
+        title: `Kept the turn ${d.kept_turn} copy of ${d.name}`,
+        ttl: 9000,
+        action: {
+          label: "Undo",
+          run: () => {
+            restoreDuplicates(d.run_id, d.discarded)
+              .then(() => setBattleVersion((v) => v + 1))
+              .catch((e) => toasts.push({ kind: "error", title: "Couldn't undo", body: (e as Error).message }));
+          },
+        },
+      });
     },
     runs_changed: () => loadRuns(),
     units_changed: (data) => {
@@ -318,6 +341,8 @@ export default function App() {
   const tracking = connected && auto?.state === "watching";
   const portraitPhase = appearance.appearance.portraits;
   const part2 = showPart2(portraitPhase, units);
+  // The Roster follows the game's army (plus the dead); everything about history keeps every stored unit.
+  const roster = useMemo(() => rosterUnits(units), [units]);
 
   if (assetsAvailable === null) return null;
   if (!assetsAvailable) return <GameFilesGate toasts={toasts} />;
@@ -383,7 +408,7 @@ export default function App() {
             {loaded && page === "roster" && (
               <Dashboard
                 run={activeRun}
-                units={units}
+                units={roster}
                 flashKey={flashKey}
                 part2={part2}
                 onGoToRuns={() => setPage("runs")}

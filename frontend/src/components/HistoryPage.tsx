@@ -11,6 +11,7 @@ import { BattleCards } from "./battle/BattleCards";
 import { StatsTab } from "./battle/StatsTab";
 import { RunStatsPopup } from "./battle/RunStatsPopup";
 import { runBattles } from "./battle/stats";
+import { countedBattles } from "./battle/rosterRule";
 
 interface Props {
   runId: string | null;
@@ -42,8 +43,9 @@ export function HistoryPage({ runId, live, version, units, part2, onOpenRecordin
     );
     return () => { cancelled = true; };
   }, [runId, version, retry]);
-  const battles = useMemo(() => history === null ? null : runBattles(history, live?.run_id === runId ? live : null), [history, live, runId]);
   const roster = useMemo(() => new Map(units.map((u) => [u.key, u])), [units]);
+  // Statistics see only the units that count for the run (a guest counts once it's on the roster).
+  const battles = useMemo(() => history === null ? null : countedBattles(runBattles(history, live?.run_id === runId ? live : null), new Set(roster.keys())), [history, live, runId, roster]);
   const { tab, id } = nav.route;
 
   return (

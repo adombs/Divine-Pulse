@@ -24,6 +24,7 @@ import { SpriteFigure, unitSprite, useHasSprite } from "./character/CharacterFac
 import { AWARDS } from "./battle/moreStats";
 import { isByleth } from "../portraits";
 import { buildRunLedger, type LedgerRow } from "./battle/runStatsLedger";
+import { countedBattles } from "./battle/rosterRule";
 import { ExportActions, type ExportStatus } from "./ExportActions";
 import { Icon } from "./Icon";
 import { Modal } from "./Modal";
@@ -154,7 +155,8 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
     );
     return () => { live = false; };
   }, [run.id]);
-  const ledger = useMemo(() => (battles ? buildRunLedger(battles, "characters") : null), [battles]);
+  // Only units on the run's roster count (a guest's battle data is left out).
+  const ledger = useMemo(() => (battles ? buildRunLedger(countedBattles(battles, new Set(units.map((u) => u.key))), "characters") : null), [battles, units]);
   // Ordering every unit at once: by BST, by deployments or by when they joined (each a fresh layout with no gaps), or
   // "custom" once a unit is dragged.
   const [orderBy, setOrderBy] = useState<OrderBy>("joined:asc");

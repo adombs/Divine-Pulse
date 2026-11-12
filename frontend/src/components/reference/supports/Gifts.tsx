@@ -212,7 +212,7 @@ function ItemCard({
     );
   return (
     <DetailCard title={entry.title} label={entry.title}>
-      {entry.needsImport && <p className="muted">Reimport your game files in Settings to add recipes and meal preferences.</p>}
+      {entry.needsImport && <p className="muted">Reprocess your game files in Settings to add recipes and meal preferences.</p>}
       <div className="sup-preference-groups">
         {entry.ingredients && <section className="sup-preference-group">
           <h3><Icon name={CONCEPT_ICON.meals} /> Recipe</h3>

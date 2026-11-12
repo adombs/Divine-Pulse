@@ -151,7 +151,7 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
         <Row label="My unit faces" hint="In battle: unit lists, the log and cards.">
           <Segmented label="My unit faces in battle" value={appearance.myUnitFaces} onChange={(myUnitFaces) => update({ myUnitFaces })} options={FACE_LOOKS} />
         </Row>
-        <Row label="Other unit faces" hint="In battle: enemies, allies and other armies.">
+        <Row label="Other unit faces" hint="In battle: Enemy Units, Ally Units and Third Army.">
           <Segmented label="Other unit faces in battle" value={appearance.otherUnitFaces} onChange={(otherUnitFaces) => update({ otherUnitFaces })} options={FACE_LOOKS} />
         </Row>
       </Group>
@@ -276,6 +276,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const [recordingLimit, setRecordingLimit] = useState("3");
   const [windowMode, setWindowMode] = useState<Settings["window_mode"]>("windowed");
   const [memoryReader, setMemoryReader] = useState<Settings["memory_reader"]>("eden");
+  const [duplicates, setDuplicates] = useState<Settings["duplicate_battles"]>("keep_best");
   // The window mode only applies to the desktop window, not the browser.
   const [desktop, setDesktop] = useState(false);
   const ids = useId();
@@ -286,6 +287,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
     setSettings(s);
     setWindowMode(s.window_mode);
     setMemoryReader(s.memory_reader);
+    setDuplicates(s.duplicate_battles ?? "keep_best");
     setRecordingLimit(String(s.max_recordings));
   };
 
@@ -307,6 +309,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
       const s = await api.saveSettings({
         window_mode: windowMode,
         memory_reader: memoryReader,
+        duplicate_battles: duplicates,
         max_recordings: count,
       });
       apply(s);
@@ -320,7 +323,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   if (!settings) return <p className="muted">Loading…</p>;
 
   const changed: Partial<Record<SettingsTab, boolean>> = {
-    general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader,
+    general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader || duplicates !== (settings.duplicate_battles ?? "keep_best"),
   };
   const dirty = Object.values(changed).some(Boolean);
 
@@ -409,6 +412,11 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                         value={recordingLimit} onChange={(e) => setRecordingLimit(e.target.value)} aria-invalid={invalid} />
                     </Row>
                   </Group>
+                  <Group title="Battles">
+                    <Row label="Repeated battles">
+                      <Segmented label="Repeated battles" value={duplicates} onChange={setDuplicates} options={[["keep_best", "Keep Best"], ["ask", "Ask"]]} />
+                    </Row>
+                  </Group>
                   {desktop && (
                     <Group title="Window">
                       <Row label="Mode">
@@ -478,7 +486,7 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
       <Group title="Tracking and reference notes">
         <div className="set-prose">
           <p>Battles are recorded while the tracker reads the game. Each one is filed in History when it ends.</p>
-          <p>Battle outlook is a rough chance of winning. It goes up as enemies go down (5 of 10 enemies down) and with level-ups. It compares how healthy each side is, unit by unit (your army 80% HP, the enemy 60%). It goes down as your units fall, and when a unit is low on HP with enemies in reach (Dimitri 8/28 HP, 2 enemies in reach). Losing Byleth or a house leader loses the battle.</p>
+          <p>Battle outlook is a rough chance of winning. It goes up as enemies go down (5 of 10 enemies down) and with level-ups. It compares how healthy each side is, unit by unit (Your Units 80% HP, Enemy Units 60%). It goes down as your units fall, and when a unit is low on HP with enemies in reach (Dimitri 8/28 HP, 2 enemies in reach). Losing Byleth or a house leader loses the battle.</p>
           <p>For eBST, Offense and Defense each count as one value: Auto uses the higher of the pair, Flex the average. Click HP, Mv, Dex, Spd, Lck or Cha to count it too. eBST is everything counted added up and divided by how many went in.</p>
           <p>Return a lost item to its owner for +20 support. Liked gifts give +20, neutral +10, disliked nothing. Anyone not listed is neutral.</p>
           {reference && <Sources sources={reference.sources} />}

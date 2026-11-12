@@ -52,12 +52,12 @@ def route_of(run: Run | None, battles: list[Battle], reference: RouteReference) 
             return reference.scenario_routes[battle.scenario]
     roster = {_key(u, reference, key) for key, u in run.units.items()} if run else set()
     part_two = [b for b in battles if b.scenario is not None and 13 <= b.scenario <= 37]
-    late_class = any(u.class_name.lower() in PART_TWO_CLASSES for b in battles for u in b.units)
+    late_class = any(u.class_name.lower() in PART_TWO_CLASSES for b in battles for u in b.units if not u.guest)
     late_roster = run is not None and any(u.class_name.lower() in PART_TWO_CLASSES for u in run.units.values())
     if part_two or late_class or late_roster:
-        late_keys = {_key(u, reference) for b in part_two for u in b.units}
+        late_keys = {_key(u, reference) for b in part_two for u in b.units if not u.guest}
         # On auxiliary battles a lord's exclusive class also establishes Part II.
-        late_keys |= {_key(u, reference) for b in battles for u in b.units if u.class_name.lower() in PART_TWO_CLASSES}
+        late_keys |= {_key(u, reference) for b in battles for u in b.units if not u.guest and u.class_name.lower() in PART_TWO_CLASSES}
         if late_roster:
             late_keys |= {
                 _key(u, reference, key) for key, u in run.units.items() if u.class_name.lower() in PART_TWO_CLASSES
@@ -68,5 +68,5 @@ def route_of(run: Run | None, battles: list[Battle], reference: RouteReference) 
         if not routes and _house(roster | late_keys) == "black-eagles" and "edelgard" not in late_keys:
             return "ss"
         return None
-    keys = roster | {_key(u, reference) for b in battles for u in b.units}
+    keys = roster | {_key(u, reference) for b in battles for u in b.units if not u.guest}
     return _house(keys)

@@ -7,13 +7,17 @@
 - The outlook no longer weighs army strength, and its explanations are short ("Dimitri 8/28 HP, 2 enemies in reach").
 - The outlook compares each side's health unit by unit (your army's average share of HP against the enemy's) instead of adding all HP up, and counts progress against the enemies alone.
 - Units on your side no longer count as threats in the outlook (the house leaders and Jeralt in the prologue).
-- The Enemies count is now On the map, with a count for each army in the battle in its colour (yours, allies, enemies, third army); the map's legend counts the same way. Allies are no longer counted as enemies.
+- The Enemies count is now On the map, with a count for every army in its colour, 0 included: Your Units, Enemy Units, Ally Units, Third Army (the game's names, now used throughout the app) and killed. The map's legend lists them all; Low HP is gone from it. Allies are no longer counted as enemies.
 - Space the map's speed, camera and zoom controls evenly.
 - Draw Edelgard, Dimitri and Claude as your units in the prologue, where the game has them before they join your army.
-- Draw each unit's map sprite as the game does: generic units get their class's head in their army's colour (red-haired thieves), named units without a head of their own get their class's sprite, Jeralt rides as a Paladin in his own sprite with his own head (not the Paladin's helmet), and Byleth shows as a Commoner. Re-import your game files once to get the heads and Jeralt's sprite.
+- Draw each unit's map sprite as the game does: generic units get their class's head in their army's colour (red-haired thieves), named units without a head of their own get their class's sprite, Jeralt rides as a Paladin in his own sprite with his own head (not the Paladin's helmet), and Byleth shows as a Commoner. Reprocess your game files once to get the heads and Jeralt's sprite.
 - Show Byleth's birthday as you set it in the game.
 - Draw Edelgard, Dimitri and Claude in the prologue the way Settings > Appearance sets your army (they followed the setting for other units), like Byleth.
 - Show Byleth's height for their gender (175 cm male, 164 cm female) on the Archive, the Roster and the battle and run cards, instead of both.
+- Units fighting on your side before they join your army (the house leaders in the prologue) are logged as your units. Their battles count in your stats only once they join, and carry over if they leave and come back.
+- The Roster shows only who is in your army in the game (and the dead). A unit who leaves disappears from it and comes back with their history.
+- Repeated battles: a warning beside Back lists one-time battles you saved more than once so you can keep one. Settings > General > Repeated battles: Keep Best (keeps the most complete copy, with Undo) or Ask.
+- A banner on every page says when your game files need reprocessing, and the app says reprocess (from the same dump), not re-import.
 
 ## 1.4.2 (2026-11-10)
 

@@ -10,6 +10,7 @@ import { useNav } from "../../nav";
 import { Icon } from "../Icon";
 import { faceUrl, isCharacterFace, portraitUrl } from "../../portraits";
 import { PortraitPhaseContext } from "../../appearance";
+import { countedBattle, countedBattles } from "./rosterRule";
 import { armyId, enemies, enemyId, people, timeline } from "./model";
 import type { MapLook } from "./mapIcons";
 import { MoreStatsTab } from "./MoreStatsTab";
@@ -23,6 +24,7 @@ import { isObject } from "./map";
 import { factionOf } from "./factions";
 import { useSpoiler } from "../../spoilers";
 import { personFor, usePortraitData } from "../../persons";
+import { rosterUnits } from "../../roster";
 
 type View = "overview" | "units" | "more";
 
@@ -126,6 +128,12 @@ export function BattleView(p: ViewProps) {
 
   const seconds = useElapsed(battle.started_at, battle.active, battle.seconds, battle.away_s ?? 0);
   const items = useMemo(() => timeline(battle), [battle]);
+  // The battle as statistics see it: a guest that isn't on the run's roster is left out of every count (the map, replay, log
+  // and unit popups keep showing it).
+  const rosterKeys = useMemo(() => new Set(p.roster.map((r) => r.key)), [p.roster]);
+  const counted = useMemo(() => countedBattle(battle, rosterKeys), [battle, rosterKeys]);
+  const countedItems = useMemo(() => (counted === battle ? items : timeline(counted)), [counted, battle, items]);
+  const countedHistory = useMemo(() => countedBattles(p.history, rosterKeys), [p.history, rosterKeys]);
   const who = useMemo(() => people(battle), [battle]);
   const automatic = useContext(PortraitPhaseContext) === "auto";
   const portraits = useMemo(() => {
@@ -171,6 +179,7 @@ export function BattleView(p: ViewProps) {
     }
     return out;
   }, [battle, showIdentities]);
+  const onRosterKeys = useMemo(() => new Set(rosterUnits(p.roster).map((u) => u.key)), [p.roster]);
   const configs = useMemo(() => new Map(p.roster.map((u) => [u.key, u.ebst_effective])), [p.roster]);
   const nav: BattleNav = {
     people: who,
@@ -180,6 +189,7 @@ export function BattleView(p: ViewProps) {
     replaySpeed: p.replaySpeed,
     setReplaySpeed: p.onReplaySpeed,
     ebstConfig: (key) => configs.get(key) ?? null,
+    onRoster: (key) => onRosterKeys.has(key),
     house: (id) => houses.get(id),
     open,
   };
@@ -213,7 +223,7 @@ export function BattleView(p: ViewProps) {
                 </button>
               )}
               <ReplayExportButton battle={battle} route={p.route} />
-              <CopySummary battle={battle} seconds={seconds} />
+              <CopySummary battle={counted} seconds={seconds} />
               {recording && (
                 <button type="button" className="btn small danger" onClick={recording.onDelete} title="Delete this battle from the history">
                   <Icon name={CONCEPT_ICON.delete} /> Delete
@@ -228,7 +238,7 @@ export function BattleView(p: ViewProps) {
         <div key={view} className={`battle-body view-${view} view-enter`}>
           {view === "overview" && <OverviewTab battle={battle} items={items} seconds={seconds} fell={fell} />}
           {view === "units" && <UnitsTab battle={battle} items={items} selected={picked} onSelect={setPicked} roster={p.roster} part2={p.part2} />}
-          {view === "more" && <MoreStatsTab battle={battle} items={items} seconds={seconds} history={p.history} />}
+          {view === "more" && <MoreStatsTab battle={counted} items={countedItems} seconds={seconds} history={countedHistory} />}
         </div>
         <UnitPopup battle={battle} items={items} id={unit} onClose={() => setUnit(null)} roster={p.roster} part2={p.part2} />
       </section>

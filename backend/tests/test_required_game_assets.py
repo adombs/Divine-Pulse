@@ -47,7 +47,7 @@ def test_required_json_faults_report_exact_file(fake_import, monkeypatch, fault)
         fake_import.json(rel)
     assert caught.value.asset == rel
     assert caught.value.reason
-    assert "Reimport" in str(caught.value)
+    assert "Reprocess" in str(caught.value)
 
 
 @pytest.mark.parametrize("categories", [{}, {"item": []}, {"item": {"1": None}}])
@@ -91,4 +91,4 @@ def test_required_asset_failure_is_a_structured_service_error(tmp_path, fake_imp
     assert response.status_code == 503
     assert response.json()["code"] == "game_asset_error"
     assert response.json()["asset"] == "data/missing.json"
-    assert "Reimport" in response.json()["detail"]
+    assert "Reprocess" in response.json()["detail"]

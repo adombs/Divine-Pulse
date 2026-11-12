@@ -19,6 +19,8 @@ from .units import Death, Unit
 def final_fall(key: str, battle: Battle) -> Death | None:
     """Where `key` fell in the timeline of `battle` that still stands, if it did and stayed down."""
     actor = f"a:{key}"
+    if any(u.key == key and u.guest for u in battle.units):
+        return None  # a guest isn't in the army: its fall in a battle isn't a death in the run
     fall = None
     for index, entry in enumerate(battle.log):
         if entry.kind == "fell" and (entry.unit == key or entry.actor_id == actor):
@@ -58,7 +60,7 @@ def _name(battle: Battle, uid: str) -> str | None:
 def last_battle_fall(key: str, battles: Iterable[Battle]) -> Death | None:
     """Its fall in the latest finished battle it took part in (None: it didn't fall there, or that battle is still on)."""
     for battle in sorted(battles, key=lambda b: b.started_at, reverse=True):
-        if not any(u.key == key for u in battle.units):
+        if not any(u.key == key and not u.guest for u in battle.units):
             continue
         if battle.ended_at is None:
             return None

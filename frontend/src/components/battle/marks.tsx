@@ -12,7 +12,7 @@ import { LOW_HP, LOW_WEAPON } from "./model";
 
 export type Team = "player" | "ally" | "third" | "enemy" | "object";
 
-export const TEAM_LABEL: Record<Team, string> = { player: "Yours", ally: "Ally", third: "Third Army", enemy: "Enemy", object: "Object" };
+export const TEAM_LABEL: Record<Team, string> = { player: "Your Units", ally: "Ally Units", third: "Third Army", enemy: "Enemy Units", object: "Object" };
 
 export function teamOf(e?: EnemyStats): Team {
   if (!e) return "player";

@@ -226,7 +226,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
   const theme = music?.themes.find((m) => m.id === themeId) ?? null;
   // Thunder needs the game files imported again (older imports only have Rain); the toggle says so when it can't be used.
   const thunderNote = !music?.themes.some((m) => m.thunder)
-    ? "Thunder isn't imported yet. Re-import your game files (Settings > Game files) to add it."
+    ? "Thunder isn't in your game files yet. Reprocess them (Settings > Game files) to add it."
     : theme && !theme.thunder ? "This theme has no Thunder version in your game files." : null;
   /** The version a theme plays in: the chosen one, where the theme has it. */
   const versionOf = (m: Theme): Version => (options.version === "thunder" && m.thunder ? "thunder" : "rain");
@@ -534,7 +534,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
           <fieldset className="export-group" disabled={working}>
             <legend>Music</legend>
             {music === null ? (
-              <p className="export-note">Re-import your game files (Settings &gt; Game files) to add the battle themes.</p>
+              <p className="export-note">Reprocess your game files (Settings &gt; Game files) to add the battle themes.</p>
             ) : (
               <>
                 <div className="export-music">

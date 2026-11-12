@@ -6,6 +6,7 @@ import { useSpoiler } from "../../spoilers";
 import { isStoryClass } from "../../reference/links";
 import type { Unit } from "../../api";
 import { characterPortraitKey, deadCharacterKeys, runCharacterKeys, unitForCharacter } from "../../portraits";
+import { onRoster } from "../../roster";
 import { crestLabel, crestName } from "../../reference/crests";
 import { canonical, searchMatches } from "../../fuzzy";
 import {
@@ -239,7 +240,7 @@ function CharacterCard({
       icon={<AffiliationIcon house={c.house} />}
       label={`${c.name} reference`}
       // General only: what the run's unit has is on the Roster, one click away.
-      actions={unit && <IconButton icon={CONCEPT_ICON.roster} label={`Open ${unit.name} on the Roster`} onClick={() => nav.go({ page: "roster", id: unit.key })} />}
+      actions={unit && onRoster(unit) && <IconButton icon={CONCEPT_ICON.roster} label={`Open ${unit.name} on the Roster`} onClick={() => nav.go({ page: "roster", id: unit.key })} />}
     >
       <CharacterHero
         key={c.key}

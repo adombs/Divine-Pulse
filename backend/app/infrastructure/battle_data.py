@@ -2,6 +2,10 @@
 
 from __future__ import annotations
 
+import json
+from functools import lru_cache
+from pathlib import Path
+
 from ..domain.battle import HistoryStep, RALLY_ABILITIES, STEP_ITEM, STEP_SPELL, SUPPORT_SPELLS, StepUnit, TerrainTile
 from .inventory import ability_name
 from . import game_tables
@@ -72,3 +76,13 @@ def rally_name(unit: StepUnit | None) -> str:
     """The Rally a unit used: its one equipped Rally ability ("Rally Speed"), else just "Rally"."""
     rallies = [a for a in unit.abilities if a in RALLY_ABILITIES] if unit is not None else []
     return (ability_name(rallies[0]) or "Rally") if len(rallies) == 1 else "Rally"
+
+
+@lru_cache(maxsize=1)
+def quest_battles() -> frozenset[int]:
+    """The quests (rows of the game's quest table) that have a battle of their own."""
+    try:
+        text = (Path(__file__).resolve().parents[1] / "data" / "quest_battles.json").read_text("utf-8")
+        return frozenset(int(q) for q in json.loads(text)["quests"])
+    except (OSError, ValueError, KeyError, TypeError):
+        return frozenset()

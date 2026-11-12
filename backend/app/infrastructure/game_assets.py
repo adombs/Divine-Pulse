@@ -28,7 +28,7 @@ class GameAssetError(RuntimeError):
 
     def __init__(self, asset: str, reason: str):
         self.asset, self.reason = asset, reason
-        super().__init__(f"Required game asset {asset}: {reason}. Reimport your game files.")
+        super().__init__(f"Required game asset {asset}: {reason}. Reprocess your game files.")
 
 
 class GameAssets:

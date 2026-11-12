@@ -104,9 +104,11 @@ export function routeOf(battle: Battle): Route | undefined {
   const exclusive = (scenarioData.routes as Record<string, Route>)[String(battle.scenario)];
   if (exclusive) return exclusive;
   const part2 = battle.scenario !== null && battle.scenario !== undefined && battle.scenario >= 13 && battle.scenario <= 37;
-  const late = battle.units.filter((u) => ["armored lord", "emperor", "high lord", "great lord", "wyvern master", "barbarossa"].includes(u.class_name.toLowerCase()));
+  // Only your army is evidence of your route: units fighting on your side without being in it (guests) aren't.
+  const army = battle.units.filter((u) => !u.guest);
+  const late = army.filter((u) => ["armored lord", "emperor", "high lord", "great lord", "wyvern master", "barbarossa"].includes(u.class_name.toLowerCase()));
   if (!part2 && !late.length) return undefined;
-  const keys = new Set((part2 ? battle.units : late).map((u) => ({ 2: "edelgard", 3: "dimitri", 4: "claude" }[u.character ?? -1] ?? u.name.toLowerCase().split(" ")[0] ?? u.key)));
+  const keys = new Set((part2 ? army : late).map((u) => ({ 2: "edelgard", 3: "dimitri", 4: "claude" }[u.character ?? -1] ?? u.name.toLowerCase().split(" ")[0] ?? u.key)));
   const routes = ([ ["edelgard", "cf"], ["dimitri", "am"], ["claude", "vw"] ] as const).filter(([key]) => keys.has(key));
   if (routes.length === 1) return routes[0][1];
   if (!routes.length) {

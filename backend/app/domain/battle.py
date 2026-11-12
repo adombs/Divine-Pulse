@@ -2,15 +2,16 @@
 
 from __future__ import annotations
 
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from .combat import BattleUnit
 from .inventory import InventoryItem
-from .units import VALUE_KEYS, now
+from .units import VALUE_KEYS, Unit, now, unit_key
 
 
 # Losing Byleth or a house leader loses the battle; the outlook counts that.
@@ -44,6 +45,10 @@ class BattleUnitStats(BaseModel):
     key: str  # unit key in the run
     name: str
     class_name: str = ""
+    # On your side (team 0) in this battle without being in your army's roster: the house leaders in the prologue.
+    # Logged and counted as your unit for the battle (its stats go to the run's totals under `key`), but it never
+    # makes or changes a run unit, the roster or a death.
+    guest: bool = False
     start_level: int
     level: int
     # On-screen values (hp is max HP), at the start of the battle and now.
@@ -275,7 +280,146 @@ class TrendPoint(BaseModel):
     enemy_hp: float | None = None
 
 
+def guest_key(
+    name: str, character: int | None, slot: int, class_name: str = "", units: Mapping[str, Unit] | None = None
+) -> str:
+    """The unit key a guest (a unit on your side, team 0, that isn't in the roster) is logged under. A named character
+    reuses the run unit with that game ID if there is one, else the key its name gives (what the roster would use if
+    they joined), so everything carries over when they join or come back. A generic unit has no character to carry
+    over: its pool slot keeps it apart from others of the same name."""
+    if character is not None:
+        stored = next((k for k, u in (units or {}).items() if u.game_id == character), None)
+        return stored or unit_key(name)
+    return f"{unit_key(name or class_name or 'unit')}-{slot}"
+
+
+def _swap_uid(uid: Any, moved: dict[str, str]) -> Any:
+    return moved.get(uid, uid) if isinstance(uid, str) else uid
+
+
+def _swap_log(entries: Any, moved: dict[str, str], keys: dict[str, str]) -> None:
+    for entry in entries if isinstance(entries, list) else ():
+        if not isinstance(entry, dict):
+            continue
+        actor, target = entry.get("actor_id"), entry.get("target_id")
+        if actor in moved:
+            entry["actor_id"] = moved[actor]
+            entry["unit"] = keys[actor]
+        if target in moved:
+            entry["target_id"] = moved[target]
+            if entry.get("target") is not None:
+                entry["target"] = keys[target]
+
+
+def _swap_steps(steps: Any, moved: dict[str, str]) -> None:
+    for step in steps if isinstance(steps, list) else ():
+        if not isinstance(step, dict):
+            continue
+        step["actor"], step["target"] = _swap_uid(step.get("actor"), moved), _swap_uid(step.get("target"), moved)
+        if isinstance(step.get("units"), dict):
+            step["units"] = {_swap_uid(uid, moved): v for uid, v in step["units"].items()}
+
+
+def _swap_presence(presence: Any, moved: dict[str, str]) -> Any:
+    if not isinstance(presence, dict):
+        return presence
+    out: dict = {}
+    for uid, marks in presence.items():
+        out.setdefault(_swap_uid(uid, moved), marks)
+    return out
+
+
+def upgrade_guests(data: dict) -> dict:
+    """A battle saved before guests existed kept your side's units outside the roster among the other units
+    (`enemy_stats`, side "player", as "e:<slot>"). Make them guest army units ("a:<key>") and rewrite every reference
+    to them. Idempotent (nothing is left to move the second time) and non-destructive: works on a copy, and the file
+    is only rewritten when the battle is saved for another reason."""
+    stats = data.get("enemy_stats")
+    if not isinstance(stats, dict):
+        return data
+    mine = {
+        k: e for k, e in stats.items() if isinstance(e, dict) and e.get("side") == "player"
+    }
+    if not mine:
+        return data
+    data = dict(data)
+    units = [dict(u) if isinstance(u, dict) else u for u in data.get("units") or []]
+    have = {u.get("key") for u in units if isinstance(u, dict)}
+    moved: dict[str, str] = {}
+    keys: dict[str, str] = {}
+    for k, e in sorted(mine.items(), key=lambda item: int(item[0])):
+        slot = int(e.get("slot", k))
+        name = e.get("name") or e.get("label") or ""
+        key = guest_key(name, e.get("character"), slot, e.get("class_name") or "")
+        moved[f"e:{slot}"] = f"a:{key}"
+        keys[f"e:{slot}"] = key
+        if key in have:
+            continue  # already one of the battle's units: the references join it, nothing is duplicated
+        have.add(key)
+        max_hp = e.get("max_hp") or 0
+        values = {"hp": max_hp} if max_hp else {}
+        level = e.get("level") or 0
+        units.append(
+            {
+                "key": key,
+                "name": name or key,
+                "class_name": e.get("class_name") or "",
+                "guest": True,
+                "start_level": level,
+                "level": level,
+                "start": dict(values),
+                "now": dict(values),
+                "on_map": bool(e.get("on_map", True)) and not e.get("left", False),
+                "weapon": e.get("weapon") or "",
+                "inventory": e.get("inventory") or [],
+                "accessory": e.get("accessory"),
+                "usage": e.get("usage"),
+                "hp": e.get("hp"),
+                "x": e.get("x"),
+                "y": e.get("y"),
+                "damage_dealt": e.get("damage_dealt"),
+                "damage_taken": e.get("damage_taken"),
+                "tiles_moved": e.get("tiles_moved"),
+                "combats": e.get("combats"),
+                "defeats": e.get("defeats"),
+                "class_id": e.get("class_id"),
+                "character": e.get("character"),
+                "female": bool(e.get("female", False)),
+                "allegiance": e.get("allegiance"),
+            }
+        )
+    data["units"] = units
+    data["enemy_stats"] = {k: e for k, e in stats.items() if k not in mine}
+    gone = {int(e.get("slot", k)) for k, e in mine.items()}
+    if isinstance(data.get("enemy_labels"), dict):
+        data["enemy_labels"] = {k: v for k, v in data["enemy_labels"].items() if int(k) not in gone}
+    log = [dict(e) if isinstance(e, dict) else e for e in data.get("log") or []]
+    _swap_log(log, moved, keys)
+    data["log"] = log
+    steps = [dict(s) if isinstance(s, dict) else s for s in data.get("map_steps") or []]
+    _swap_steps(steps, moved)
+    data["map_steps"] = steps
+    data["map_presence"] = _swap_presence(data.get("map_presence") or {}, moved)
+    branches = []
+    for b in data.get("branches") or []:
+        if isinstance(b, dict):
+            b = dict(b)
+            b["log"] = [dict(e) if isinstance(e, dict) else e for e in b.get("log") or []]
+            _swap_log(b["log"], moved, keys)
+            b["map_steps"] = [dict(s) if isinstance(s, dict) else s for s in b.get("map_steps") or []]
+            _swap_steps(b["map_steps"], moved)
+            b["map_presence"] = _swap_presence(b.get("map_presence") or {}, moved)
+        branches.append(b)
+    data["branches"] = branches
+    return data
+
+
 class Battle(BaseModel):
+    @model_validator(mode="before")
+    @classmethod
+    def _upgrade(cls, data: Any) -> Any:
+        return upgrade_guests(data) if isinstance(data, dict) else data
+
     id: str
     run_id: str
     # The game's identity for this battle (from its battle counters), so a restart of the tracker mid-battle
@@ -409,6 +553,7 @@ class ArmySample:
     battalion_endurance: int | None = None
     gambit_uses: int | None = None
     rattled: bool | None = None
+    guest: bool = False  # as for BattleUnitStats
 
 
 @dataclass(frozen=True)

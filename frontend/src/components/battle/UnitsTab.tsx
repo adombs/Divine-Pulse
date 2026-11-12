@@ -12,6 +12,7 @@ import { EmptyState, MasterDetail } from "../layout";
 import { searchMatches } from "../../fuzzy";
 import { armyFlags, Flag, Flags, lowHpFlag, Team, TeamTag, teamOf } from "./marks";
 import { isObject } from "./map";
+import { countsForRun } from "./rosterRule";
 import { armyId, enemies, enemyId, hpShare, Item, tally } from "./model";
 import { WeaponIcon } from "./gameIcons";
 import { battleWeapon } from "./unitAppearance";
@@ -26,7 +27,7 @@ type State = "alive" | "defeated" | "left";
 const SIDE_OPTIONS: [Team, ReactNode][] = [
   ["player", <span className="filter-label"><span aria-hidden="true"><TeamTag team="player" /></span>Your Units</span>],
   ["enemy", <span className="filter-label"><span aria-hidden="true"><TeamTag team="enemy" /></span>Enemy Units</span>],
-  ["ally", <span className="filter-label"><span aria-hidden="true"><TeamTag team="ally" /></span>Allied Units</span>],
+  ["ally", <span className="filter-label"><span aria-hidden="true"><TeamTag team="ally" /></span>Ally Units</span>],
   ["third", <span className="filter-label"><span aria-hidden="true"><TeamTag team="third" /></span>Third Army</span>],
 ];
 const STATE_OPTIONS: [State, ReactNode][] = [
@@ -53,6 +54,8 @@ interface Row {
   dealt: number | null;
   taken: number | null;
   healing: number | null;
+  /** Why the numbers are blank when they aren't counted (a guest that never joined your army). */
+  uncounted?: string;
   unit?: BattleUnit;
   enemy?: EnemyStats;
 }
@@ -76,10 +79,13 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
   const { sort, header } = useSort<Col>({ key: "status", dir: 1 }, ["name", "status"]);
 
   // Your units that died for good in this battle (the run's Roster has their death).
+  // A guest that isn't on the run's roster is listed (it fought on your side) but its numbers aren't counted.
+  const rosterKeys = new Set(roster.map((r) => r.key));
   const diedHere = (key: string) => roster.find((r) => r.key === key && r.death?.battle_id === battle.id);
   const all: Row[] = [
     ...battle.units.map((u) => {
       const t = tally(items, armyId(u.key), { fights: u.combats, defeats: u.defeats });
+      const counts = countsForRun(u, rosterKeys);
       return {
         id: armyId(u.key),
         army: true,
@@ -94,11 +100,12 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
         flags: diedHere(u.key)
           ? [{ icon: CONCEPT_ICON.dead, title: `Died here: ${deathText(diedHere(u.key)!)}`, tone: "bad" as const }]
           : armyFlags(u, battle.active ? risks.get(u.key) : undefined, u.adjutant_of ? nameOf(battle, u.adjutant_of) : undefined),
-        fights: t.fights,
-        defeats: t.defeats,
-        dealt: u.damage_dealt,
-        taken: u.damage_taken,
-        healing: u.healing_given,
+        uncounted: counts ? undefined : "Not counted: not in your army",
+        fights: counts ? t.fights : null,
+        defeats: counts ? t.defeats : null,
+        dealt: counts ? u.damage_dealt : null,
+        taken: counts ? u.damage_taken : null,
+        healing: counts ? u.healing_given : null,
         unit: u,
       };
     }),
@@ -227,16 +234,16 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
                       <Flags flags={r.flags} />
                     </span>
                   </td>
-                  <td className="num"><Num value={r.fights} /></td>
+                  <td className="num"><Num value={r.fights} why={r.uncounted} /></td>
                   <td className="num">
-                    <Num value={r.dealt} />
+                    <Num value={r.dealt} why={r.uncounted} />
                   </td>
                   <td className="num">
-                    <Num value={r.taken} />
+                    <Num value={r.taken} why={r.uncounted} />
                   </td>
-                  <td className="num">{r.army ? <Num value={r.healing} /> : <span className="untracked">·</span>}</td>
+                  <td className="num">{r.army ? <Num value={r.healing} why={r.uncounted} /> : <span className="untracked">·</span>}</td>
                   <td className="num">
-                    <Num value={r.defeats} />
+                    <Num value={r.defeats} why={r.uncounted} />
                   </td>
                 </tr>
               ))}
