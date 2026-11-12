@@ -53,6 +53,15 @@ class DuplicateGroup:
         return best(self.battles)
 
     @property
+    def latest(self) -> Battle:
+        """The newest copy (the one started last)."""
+        return self.battles[0]
+
+    def kept(self, mode: str) -> Battle | None:
+        """The copy a setting keeps automatically: "keep_best" the best, "keep_latest" the newest; None for "ask"."""
+        return self.best if mode == "keep_best" else self.latest if mode == "keep_latest" else None
+
+    @property
     def name(self) -> str:
         return next((b.map_name for b in self.battles if b.map_name), "")
 

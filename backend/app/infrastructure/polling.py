@@ -452,20 +452,24 @@ class Scanner:
         except Exception:
             log.exception("Could not save the battle")
             return
-        self._keep_best_copy(battle)
+        self._settle_duplicates(battle)
         # Read the roster again now the battle is filed, even if it hasn't changed: a unit that died in it can now be
         # linked to where it fell (see _detect_deaths).
         self._mem_applied = None
 
-    def _keep_best_copy(self, battle: Battle) -> None:
-        """With "keep best", a battle that is another copy of a one-time battle sets the weaker copies aside."""
+    def _settle_duplicates(self, battle: Battle) -> None:
+        """With "keep best" or "keep latest", a battle that is another copy of a one-time battle keeps one copy (the
+        best, or the newest) and sets the others aside."""
         try:
-            if self.settings.get().duplicate_battles != "keep_best":
+            mode = self.settings.get().duplicate_battles
+            if mode == "ask":
                 return
             group = duplicates.group_of(battle, self.battle_store.list(battle.run_id), quest_battles())
             if group is None:
                 return
-            best = group.best
+            best = group.kept(mode)
+            if best is None:
+                return
             losers = [b.id for b in group.battles if b.id != best.id]
             moved = self.battle_store.discard(battle.run_id, losers)
             if not moved:

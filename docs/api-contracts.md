@@ -56,15 +56,15 @@ Battle `units` entries include `guest` (default false): the unit was on your sid
 
 ## Duplicate battles
 
-A battle's identity in a run is `(scenario, quest)`, the quest only when it is in `data/quest_battles.json`. Scenarios 61-85 that are not a battle quest are repeatable and never grouped; scenarios 95, 96, 98, 99 and unset ones are ignored; every other battle is one-time, and two or more copies form a duplicate group (`domain/duplicates.py`). The setting `duplicate_battles` (`"keep_best"` default, or `"ask"`, in `GET/PUT /api/settings`) decides what happens when a battle is filed: with `keep_best` the weaker copies move to `data/battles/<run id>.discarded.json` (ranked by won, enemies defeated, turn, log length, id; `won` is `enemies_start > 0 and enemies_now == 0`), with `ask` nothing happens. Groups that exist are listed in both modes.
+A battle's identity in a run is `(scenario, quest)`, the quest only when it is in `data/quest_battles.json`. Scenarios 61-85 that are not a battle quest are repeatable and never grouped; scenarios 95, 96, 98, 99 and unset ones are ignored; every other battle is one-time, and two or more copies form a duplicate group (`domain/duplicates.py`). The setting `duplicate_battles` (`"keep_best"` default, `"keep_latest"` or `"ask"`, in `GET/PUT /api/settings`) decides what happens when a battle is filed: with `keep_best` the weaker copies move to `data/battles/<run id>.discarded.json` (ranked by won, enemies defeated, turn, log length, id; `won` is `enemies_start > 0 and enemies_now == 0`), with `keep_latest` every copy but the newest (by id, its start) moves there, with `ask` nothing happens. Groups that exist are listed in both modes.
 
 | Route / event | Contract |
 | --- | --- |
 | `GET /api/runs/{run_id}/battles/duplicates` | 200 `{groups: [{scenario, quest, name, best, battles: [{id, started_at, ended_at, seconds, turn, enemies_defeated, enemies_start, log_len}]}]}`; copies newest first, groups by scenario; 404 for an unknown run |
 | `POST /api/runs/{run_id}/battles/duplicates/resolve` `{keep, discard: [id]}` | moves `discard` to the discarded file and returns `{groups}`; 404 unknown run; 400 if `keep` is in `discard` or an id is not in the run's history; 422 for a bad body |
 | `POST /api/runs/{run_id}/battles/restore` `{ids: [id]}` | moves those battles from the discarded file back into the history (ordered by id) and returns `{groups}`; unknown ids are ignored; 404 unknown run |
-| SSE `battle` `{active, history: true}` | published on every change to the history by these routes and by `keep_best` |
-| SSE `duplicate_battles` `{run_id, name, kept, kept_turn, discarded: [id]}` | published only when `keep_best` set copies aside |
+| SSE `battle` `{active, history: true}` | published on every change to the history by these routes and by `keep_best` / `keep_latest` |
+| SSE `duplicate_battles` `{run_id, name, kept, kept_turn, discarded: [id]}` | published only when `keep_best` or `keep_latest` set copies aside |
 
 ## Update check
 

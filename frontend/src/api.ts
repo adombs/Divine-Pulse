@@ -116,7 +116,7 @@ export interface Settings {
   /** Where the game is read from: the Eden emulator, or FE3H Recomp (the native Windows recompilation). */
   memory_reader: "eden" | "recomp";
   /** What happens when a one-time battle is fought again: keep the best copy, or ask. */
-  duplicate_battles: "keep_best" | "ask";
+  duplicate_battles: "keep_best" | "keep_latest" | "ask";
   /** Look for a newer release on GitHub when the app starts. */
   check_updates: boolean;
   /** The version whose banner was dismissed (e.g. "1.4.4"); save "" to clear it. */

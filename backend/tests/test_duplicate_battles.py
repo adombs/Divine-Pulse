@@ -122,6 +122,26 @@ def test_keep_best_with_a_weaker_new_copy_discards_the_new_one(client):
     assert [b.id for b in store.discarded(run_id)] == ["b2"]
 
 
+def test_keep_latest_keeps_the_newest_copy_even_when_weaker(client):
+    run_id = a_run(client)
+    client.put("/api/settings", json={"duplicate_battles": "keep_latest"})
+    store = client.app_state.battles
+    file_battle(client, battle("b1", run_id=run_id, turn=9, now=0))
+    file_battle(client, battle("b2", run_id=run_id, turn=2, now=3))
+    assert [b.id for b in store.list(run_id)] == ["b2"]
+    assert [b.id for b in store.discarded(run_id)] == ["b1"]
+    [(_, data)] = [e for e in client.published if e[0] == "duplicate_battles"]
+    assert data["kept"] == "b2" and data["discarded"] == ["b1"]
+
+
+def test_keep_latest_leaves_repeatable_battles_alone(client):
+    run_id = a_run(client)
+    client.put("/api/settings", json={"duplicate_battles": "keep_latest"})
+    file_battle(client, battle("b1", run_id=run_id, scenario=82))
+    file_battle(client, battle("b2", run_id=run_id, scenario=82))
+    assert len(client.app_state.battles.list(run_id)) == 2
+
+
 def test_keep_best_leaves_repeatable_battles_alone(client):
     run_id = a_run(client)
     file_battle(client, battle("b1", run_id=run_id, scenario=82))

@@ -16,7 +16,7 @@
 - Show Byleth's height for their gender (175 cm male, 164 cm female) on the Archive, the Roster and the battle and run cards, instead of both.
 - Units fighting on your side before they join your army (the house leaders in the prologue) are logged as your units. Their battles count in your stats only once they join, and carry over if they leave and come back.
 - The Roster shows only who is in your army in the game (and the dead). A unit who leaves disappears from it and comes back with their history.
-- Repeated battles: a warning beside Back lists one-time battles you saved more than once so you can keep one. Settings > General > Repeated battles: Keep Best (keeps the most complete copy, with Undo) or Ask.
+- Repeated battles: a warning beside Back lists one-time battles you saved more than once so you can keep one. Settings > General > Repeated battles: Keep Best (keeps the most complete copy), Keep Latest (keeps the newest), both with Undo, or Ask.
 - A banner on every page says when your game files need reprocessing, and the app says reprocess (from the same dump), not re-import.
 - Check for updates when the app starts: a banner says when a newer version is out, with a link to download it. Settings > General > Check for updates on startup turns it off.
 
