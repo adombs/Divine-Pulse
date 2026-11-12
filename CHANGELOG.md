@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Export Video can make 4:5 videos (1080 × 1350, the shape feed posts show whole), the log under the map.
+
 ## 1.4.3 (2026-11-10)
 
 - The outlook no longer weighs army strength, and its explanations are short ("Dimitri 8/28 HP, 2 enemies in reach").

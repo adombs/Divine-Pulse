@@ -81,7 +81,7 @@ fills the sheet: the header stays put and the view below fits the screen (the Ov
   cards instead; elsewhere they're small cards under the header). Actions: Copy Summary, Export Video; for a recording Live Battle
   (while one runs) and Delete. Export Video (battle/ReplayExport.tsx) opens a window with the video's frame previewed
   as it plays (title strip with the "by Adombs" credit, the map with its turn banner and no legend, the log as a
-  list up to the step shown) and options down the right: orientation, turns, speed, camera, zoom, music (the battle
+  list up to the step shown) and options down the right: orientation (landscape, portrait or 4:5), turns, speed, camera, zoom, music (the battle
   themes imported with the game files, the battle's own first, in its Rain or Thunder version, and a 0-100% volume) and the video's resolution, frame rate and quality;
   the export button stays at the foot of the options. A video is written to a temporary file in the page's
   private storage as it is made, and the soundtrack a second at a time, so memory doesn't grow with its length. The map takes all

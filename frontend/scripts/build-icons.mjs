@@ -56,6 +56,7 @@ const ICONS = {
   share: ["export"],
   landscape: ["monitor"],
   portrait: ["device-mobile"],
+  feed: ["device-tablet"],
   drag: ["dots-six-vertical"],
   // What happened in a battle (the log, model.ts ICON)
   phase: ["flag"],

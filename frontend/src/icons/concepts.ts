@@ -52,6 +52,7 @@ export const CONCEPT_ICON = {
   share: "share",
   landscape: "landscape",
   portrait: "portrait",
+  feed: "feed",
   drag: "drag",
   // Battle events.
   phase: "phase",

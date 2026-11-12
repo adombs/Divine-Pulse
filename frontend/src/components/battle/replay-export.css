@@ -17,8 +17,8 @@
 
 
 
-/* The video's frame (1280 × 720 or 720 × 1280, drawn at 1.5×): a sheet of the app's paper with its inner frame line,
-   the title strip across the top, the map, and the log beside it (landscape) or under it (portrait). The map takes
+/* The video's frame (1280 × 720, 720 × 1280 or 720 × 900, drawn at 1.5×): a sheet of the app's paper with its inner frame line,
+   the title strip across the top, the map, and the log beside it (landscape) or under it (portrait and 4:5, which share the class). The map takes
    all the room its view needs (ReplayExport.tsx `stageLayout`, set inline); the log, the rest. Sizes are in pixels,
    so a frame is laid out the same whatever the window's size. */
 .replay-stage {
