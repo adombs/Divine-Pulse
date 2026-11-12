@@ -8,12 +8,18 @@ export interface GameAssetsStatus {
   /** When the import was made: a new value means the files changed. */
   created?: string;
   languages?: string[];
+  /** Imported by an older version: importing again brings in data added since. */
+  outdated?: boolean;
 }
 
 let status: GameAssetsStatus = { available: false };
 let statusRequest: Promise<GameAssetsStatus> | null = null;
 const jsonCache = new Map<string, Promise<unknown>>();
 const listeners = new Set<(status: GameAssetsStatus) => void>();
+
+export function gameAssetsStatus(): GameAssetsStatus {
+  return status;
+}
 
 export function gameAssetsAvailable(): boolean {
   return status.available;

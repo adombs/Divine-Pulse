@@ -1,17 +1,28 @@
 import { useEffect, useState } from "react";
 import { assetIssues, onAssetIssuesChange } from "../requiredAssets";
-import { loadGameAssetsStatus } from "../gameAssets";
+import { gameAssetsStatus, loadGameAssetsStatus, onGameAssetsChange } from "../gameAssets";
 import "./required-assets.css";
 
 export function GameAssetAlert({ onGameFiles }: { onGameFiles: () => void }) {
   const [issues, setIssues] = useState(assetIssues);
   const [retrying, setRetrying] = useState(false);
+  const [outdated, setOutdated] = useState(() => !!gameAssetsStatus().outdated);
+  useEffect(() => {
+    setOutdated(!!gameAssetsStatus().outdated);
+    return onGameAssetsChange((status) => setOutdated(!!status.outdated));
+  }, []);
   useEffect(() => {
     const off = onAssetIssuesChange(() => setIssues(assetIssues()));
     setIssues(assetIssues());
     return off;
   }, []);
-  if (!issues.length) return null;
+  if (!issues.length) {
+    if (!outdated) return null;
+    return <div className="game-files-alert" role="alert">
+      <p className="game-files-alert-text"><strong>Your game files need importing again.</strong> They were imported by an older version of Divine Pulse, so newer game data is missing.</p>
+      <button type="button" className="btn" onClick={onGameFiles}>Game files</button>
+    </div>;
+  }
   const retry = async () => {
     setRetrying(true);
     try { await loadGameAssetsStatus(true); } finally { setRetrying(false); }

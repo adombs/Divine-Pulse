@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Warn at the top of every page when your game files were imported by an older version and need importing again (it was only shown in Settings > Game files).
+
 ## 1.4.3 (2026-11-10)
 
 - The outlook no longer weighs army strength, and its explanations are short ("Dimitri 8/28 HP, 2 enemies in reach").
