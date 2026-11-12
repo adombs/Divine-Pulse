@@ -30,6 +30,7 @@ def create_app(data_dir: Path = DATA_DIR, background: bool = True, settings: Set
         state.events.bind(asyncio.get_running_loop())
         if background:
             state.scanner.start()
+            state.runtime.updates.start()
         try:
             yield
         finally:

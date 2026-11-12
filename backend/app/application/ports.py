@@ -46,6 +46,7 @@ class BattleRepository(Protocol):
 class SettingsValues(Protocol):
     active_run_id: str | None
     window_mode: str
+    check_updates: bool
 
     def model_dump(self) -> dict[str, Any]: ...
 
@@ -57,6 +58,11 @@ class SettingsRepository(Protocol):
 
 class EventPublisher(Protocol):
     def publish(self, event: str, data: Any = None) -> None: ...
+
+
+class UpdateChecks(Protocol):
+    def status(self) -> dict[str, Any]: ...
+    def settings_changed(self) -> None: ...
 
 
 class ScannerOperations(Protocol):

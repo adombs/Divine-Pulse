@@ -18,6 +18,7 @@ from .infrastructure.persistence import BattleStore, RunStore
 from .infrastructure.runtime_services import MemoryCheck, SystemAdapter
 from .infrastructure.route_inference import route_of
 from .infrastructure.settings import SettingsStore
+from .infrastructure.update_check import UpdateCheck
 from .interface.runtime import RuntimeView
 from .infrastructure.polling import Scanner
 
@@ -30,6 +31,7 @@ class AppRuntime(RuntimeView):
     battles: BattleStore
     scanner: Scanner
     game_import: GameAssetsImport = field(kw_only=True)
+    updates: UpdateCheck = field(kw_only=True)
 
     def close(self) -> None:
         try:
@@ -48,6 +50,7 @@ def build_runtime(data_dir: Path, settings: SettingsStore | None = None) -> AppR
     runs.battles = battles
     battles.on_change = runs.refresh_route
     events = EventBus()
+    updates = UpdateCheck(__version__, settings, events)
     scanner = Scanner(
         runs,
         settings,
@@ -68,6 +71,7 @@ def build_runtime(data_dir: Path, settings: SettingsStore | None = None) -> AppR
         route_resolver=lambda battle: route_of(None, [battle]),
         version=__version__,
         quest_battles=quest_battles(),
+        updates=updates,
     )
     return AppRuntime(operations, events, settings, runs, battles, scanner,
-                      game_import=GameAssetsImport(settings, events), take_notices=take_notices)
+                      game_import=GameAssetsImport(settings, events), updates=updates, take_notices=take_notices)

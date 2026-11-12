@@ -6,3 +6,4 @@
 .game-files-alert details { flex: 1; min-width: 12rem; }
 .game-files-alert summary { cursor: pointer; font-weight: 700; }
 .game-files-alert ul { margin: 0.5rem 0; padding-left: 1.2rem; max-height: 8rem; overflow: auto; overflow-wrap: anywhere; }
+.update-banner-icon { color: var(--accent, var(--ink-soft)); margin-right: 0.45rem; vertical-align: -0.15em; }

@@ -117,9 +117,22 @@ export interface Settings {
   memory_reader: "eden" | "recomp";
   /** What happens when a one-time battle is fought again: keep the best copy, or ask. */
   duplicate_battles: "keep_best" | "ask";
+  /** Look for a newer release on GitHub when the app starts. */
+  check_updates: boolean;
+  /** The version whose banner was dismissed (e.g. "1.4.4"); save "" to clear it. */
+  update_dismissed: string | null;
 }
 
-export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader" | "duplicate_battles">>;
+export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader" | "duplicate_battles" | "check_updates" | "update_dismissed">>;
+
+/** The startup check for a newer release (GET /api/update, SSE `update`). */
+export interface UpdateStatus {
+  current: string;
+  latest: string | null;
+  url: string | null;
+  available: boolean;
+  checked: boolean;
+}
 
 /** One copy of a battle that appears more than once in a run. */
 export interface DuplicateCopy {
@@ -577,6 +590,7 @@ export const api = {
   removeGameFiles: () => request<void>("DELETE", "/game-assets"),
   settings: () => request<Settings>("GET", "/settings"),
   saveSettings: (s: SettingsInput) => request<Settings>("PUT", "/settings", s),
+  update: () => request<UpdateStatus>("GET", "/update"),
   auto: () => request<AutoStatus>("GET", "/auto"),
   battle: () => request<{ battle: Battle | null }>("GET", "/battle"),
   battles: (runId: string) => request<Battle[]>("GET", `/runs/${enc(runId)}/battles`),

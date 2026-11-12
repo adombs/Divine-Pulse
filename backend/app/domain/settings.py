@@ -2,7 +2,7 @@
 
 from typing import Literal, TypedDict
 
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 DEFAULT_PORT = 8765
 DEFAULT_ROSTER_INTERVAL = 1.0
@@ -42,3 +42,11 @@ class Settings(BaseModel):
     window_mode: WindowMode = "windowed"
     memory_reader: MemoryReader = "eden"
     duplicate_battles: DuplicateBattles = "keep_best"
+    check_updates: bool = True
+    # The release version whose update banner was dismissed ("1.4.4"); None when none was.
+    update_dismissed: str | None = Field(None, max_length=32)
+
+    @field_validator("update_dismissed")
+    @classmethod
+    def _blank_dismissal_is_none(cls, value: str | None) -> str | None:
+        return (value.strip() or None) if value is not None else None

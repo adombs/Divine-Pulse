@@ -19,6 +19,9 @@ import { NavProvider, Page, useNavState } from "./nav";
 import { PeopleFiltersContext, usePeopleFiltersState } from "./filters";
 import { gameAssetsAvailable, gameAssetUrl, loadGameAssetsStatus, onGameAssetsChange } from "./gameAssets";
 import { GameAssetAlert } from "./components/GameAssetAlert";
+import { UpdateBanner } from "./components/UpdateBanner";
+import { acceptUpdate, loadUpdate, setUpdateDismissed } from "./updateStatus";
+import type { UpdateStatus } from "./api";
 import { reportAssetIssue } from "./requiredAssets";
 import { GameFilesGate } from "./components/GameFilesGate";
 import { loadPortraitIndex } from "./portraits";
@@ -180,7 +183,10 @@ export default function App() {
   useEffect(() => { void loadBattle(); }, [activeRunId, loadBattle]);
   useEffect(() => { setDuplicateRun(activeRunId); }, [activeRunId]);
 
+  useEffect(() => { void loadUpdate(); }, []);
+
   const connected = useEvents({
+    update: (data) => acceptUpdate(data as UpdateStatus | null),
     game_assets: (data) => updateImport((data as { job?: GameAssetsJob }).job ?? null),
     hello: (data) => {
       const notices = (data as { notices?: unknown } | null)?.notices;
@@ -392,6 +398,7 @@ export default function App() {
 
       <main className="sheet">
         <GameAssetAlert onGameFiles={() => nav.go({ page: "settings", tab: "game-files" })} />
+        <UpdateBanner />
         <ErrorBoundary resetKey={`${page}/${routeId ?? ""}/${assetsVersion}`}>
         {bootstrap.startup.error && (
           <div className="startup-error" role="alert">
@@ -451,6 +458,7 @@ export default function App() {
                 toasts={toasts}
                 onSaved={(s) => {
                   bootstrap.setSettings(s);
+                  setUpdateDismissed(s.update_dismissed);
                   void refreshAuto();
                 }}
               />
