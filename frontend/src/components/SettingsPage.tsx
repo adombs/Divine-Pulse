@@ -417,7 +417,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                   </Group>
                   <Group title="Battles">
                     <Row label="Repeated battles">
-                      <Segmented label="Repeated battles" value={duplicates} onChange={setDuplicates} options={[["keep_best", "Keep Best"], ["ask", "Ask"]]} />
+                      <Segmented label="Repeated battles" value={duplicates} onChange={setDuplicates} options={[["keep_best", "Keep Best"], ["keep_latest", "Keep Latest"], ["ask", "Ask"]]} />
                     </Row>
                   </Group>
                   <Group title="Updates">
