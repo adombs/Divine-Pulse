@@ -111,9 +111,35 @@ export interface Settings {
   window_mode: "windowed" | "fullscreen";
   /** Where the game is read from: the Eden emulator, or FE3H Recomp (the native Windows recompilation). */
   memory_reader: "eden" | "recomp";
+  /** What happens when a one-time battle is fought again: keep the best copy, or ask. */
+  duplicate_battles: "keep_best" | "ask";
 }
 
-export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader">>;
+export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader" | "duplicate_battles">>;
+
+/** One copy of a battle that appears more than once in a run. */
+export interface DuplicateCopy {
+  id: string;
+  started_at: string;
+  ended_at: string | null;
+  seconds: number;
+  turn: number;
+  enemies_defeated: number;
+  enemies_start: number;
+  log_len: number;
+}
+
+export interface DuplicateGroup {
+  scenario: number;
+  quest: number | null;
+  name: string;
+  /** The copy to keep by default. */
+  best: string;
+  /** Newest first. */
+  battles: DuplicateCopy[];
+}
+
+export interface DuplicateGroups { groups: DuplicateGroup[] }
 
 /** What the game reader is doing. */
 export interface AutoStatus {
@@ -558,6 +584,10 @@ export const api = {
   exportBattles: (runId: string) => request<Record<string, unknown>>("GET", `/runs/${enc(runId)}/battles/export`),
   importBattles: (runId: string, body: unknown) => request<{ added: number }>("POST", `/runs/${enc(runId)}/battles/import`, body),
   deleteBattle: (runId: string, id: string) => request<void>("DELETE", `/runs/${enc(runId)}/battles/${enc(id)}`),
+  duplicateBattles: (runId: string) => request<DuplicateGroups>("GET", `/runs/${enc(runId)}/battles/duplicates`),
+  resolveDuplicates: (runId: string, keep: string, discard: string[]) =>
+    request<DuplicateGroups>("POST", `/runs/${enc(runId)}/battles/duplicates/resolve`, { keep, discard }),
+  restoreBattles: (runId: string, ids: string[]) => request<DuplicateGroups>("POST", `/runs/${enc(runId)}/battles/restore`, { ids }),
   checkMemory: () => request<{ ok: boolean; message: string }>("GET", "/memory/check"),
   about: () => request<About>("GET", "/about"),
   openDataFolder: () => request<void>("POST", "/about/open-data-folder"),

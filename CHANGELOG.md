@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Find battles you fought more than once in a run (story chapters, paralogues, Cindered Shadows and quest battles; auxiliary battles can repeat). A warning beside Back lists the copies so you can keep one. Settings > General > Repeated battles: Keep Best keeps the most complete copy automatically, with Undo; Ask leaves the choice to you.
+- Remove Low HP from the map's legend.
+
 ## 1.4.3 (2026-11-10)
 
 - The outlook no longer weighs army strength, and its explanations are short ("Dimitri 8/28 HP, 2 enemies in reach").

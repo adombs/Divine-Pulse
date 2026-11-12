@@ -8,6 +8,7 @@ from pathlib import Path
 from . import __version__
 from .application.operations import BackendOperations
 from .bonuses import BonusTable
+from .infrastructure.battle_data import quest_battles
 from .infrastructure.events import EventBus
 from .infrastructure.game_assets_import import GameAssetsImport
 from .infrastructure.json_files import take_notices
@@ -66,6 +67,7 @@ def build_runtime(data_dir: Path, settings: SettingsStore | None = None) -> AppR
         data_dir=settings.path.parent,
         route_resolver=lambda battle: route_of(None, [battle]),
         version=__version__,
+        quest_battles=quest_battles(),
     )
     return AppRuntime(operations, events, settings, runs, battles, scanner,
                       game_import=GameAssetsImport(settings, events), take_notices=take_notices)

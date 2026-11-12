@@ -7,7 +7,7 @@ import re
 import threading
 import logging
 from pathlib import Path
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Collection, Mapping
 
 from pydantic import TypeAdapter
 
@@ -318,6 +318,54 @@ class BattleStore:
         if self.on_change:
             self.on_change(run_id)
 
+    # Copies of a battle the user (or "keep best") set aside, in data/battles/<run id>.discarded.json.
+
+    def _discarded_path(self, run_id: str) -> Path:
+        return self._path(run_id).with_suffix(".discarded.json")
+
+    def discarded(self, run_id: str) -> list[Battle]:
+        with self._lock:
+            path = self._discarded_path(run_id)
+            if not path.exists():
+                return []
+            try:
+                return read_with_backup(path, decode_battles)
+            except (OSError, ValueError, TypeError):
+                log.exception("Could not load discarded battles %s", path)
+                return []
+
+    def discard(self, run_id: str, ids: Collection[str]) -> list[str]:
+        """Move battles out of the history into the discarded file; returns the ids moved (unknown ids are ignored)."""
+        with self._lock:
+            path = self._path(run_id)
+            battles = read_with_backup(path, decode_battles) if path.exists() else []
+            moving = [b for b in battles if b.id in ids]
+            if not moving:
+                return []
+            side = self._discarded_path(run_id)
+            aside = read_with_backup(side, decode_battles) if side.exists() else []
+            self._write(side, [*aside, *moving])  # set aside first: a failed second write loses nothing
+            self._write(path, [b for b in battles if b.id not in ids])
+        if self.on_change:
+            self.on_change(run_id)
+        return [b.id for b in moving]
+
+    def restore(self, run_id: str, ids: Collection[str]) -> list[str]:
+        """Move discarded battles back into the history (kept ordered by id); returns the ids moved."""
+        with self._lock:
+            side = self._discarded_path(run_id)
+            aside = read_with_backup(side, decode_battles) if side.exists() else []
+            moving = [b for b in aside if b.id in ids]
+            if not moving:
+                return []
+            path = self._path(run_id)
+            battles = read_with_backup(path, decode_battles) if path.exists() else []
+            self._write(path, sorted([*battles, *moving], key=lambda b: b.id))
+            self._write(side, [b for b in aside if b.id not in ids])
+        if self.on_change:
+            self.on_change(run_id)
+        return [b.id for b in moving]
+
     def take_latest(self, run_id: str, key: str) -> Battle | None:
         """Take the newest battle of the run out of the history if its battle key is `key` (to carry on with it)."""
         with self._lock:
@@ -338,6 +386,9 @@ class BattleStore:
             path.with_suffix(path.suffix + ".bak").unlink(missing_ok=True)
             active = self._active_path(run_id)
             active.with_suffix(active.suffix + ".bak").unlink(missing_ok=True)
+            side = self._discarded_path(run_id)
+            side.unlink(missing_ok=True)
+            side.with_suffix(side.suffix + ".bak").unlink(missing_ok=True)
 
     # The battle in progress, saved so a restart of the tracker mid-battle can resume it.
 

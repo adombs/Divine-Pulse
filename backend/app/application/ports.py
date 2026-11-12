@@ -6,6 +6,7 @@ emulator implements it.
 
 from __future__ import annotations
 
+from collections.abc import Collection
 from typing import Any, Protocol
 from pathlib import Path
 
@@ -37,6 +38,8 @@ class BattleRepository(Protocol):
     def delete(self, run_id: str, battle_id: str) -> None: ...
     def delete_run(self, run_id: str) -> None: ...
     def add(self, battle: Battle) -> None: ...
+    def discard(self, run_id: str, ids: Collection[str]) -> list[str]: ...
+    def restore(self, run_id: str, ids: Collection[str]) -> list[str]: ...
 
 
 class SettingsValues(Protocol):

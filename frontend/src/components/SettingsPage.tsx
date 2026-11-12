@@ -276,6 +276,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const [recordingLimit, setRecordingLimit] = useState("3");
   const [windowMode, setWindowMode] = useState<Settings["window_mode"]>("windowed");
   const [memoryReader, setMemoryReader] = useState<Settings["memory_reader"]>("eden");
+  const [duplicates, setDuplicates] = useState<Settings["duplicate_battles"]>("keep_best");
   // The window mode only applies to the desktop window, not the browser.
   const [desktop, setDesktop] = useState(false);
   const ids = useId();
@@ -286,6 +287,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
     setSettings(s);
     setWindowMode(s.window_mode);
     setMemoryReader(s.memory_reader);
+    setDuplicates(s.duplicate_battles ?? "keep_best");
     setRecordingLimit(String(s.max_recordings));
   };
 
@@ -307,6 +309,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
       const s = await api.saveSettings({
         window_mode: windowMode,
         memory_reader: memoryReader,
+        duplicate_battles: duplicates,
         max_recordings: count,
       });
       apply(s);
@@ -320,7 +323,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   if (!settings) return <p className="muted">Loading…</p>;
 
   const changed: Partial<Record<SettingsTab, boolean>> = {
-    general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader,
+    general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader || duplicates !== (settings.duplicate_battles ?? "keep_best"),
   };
   const dirty = Object.values(changed).some(Boolean);
 
@@ -407,6 +410,11 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                       error={invalid ? "Enter a whole number from 0 to 1000." : undefined}>
                       <input id={ids + "-recordings"} type="number" min={0} max={1000} step={1}
                         value={recordingLimit} onChange={(e) => setRecordingLimit(e.target.value)} aria-invalid={invalid} />
+                    </Row>
+                  </Group>
+                  <Group title="Battles">
+                    <Row label="Repeated battles">
+                      <Segmented label="Repeated battles" value={duplicates} onChange={setDuplicates} options={[["keep_best", "Keep Best"], ["ask", "Ask"]]} />
                     </Row>
                   </Group>
                   {desktop && (

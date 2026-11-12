@@ -9,6 +9,7 @@ import { Home } from "./components/Home";
 import { Icon } from "./components/Icon";
 import { Sidebar } from "./components/Sidebar";
 import "./components/sidebar-motion.css";
+import { DuplicateEvent, refreshDuplicates, restoreDuplicates, setDuplicateRun } from "./duplicateBattles";
 import { Toasts, useToasts } from "./components/Toasts";
 import { RunIcon, runIconUrl } from "./components/ui";
 import { PortraitPhaseContext, useAppearance } from "./appearance";
@@ -176,6 +177,7 @@ export default function App() {
   const [battleVersion, setBattleVersion] = useState(0);
   const redirectedBattles = useRef(new Set<string>());
   useEffect(() => { void loadBattle(); }, [activeRunId, loadBattle]);
+  useEffect(() => { setDuplicateRun(activeRunId); }, [activeRunId]);
 
   const connected = useEvents({
     game_assets: (data) => updateImport((data as { job?: GameAssetsJob }).job ?? null),
@@ -189,7 +191,27 @@ export default function App() {
       // The history only changes when a battle ends or one is deleted, not on every update of the live battle.
       const d = data as { active?: boolean; history?: boolean } | null;
       if (!d?.active || d.history) setBattleVersion((v) => v + 1);
+      if (!d?.active || d.history) void refreshDuplicates();
       return refresh;
+    },
+    duplicate_battles: (data) => {
+      const d = data as DuplicateEvent | null;
+      if (!d || !Array.isArray(d.discarded)) return;
+      void refreshDuplicates();
+      setBattleVersion((v) => v + 1);
+      toasts.push({
+        kind: "info",
+        title: `Kept the turn ${d.kept_turn} copy of ${d.name}`,
+        ttl: 9000,
+        action: {
+          label: "Undo",
+          run: () => {
+            restoreDuplicates(d.run_id, d.discarded)
+              .then(() => setBattleVersion((v) => v + 1))
+              .catch((e) => toasts.push({ kind: "error", title: "Couldn't undo", body: (e as Error).message }));
+          },
+        },
+      });
     },
     runs_changed: () => loadRuns(),
     units_changed: (data) => {

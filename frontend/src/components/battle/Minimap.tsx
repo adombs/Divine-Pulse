@@ -732,7 +732,6 @@ function MapLegend({ replay, board }: { replay?: boolean; board?: Board }) {
         {board?.pieces.some((p) => !p.army && p.sprite.side === "ally") && <span className="map-key team-ally">Allies</span>}
         {board?.pieces.some((p) => !p.army && p.sprite.side === "third") && <span className="map-key team-third">Third Army</span>}
         {walls && <span className="map-key wall">Breakable Walls</span>}
-        <span className="map-key low">Low HP</span>
         <span className="map-key down">Killed</span>
       </p>
       {replay && (
