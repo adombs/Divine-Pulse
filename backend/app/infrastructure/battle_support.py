@@ -7,6 +7,7 @@ import logging
 from pathlib import Path
 
 from ..gamemem.pairing import enemy_phase_began, pair_fights
+from ..gamemem.threat import threats
 from .inventory import art_name, inventory, item_name, spell_name, weapon_kind
 from .battle_data import gambit_name, item_used, rally_name, scenario_name, support_spell, terrain_tiles
 
@@ -27,6 +28,15 @@ class DefaultBattleSupport:
     scenario_name = staticmethod(scenario_name)
     pair_fights = staticmethod(pair_fights)
     enemy_phase_began = staticmethod(enemy_phase_began)
+
+    @staticmethod
+    def threats(units: list, grid: list[list[int]] | None, spent: frozenset[int]) -> dict[int, tuple[tuple[int, ...], int, float, float]]:
+        try:
+            found = threats(units, grid, spent)
+        except (OSError, ValueError, KeyError, TypeError):
+            log.debug("No threat estimate (combat data missing?)", exc_info=True)
+            return {}
+        return {slot: (t.attackers, t.max_damage, t.expected, t.death) for slot, t in found.items()}
 
     @staticmethod
     def write_pairing_report(directory: Path, name: str, report: dict) -> None:

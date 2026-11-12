@@ -22,6 +22,7 @@ from ..domain.battle import (
     MAP_SIZE,
     MapStep,
     TrendPoint,
+    UnitThreat,
     Battle,
     ArmySample,
     EnemySample,
@@ -42,7 +43,7 @@ from ..domain.battle import (
     _plus_text,
     _looks_like_level_up,
 )
-from ..domain.outlook import outlook
+from ..domain.outlook import outlook, turn_phase
 from ..domain.units import VALUE_KEYS, byleth_look, now
 from ..domain.combat import EQUIPMENT
 from .battle_support import BattleSupport
@@ -107,6 +108,7 @@ class BattleTracker:
         self._history_hp: dict[str, int] = {}
         self._filed: tuple[BattleSample, float] | None = None
         self._unfiled: tuple[float, BattleSample, dict[str, int]] | None = None
+        self._phase: int | None = None  # the phase in progress as of the last read (0 your phase)
 
     def resume(self, battle: Battle) -> None:
         """Carry on with a battle saved before the tracker restarted (see storage.BattleStore.load_active)."""
@@ -253,6 +255,8 @@ class BattleTracker:
         if sample.history:
             self._apply_history(sample, 0, rewound=False)
             self._track_presence(sample)
+        self._phase = self._phase_now()
+        self._evaluate_outlook(sample)
         self._last = sample
 
     def _step(self, sample: BattleSample, at: datetime) -> bool:
@@ -371,6 +375,14 @@ class BattleTracker:
         self._note_phase(
             self._last, sample
         )  # (after pairing too: fights in the read where it began may be your units')
+        # The outlook is worked out at the start of the battle and when your phase ends (from the last read of it,
+        # before the other armies move), and holds in between.
+        phase = self._phase_now()
+        if went_back:
+            changed = self._evaluate_outlook(sample) or changed
+        elif self._phase == 0 and phase != 0:
+            changed = self._evaluate_outlook(self._last or sample) or changed
+        self._phase = phase
         self._last = sample
         return changed
 
@@ -678,6 +690,36 @@ class BattleTracker:
                         )
                     )
         return True
+
+    def _phase_now(self) -> int:
+        """The phase in progress: from the game's history when it has phases, else as worked out from the reads."""
+        battle = self.battle
+        assert battle is not None
+        phase, _ = turn_phase(battle)
+        if phase is None:
+            return 1 if self._enemy_phase else 0
+        return phase
+
+    def _evaluate_outlook(self, sample: BattleSample | None) -> bool:
+        """Work out the outlook (Battle.outlook_at) from where everyone stands in `sample`: what the other armies could
+        do to each of your units before your next turn (Battle.threats), all of them still to act. Only at the start
+        of the battle, when your phase ends and after a Divine Pulse: it holds in between. Returns whether it
+        changed."""
+        battle = self.battle
+        assert battle is not None
+        if sample is not None and sample.units:
+            found = self.support.threats(list(sample.units), battle.terrain, frozenset())
+            battle.threats = {
+                sample.army_slots[slot]: UnitThreat(
+                    attackers=[f"e:{a}" for a in attackers], max_damage=most, expected=expected, death=death
+                )
+                for slot, (attackers, most, expected, death) in found.items()
+                if slot in sample.army_slots
+            }
+        before = battle.outlook_at
+        battle.outlook_at = None
+        battle.outlook_at = outlook(battle)
+        return battle.outlook_at != before
 
     def _off_history(self, sample: BattleSample) -> dict[str, int] | None:
         """The units whose HP in this read isn't what the game's history last left it at (uid -> HP now). None when

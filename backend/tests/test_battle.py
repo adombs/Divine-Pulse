@@ -473,10 +473,15 @@ def test_a_rewind_takes_back_spells_and_weapon_uses_together():
 
 
 def test_outlook_trend_follows_the_battle():
+    # The outlook is worked out at the start and when your phase ends: it holds while your units act.
+    fight = HistoryStep(1, 0, True)
+    enemy_phase = HistoryStep(1, 1, True)
     tracker = BattleTracker()
-    tracker.update(BattleSample((army(),), enemies(10)), "run", at(0))
-    tracker.update(BattleSample((army(),), enemies(10)), "run", at(5))  # nothing changed: no new point
-    tracker.update(BattleSample((army(),), enemies(4)), "run", at(60))
+    tracker.update(BattleSample((army(),), enemies(10), history=(fight,)), "run", at(0))
+    tracker.update(BattleSample((army(),), enemies(10), history=(fight,)), "run", at(5))  # nothing changed: no new point
+    tracker.update(BattleSample((army(),), enemies(4), history=(fight,)), "run", at(30))  # your phase: it holds
+    assert [p.chance for p in tracker.battle.trend] == [tracker.battle.trend[0].chance]
+    tracker.update(BattleSample((army(),), enemies(4), history=(fight, enemy_phase)), "run", at(60))
     trend = tracker.battle.trend
     assert [p.t for p in trend] == [0, 60] and trend[1].chance > trend[0].chance
 
