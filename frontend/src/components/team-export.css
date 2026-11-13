@@ -162,3 +162,4 @@
 .team-include-fallen { display: flex; align-items: center; gap: 0.4rem; font-size: 0.92rem; cursor: pointer; }
 .team-include-fallen input { margin: 0; accent-color: var(--accent); }
 .team-include-fallen small { margin-left: auto; color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.team-include-fallen.is-disabled { color: var(--ink-soft); cursor: default; }

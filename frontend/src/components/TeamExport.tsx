@@ -291,13 +291,11 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
                 ))}
               </select>
             </label>
-            {fallenCount > 0 && (
-              <label className="team-include-fallen">
-                <input type="checkbox" checked={options.fallen} onChange={(e) => setOption("fallen", e.target.checked)} />
-                Include fallen units
-                <small>{fallenCount}</small>
-              </label>
-            )}
+            <label className={`team-include-fallen${fallenCount ? "" : " is-disabled"}`} title={fallenCount ? undefined : "No unit has fallen in this run"}>
+              <input type="checkbox" checked={options.fallen} disabled={!fallenCount} onChange={(e) => setOption("fallen", e.target.checked)} />
+              Include fallen units
+              <small>{fallenCount || "none fallen"}</small>
+            </label>
             <UnitSlots slots={slots} byKey={byKey} left={left} includeFallen={options.fallen} part2={part2} columns={perRow} onToggle={toggle} onPlace={(next) => { setPlaced(next); setOrderBy("custom"); }} />
           </fieldset>
           <fieldset className="export-group" disabled={working}>

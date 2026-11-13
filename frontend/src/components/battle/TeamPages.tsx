@@ -322,18 +322,16 @@ export function TeamPagesSection({ team, update, pages, units, part2 }: {
               {team.left.length ? "Select all" : "Select none"}
             </button>
           </div>
-          {fallenCount > 0 && (
-            <div className="team-fallen-options">
-              <label className="team-include-fallen">
-                <input type="checkbox" checked={team.fallen} onChange={(e) => update({ fallen: e.target.checked })} />
-                Include fallen units <small>{fallenCount}</small>
-              </label>
-              <label className="team-include-fallen">
-                <input type="checkbox" checked={team.markFallen} onChange={(e) => update({ markFallen: e.target.checked })} />
-                Mark fallen units
-              </label>
-            </div>
-          )}
+          <div className="team-fallen-options" title={fallenCount ? undefined : "No unit fell in this battle"}>
+            <label className={`team-include-fallen${fallenCount ? "" : " is-disabled"}`}>
+              <input type="checkbox" checked={team.fallen} disabled={!fallenCount} onChange={(e) => update({ fallen: e.target.checked })} />
+              Include fallen units <small>{fallenCount || "none fell"}</small>
+            </label>
+            <label className={`team-include-fallen${fallenCount ? "" : " is-disabled"}`}>
+              <input type="checkbox" checked={team.markFallen} disabled={!fallenCount} onChange={(e) => update({ markFallen: e.target.checked })} />
+              Mark fallen units
+            </label>
+          </div>
           <div className="team-units-grid">
             <UnitSlots slots={pages.slots} byKey={pages.byKey} left={new Set(team.left)} includeFallen={team.fallen} part2={part2} columns={PICKER_COLUMNS} onToggle={toggle} onPlace={(placed) => update({ placed, order: "custom" })} />
           </div>
