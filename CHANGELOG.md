@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.4.5 (2026-11-13)
+
 - Each unit now has a run score (1,000 points per battle MVP, plus damage dealt and healing done in completed battles). It shows on the Roster (a sortable Score column) and in the best unit's tooltip on the home page.
 - Character Stats shows each unit's run score.
 - Export Team shows each unit's score on its card and in a Score column of the run statistics image, and can order units by Score (Ascending) or Score (Descending).
