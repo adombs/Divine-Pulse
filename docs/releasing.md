@@ -53,6 +53,12 @@ Both packages require Windows 10 or 11 (64-bit) with Microsoft Edge WebView2. Th
    before publishing. A hotfix `x.y.z` gets the published notes of `x.y.(z-1)`, which are `x.y.0`'s notes with
    each earlier hotfix appended, plus its own changelog bullets under `## Hotfix x.y.z`. So publish each release before
    finalizing the next hotfix, and edit a hotfix's bullets on its draft: later hotfixes carry them as published.
+
+   **Keep the notes player-facing.** `CHANGELOG.md` keeps the detailed list; the GitHub notes don't. After `finalize`,
+   rewrite the draft's new section (`gh release edit vX.Y.Z --notes-file notes.md`): group it under short bold area
+   labels (for example **Export Video**, **Battles and stats**, **Map**, **Smaller changes**), one line per bullet,
+   saying what a player can now do or see, not every precise change, setting or number. Keep anything a player must
+   act on (for example "Reprocess your game files once"). Hotfix 1.4.3's section is a good model.
 5. **Test and publish.** Try the installer and portable ZIP on a clean PC (or fresh Windows user account). Inspect
    the draft's version, notes, files, and checksums before publishing it manually on GitHub.
 
