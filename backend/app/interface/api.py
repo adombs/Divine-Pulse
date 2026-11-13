@@ -175,7 +175,8 @@ def set_run_ebst(run_id: str, body: EbstIn, request: Request) -> EbstConfig:
 @router.get("/runs/{run_id}/units")
 def list_units(run_id: str, request: Request) -> list[UnitOut]:
     pairs = _call(_state(request).operations.list_units, run_id)
-    return [UnitOut.from_unit(key, unit) for key, unit in pairs]
+    scores = _call(_state(request).operations.unit_scores, run_id)
+    return [UnitOut.from_unit(key, unit, scores.get(key, 0)) for key, unit in pairs]
 
 
 @router.put("/runs/{run_id}/units/{key}/ebst")
@@ -186,13 +187,13 @@ def set_unit_ebst(run_id: str, key: str, body: EbstIn, request: Request) -> Unit
         key,
         body.model_dump(exclude_none=True),
     )
-    return UnitOut.from_unit(key, unit)
+    return UnitOut.from_unit(key, unit, _call(_state(request).operations.unit_scores, run_id).get(key, 0))
 
 
 @router.put("/runs/{run_id}/units/{key}/dead")
 def set_unit_dead(run_id: str, key: str, body: DeadIn, request: Request) -> UnitOut:
     unit = _call(_state(request).operations.set_unit_dead, run_id, key, body.dead)
-    return UnitOut.from_unit(key, unit)
+    return UnitOut.from_unit(key, unit, _call(_state(request).operations.unit_scores, run_id).get(key, 0))
 
 
 @router.post("/window/show")

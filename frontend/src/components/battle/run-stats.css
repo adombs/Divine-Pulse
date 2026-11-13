@@ -13,9 +13,9 @@
 .run-stats-duration { display: inline-flex; align-items: center; gap: 0.35rem; margin-top: 0.45rem; color: var(--ink-soft); font: 0.88rem var(--ui); }
 .run-stats-duration .icon { width: 1em; height: 1em; }
 .run-stats-duration b { color: var(--ink); font-weight: 500; font-variant-numeric: tabular-nums; }
-.run-stats-totals { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); margin: 0; }
-.run-stats-totals > div { padding-inline: 1.4rem; border-left: 1px solid var(--line); }
-.run-stats-totals dt { display: flex; align-items: center; gap: 0.35rem; color: var(--ink-soft); font: 600 0.9rem var(--ui); }
+.run-stats-totals { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 0; }
+.run-stats-totals > div { padding-inline: 1.1rem; border-left: 1px solid var(--line); }
+.run-stats-totals dt { display: flex; white-space: nowrap; align-items: center; gap: 0.35rem; color: var(--ink-soft); font: 600 0.9rem var(--ui); }
 .run-stats-totals dt .icon { color: var(--accent); width: 1.1em; height: 1.1em; }
 .run-stats-totals dd { margin: 0.25rem 0 0; font: 2.25rem/1.1 var(--nums); font-variant-numeric: tabular-nums; color: var(--ink); overflow-wrap: anywhere; }
 .run-stats-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem 1.25rem; }
@@ -63,7 +63,7 @@
 .run-stats-table tbody tr:nth-child(even) td, .run-stats-table tbody tr:nth-child(even) th { background-color: var(--row); }
 .run-stats-table tbody tr:hover td, .run-stats-table tbody tr:hover th { background-color: var(--row-hover); }
 .run-stats-table tbody td.is-sorted, .run-stats-table thead th.is-sorted, .run-stats-table tfoot td.is-sorted { background-color: color-mix(in srgb, var(--accent) 9%, var(--paper)); }
-.run-stats-cell-bar { position: absolute; bottom: 0; left: 0; height: 3px; background: var(--bar); }
+.run-stats-cell-bar { position: absolute; bottom: 0; left: 0; height: 3px; background: var(--bar); pointer-events: none; }
 .run-stats-cell-value { position: relative; }
 .run-stats-table tfoot th, .run-stats-table tfoot td { position: sticky; bottom: 0; z-index: 2; border-top: 1px solid var(--row-border); border-bottom: 0; background-color: var(--paper-2); font-weight: 700; }
 .run-stats-table tfoot th:first-child { z-index: 3; background-color: var(--paper-2); }

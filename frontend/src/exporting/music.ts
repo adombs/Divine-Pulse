@@ -6,7 +6,7 @@
  * at the end.
  */
 import { gameAssetUrl, loadGameJson } from "../gameAssets";
-import { mixPiece, soundPlan } from "./soundtrack";
+import { customPlan, mixPiece, soundPlan, type SoundPlan } from "./soundtrack";
 
 /** One recording of a theme: its audio file and the loop the game plays. */
 export interface Track {
@@ -79,25 +79,79 @@ function themeAudio(theme: Track): Promise<AudioBuffer> {
 /** The soundtrack is made this long a piece at a time (s). */
 const PIECE = 1;
 
+/** Mixes `plan` over `audio` a piece of a second at a time, so a long video needs no more memory than a short one. */
+function* pieces(audio: AudioBuffer, plan: SoundPlan): Generator<AudioBuffer> {
+  const input = Array.from({ length: audio.numberOfChannels }, (_, c) => audio.getChannelData(c));
+  const step = Math.round(PIECE * audio.sampleRate);
+  for (let from = 0; from < plan.total; from += step) {
+    const piece = new AudioBuffer({ length: Math.min(step, plan.total - from), numberOfChannels: input.length, sampleRate: audio.sampleRate });
+    mixPiece(input, Array.from({ length: input.length }, (_, c) => piece.getChannelData(c)), from, plan);
+    yield piece;
+  }
+}
+
 /**
  * The soundtrack of a video `seconds` long, in pieces of a second: the theme from its start, looping as the game loops
  * it, at `volume` (0-1), faded out over the last seconds. Only one piece is made at a time (and the theme's decoded
- * audio is dropped when the last one is), so a long video needs no more memory than a short one.
+ * audio is dropped when the last one is).
  */
 export async function* soundtrack(theme: Track, seconds: number, volume: number): AsyncGenerator<AudioBuffer> {
   try {
     const audio = await themeAudio(theme);
-    const plan = soundPlan(theme, audio, seconds, volume);
-    const input = Array.from({ length: audio.numberOfChannels }, (_, c) => audio.getChannelData(c));
-    const step = Math.round(PIECE * audio.sampleRate);
-    for (let from = 0; from < plan.total; from += step) {
-      const piece = new AudioBuffer({ length: Math.min(step, plan.total - from), numberOfChannels: input.length, sampleRate: audio.sampleRate });
-      mixPiece(input, Array.from({ length: input.length }, (_, c) => piece.getChannelData(c)), from, plan);
-      yield piece;
-    }
+    yield* pieces(audio, soundPlan(theme, audio, seconds, volume));
   } finally {
     decoded.delete(theme.id);
   }
+}
+
+/** Audio the player chose from their own files: decoded once when chosen, and kept for the previews and the export. */
+export interface CustomAudio {
+  name: string;
+  /** The file's own length (s). */
+  duration: number;
+  /** Its decoded audio (at most `CUSTOM_KEEP` seconds of it; a video never needs more). */
+  buffer: AudioBuffer;
+  /** The file, for listening to it. */
+  url: string;
+}
+
+/** The longest stretch of a chosen file that is kept once decoded (s), so a very long recording can't fill the memory. */
+export const CUSTOM_KEEP = 20 * 60;
+/** The biggest file read (bytes). */
+export const CUSTOM_MAX_BYTES = 150 * 1024 * 1024;
+
+/** Decodes a chosen audio file (whatever this window can decode: MP3, M4A/AAC, OGG, WAV, FLAC...). Throws a message fit to show. */
+export async function loadCustomAudio(file: File): Promise<CustomAudio> {
+  if (file.size > CUSTOM_MAX_BYTES) throw new Error(`${file.name} is bigger than ${Math.round(CUSTOM_MAX_BYTES / 1024 / 1024)} MB. Choose a shorter recording.`);
+  let decodedAudio: AudioBuffer;
+  try {
+    decodedAudio = await new OfflineAudioContext(2, 1, 48000).decodeAudioData(await file.arrayBuffer());
+  } catch {
+    throw new Error(`${file.name} couldn't be read as audio. Try an MP3, M4A, OGG, WAV or FLAC file.`);
+  }
+  if (!(decodedAudio.length > 0)) throw new Error(`${file.name} has no sound in it.`);
+  let buffer = decodedAudio;
+  const keep = Math.round(CUSTOM_KEEP * decodedAudio.sampleRate);
+  if (decodedAudio.length > keep) {
+    buffer = new AudioBuffer({ length: keep, numberOfChannels: decodedAudio.numberOfChannels, sampleRate: decodedAudio.sampleRate });
+    for (let c = 0; c < buffer.numberOfChannels; c++) buffer.copyToChannel(decodedAudio.getChannelData(c).subarray(0, keep), c);
+  }
+  return { name: file.name, duration: decodedAudio.duration, buffer, url: URL.createObjectURL(file) };
+}
+
+/** Lets go of a chosen file's listening copy. */
+export function releaseCustomAudio(audio: CustomAudio | null): void {
+  if (!audio) return;
+  if (previewing?.id === CUSTOM_ID) previewTheme(null);
+  URL.revokeObjectURL(audio.url);
+}
+
+/** The id the player's own audio goes by in the picker and the preview. */
+export const CUSTOM_ID = "custom";
+
+/** The soundtrack of a video `seconds` long from the player's audio: looped if shorter, cut if longer, faded out over the last second. */
+export async function* customSoundtrack(audio: CustomAudio, seconds: number, volume: number): AsyncGenerator<AudioBuffer> {
+  yield* pieces(audio.buffer, customPlan(audio.buffer, seconds, volume));
 }
 
 let previewing: { audio: HTMLAudioElement; id: string } | null = null;
@@ -107,13 +161,13 @@ export function setPreviewVolume(volume: number): void {
   if (previewing) previewing.audio.volume = Math.min(1, Math.max(0, volume));
 }
 
-/** Plays a theme from its start (or stops it, if it's the one playing). Returns whether it's playing now. */
-export function previewTheme(theme: Track | null, volume = 0.8): boolean {
+/** Plays a theme (or the player's own audio) from its start (or stops it, if it's the one playing). Returns whether it's playing now. */
+export function previewTheme(theme: Pick<Track, "id" | "file"> | { id: string; url: string } | null, volume = 0.8): boolean {
   const same = previewing?.id === theme?.id;
   previewing?.audio.pause();
   previewing = null;
   if (!theme || same) return false;
-  const audio = new Audio(gameAssetUrl(theme.file));
+  const audio = new Audio("url" in theme ? theme.url : gameAssetUrl(theme.file));
   audio.volume = volume;
   audio.addEventListener("ended", () => {
     if (previewing?.audio === audio) previewing = null;

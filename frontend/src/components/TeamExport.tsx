@@ -13,6 +13,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import { api, LABELS, type Battle, type RunSummary, type Unit, type ValueKey } from "../api";
 import { tidyAbility } from "../appearance";
 import { plural } from "../format";
+import { SCORE_EXPLANATION, fmtScore } from "../score";
 import { deathText } from "../deaths";
 import { masteredClasses } from "../classMastery";
 import { useReference } from "../reference/types";
@@ -42,7 +43,7 @@ const SIZES: [number, string][] = [
   [3, "XL"],
 ];
 /** The images' shapes: as big as the content (auto), or padded out to a width over height. */
-type Aspect = "auto" | "16:9" | "1.91:1" | "9:16" | "4:5";
+export type Aspect = "auto" | "16:9" | "1.91:1" | "9:16" | "4:5";
 const ASPECTS: [Aspect, string, string][] = [
   ["auto", "Auto", "As big as the content"],
   ["16:9", "16:9", "Padded out to 16:9"],
@@ -65,8 +66,8 @@ interface ImageOptions {
   /** The images' shape. */
   aspect: Aspect;
 }
-type ExportFace = "portrait" | "sprite";
-const FACES: [ExportFace, string][] = [
+export type ExportFace = "portrait" | "sprite";
+export const FACES: [ExportFace, string][] = [
   ["portrait", "Portrait"],
   ["sprite", "Sprite"],
 ];
@@ -101,7 +102,7 @@ function readPerRow(): number {
   }
 }
 
-const STATS: ValueKey[] = ["hp", "str", "mag", "dex", "spd", "lck", "def", "res", "cha", "mv"];
+export const STATS: ValueKey[] = ["hp", "str", "mag", "dex", "spd", "lck", "def", "res", "cha", "mv"];
 /** The stats a base stat total adds up (all but movement). */
 const BST_STATS: ValueKey[] = ["hp", "str", "mag", "dex", "spd", "lck", "def", "res", "cha"];
 
@@ -290,13 +291,11 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
                 ))}
               </select>
             </label>
-            {fallenCount > 0 && (
-              <label className="team-include-fallen">
-                <input type="checkbox" checked={options.fallen} onChange={(e) => setOption("fallen", e.target.checked)} />
-                Include fallen units
-                <small>{fallenCount}</small>
-              </label>
-            )}
+            <label className={`team-include-fallen${fallenCount ? "" : " is-disabled"}`} title={fallenCount ? undefined : "No unit has died in this run"}>
+              <input type="checkbox" checked={options.fallen} disabled={!fallenCount} onChange={(e) => setOption("fallen", e.target.checked)} />
+              Include fallen units
+              <small>{fallenCount || "none fallen"}</small>
+            </label>
             <UnitSlots slots={slots} byKey={byKey} left={left} includeFallen={options.fallen} part2={part2} columns={perRow} onToggle={toggle} onPlace={(next) => { setPlaced(next); setOrderBy("custom"); }} />
           </fieldset>
           <fieldset className="export-group" disabled={working}>
@@ -345,15 +344,17 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
   );
 }
 
-type OrderCriterion = "bst" | "deployments" | "joined" | "name";
-type OrderBy = "custom" | `${OrderCriterion}:${"asc" | "desc"}`;
+export type OrderCriterion = "bst" | "score" | "deployments" | "joined" | "name";
+export type OrderBy = "custom" | `${OrderCriterion}:${"asc" | "desc"}`;
 
 /** The ways to order every unit at once (besides arranging them by hand), each both ways. */
-const ORDER_BY: [Exclude<OrderBy, "custom">, string][] = [
+export const ORDER_BY: [Exclude<OrderBy, "custom">, string][] = [
   ["name:asc", "Name (Ascending)"],
   ["name:desc", "Name (Descending)"],
   ["bst:asc", "BST (Ascending)"],
   ["bst:desc", "BST (Descending)"],
+  ["score:asc", "Score (Ascending)"],
+  ["score:desc", "Score (Descending)"],
   ["deployments:asc", "Deployments (Ascending)"],
   ["deployments:desc", "Deployments (Descending)"],
   ["joined:asc", "Joined (Ascending)"],
@@ -361,7 +362,7 @@ const ORDER_BY: [Exclude<OrderBy, "custom">, string][] = [
 ];
 
 /** The units' keys for an order option such as "bst:desc" (see `orderUnits`). */
-const orderFor = (units: Unit[], by: Exclude<OrderBy, "custom">, characters: Parameters<typeof orderUnits>[2]) => {
+export const orderFor = (units: Unit[], by: Exclude<OrderBy, "custom">, characters: Parameters<typeof orderUnits>[2]) => {
   const [criterion, dir] = by.split(":") as [OrderCriterion, "asc" | "desc"];
   return orderUnits(units, criterion, characters, dir === "desc");
 };
@@ -378,6 +379,7 @@ export function orderUnits(units: Unit[], by: OrderCriterion, characters: { key:
   };
   const value: Record<typeof by, (a: Unit, b: Unit) => number> = {
     bst: (a, b) => baseStatTotal(a) - baseStatTotal(b),
+    score: (a, b) => (a.score ?? 0) - (b.score ?? 0),
     deployments: (a, b) => (stats.get(a.key)?.battles ?? 0) - (stats.get(b.key)?.battles ?? 0),
     joined: (a, b) => {
       // Byleth is there from the start, ahead of anyone who first fought in the same battle.
@@ -448,7 +450,7 @@ export function moveSlot(slots: (string | null)[], from: number, to: number): (s
  * handle (six dots) to drag it to another slot, empty or not (they swap). Alt and an arrow key move the focused one
  * to the next slot that way.
  */
-function UnitSlots({ slots, byKey, left, includeFallen, part2, columns, onToggle, onPlace }: {
+export function UnitSlots({ slots, byKey, left, includeFallen, part2, columns, onToggle, onPlace }: {
   slots: (string | null)[];
   byKey: Map<string, Unit>;
   left: Set<string>;
@@ -525,7 +527,7 @@ function UnitSlots({ slots, byKey, left, includeFallen, part2, columns, onToggle
 }
 
 /** An image at its real width (as wide as its content), scaled down to fit the preview's width. */
-function FitWidth({ actual, children }: { actual?: boolean; children: ReactNode }) {
+export function FitWidth({ actual, children }: { actual?: boolean; children: ReactNode }) {
   const box = useRef<HTMLDivElement>(null);
   const inner = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState<[number, number, number]>([0, 0, 0]);
@@ -563,7 +565,7 @@ export function aspectSize([w, h]: [number, number], ratio: number | null): [num
  * the sheet grows to it around its content, which stays in the middle at its own size (measured on its own, so the
  * sheet's size never feeds back into it).
  */
-function TeamSheet({ run, units, title, note, className, width, aspect, children, ref }: { run: RunSummary; units: Unit[]; title: string; note?: string; className?: string; width: number; aspect: Aspect; children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
+export function TeamSheet({ run, units, title, note, className, width, aspect, children, ref }: { run: Pick<RunSummary, "name" | "route">; units: Unit[]; title: string; note?: string; className?: string; width: number; aspect: Aspect; children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
   const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   const sheet = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
@@ -639,11 +641,24 @@ export function packColumns(heights: number[], titles: boolean[], room: number):
 }
 
 /**
+ * Packs pieces into at most `maxColumns` columns, as short as that allows (the least room that does it), for the
+ * video's tall frames, where a card narrower and taller than the image's is the one that can be read.
+ */
+export function packWithin(heights: number[], titles: boolean[], maxColumns: number): number[][] {
+  const total = heights.reduce((n, h) => n + h + PIECE_GAP, 0);
+  for (let room = Math.max(heights[0] ?? 0, 1); room < total; room += 4) {
+    const columns = packColumns(heights, titles, room);
+    if (columns.length <= maxColumns) return columns;
+  }
+  return [heights.map((_, i) => i)];
+}
+
+/**
  * A unit's face in an image: its portrait, or its map sprite in its class (in a disc like the portrait's). A unit with
  * no sprite (the game's sprites aren't imported, or none fits) keeps its portrait: an exported image should never carry
  * a "missing" mark.
  */
-function UnitFaceImage({ unit, part2, size, face }: { unit: Unit; part2: boolean; size: number; face: ExportFace }) {
+export function UnitFaceImage({ unit, part2, size, face }: { unit: Unit; part2: boolean; size: number; face: ExportFace }) {
   const sprite = useMemo(() => unitSprite(unit), [unit]);
   const has = useHasSprite(sprite);
   if (!has || face === "portrait") return <Portrait unit={unit} part2={part2} size={size} />;
@@ -656,7 +671,7 @@ function UnitFaceImage({ unit, part2, size, face }: { unit: Unit; part2: boolean
 
 /** A unit's loadout: who it is, its stats and BST, then what it carries and knows in columns beside that, no taller
  * than it, so every card is the same height. */
-function LoadoutCard({ unit, part2, face }: { unit: Unit; part2: boolean; face: ExportFace }) {
+export function LoadoutCard({ unit, part2, face, maxColumns }: { unit: Unit; part2: boolean; face: ExportFace; maxColumns?: number }) {
   const carried = (unit.inventory ?? []).filter((it) => it.kind !== "spell");
   const spells = (unit.inventory ?? []).filter((it) => it.kind === "spell");
   const abilities = [unit.personal_ability, ...unit.abilities].filter(Boolean).map(tidyAbility);
@@ -671,10 +686,16 @@ function LoadoutCard({ unit, part2, face }: { unit: Unit; part2: boolean; face: 
             <b>{unit.name}</b>
             <span>{unit.class_name || "—"}</span>
           </div>
-          <span className="team-card-bst" title="Base stat total: the base stats added up, without bonuses">
-            <small>BST</small>
-            {baseStatTotal(unit)}
-          </span>
+          <div className="team-card-badges">
+            <span className="team-card-bst" title="Base stat total: the base stats added up, without bonuses">
+              <small>BST</small>
+              {baseStatTotal(unit)}
+            </span>
+            <span className="team-card-score" title={`Run score: ${SCORE_EXPLANATION}`}>
+              <small>Score</small>
+              {fmtScore(unit.score)}
+            </span>
+          </div>
         </header>
         <dl className="team-card-stats">
           {STATS.map((k) => (
@@ -736,7 +757,7 @@ function LoadoutCard({ unit, part2, face }: { unit: Unit; part2: boolean; face: 
     const heights: number[] = [];
     for (const node of Array.from(el.querySelectorAll<HTMLElement>("[data-piece]"))) heights[Number(node.dataset.piece)] = node.offsetHeight;
     if (heights.length !== pieces.length || heights.some((h) => h === undefined)) return;
-    const next = packColumns(heights, pieces.map((p) => !!p.title), heights[0]);
+    const next = maxColumns ? packWithin(heights, pieces.map((p) => !!p.title), maxColumns) : packColumns(heights, pieces.map((p) => !!p.title), heights[0]);
     setColumns((now) => (JSON.stringify(now) === JSON.stringify(next) ? now : next));
   }); // every render: cheap, and settles after one pass since a piece's height doesn't depend on its column
   const shown = columns.flat().length === pieces.length ? columns : whole;
@@ -763,12 +784,12 @@ const RECORD_WEIGHT: Partial<Record<string, number>> = { bench: 0.5 };
 
 /**
  * A unit's three most telling records: those it holds the biggest share of across the run (ties: the most times
- * received, then the order History lists them). Battle-wide records (no one unit's) are left out.
+ * received, then the order History lists them).
  */
 export function topRecords(row: LedgerRow | undefined, totals: (number | null)[], n = 3): { key: string; title: string; icon: string; count: number }[] {
   if (!row) return [];
   return AWARDS.map((a, i) => ({ a, i, count: row.values.records[i] ?? 0, total: totals[i] ?? 0 }))
-    .filter((r) => !("battleWide" in r.a) && r.count > 0)
+    .filter((r) => r.count > 0)
     .map((r) => ({ ...r, score: (r.count / Math.max(r.count, r.total)) * (RECORD_WEIGHT[r.a.key] ?? 1) }))
     .sort((x, y) => y.score - x.score || y.count - x.count || x.i - y.i)
     .slice(0, n)
@@ -777,33 +798,86 @@ export function topRecords(row: LedgerRow | undefined, totals: (number | null)[]
 
 const cell = (v: number | null | undefined) => (v === null || v === undefined ? "—" : Math.round(v).toLocaleString());
 
-/** The picked units' run statistics, one row each, with the team's totals. */
-function StatsTable({ units, rows, totals, part2, face }: { units: Unit[]; rows: LedgerRow[]; totals: (number | null)[]; part2: boolean; face: ExportFace }) {
+/** A column of the statistics table: the unit's Score, one of the combat or growth counts, or the top records. */
+export type StatColumn = "score" | `combat:${number}` | `growth:${number}` | "records";
+/** Every column, in the order the image draws them. */
+export const STAT_COLUMNS: StatColumn[] = ["score", ...COMBAT.map((_, i): StatColumn => `combat:${i}`), ...GROWTH.map((_, i): StatColumn => `growth:${i}`), "records"];
+/** The heading a run of columns sits under (the Score has none). */
+export const statGroup = (c: StatColumn): "score" | "combat" | "growth" | "records" => (c === "score" || c === "records" ? c : (c.split(":")[0] as "combat" | "growth"));
+const GROUP_LABEL = { score: "", combat: "Combat", growth: "Growth", records: "Top records" } as const;
+const columnLabel = (c: StatColumn) => (c === "score" ? "Score" : c === "records" ? "" : (c.startsWith("combat") ? COMBAT : GROWTH)[Number(c.split(":")[1])]);
+
+/**
+ * The picked units' run statistics, one row each, with the team's totals. A video's page draws some of the columns
+ * (`columns`, the unit always beside them), in `compact` form: tighter cells, headings that wrap and records one under
+ * another, so more columns fit a narrow frame at a size that can be read.
+ */
+export function StatsTable({ units, rows, totals, part2, face, totalsOf = units, showTotals = true, columns, compact = false, stackRecords = false }: {
+  units: Unit[];
+  rows: LedgerRow[];
+  totals: (number | null)[];
+  part2: boolean;
+  face: ExportFace;
+  /** The units the Team row adds up (default: the ones shown); a video's page of the table shows some of them. */
+  totalsOf?: Unit[];
+  /** Whether the Team row is drawn (a video's last page of its columns has it). */
+  showTotals?: boolean;
+  /** Which columns (default: all, in image order). */
+  columns?: readonly StatColumn[];
+  compact?: boolean;
+  /** In a compact table, whether each unit's records are one under another (a narrow frame) or side by side. */
+  stackRecords?: boolean;
+}) {
+  const shown = STAT_COLUMNS.filter((c) => !columns || columns.includes(c));
+  const runs = shown.reduce<{ group: ReturnType<typeof statGroup>; n: number; first: StatColumn }[]>((out, c) => {
+    const last = out[out.length - 1];
+    if (last && last.group === statGroup(c)) last.n++;
+    else out.push({ group: statGroup(c), n: 1, first: c });
+    return out;
+  }, []);
+  const starts = new Set(runs.filter((r) => r.group !== "score").map((r) => r.first));
+  const cls = (c: StatColumn, extra = "") => [starts.has(c) ? "group-start" : "", c === "score" ? "team-stats-score" : "", c === "records" ? "team-stats-records" : "", extra].filter(Boolean).join(" ") || undefined;
   const byKey = new Map(rows.map((r) => [r.id, r]));
   const sum = (part: "combat" | "growth", i: number) => {
-    const values = units.map((u) => byKey.get(u.key)?.values[part][i]);
+    const values = totalsOf.map((u) => byKey.get(u.key)?.values[part][i]);
     return values.some((v) => v !== null && v !== undefined) ? values.reduce<number>((n, v) => n + (v ?? 0), 0) : null;
   };
+  const body = (c: StatColumn, u: Unit, row: LedgerRow | undefined) => {
+    if (c === "score") return fmtScore(u.score);
+    if (c !== "records") {
+      const [g, i] = c.split(":");
+      return row ? cell(row.values[g as "combat" | "growth"][Number(i)]) : "—";
+    }
+    const top = topRecords(row, totals);
+    return top.length ? (
+      <span className="team-records">
+        {top.map((r) => (
+          <span key={r.key} className="team-record">
+            <Icon name={CONCEPT_ICON[r.icon as keyof typeof CONCEPT_ICON]} />
+            {r.title}
+            {r.count > 1 && <b>×{r.count}</b>}
+          </span>
+        ))}
+      </span>
+    ) : (
+      <span className="muted">{row ? "None yet" : "No battles yet"}</span>
+    );
+  };
   return (
-    <table className="team-stats">
+    <table className={`team-stats${compact ? " compact" : ""}${compact && stackRecords ? " stacked" : ""}`}>
       <thead>
         <tr className="team-stats-groups">
           <th />
-          <th colSpan={COMBAT.length}>Combat</th>
-          <th colSpan={GROWTH.length}>Growth</th>
-          <th>Top records</th>
+          {runs.map((r) => <th key={r.first} colSpan={r.n}>{GROUP_LABEL[r.group]}</th>)}
         </tr>
         <tr>
           <th className="team-stats-unit">Unit</th>
-          {COMBAT.map((c, i) => <th key={c} className={i === 0 ? "group-start" : ""}>{c}</th>)}
-          {GROWTH.map((c, i) => <th key={c} className={i === 0 ? "group-start" : ""}>{c}</th>)}
-          <th className="group-start team-stats-records">&nbsp;</th>
+          {shown.map((c) => <th key={c} className={cls(c)} title={c === "score" ? `Run score: ${SCORE_EXPLANATION}` : undefined}>{c === "records" ? " " : columnLabel(c)}</th>)}
         </tr>
       </thead>
       <tbody>
         {units.map((u) => {
           const row = byKey.get(u.key);
-          const top = topRecords(row, totals);
           return (
             <tr key={u.key} className={[row ? "" : "unrecorded", u.death ? "fallen" : ""].filter(Boolean).join(" ")}>
               <th scope="row" className="team-stats-unit">
@@ -815,35 +889,21 @@ function StatsTable({ units, rows, totals, part2, face }: { units: Unit[]; rows:
                   </span>
                 </span>
               </th>
-              {COMBAT.map((c, i) => <td key={c} className={i === 0 ? "group-start" : ""}>{row ? cell(row.values.combat[i]) : "—"}</td>)}
-              {GROWTH.map((c, i) => <td key={c} className={i === 0 ? "group-start" : ""}>{row ? cell(row.values.growth[i]) : "—"}</td>)}
-              <td className="group-start team-stats-records">
-                {top.length ? (
-                  <span className="team-records">
-                    {top.map((r) => (
-                      <span key={r.key} className="team-record">
-                        <Icon name={CONCEPT_ICON[r.icon as keyof typeof CONCEPT_ICON]} />
-                        {r.title}
-                        {r.count > 1 && <b>×{r.count}</b>}
-                      </span>
-                    ))}
-                  </span>
-                ) : (
-                  <span className="muted">{row ? "None yet" : "No battles yet"}</span>
-                )}
-              </td>
+              {shown.map((c) => <td key={c} className={cls(c)}>{body(c, u, row)}</td>)}
             </tr>
           );
         })}
       </tbody>
-      <tfoot>
+      {showTotals && <tfoot>
         <tr>
           <th scope="row" className="team-stats-unit">Team</th>
-          {COMBAT.map((c, i) => <td key={c} className={i === 0 ? "group-start" : ""}>{cell(sum("combat", i))}</td>)}
-          {GROWTH.map((c, i) => <td key={c} className={i === 0 ? "group-start" : ""}>{cell(sum("growth", i))}</td>)}
-          <td className="group-start" />
+          {shown.map((c) => (
+            <td key={c} className={cls(c)}>
+              {c === "score" ? fmtScore(totalsOf.reduce((n, u) => n + (u.score ?? 0), 0)) : c === "records" ? null : cell(sum(statGroup(c) as "combat" | "growth", Number(c.split(":")[1])))}
+            </td>
+          ))}
         </tr>
-      </tfoot>
+      </tfoot>}
     </table>
   );
 }

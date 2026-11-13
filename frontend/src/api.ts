@@ -22,6 +22,8 @@ export interface BestUnit {
   character: number | null;
   female: boolean;
   look: string | null;
+  /** Its run score. */
+  score?: number;
 }
 
 export interface RunSummary {
@@ -89,6 +91,8 @@ export interface Unit {
   in_army?: boolean;
   /** Whether the Roster shows it: in the army, or dead. Units off the Roster keep their history. */
   on_roster?: boolean;
+  /** The unit's run score (1,000 per battle MVP, plus damage dealt and healing done in completed battles); 0 when none. */
+  score?: number;
 }
 
 /** Where a unit died (the game's own "Is Dead" flag, or marked by hand): all empty but `manual` when no fall of it was

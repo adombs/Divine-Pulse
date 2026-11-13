@@ -138,7 +138,6 @@ export function UnitStatus({ battle, replay }: { battle: Battle; replay: Replay 
                   <AffiliationIcon house={nav.house?.(r.id)} side={r.team} bare />
                   <WeaponIcon kind={r.weapon} />
                   <span className="status-cell">
-                    {(r.team === "player" ? nav.mapLook?.myFaces : nav.mapLook?.otherFaces) === "sprites" && <TeamTag team={r.team} />}
                     <Flags flags={acted ? [...r.flags, ACTED] : r.flags} />
                   </span>
                 </span>

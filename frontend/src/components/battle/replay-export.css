@@ -59,4 +59,92 @@
 .replay-stage-rows .log-list { flex: none; }
 
 /* The box the video's picture is taken of: exactly the frame's size. */
-.replay-stage-theme { width: 100%; height: 100%; }
+.replay-stage-theme { width: 100%; height: 100%; isolation: isolate; }
+
+/* Team pages (TeamPages.tsx): full frames of the team's cards or statistics before and after the replay, drawn as the
+   replay's own frame is (paper, its inner frame line, the title strip), their content scaled to stay legible. */
+.team-page {
+  position: relative; display: grid; grid-template-areas: "title" "body"; gap: 12px; box-sizing: border-box; padding: 16px; overflow: hidden;
+  color: var(--ink); font: 1rem/1.4 var(--text);
+  background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper);
+  box-shadow: inset 0 0 0 5px var(--paper), inset 0 0 0 6px var(--line);
+}
+.team-page.team-page-tall .replay-stage-title { flex-direction: column; align-items: stretch; gap: 8px; }
+.team-page.team-page-tall .replay-stage-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; max-width: none; padding: 0 2px; }
+.team-page-body { grid-area: body; display: flex; justify-content: center; align-items: flex-start; min-width: 0; min-height: 0; overflow: hidden; }
+.team-page-fit { flex: none; }
+.team-page-content { display: grid; justify-items: center; align-items: center; }
+/* In the preview a page lies over the replay's frame (faded in or out for a crossfade). */
+.team-page-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+/* Hidden copies, laid out but off screen: one of every card and of the table, to measure the pages from, and the page being drawn for the video. */
+.team-page-measure, .team-page-raster { position: fixed; left: -40000px; top: 0; pointer-events: none; }
+.team-page-measure { width: max-content; visibility: hidden; display: grid; gap: 24px; justify-items: start; color: var(--ink); font: 1rem/1.4 var(--text); }
+
+/* The Team tab of the video options: whether the overview is in, where, then which units in what order. The unit grid is the
+   one thing that scrolls (inside itself) when a long roster doesn't fit. */
+.team-tab { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.5rem; }
+.team-pages-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.25rem 0.6rem; }
+.team-pages-choice label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.92rem; cursor: pointer; }
+.team-pages-choice input, .team-include-fallen input { margin: 0; accent-color: var(--accent); }
+.team-pages-choice .segmented { width: auto; }
+.team-pages-choice .segmented button { flex: none; padding-inline: 0.55rem; }
+.team-pages-count { grid-column: 1 / -1; padding-left: 1.4rem; color: var(--ink-soft); font-size: 0.82rem; }
+.team-pages-grid { display: grid; gap: 0.35rem; }
+.team-pages-axis-value { font: 0.88rem var(--nums); color: var(--ink-soft); font-variant-numeric: tabular-nums; }
+.team-pages-grid .team-pages-note { color: var(--amber); }
+.team-pages-note { margin: 0; padding: 0.35rem 0.55rem; border-radius: 3px; background: var(--row); font-size: 0.85rem; color: var(--ink-soft); }
+.team-pages-units { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.45rem; border-top: 1px solid var(--row-border); padding-top: 0.5rem; }
+.team-units-bar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; font-size: 0.88rem; }
+.team-units-bar .team-order-by { margin: 0; display: flex; align-items: center; gap: 0.4rem; }
+.team-units-bar select { min-width: 0; }
+.team-units-count small { margin-left: 0.3rem; color: var(--ink-soft); }
+.team-include-fallen { display: inline-flex; align-items: center; gap: 0.3rem; }
+.team-include-fallen small { color: var(--ink-soft); }
+.team-fallen-options { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1.2rem; font-size: 0.88rem; }
+.team-fallen-options .team-include-fallen { white-space: nowrap; }
+.team-fallen-options .team-include-fallen small { margin-left: 0; }
+.team-units-count { white-space: nowrap; }
+.team-units-grid { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 1px; }
+
+/* The video's unit card (TeamVideoCard.tsx), compact: a header line (name and class across the whole width), a face beside
+   the ten stats with the abilities as a centred icon row under them, and ten fixed list slots (2 x 5). Drawn at its natural
+   size (460 px wide, text 22 px and up) and scaled uniformly by the page (teamPages.ts `planGrid`) to the size its grid cell
+   allows, so every piece of text is scaled alike. It never stretches to a taller cell: it is centred in it, and the spare
+   room is left between and around the cards. */
+.vcard {
+  display: grid; box-sizing: border-box; width: 460px; min-width: 0; overflow: hidden;
+  grid-template-rows: auto auto auto; gap: 5px; padding: 6px 8px 5px;
+  background: var(--paper-2); border: 1px solid var(--row-border); border-radius: 4px; font-size: 22px; line-height: 1.2;
+}
+.vcard-natural { width: 460px; height: auto; }
+.vcard-head { display: flex; align-items: baseline; gap: 12px; min-width: 0; padding: 0 2px; }
+.vcard-name { flex: 0 1 auto; min-width: 0; max-width: 60%; font: 600 24px/1.05 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vcard-class { flex: 1 1 0; min-width: 0; color: var(--ink-soft); font-size: 22px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vcard-mid { display: grid; grid-template-columns: 112px minmax(0, 1fr); gap: 8px; }
+.vcard-right { display: grid; grid-template-rows: auto 22px; gap: 4px; min-width: 0; }
+.vcard-abilities { display: flex; justify-content: center; align-items: center; gap: 6px; min-width: 0; }
+.vcard-abilities > span { display: inline-grid; place-items: center; width: 22px; height: 22px; }
+.vcard-abilities img, .vcard-abilities svg { max-width: 22px; max-height: 22px; }
+/* The face is Export Team's own (team-export.css): a round portrait on the blue face wash, or the sprite in its disc, each in the team ring. */
+.vcard-face { display: grid; place-items: center; }
+.vcard-face .portrait { background: var(--face-wash-blue); box-shadow: 0 0 0 2px var(--team-player); }
+.vcard-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; margin: 0; }
+.vcard-stats div { display: grid; justify-items: center; align-content: center; gap: 0; padding: 1px 0; border-radius: 3px; background: var(--row); border: 1px solid var(--row-border); min-width: 0; }
+.vcard-stats dt { font: 600 22px/1 var(--display); color: var(--ink-soft); }
+.vcard-stats dd { margin: 0; font: 600 24px/1 var(--nums); font-variant-numeric: tabular-nums; }
+.vcard-stats .boosted dd { color: var(--blue); }
+.vcard-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(5, 26px); gap: 1px 6px; margin: 0; padding: 0; list-style: none; min-height: 0; }
+.vcard-list li { display: flex; align-items: center; gap: 3px; min-width: 0; padding: 0 4px 0 2px; border-radius: 3px; background: var(--row); }
+.vcard-list li.vcard-accessory, .vcard-list li.vcard-battalion, .vcard-list li.vcard-none { background: color-mix(in srgb, var(--accent) 16%, var(--row)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent); }
+.vcard-list li.vcard-empty { background: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--row-border) 38%, transparent); }
+.vcard-list li.vcard-more { background: none; padding-left: 6px; color: var(--ink-soft); font-style: italic; }
+.vcard-list .game-icon, .vcard-glyph { flex: none; display: inline-grid; place-items: center; width: 22px; height: 22px; }
+.vcard-list img, .vcard-list svg { max-width: 22px; max-height: 22px; }
+.vcard-item { flex: 1 1 auto; min-width: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vcard-times { flex: none; margin-left: auto; font: 600 22px var(--nums); color: var(--amber); font-variant-numeric: tabular-nums; }
+.vcard-list li.vcard-none { color: var(--ink-soft); font-style: italic; background: color-mix(in srgb, var(--accent) 9%, var(--row)); }
+.vcard-list li.vcard-none .vcard-glyph { opacity: 0.45; }
+.vcard.fallen .vcard-face .portrait, .vcard.fallen .team-face-sprite { filter: grayscale(1); }
+.vcard.fallen { filter: saturate(0.35); }
+.vcard.fallen .vcard-name, .vcard.fallen .vcard-class, .vcard.fallen .vcard-stats dd, .vcard.fallen .vcard-stats dt { color: var(--ink-soft); }
+.vcard.fallen .vcard-list li, .vcard.fallen .vcard-abilities { opacity: 0.7; }

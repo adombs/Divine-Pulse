@@ -39,8 +39,9 @@ import { tidyAbility } from "../appearance";
 import { TeamExportButton } from "./TeamExport";
 import { plural } from "../format";
 import { deathText } from "../deaths";
+import { SCORE_EXPLANATION, fmtScore } from "../score";
 
-type SortKey = "name" | "ebst" | ValueKey;
+type SortKey = "name" | "ebst" | "score" | ValueKey;
 type Mode = "base" | "displayed";
 
 const NUMERIC_COLS: { key: SortKey; label: string; title?: string }[] = [
@@ -52,6 +53,7 @@ const NUMERIC_COLS: { key: SortKey; label: string; title?: string }[] = [
     label: "eBST",
     title: "Effective base stat total: Offense + Defense + the stats toggled on for this unit, divided by how many went in (set on the unit card)",
   },
+  { key: "score", label: "Score", title: `Run score: ${SCORE_EXPLANATION} Click to sort.` },
 ];
 
 const isValueKey = (k: SortKey): k is ValueKey => (VALUE_KEYS as readonly string[]).includes(k);
@@ -109,6 +111,7 @@ const BAR_MAX = 60;
 function valueOf(u: Unit, key: SortKey, mode: Mode, lens: Lens = null): number | string {
   if (key === "name") return u.name.toLowerCase();
   if (key === "ebst") return resultFor(u, mode, lens).ebst;
+  if (key === "score") return u.score ?? 0;
   return valuesFor(u, mode)[key];
 }
 
@@ -356,6 +359,13 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
                           return (
                             <td key={c.key} className="num ebst-col" title={describeEbst(cfg) + suffix}>
                               {fmtEbst(result.ebst)}
+                            </td>
+                          );
+                        }
+                        if (c.key === "score") {
+                          return (
+                            <td key={c.key} className="num score-col" title={`Run score ${fmtScore(u.score)}: ${SCORE_EXPLANATION}`}>
+                              {fmtScore(u.score)}
                             </td>
                           );
                         }
@@ -723,7 +733,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
         <BattalionPanel unit={unit} scope="run" />
       </Section>
 
-      <Section title="Class Mastery" icon={CONCEPT_ICON.classes} summary={unit.mastered_classes ? plural(unit.mastered_classes.length, "class", "classes") : "Not read yet"}>
+      <Section title="Class Mastery" icon={CONCEPT_ICON.mastery} summary={unit.mastered_classes ? plural(unit.mastered_classes.length, "class", "classes") : "Not read yet"}>
         <ClassMasteryPanel unit={unit} />
       </Section>
 

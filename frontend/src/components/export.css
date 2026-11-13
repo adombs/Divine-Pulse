@@ -48,3 +48,27 @@
 /* A switch that can't be used right now (Thunder, before the game files are imported again) stays in view, dimmed. */
 .export-group .segmented button:disabled { opacity: 0.5; cursor: not-allowed; }
 .export-group :is(select, .segmented button, .checklist-clear):focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* The video window's options panel (ReplayExport.tsx ExportTabs): tabs across the top, the open group under them, and the
+   summary and export button always at the foot. The panel never scrolls; a group that is long (the unit list) scrolls in itself. */
+.export-side.export-tabbed { overflow: hidden; gap: 0.7rem; }
+.export-tabs { flex: none; display: flex; gap: 0.1rem; border-bottom: 1px solid var(--line); }
+.export-tabs button {
+  position: relative; flex: 1 1 0; min-width: 0; cursor: pointer; border: 0; background: none; padding: 0.4rem 0.3rem 0.5rem;
+  font: 600 0.98rem var(--display); color: var(--ink-soft);
+}
+.export-tabs button:hover { color: var(--ink); }
+.export-tabs button.on { color: var(--ink); }
+.export-tabs button.on::after { content: ""; position: absolute; left: 0.3rem; right: 0.3rem; bottom: -1px; height: 3px; background: var(--accent); }
+.export-tabs button:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; border-radius: 3px; }
+.export-panel { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.9rem; overflow: hidden; }
+.export-panel > .export-group { flex: none; min-height: 0; }
+.export-panel > .export-group.team-pages { flex: 1 1 auto; display: flex; flex-direction: column; gap: 0.5rem; }
+.export-panel > .export-group.team-pages legend { float: left; width: 100%; }
+.export-tabbed .export-go { margin-top: 0; }
+/* The player's own audio: its file name and length with ways to change or remove it. */
+.export-file { display: grid; grid-template-columns: minmax(0, 1fr) auto auto auto; align-items: center; gap: 0.15rem 0.5rem; padding: 0.3rem 0.5rem; border: 1px solid var(--row-border); border-radius: 4px; background: var(--row); font-size: 0.88rem; }
+.export-file.on { border-color: var(--accent); }
+.export-file-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.export-file-length { color: var(--ink-soft); font: 0.85rem var(--nums); font-variant-numeric: tabular-nums; }
+.export-error { margin: 0; color: var(--red); font-size: 0.88rem; }

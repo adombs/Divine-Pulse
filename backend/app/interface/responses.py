@@ -70,9 +70,11 @@ class UnitOut(Unit):
     boosted_unexplained: list[str]
     # Whether the Roster shows it (in the army, or dead); `in_army` alone is the game's in-army flag.
     on_roster: bool
+    # The unit's run score (domain/best_unit.py): 1,000 per battle MVP plus damage dealt and healing done; 0 when none.
+    score: int = 0
 
     @classmethod
-    def from_unit(cls, key: str, unit: Unit) -> UnitOut:
+    def from_unit(cls, key: str, unit: Unit, score: int = 0) -> UnitOut:
         base = unit.base()
         effective = {k: b for k in VALUE_KEYS if (b := unit.effective_bonus(k))}
         unexplained = [k for k in unit.blue if not unit.effective_bonus(k)]
@@ -85,4 +87,5 @@ class UnitOut(Unit):
             ebst_effective=cfg,
             boosted_unexplained=unexplained,
             on_roster=on_roster(unit),
+            score=score,
         )

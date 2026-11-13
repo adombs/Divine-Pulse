@@ -1,6 +1,6 @@
 [project]
 name = "divine-pulse"
-version = "1.4.4"
+version = "1.4.5"
 description = "Tracks Fire Emblem: Three Houses units and battles by reading the game's memory in the emulator"
 requires-python = ">=3.12"
 # Dependencies are pinned in requirements.txt / requirements-dev.txt.

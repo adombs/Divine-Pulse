@@ -12,7 +12,7 @@ from collections.abc import Callable, Collection, Mapping
 from pydantic import TypeAdapter
 
 from ..domain.battle import Battle, BattleUnitStats
-from ..domain.best_unit import best_unit
+from ..domain.best_unit import best_unit, unit_scores
 from ..domain.ebst import EbstConfig
 from ..domain.runs import MAIN_SCENARIOS, BestUnit, ChapterRef, RunSummary
 from ..domain.membership import on_roster
@@ -80,6 +80,7 @@ class RunStore:
         # Only route evidence and unit totals are retained, never the maps/logs of archived battles.
         self._route_evidence: dict[str, list[Battle]] = {}
         self._best_units: dict[str, BestUnit | None] = {}
+        self._scores: dict[str, dict[str, int]] = {}
 
     def _path(self, run_id: str) -> Path:
         if not re.fullmatch(r"[a-z0-9-]+", run_id):
@@ -96,6 +97,7 @@ class RunStore:
     def refresh_route(self, run_id: str, battle: Battle | None = None) -> None:
         with self._lock:
             self._best_units.pop(run_id, None)
+            self._scores.pop(run_id, None)
             if battle is not None and run_id in self._route_evidence:
                 evidence = self._route_evidence[run_id]
                 evidence[:] = [b for b in evidence if b.id != battle.id]
@@ -117,6 +119,7 @@ class RunStore:
         atomic_write_text(path, run.model_dump_json(indent=2), backup=True)
         self._cache[run.id] = run
         self._best_units.pop(run.id, None)  # its roster order breaks ties
+        self._scores.pop(run.id, None)  # and its roster decides which guests count
 
     # Runs
 
@@ -165,6 +168,14 @@ class RunStore:
                 )
                 for r in runs
             ]
+
+    def unit_scores(self, run_id: str) -> dict[str, int]:
+        """Each unit's run score (see domain/best_unit.py), from the route evidence already held."""
+        with self._lock:
+            run = self.get(run_id)
+            if run_id not in self._scores:
+                self._scores[run_id] = unit_scores(self._route_evidence.get(run_id, []), run.units)
+            return self._scores[run_id]
 
     def _battle_facts(self, run: Run) -> dict:
         """The run's finished battles, the newest main-story battle (finished or in progress) and its best unit, from
@@ -216,6 +227,7 @@ class RunStore:
             self._cache.pop(run_id, None)
             self._route_evidence.pop(run_id, None)
             self._best_units.pop(run_id, None)
+            self._scores.pop(run_id, None)
 
     # Units
 

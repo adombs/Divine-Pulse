@@ -57,7 +57,7 @@ test("a guest not on the roster contributes nothing to totals, characters, award
   for (const key of runAwards(counted).characters.keys()) assert.notEqual(key, "guest");
   const ledger = buildRunLedger(counted, "characters");
   assert.deepEqual(ledger.rows.map((r) => r.id), ["alpha"]);
-  assert.equal(ledger.totals.combat[3], 24);
+  assert.equal(ledger.totals.combat[4], 24);
   // Without the filter the guest would have polluted everything.
   assert.equal(runStats(source(), characterStats(source())).damage_dealt, 124);
 });

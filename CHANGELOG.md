@@ -2,6 +2,20 @@
 
 ## Unreleased
 
+## 1.4.5 (2026-11-13)
+
+- Each unit now has a run score (1,000 points per battle MVP, plus damage dealt and healing done in completed battles). It shows on the Roster (a sortable Score column) and in the best unit's tooltip on the home page.
+- Character Stats shows each unit's run score.
+- Export Team shows each unit's score on its card and in a Score column of the run statistics image, and can order units by Score (Ascending) or Score (Descending).
+- Export Video can add the team overview before or after the replay: a grid of compact unit cards, each with a small face, the name and class, the stats, ability icons, and ten slots: the weapons, spells and combat arts the unit used in that battle with how many times, and a top row kept for its equipped item and battalion, with the battalion's own icon ("No Equipment" and "No Battalion" when it has none). Units that died in the run (Classic mode) are greyed out unless you untick Mark fallen units, or left out with Include fallen units. Choose the columns and rows per page, or leave them on Auto, each page on screen for a second.
+- Export Video's options are now in tabs (Format, Replay, Team, Music) so they fit without scrolling, and it remembers the tab you were on.
+- Character and Battle Stats show a relative bar in every column.
+- Character and Battle Stats show the run's Divine Pulse uses.
+- The Didn't Happen and Do-over records are gone.
+- Export Video's music can be your own audio file (MP3, M4A, OGG, WAV, FLAC): it loops if shorter than the video and fades out at the end if longer.
+- Battle unit lists drop the army dot beside each name; the face's colour already shows the army.
+- Classes use a graduation cap icon, and Class Mastery a battery.
+
 ## 1.4.4 (2026-11-12)
 
 - Export Video can make 1.91:1 (2064 × 1080) and 4:5 (1080 × 1350) videos. Its choices are now named by aspect ratio: 16:9, 1.91:1, 9:16 and 4:5.

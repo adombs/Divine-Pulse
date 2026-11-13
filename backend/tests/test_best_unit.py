@@ -1,7 +1,7 @@
 """The best unit shown on a run's row on the home page."""
 
 from app.domain.battle import Battle, BattleUnitStats
-from app.domain.best_unit import best_unit
+from app.domain.best_unit import best_unit, unit_scores
 from app.infrastructure.persistence import BattleStore, RunStore
 from app.domain.units import Unit
 
@@ -101,3 +101,30 @@ def test_run_list_uses_roster_order_and_caches_the_best_unit(tmp_path, monkeypat
 
     monkeypatch.setattr("app.infrastructure.persistence.best_unit", lambda *_: (_ for _ in ()).throw(AssertionError))
     assert runs.list()[0].best_unit.key == "y"
+
+
+def test_unit_scores_are_what_the_best_unit_is_chosen_by():
+    battles = [
+        battle(1, unit("felix", damage_dealt=100, defeats=2), unit("mercedes", healing_given=40), unit("ingrid")),
+        battle(2, unit("felix", damage_dealt=50, defeats=1), unit("mercedes", healing_given=10, defeats=3), finished=False),
+    ]
+    # Felix: MVP once (1,000) + 100 damage; the unfinished battle counts for nothing.
+    assert unit_scores(battles) == {"felix": 1100, "mercedes": 40, "ingrid": 0}
+    assert best(*battles) == "felix"
+
+
+def test_unit_scores_skip_guests_the_run_does_not_have():
+    battles = [battle(1, unit("guest", damage_dealt=900, guest=True), unit("felix", damage_dealt=5))]
+    assert unit_scores(battles) == {"felix": 5}
+    assert unit_scores(battles, ("guest",)) == {"guest": 900, "felix": 5}
+
+
+def test_run_store_serves_scores_and_refreshes_them(tmp_path):
+    runs, battles = RunStore(tmp_path / "runs"), BattleStore(tmp_path / "battles")
+    runs.battles, battles.on_change = battles, runs.refresh_route
+    run = runs.create("Azure Moon")
+    assert runs.unit_scores(run.id) == {}
+    battles.add(battle(1, unit("felix", damage_dealt=100), run_id=run.id))
+    assert runs.unit_scores(run.id) == {"felix": 100}
+    battles.delete(run.id, "b1")
+    assert runs.unit_scores(run.id) == {}

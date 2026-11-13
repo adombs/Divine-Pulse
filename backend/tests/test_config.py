@@ -45,7 +45,8 @@ def test_quit_route_answers_before_it_quits(tmp_path):
     with TestClient(create_app(tmp_path, background=False)) as c:
         assert c.post("/api/quit").status_code == 404  # no desktop window attached
         c.app.state.quit_app = lambda: quit_calls.append(True)
-        assert c.get("/api/quit").status_code == 404  # only a POST quits
+        # Only a POST quits. A GET is 405 without a frontend build, or 404 from the page route when frontend/dist exists.
+        assert c.get("/api/quit").status_code in (404, 405)
         assert c.post("/api/quit", headers={"origin": "https://evil.example"}).status_code == 403
         assert not quit_calls
         assert c.post("/api/quit").json() == {"pid": os.getpid()}

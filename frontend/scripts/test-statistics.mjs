@@ -157,18 +157,16 @@ test("all existing award types have canonical recipients, values and run-selecti
     hit: ["a:alpha", 30], rampage: ["a:alpha", 2], one: ["a:alpha", 2], fighter: ["a:alpha", 10],
     caster: ["a:beta", 5], signature: ["a:alpha", 3], ouch: ["a:beta", 15], wanted: ["a:beta", 4],
     untouchable: ["a:beta", 3], payback: ["a:beta", 28], sponge: ["a:beta", 15], grew: ["a:beta", "+3"],
-    walker: ["a:alpha", 10], bench: ["a:bench", 0], first: ["a:alpha", "T1"], last: ["a:beta", "T1"], saved: [null, 1],
+    walker: ["a:alpha", 10], bench: ["a:bench", 0], first: ["a:alpha", "T1"], last: ["a:beta", "T1"],
   };
   assert.deepEqual(Object.fromEntries(winners.map((a) => [a.key, [a.id, a.value]])), expected);
-  const redo = decoratedBattle({ id: "redo", branches: [], divine_pulses: 2 });
-  assert.deepEqual(battleAwards(redo, timeline(redo)).find((a) => a.key === "redo"), { key: "redo", id: null, value: 2 });
-  assert.deepEqual(new Set([...Object.keys(expected), "redo"]), new Set(AWARDS.map((a) => a.key)), "every actual award is covered");
-  const run = runAwards([b, redo]);
-  for (const source of [b, redo]) for (const a of battleAwards(source, timeline(source))) {
-    assert.equal(run.totals[a.key], a.id === null ? 1 : 2, `${a.key} counts battles, not score or uses`);
-    if (a.id) assert.equal(run.characters.get(a.id.slice(2))[a.key], 2, `${a.key} goes to the battle recipient`);
+  assert.deepEqual(new Set(Object.keys(expected)), new Set(AWARDS.map((a) => a.key)), "every actual award is covered");
+  const twin = decoratedBattle({ id: "twin" });
+  const run = runAwards([b, twin]);
+  for (const source of [b, twin]) for (const a of battleAwards(source, timeline(source))) {
+    assert.equal(run.totals[a.key], 2, `${a.key} counts battles, not score or uses`);
+    assert.equal(run.characters.get(a.id.slice(2))[a.key], 2, `${a.key} goes to the battle recipient`);
   }
-  assert.equal(run.characters.get("alpha").saved, 0, "a battle-wide rewind is not an invented character award");
   assert.deepEqual(battleAwards(b, timeline(b, "all")), winners, "undone combat never changes an award winner");
 });
 
@@ -181,7 +179,7 @@ test("award ties and thresholds preserve per-battle first-observed selection", (
   assert.equal(characterStats([tied]).find((c) => c.key === "beta").mvp, 1);
   const below = decoratedBattle({ log: [attack({ dealt: 0, taken: 0 })], map_steps: [], divine_pulses: 0 });
   const keys = new Set(battleAwards(below, timeline(below)).map((a) => a.key));
-  for (const key of ["hit", "ouch", "close", "rampage", "one", "wanted", "untouchable", "payback", "first", "last", "bench", "saved", "redo"])
+  for (const key of ["hit", "ouch", "close", "rampage", "one", "wanted", "untouchable", "payback", "first", "last", "bench"])
     assert.equal(keys.has(key), false, `${key}: no award below the existing evidence threshold`);
   const many = battle({ units: Array.from({ length: 4 }, (_, n) => unit(`u${n}`, { damage_dealt: 10 })) });
   assert.equal(battleAwards(many, timeline(many)).some((a) => a.key === "carry"), false, "less than 30% earns no carry award");
@@ -199,7 +197,7 @@ test("run awards count only distinct confirmed finishes, with resumed live recor
     assert.equal(result.battles, 2);
     assert.equal(result.characters.get("alpha").mvp, 2);
     assert.equal(result.characters.has("old"), false, "latest confirmed snapshot wins independent of order");
-    assert.equal(result.totals.saved, 2);
+    assert.equal(result.totals.mvp, 2);
   }
   assert.equal(runAwards([done, { ...done, active: true, ended_at: null }]).battles, 0, "a resumed battle cannot retain its saved finish");
   assert.equal(finishedAwardBattles([done, { ...done, run_id: "other-run" }]).length, 2, "battle ids are run-local");

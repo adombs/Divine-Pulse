@@ -11,9 +11,9 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import "./replay-export.css";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import type { Battle, RunRoute } from "../../api";
+import type { Battle, RunRoute, Unit } from "../../api";
 import { clock } from "../../format";
 import { Icon, IconButton } from "../Icon";
 import { Modal } from "../Modal";
@@ -24,7 +24,8 @@ import { StepSlider } from "../Slider";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
-import { defaultTheme, loadMusic, previewTheme, recording, setPreviewVolume, soundtrack, THEME_GROUPS, type Music, type Theme, type Version } from "../../exporting/music";
+import { PAGE_MS, sceneAt, type Segment } from "../../exporting/teamPages";
+import { CUSTOM_ID, customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, previewTheme, recording, releaseCustomAudio, setPreviewVolume, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap } from "./map";
@@ -32,6 +33,10 @@ import { Minimap, type Zoom } from "./Minimap";
 import { ItemList, useBattleNav } from "./parts";
 import { beatDurations, beatFocus, beatOf, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
 import { battleName, KIND_LABEL } from "./scenarios";
+import { DEFAULT_TEAM_PAGES, sanitizeTeamPages, TeamPagesSection, TeamPageView as TeamPageViewPlain, useTeamPages, type PageFrame, type TeamPage, type TeamPagesOptions } from "./TeamPages";
+
+/** A page's view is redrawn only when its page changes, not with every frame of the preview's clock. */
+const TeamPageView = memo(TeamPageViewPlain);
 
 /** The frame's shape: 16:9, 1.91:1 (`wide`, laid out like 16:9), 9:16, or 4:5 (`feed`, laid out like 9:16). */
 type Orientation = "landscape" | "wide" | "portrait" | "feed";
@@ -57,8 +62,14 @@ const CAMERA_MS = 280;
 const ORIENTATION_KEY = "divine-pulse-export-orientation";
 const OPTIONS_KEY = "divine-pulse-export-video";
 
+/** The groups of options, as tabs across the top of the options panel. */
+type ExportTab = "format" | "replay" | "team" | "music";
+const TABS: [ExportTab, string][] = [["format", "Format"], ["replay", "Replay"], ["team", "Team"], ["music", "Music"]];
+
 /** The video's own options, remembered between exports. */
 interface VideoOptions {
+  /** The tab the options panel was last on. */
+  tab: ExportTab;
   resolution: number;
   fps: 30 | 60;
   quality: VideoQuality;
@@ -66,18 +77,22 @@ interface VideoOptions {
   version: Version;
   /** The music's volume: a whole number of percent, 0 to 100. */
   volume: number;
+  /** The team's overview shown before and after the replay (TeamPages.tsx). */
+  team: TeamPagesOptions;
 }
-const DEFAULT_OPTIONS: VideoOptions = { resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75 };
+const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, team: DEFAULT_TEAM_PAGES };
 
 function loadOptions(): VideoOptions {
   try {
     const saved = JSON.parse(localStorage.getItem(OPTIONS_KEY) ?? "{}") as Partial<VideoOptions>;
     return {
+      tab: TABS.find(([t]) => t === saved.tab)?.[0] ?? DEFAULT_OPTIONS.tab,
       resolution: RESOLUTIONS.some(([r]) => r === saved.resolution) ? saved.resolution! : DEFAULT_OPTIONS.resolution,
       fps: saved.fps === 60 ? 60 : 30,
       quality: QUALITIES.some(([q]) => q === saved.quality) ? saved.quality! : DEFAULT_OPTIONS.quality,
       version: saved.version === "thunder" ? "thunder" : "rain",
       volume: Number.isInteger(saved.volume) && saved.volume! >= 0 && saved.volume! <= 100 ? saved.volume! : DEFAULT_OPTIONS.volume,
+      team: sanitizeTeamPages(saved.team),
     };
   } catch {
     return DEFAULT_OPTIONS;
@@ -110,7 +125,15 @@ export function replayExportBlocker(battle: Battle, chron: Chronicle): string | 
 }
 
 /** The header button: opens the export window. */
-export function ReplayExportButton({ battle, route }: { battle: Battle; route?: RunRoute | null }) {
+export function ReplayExportButton({ battle, route, runName, units, part2, history }: {
+  battle: Battle;
+  route?: RunRoute | null;
+  /** The run's name, its roster and battles, for the team pages. */
+  runName?: string;
+  units: Unit[];
+  part2: boolean;
+  history: Battle[];
+}) {
   const [open, setOpen] = useState(false);
   const chron = useMemo(() => chronicle(battle), [battle]);
   const blocker = replayExportBlocker(battle, chron);
@@ -125,7 +148,7 @@ export function ReplayExportButton({ battle, route }: { battle: Battle; route?: 
       >
         <Icon name={CONCEPT_ICON.share} /> Export Video
       </button>
-      {open && <ReplayExportDialog battle={battle} chron={chron} route={route ?? null} onClose={() => setOpen(false)} />}
+      {open && <ReplayExportDialog battle={battle} chron={chron} route={route ?? null} runName={runName ?? "Divine Pulse"} units={units} part2={part2} history={history} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -182,6 +205,9 @@ function stageLayout(orientation: Orientation, aspect: number): { columns: strin
   return { columns: "minmax(0, 1fr)", rows: `${TITLE_H[orientation]}px ${mapH}px minmax(0, 1fr)` };
 }
 
+/** A stretch of the video: the replay, or a team page. */
+type Part = { kind: "replay" } | { kind: "page"; page: TeamPage };
+
 /** Where the video stands: a beat, and how far into it (ms). */
 interface Moment {
   beat: number;
@@ -198,24 +224,42 @@ function centre(follow: [number, number][], w: number, h: number): [number, numb
 
 const easeOut = (k: number) => 1 - (1 - Math.max(0, Math.min(1, k))) ** 3;
 
-function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle; chron: Chronicle; route: RunRoute | null; onClose: () => void }) {
+function ReplayExportDialog({ battle, chron, route, runName, units, part2, history, onClose }: {
+  battle: Battle;
+  chron: Chronicle;
+  route: RunRoute | null;
+  runName: string;
+  units: Unit[];
+  part2: boolean;
+  history: Battle[];
+  onClose: () => void;
+}) {
   const nav = useBattleNav();
   const [options, setOptionsState] = useState<VideoOptions>(loadOptions);
-  const setOption = <K extends keyof VideoOptions>(key: K, value: VideoOptions[K]) => setOptionsState((o) => {
-    const next = { ...o, [key]: value };
+  const keep = (next: VideoOptions) => {
     try {
       localStorage.setItem(OPTIONS_KEY, JSON.stringify(next));
     } catch {
       // Not kept; fine.
     }
     return next;
-  });
+  };
+  const setOption = <K extends keyof VideoOptions>(key: K, value: VideoOptions[K]) => setOptionsState((o) => keep({ ...o, [key]: value }));
+  const updateTeam = (patch: Partial<TeamPagesOptions>) => setOptionsState((o) => keep({ ...o, team: { ...o.team, ...patch } }));
   const scale = RESOLUTIONS.find(([r]) => r === options.resolution)?.[2] ?? 1.5;
   const fps = options.fps;
   // The battle themes (imported with the game files), and the one to play: the battle's own to begin with.
   const [music, setMusic] = useState<Music | null | undefined>(undefined);
   const [themeId, setThemeId] = useState<string>("");
   const [previewing, setPreviewing] = useState(false);
+  // The player's own audio, if they chose a file: decoded once, held for the previews and the export, never kept between sessions.
+  const [custom, setCustom] = useState<CustomAudio | null>(null);
+  const [customError, setCustomError] = useState<string | null>(null);
+  const [reading, setReading] = useState(false);
+  const picker = useRef<HTMLInputElement>(null);
+  const customRef = useRef<CustomAudio | null>(null);
+  customRef.current = custom;
+  useEffect(() => () => releaseCustomAudio(customRef.current), []);
   useEffect(() => {
     let live = true;
     void loadMusic().then((m) => {
@@ -238,6 +282,34 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
   const version: Version = theme ? versionOf(theme) : "rain";
   const track = theme ? recording(theme, version) : null;
   const volume = options.volume / 100;
+  const usingCustom = themeId === CUSTOM_ID && !!custom;
+  const listening = usingCustom ? { id: CUSTOM_ID, url: custom.url } : track;
+  /** Takes a chosen file: decoded once; if it can't be, the choice before it stays and the reason is shown. */
+  const chooseFile = async (file: File) => {
+    setReading(true);
+    setCustomError(null);
+    try {
+      const next = await loadCustomAudio(file);
+      releaseCustomAudio(customRef.current);
+      previewTheme(null);
+      setPreviewing(false);
+      setCustom(next);
+      setThemeId(CUSTOM_ID);
+    } catch (error) {
+      setCustomError((error as Error).message || "That file couldn't be read as audio.");
+    } finally {
+      setReading(false);
+    }
+  };
+  /** Lets go of the chosen file and goes back to the battle's own theme. */
+  const removeCustom = () => {
+    releaseCustomAudio(custom);
+    previewTheme(null);
+    setPreviewing(false);
+    setCustom(null);
+    setCustomError(null);
+    if (themeId === CUSTOM_ID) setThemeId(music ? defaultTheme(music, battle.scenario).id : "");
+  };
   const [orientation, setOrientationState] = useState<Orientation>(loadOrientation);
   const setOrientation = (o: Orientation) => {
     setOrientationState(o);
@@ -247,6 +319,12 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
       // Not kept; fine.
     }
   };
+  const [width, height] = STAGE[orientation];
+  // The team pages (before and after the replay) fill the frame; their page counts follow its shape.
+  const frame = useMemo<PageFrame>(() => ({ width, height, titleH: TITLE_H[orientation], portrait: !logBeside(orientation) }), [width, height, orientation]);
+  const team = options.team;
+  const pages = useTeamPages({ team, update: updateTeam, units, history, battle, part2, frame });
+  const pageRun = useMemo(() => ({ name: runName, route }), [runName, route]);
   const [speed, setSpeed] = useState(() => nav.replaySpeed ?? 1);
   const [mode, setModeState] = useState<CameraMode>("dynamic");
   const [level, setLevel] = useState(DEFAULT_ZOOM);
@@ -265,7 +343,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
   const durations = useMemo(() => beatDurations(battle, chron, speed), [battle, chron, speed]);
   const focus = useMemo(() => beatFocus(battle, chron), [battle, chron]);
   // When each beat in the range starts (ms into the video), and how long the video is.
-  const { starts, total } = useMemo(() => {
+  const { starts, total: replayTotal } = useMemo(() => {
     const out: number[] = [];
     let t = 0;
     for (let i = first; i <= last; i++) {
@@ -274,6 +352,18 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     }
     return { starts: out, total: t + END_HOLD_MS };
   }, [durations, first, last]);
+  // The video: the pages before the replay, the replay, the pages after it (a crossfade at each cut, sceneAt).
+  const pageMs = PAGE_MS;
+  const parts = useMemo<Part[]>(() => [
+    ...pages.start.map((page): Part => ({ kind: "page", page })),
+    { kind: "replay" },
+    ...pages.end.map((page): Part => ({ kind: "page", page })),
+  ], [pages.start, pages.end]);
+  const segments = useMemo<Segment[]>(() => parts.map((p, i) => ({ id: `${i}`, ms: p.kind === "page" ? pageMs : replayTotal })), [parts, pageMs, replayTotal]);
+  const lead = pages.start.length * pageMs;
+  const total = lead + replayTotal + pages.end.length * pageMs;
+  /** Where the replay is (ms into it) when the video is `ms` in. */
+  const replayTime = (ms: number) => Math.max(0, Math.min(replayTotal, ms - lead));
 
   const momentAt = (ms: number): Moment => {
     let lo = 0;
@@ -294,7 +384,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
   const [status, setStatus] = useState<ExportStatus>({ kind: "idle" });
   const working = status.kind === "working";
   const seekTo = (ms: number) => {
-    const m = momentAt(Math.max(0, Math.min(total, ms)));
+    const m = momentAt(replayTime(Math.max(0, Math.min(total, ms))));
     setT(Math.max(0, Math.min(total, ms)));
     setMoment(m);
     replay.pose(m.beat, m.elapsed);
@@ -335,6 +425,15 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     const k = easeOut(m.elapsed / Math.min(CAMERA_MS, durations[m.beat] || CAMERA_MS));
     return [from.x0 + from.w / 2 + (to.x0 - from.x0) * k, from.y0 + from.h / 2 + (to.y0 - from.y0) * k];
   };
+  // The team pages over the replay in the preview: a page, or two while they crossfade (the replay beneath).
+  const scene = sceneAt(segments, t);
+  const layers: { index: number; alpha: number }[] = [];
+  {
+    const a = parts[scene.a.index];
+    const b = scene.b ? parts[scene.b.index] : null;
+    if (a.kind === "page") layers.push({ index: scene.a.index, alpha: b?.kind === "replay" ? 1 - scene.mix : 1 });
+    if (b?.kind === "page") layers.push({ index: scene.b!.index, alpha: scene.mix });
+  }
   const looking = mode === "static" ? still ?? [board.w / 2, board.h / 2] : dynamicCentre(moment);
   const zoom = viewAround(looking, size, board);
 
@@ -364,10 +463,12 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     if (mode !== "static") setModeState("static");
   };
 
-  const [width, height] = STAGE[orientation];
   // The camera's view keeps one shape at a zoom level (the whole map's, zoomed out), so the frame is laid out for it.
   const layout = stageLayout(orientation, size[0] / size[1]);
   const stage = useRef<HTMLDivElement>(null);
+  // The page being drawn for the video, in a hidden copy of the frame.
+  const [raster, setRaster] = useState<TeamPage | null>(null);
+  const rasterRef = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
   useEffect(() => () => abort.current?.abort(), []);
   const name = battleName(battle);
@@ -384,13 +485,35 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     abort.current = controller;
     setPlaying(false);
     const frames = Math.ceil((total / 1000) * fps);
-    setStatus({ kind: "working", done: 0, total: frames, label: theme ? "Preparing the music" : "Making the video" });
+    setStatus({ kind: "working", done: 0, total: frames, label: theme || usingCustom ? "Preparing the music" : "Making the video" });
     // Each layer is loaded into one image element over and over (snapshot.ts `image`), so no decoded frame is left behind.
     const chromeImg = new Image();
     const mapImg = new Image();
+    // Team pages: each is drawn to a picture once (kept as its document while the video is made), and decoded while it is on screen.
+    const docs = new Map<string, string>();
+    const pageImages = new Map<number, HTMLImageElement>();
+    let snap!: Awaited<ReturnType<typeof snapshotter>>;
+    const pageImage = async (index: number) => {
+      const found = pageImages.get(index);
+      if (found) return found;
+      const part = parts[index];
+      if (part.kind !== "page") throw new Error("Not a team page");
+      let doc = docs.get(part.page.id);
+      if (!doc) {
+        flushSync(() => setRaster(part.page));
+        await new Promise((resolve) => window.setTimeout(resolve, 120)); // sprites and fonts settle
+        if (!rasterRef.current) throw new Cancelled();
+        doc = await snap.svg(rasterRef.current, width, height, scale);
+        docs.set(part.page.id, doc);
+      }
+      const img = await snap.image(doc);
+      pageImages.set(index, img);
+      return img;
+    };
+    let shown = "";
     try {
-      const audio = track && options.volume > 0 ? await soundtrack(track, frames / fps, volume) : null;
-      const snap = await snapshotter();
+      const audio = options.volume <= 0 ? null : usingCustom ? customSoundtrack(custom, frames / fps, volume) : track ? await soundtrack(track, frames / fps, volume) : null;
+      snap = await snapshotter();
       // A frame in two layers: the title and the log (with the map's frame) change once a step, so they're drawn once a
       // step; the map (with its turn banner) is drawn each frame on its own, with only the styles it needs.
       let chrome: { beat: number; img: HTMLImageElement } | null = null;
@@ -411,15 +534,44 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
           flushSync(() => seekRef.current(ms));
           const el = stage.current;
           if (!el) throw new Cancelled();
-          const beat = momentAt(Math.min(total, ms)).beat;
-          const newChrome = chrome?.beat !== beat;
-          if (newChrome) chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
-          const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
-          const newMap = map?.doc !== doc;
-          if (newMap) map = { doc, img: await snap.image(doc, mapImg) };
-          if (!newChrome && !newMap) return; // a held frame: the canvas still has it
-          g.drawImage(chrome!.img, 0, 0, out[0], out[1]);
-          g.drawImage(map!.img, 0, 0, out[0], out[1]);
+          const scene = sceneAt(segments, Math.min(total, ms));
+          const a = parts[scene.a.index];
+          const b = scene.b ? parts[scene.b.index] : null;
+          // What is on the canvas now: a page, the replay, or a crossfade (always redrawn).
+          const now = scene.b ? `fade ${i}` : a.kind === "page" ? `page ${scene.a.index}` : "replay";
+          let changed = now !== shown || !!scene.b;
+          shown = now;
+          const withReplay = a.kind === "replay" || b?.kind === "replay";
+          if (withReplay) {
+            const beat = momentAt(replayTime(ms)).beat;
+            const newChrome = chrome?.beat !== beat;
+            if (newChrome) chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
+            const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
+            const newMap = map?.doc !== doc;
+            if (newMap) map = { doc, img: await snap.image(doc, mapImg) };
+            changed ||= newChrome || newMap;
+          }
+          if (!changed) return; // a held frame: the canvas still has it
+          if (withReplay) {
+            g.drawImage(chrome!.img, 0, 0, out[0], out[1]);
+            g.drawImage(map!.img, 0, 0, out[0], out[1]);
+          }
+          // Pages go over the replay (fading out as the replay fades in beneath, in as it fades out), or over each other.
+          if (a.kind === "page") {
+            g.globalAlpha = b?.kind === "replay" ? 1 - scene.mix : 1;
+            g.drawImage(await pageImage(scene.a.index), 0, 0, out[0], out[1]);
+          }
+          if (b?.kind === "page") {
+            g.globalAlpha = scene.mix;
+            g.drawImage(await pageImage(scene.b!.index), 0, 0, out[0], out[1]);
+          }
+          g.globalAlpha = 1;
+          // Pages behind us are let go.
+          for (const [index, img] of pageImages) {
+            if (index >= scene.a.index) continue;
+            img.removeAttribute("src");
+            pageImages.delete(index);
+          }
         },
       });
       try {
@@ -435,6 +587,8 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
       abort.current = null;
       chromeImg.removeAttribute("src");
       mapImg.removeAttribute("src");
+      for (const img of pageImages.values()) img.removeAttribute("src");
+      setRaster(null);
     }
   };
 
@@ -443,11 +597,11 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     let turn: number | null = null;
     for (let i = first; i <= last; i++) {
       const step = chron.beats[i].step;
-      if (step.turn !== turn) out.push({ at: starts[i - first], className: `${step.phase === 0 ? "player" : step.phase === 1 ? "enemy" : "other"} major` });
+      if (step.turn !== turn) out.push({ at: lead + starts[i - first], className: `${step.phase === 0 ? "player" : step.phase === 1 ? "enemy" : "other"} major` });
       turn = step.turn;
     }
     return out;
-  }, [chron.beats, first, last, starts]);
+  }, [chron.beats, first, last, starts, lead]);
 
   return (
     <Modal
@@ -461,6 +615,12 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
       }}
     >
       <div className="replay-export">
+        {pages.measure}
+        {raster && (
+          <div className="team-page-raster" aria-hidden>
+            <TeamPageView ref={rasterRef} page={raster} frame={frame} run={pageRun} part2={part2} face={team.face} markFallen={team.markFallen} gear={pages.gear} />
+          </div>
+        )}
         <ScaledStage
           width={width}
           height={height}
@@ -505,123 +665,180 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
               onWheelAt={working ? undefined : onWheelAt}
               onDrag={working ? undefined : onDrag}
             />
+            {layers.map(({ index, alpha }) => (
+              <div key={index} className="team-page-layer" style={{ opacity: alpha }}>
+                <TeamPageView page={(parts[index] as { page: TeamPage }).page} frame={frame} run={pageRun} part2={part2} face={team.face} markFallen={team.markFallen} gear={pages.gear} />
+              </div>
+            ))}
         </ScaledStage>
-        <aside className="export-side" aria-label="Video options">
-          <fieldset className="export-group" disabled={working}>
-            <legend>Aspect ratio</legend>
-            <Segmented<Orientation>
-              label="Aspect ratio"
-              value={orientation}
-              onChange={setOrientation}
-              options={[
-                ["landscape", "16:9", "1920 × 1080, the log beside the map"],
-                ["wide", "1.91:1", "2064 × 1080, the log beside the map"],
-                ["portrait", "9:16", "1080 × 1920, the log under the map"],
-                ["feed", "4:5", "1080 × 1350, the log under the map"],
-              ]}
-            />
-          </fieldset>
-          <fieldset className="export-group" disabled={working}>
-            <legend>Turns</legend>
-            <RangeSlider
-              label="Turns"
-              min={1}
-              max={Math.max(1, turns[turns.length - 1] ?? 1)}
-              start={from}
-              end={to}
-              onChange={(a, b) => { setFrom(a); setTo(b); }}
-            />
-          </fieldset>
-          <fieldset className="export-group" disabled={working}>
-            <legend>Replay</legend>
-            <ReplaySpeedSlider value={speed} onChange={setSpeed} labelled />
-            <CameraModeSwitch value={mode} onChange={setMode} labelled />
-            <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} after={<ZoomValue level={level} />} />
-          </fieldset>
-          <fieldset className="export-group" disabled={working}>
-            <legend>Music</legend>
-            {music === null ? (
-              <p className="export-note">Reprocess your game files (Settings &gt; Game files) to add the battle themes.</p>
-            ) : (
-              <>
-                <div className="export-music">
-                  <select aria-label="Battle theme" value={themeId} disabled={!music} onChange={(e) => {
-                    setThemeId(e.target.value);
-                    const next = music?.themes.find((m) => m.id === e.target.value);
-                    if (previewing) setPreviewing(previewTheme(next ? recording(next, versionOf(next)) : null, volume));
-                  }}>
-                    <option value="">No music</option>
-                    {THEME_GROUPS.map((group) => {
-                      const themes = music?.themes.filter((m) => m.group === group) ?? [];
-                      return themes.length ? (
-                        <optgroup key={group} label={group}>
-                          {themes.map((m) => <option key={m.id} value={m.id}>{m.title}{music && defaultTheme(music, battle.scenario).id === m.id ? " (Default)" : ""}</option>)}
-                        </optgroup>
-                      ) : null;
-                    })}
-                  </select>
-                  <IconButton
-                    icon={previewing ? CONCEPT_ICON.pause : CONCEPT_ICON.play}
-                    label={previewing ? "Stop listening" : "Listen to it"}
-                    pressed={previewing}
-                    disabled={!track}
-                    onClick={() => setPreviewing(previewTheme(track, volume))}
+        <aside className="export-side export-tabbed" aria-label="Video options">
+          <ExportTabs tab={options.tab} onTab={(tab) => setOption("tab", tab)}>
+            {{
+              format: (
+                <>
+                  <fieldset className="export-group" disabled={working}>
+                    <legend>Aspect ratio</legend>
+                    <Segmented<Orientation>
+                      label="Aspect ratio"
+                      value={orientation}
+                      onChange={setOrientation}
+                      options={[
+                        ["landscape", "16:9", "1920 × 1080, the log beside the map"],
+                        ["wide", "1.91:1", "2064 × 1080, the log beside the map"],
+                        ["portrait", "9:16", "1080 × 1920, the log under the map"],
+                        ["feed", "4:5", "1080 × 1350, the log under the map"],
+                      ]}
+                    />
+                  </fieldset>
+                  <fieldset className="export-group" disabled={working}>
+                    <legend>Video</legend>
+                    <div className="export-pairs">
+                      <label className="wide">
+                        Resolution
+                        <select value={options.resolution} onChange={(e) => setOption("resolution", Number(e.target.value))}>
+                          {RESOLUTIONS.map(([r, label]) => <option key={r} value={r}>{label}</option>)}
+                        </select>
+                      </label>
+                      <label>
+                        Frame rate
+                        <select value={options.fps} onChange={(e) => setOption("fps", Number(e.target.value) === 60 ? 60 : 30)}>
+                          <option value={30}>30 fps</option>
+                          <option value={60}>60 fps (smoother)</option>
+                        </select>
+                      </label>
+                      <label>
+                        Quality
+                        <select value={options.quality} onChange={(e) => setOption("quality", e.target.value as VideoQuality)}>
+                          {QUALITIES.map(([q, label]) => <option key={q} value={q}>{label}</option>)}
+                        </select>
+                      </label>
+                    </div>
+                  </fieldset>
+                </>
+              ),
+              replay: (
+                <>
+                  <fieldset className="export-group" disabled={working}>
+                    <legend>Turns</legend>
+                    <RangeSlider
+                      label="Turns"
+                      min={1}
+                      max={Math.max(1, turns[turns.length - 1] ?? 1)}
+                      start={from}
+                      end={to}
+                      onChange={(a, b) => { setFrom(a); setTo(b); }}
+                    />
+                  </fieldset>
+                  <fieldset className="export-group" disabled={working}>
+                    <legend>Replay</legend>
+                    <ReplaySpeedSlider value={speed} onChange={setSpeed} labelled />
+                    <CameraModeSwitch value={mode} onChange={setMode} labelled />
+                    <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} after={<ZoomValue level={level} />} />
+                  </fieldset>
+                </>
+              ),
+              team: units.length > 0 ? (
+                <fieldset className="export-group team-pages" disabled={working}>
+                  <legend>Team pages</legend>
+                  <TeamPagesSection team={team} update={updateTeam} pages={pages} units={units} part2={part2} />
+                </fieldset>
+              ) : (
+                <p className="export-note">This run has no units to show yet.</p>
+              ),
+              music: (
+                <fieldset className="export-group" disabled={working}>
+                  <legend>Music</legend>
+                  {music === null && <p className="export-note">The battle themes need your game files reprocessed (Settings &gt; Game files). You can still use your own audio.</p>}
+                  <div className="export-music">
+                    <select aria-label="Soundtrack" value={themeId} disabled={music === undefined} onChange={(e) => {
+                      const id = e.target.value;
+                      if (id === CUSTOM_ID && !custom) {
+                        picker.current?.click(); // the choice itself waits for a file that can be read
+                        return;
+                      }
+                      setThemeId(id);
+                      if (previewing) {
+                        const found = music?.themes.find((m) => m.id === id);
+                        const next = id === CUSTOM_ID && custom ? { id: CUSTOM_ID, url: custom.url } : found ? recording(found, versionOf(found)) : null;
+                        setPreviewing(previewTheme(next, volume));
+                      }
+                    }}>
+                      <option value="">No music</option>
+                      <option value={CUSTOM_ID}>{custom ? "Your own audio" : "Your own audio…"}</option>
+                      {THEME_GROUPS.map((group) => {
+                        const themes = music?.themes.filter((m) => m.group === group) ?? [];
+                        return themes.length ? (
+                          <optgroup key={group} label={group}>
+                            {themes.map((m) => <option key={m.id} value={m.id}>{m.title}{music && defaultTheme(music, battle.scenario).id === m.id ? " (Default)" : ""}</option>)}
+                          </optgroup>
+                        ) : null;
+                      })}
+                    </select>
+                    <IconButton
+                      icon={previewing ? CONCEPT_ICON.pause : CONCEPT_ICON.play}
+                      label={previewing ? "Stop listening" : "Listen to it"}
+                      pressed={previewing}
+                      disabled={!listening}
+                      onClick={() => setPreviewing(previewTheme(listening, volume))}
+                    />
+                  </div>
+                  <input
+                    ref={picker}
+                    type="file"
+                    accept="audio/*,.mp3,.m4a,.aac,.ogg,.oga,.opus,.wav,.flac"
+                    hidden
+                    aria-label="Choose an audio file"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      e.target.value = "";
+                      if (file) void chooseFile(file);
+                    }}
                   />
-                </div>
-                <Segmented<Version>
-                  label="Version of the theme"
-                  value={version}
-                  disabled={!theme || !!thunderNote}
-                  onChange={(v) => {
-                    setOption("version", v);
-                    // The listening follows the toggle.
-                    if (previewing && theme) setPreviewing(previewTheme(recording(theme, v), volume));
-                  }}
-                  options={[
-                    ["rain", "Rain", "The calm version"],
-                    ["thunder", "Thunder", "The intense version"],
-                  ]}
-                />
-                {thunderNote && theme && <p className="export-note">{thunderNote}</p>}
-                <StepSlider
-                  label="Volume"
-                  stops={101}
-                  value={options.volume}
-                  onChange={(v) => { setOption("volume", v); setPreviewVolume(v / 100); }}
-                  valueText={`${options.volume}%`}
-                  variant="timeline"
-                  slim
-                  after={<span className="export-value">{options.volume}%</span>}
-                />
-              </>
-            )}
-          </fieldset>
-          <fieldset className="export-group" disabled={working}>
-            <legend>Video</legend>
-            <div className="export-pairs">
-              <label className="wide">
-                Resolution
-                <select value={options.resolution} onChange={(e) => setOption("resolution", Number(e.target.value))}>
-                  {RESOLUTIONS.map(([r, label]) => <option key={r} value={r}>{label}</option>)}
-                </select>
-              </label>
-              <label>
-                Frame rate
-                <select value={options.fps} onChange={(e) => setOption("fps", Number(e.target.value) === 60 ? 60 : 30)}>
-                  <option value={30}>30 fps</option>
-                  <option value={60}>60 fps (smoother)</option>
-                </select>
-              </label>
-              <label>
-                Quality
-                <select value={options.quality} onChange={(e) => setOption("quality", e.target.value as VideoQuality)}>
-                  {QUALITIES.map(([q, label]) => <option key={q} value={q}>{label}</option>)}
-                </select>
-              </label>
-            </div>
-          </fieldset>
+                  {reading && <p className="export-note" role="status">Reading the file…</p>}
+                  {customError && <p className="export-error" role="alert">{customError}</p>}
+                  {custom && (
+                    <div className={`export-file${usingCustom ? " on" : ""}`}>
+                      <span className="export-file-name" title={custom.name}>{custom.name}</span>
+                      <span className="export-file-length">{clock(custom.duration)}</span>
+                      <button type="button" className="checklist-clear" onClick={() => picker.current?.click()}>Replace</button>
+                      <button type="button" className="checklist-clear" onClick={removeCustom}>Remove</button>
+                    </div>
+                  )}
+                  {usingCustom && <p className="export-note">{custom.duration * 1000 < total ? "Shorter than the video, so it plays again from the start." : "Longer than the video, so it stops at the end with a fade-out."}</p>}
+                  {/* Only the built-in themes have two versions; hidden (not removed) for your own audio so the layout stays put. */}
+                  <div style={usingCustom ? { visibility: "hidden" } : undefined} aria-hidden={usingCustom || undefined}>
+                    <Segmented<Version>
+                      label="Version of the theme"
+                      value={version}
+                      disabled={!theme || !!thunderNote}
+                      onChange={(v) => {
+                        setOption("version", v);
+                        // The listening follows the toggle.
+                        if (previewing && theme) setPreviewing(previewTheme(recording(theme, v), volume));
+                      }}
+                      options={[
+                        ["rain", "Rain", "The calm version"],
+                        ["thunder", "Thunder", "The intense version"],
+                      ]}
+                    />
+                    {thunderNote && theme && <p className="export-note">{thunderNote}</p>}
+                  </div>
+                  <StepSlider
+                    label="Volume"
+                    stops={101}
+                    value={options.volume}
+                    onChange={(v) => { setOption("volume", v); setPreviewVolume(v / 100); }}
+                    valueText={`${options.volume}%`}
+                    variant="timeline"
+                    slim
+                    after={<span className="export-value">{options.volume}%</span>}
+                  />
+                </fieldset>
+              ),
+            }}
+          </ExportTabs>
           <ExportActions
-            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}` : "No music"]}
+            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), ...(pages.start.length + pages.end.length ? [`${pages.start.length + pages.end.length} team page${pages.start.length + pages.end.length === 1 ? "" : "s"}`] : []), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}` : usingCustom ? "Your audio" : "No music"]}
             status={status}
             action="Export MP4…"
             onExport={() => void exportVideo()}
@@ -630,6 +847,48 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
         </aside>
       </div>
     </Modal>
+  );
+}
+
+/**
+ * The options panel's tabs (role tablist / tab / tabpanel): Left and Right (and Up and Down) move between them, Home and
+ * End go to the first and last. Only the open tab's panel is in the page, so the panel never needs to scroll.
+ */
+function ExportTabs({ tab, onTab, children }: { tab: ExportTab; onTab: (tab: ExportTab) => void; children: Record<ExportTab, React.ReactNode> }) {
+  const id = useId();
+  const refs = useRef<Record<string, HTMLButtonElement | null>>({});
+  const onKey = (e: React.KeyboardEvent) => {
+    const at = TABS.findIndex(([t]) => t === tab);
+    const to = e.key === "ArrowRight" || e.key === "ArrowDown" ? (at + 1) % TABS.length : e.key === "ArrowLeft" || e.key === "ArrowUp" ? (at + TABS.length - 1) % TABS.length : e.key === "Home" ? 0 : e.key === "End" ? TABS.length - 1 : -1;
+    if (to < 0) return;
+    e.preventDefault();
+    onTab(TABS[to][0]);
+    refs.current[TABS[to][0]]?.focus();
+  };
+  return (
+    <>
+      <div className="export-tabs" role="tablist" aria-label="Video options" aria-orientation="horizontal" onKeyDown={onKey}>
+        {TABS.map(([t, label]) => (
+          <button
+            key={t}
+            ref={(el) => { refs.current[t] = el; }}
+            type="button"
+            role="tab"
+            id={`${id}-tab-${t}`}
+            aria-selected={tab === t}
+            aria-controls={`${id}-panel-${t}`}
+            tabIndex={tab === t ? 0 : -1}
+            className={tab === t ? "on" : ""}
+            onClick={() => onTab(t)}
+          >
+            {label}
+          </button>
+        ))}
+      </div>
+      <div className="export-panel" role="tabpanel" id={`${id}-panel-${tab}`} aria-labelledby={`${id}-tab-${tab}`}>
+        {children[tab]}
+      </div>
+    </>
   );
 }
 
@@ -662,7 +921,7 @@ function ScaledStage({ width, height, footer, children }: { width: number; heigh
     <div className="replay-export-preview" ref={box}>
       <div className="replay-export-room" style={{ width: frame[0] + ROOM_PAD * 2, height: frame[1] + ROOM_PAD * 2 }}>
         <div className="replay-export-screen" style={{ width: frame[0], height: frame[1] }}>
-          <div style={{ width, height, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
+          <div style={{ position: "relative", width, height, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
         </div>
       </div>
       <div className="replay-export-foot" ref={foot} style={{ width: frame[0] + ROOM_PAD * 2 }}>{footer}</div>

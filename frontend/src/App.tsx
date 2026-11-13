@@ -194,9 +194,10 @@ export default function App() {
       return Promise.all([loadRuns(), loadUnits(), loadAuto(), loadBattle()]).then(() => undefined);
     },
     battle: (data) => {
-      const refresh = Promise.all([loadBattle(), loadRuns()]).then(() => undefined);
       // The history only changes when a battle ends or one is deleted, not on every update of the live battle.
       const d = data as { active?: boolean; history?: boolean } | null;
+      // The units' run scores change with it.
+      const refresh = Promise.all([loadBattle(), loadRuns(), ...(!d?.active || d.history ? [loadUnits()] : [])]).then(() => undefined);
       if (!d?.active || d.history) setBattleVersion((v) => v + 1);
       if (!d?.active || d.history) void refreshDuplicates();
       return refresh;
@@ -437,6 +438,7 @@ export default function App() {
                 fell={recording?.id === nav.route.id ? nav.route.fell : null}
                 onDeleteRecording={deleteRecording}
                 route={iconRoute}
+                runName={activeRun?.name}
               />
             )}
             {loaded && page === "history" && (
