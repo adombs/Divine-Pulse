@@ -15,6 +15,7 @@
 - Export Video's music can be your own audio file (MP3, M4A, OGG, WAV, FLAC): it loops if shorter than the video and fades out at the end if longer.
 - Battle unit lists drop the army dot beside each name; the face's colour already shows the army.
 - Classes use a graduation cap icon, and Class Mastery a battery.
+- Jeralt's mounted sprite is no longer cut off in round frames.
 
 ## 1.4.4 (2026-11-12)
 

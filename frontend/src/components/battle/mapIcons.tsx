@@ -200,7 +200,7 @@ export function spriteLayers(index: SpriteIndex, s: Sprite, named: boolean): Lay
   const own = look ? look.characters[key] : index.characters[s.character];
   // A character's own sprite in their class (Jeralt mounted as a Paladin).
   const inClass = s.classId === null ? undefined : index.character_classes?.[key]?.[s.classId];
-  if (inClass !== undefined) return { row: inClass, head: null, mounted: false };
+  if (inClass !== undefined) return { row: inClass, head: null, mounted: body !== undefined && index.mounted.includes(body) };
   if ((s.classId === 0 || s.classId === 1) && own !== undefined) return { row: own, head: null, mounted: false };
   const head = look ? look.heads[key] : index.heads.characters[s.character];
   if (head !== undefined) return body === undefined ? null : { row: body, head, mounted: index.mounted.includes(body) };
