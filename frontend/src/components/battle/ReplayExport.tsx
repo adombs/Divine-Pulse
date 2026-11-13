@@ -323,16 +323,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   // The team pages (before and after the replay) fill the frame; their page counts follow its shape.
   const frame = useMemo<PageFrame>(() => ({ width, height, titleH: TITLE_H[orientation], portrait: !logBeside(orientation) }), [width, height, orientation]);
   const team = options.team;
-  // Fallen, for the team pages, means fell in this battle (the log's "fell" entries) as well as dead in the run (Classic).
-  const teamUnits = useMemo(() => {
-    const fell = new Map(battle.log.filter((e) => e.kind === "fell" && e.actor_id?.startsWith("a:")).map((e) => [e.actor_id!.slice(2), e]));
-    return units.map((u) => {
-      const e = fell.get(u.key);
-      if (u.death || !e) return u;
-      return { ...u, death: { battle_id: battle.id, battle_name: battle.map_name ?? "", scenario: battle.scenario ?? null, turn: e.turn, step: null, t: e.t, by: null, manual: false, at: "" } };
-    });
-  }, [units, battle]);
-  const pages = useTeamPages({ team, update: updateTeam, units: teamUnits, history, battle, part2, frame });
+  const pages = useTeamPages({ team, update: updateTeam, units, history, battle, part2, frame });
   const pageRun = useMemo(() => ({ name: runName, route }), [runName, route]);
   const [speed, setSpeed] = useState(() => nav.replaySpeed ?? 1);
   const [mode, setModeState] = useState<CameraMode>("dynamic");
@@ -749,7 +740,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
               team: units.length > 0 ? (
                 <fieldset className="export-group team-pages" disabled={working}>
                   <legend>Team pages</legend>
-                  <TeamPagesSection team={team} update={updateTeam} pages={pages} units={teamUnits} part2={part2} />
+                  <TeamPagesSection team={team} update={updateTeam} pages={pages} units={units} part2={part2} />
                 </fieldset>
               ) : (
                 <p className="export-note">This run has no units to show yet.</p>

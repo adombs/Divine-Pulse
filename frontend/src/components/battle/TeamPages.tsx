@@ -322,10 +322,10 @@ export function TeamPagesSection({ team, update, pages, units, part2 }: {
               {team.left.length ? "Select all" : "Select none"}
             </button>
           </div>
-          <div className="team-fallen-options" title={fallenCount ? undefined : "No unit fell in this battle"}>
+          <div className="team-fallen-options" title={fallenCount ? undefined : "No unit has died in this run"}>
             <label className={`team-include-fallen${fallenCount ? "" : " is-disabled"}`}>
               <input type="checkbox" checked={team.fallen} disabled={!fallenCount} onChange={(e) => update({ fallen: e.target.checked })} />
-              Include fallen units <small>{fallenCount || "none fell"}</small>
+              Include fallen units <small>{fallenCount || "none fallen"}</small>
             </label>
             <label className={`team-include-fallen${fallenCount ? "" : " is-disabled"}`}>
               <input type="checkbox" checked={team.markFallen} disabled={!fallenCount} onChange={(e) => update({ markFallen: e.target.checked })} />

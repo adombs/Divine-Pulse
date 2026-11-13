@@ -291,7 +291,7 @@ function TeamExportDialog({ run, units, part2, onClose }: { run: RunSummary; uni
                 ))}
               </select>
             </label>
-            <label className={`team-include-fallen${fallenCount ? "" : " is-disabled"}`} title={fallenCount ? undefined : "No unit has fallen in this run"}>
+            <label className={`team-include-fallen${fallenCount ? "" : " is-disabled"}`} title={fallenCount ? undefined : "No unit has died in this run"}>
               <input type="checkbox" checked={options.fallen} disabled={!fallenCount} onChange={(e) => setOption("fallen", e.target.checked)} />
               Include fallen units
               <small>{fallenCount || "none fallen"}</small>
