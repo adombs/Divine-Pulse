@@ -1,6 +1,6 @@
 /**
- * The pure arithmetic of the video's team pages (components/battle/TeamPages.tsx): how big a page's content is drawn so it
- * stays legible, how many cards a page holds, which pages come where, and what is on screen at a moment of the
+ * The pure arithmetic of the video's team pages (components/battle/TeamPages.tsx): how a page's grid of cards is laid out
+ * and how big its content is drawn so it stays legible, which pages come where, and what is on screen at a moment of the
  * video (a page, the replay, or a crossfade between two). Nothing here touches the page, so it is tested on its own.
  */
 
@@ -19,38 +19,11 @@ export const sidesOf = (placement: Placement): ("start" | "end")[] => (placement
 export const PAGE_MS = 1000;
 /** How long the crossfade between two scenes lasts (ms), half either side of the cut; well inside a page's second. */
 export const FADE_MS = 200;
-/** The smallest body text is drawn at least this share of the frame's height (about 22 px in a 1080p frame). */
+/** The smallest text is drawn at least this share of the frame's short side (about 22 px in a 1080p frame, either way up). */
 export const LEGIBLE_FRACTION = 0.02;
 
-/** How many times bigger than natural text of `minText` px must be drawn to be `LEGIBLE_FRACTION` of the frame's height. */
-export const legibleScale = (minText: number, frameHeight: number): number => (minText > 0 ? (frameHeight * LEGIBLE_FRACTION) / minText : 1);
-
-/**
- * How many times bigger than on the page a team page's content is drawn: big enough that its smallest body text
- * (`minText`, px on the page) is `LEGIBLE_FRACTION` of the frame's height, but no bigger than the room across (the
- * content's width must fit) or down (at least one card or row must fit). So legible wherever the room allows; where
- * the frame is too narrow for that, as big as the width lets it be.
- */
-export function pageScale({ minText, frameHeight, contentWidth, roomWidth, minHeight, roomHeight }: {
-  minText: number;
-  frameHeight: number;
-  contentWidth: number;
-  roomWidth: number;
-  /** The least height the content needs on a page (one card; the header, one row and the totals). */
-  minHeight: number;
-  roomHeight: number;
-}): number {
-  if (!(minText > 0) || !(contentWidth > 0) || !(minHeight > 0)) return 1;
-  const legible = legibleScale(minText, frameHeight);
-  return Math.max(0.1, Math.min(legible, roomWidth / contentWidth, roomHeight / minHeight));
-}
-
-/** How many cards of `cardHeight` (drawn at `scale`, `gap` apart, both px) a column `roomHeight` tall holds; never fewer than one. */
-export function cardsPerPage(roomHeight: number, cardHeight: number, gap: number, scale: number): number {
-  const each = cardHeight * scale;
-  if (!(each > 0)) return 1;
-  return Math.max(1, Math.floor((roomHeight + gap) / (each + gap)));
-}
+/** How many times bigger than natural text of `minText` px must be drawn to be `LEGIBLE_FRACTION` of the frame's short side. */
+export const legibleScale = (minText: number, frameShortSide: number): number => (minText > 0 ? (frameShortSide * LEGIBLE_FRACTION) / minText : 1);
 
 /** `items` in pages of at most `size`, in order. */
 export function chunk<T>(items: readonly T[], size: number): T[][] {
@@ -60,30 +33,74 @@ export function chunk<T>(items: readonly T[], size: number): T[][] {
   return out;
 }
 
-/** A way to lay a loadout card out: how many columns it packs into, and how big that makes it (px, natural size). */
-export interface CardLayout {
+/** The most columns and rows the Team tab offers; Auto never goes past them. */
+export const MAX_COLUMNS = 6;
+export const MAX_ROWS = 8;
+
+/** A grid axis the player fixed (a whole number), or null for Auto. */
+export type Axis = number | null;
+
+/** A page's grid: how many cards across and down, how big its contents are drawn, and what that makes of the cards. */
+export interface GridPlan {
   columns: number;
-  w: number;
-  h: number;
+  rows: number;
+  /** Cards to a page (columns x rows). */
+  perPage: number;
+  /** How many times bigger than natural the cards are drawn. */
+  scale: number;
+  /** A card's cell and the gap between cells, in the cards' own (natural) pixels; the grid is `width` x `height` of them. */
+  cellW: number;
+  cellH: number;
+  gap: number;
+  width: number;
+  height: number;
+  /** True when the text comes out smaller than the legible size (only a fixed axis, or a frame too small for even one card, does that). */
+  small: boolean;
 }
 
 /**
- * Which of a card's layouts a frame draws it in: the one whose text can be drawn biggest (the room across and down
- * permitting); among layouts that all reach the legible size, the one that holds the most cards to a page, then the
- * one that fills the frame's width best, then the fewest columns. A tall frame has room down but little across, so it gets a narrow, tall card; a wide one, a wide one.
+ * How a page's cards are laid out in a room (px): `columns` x `rows` cells, each `card` (its natural size, `minText` the
+ * smallest text on it) drawn as big as its cell allows. An Auto axis (null) takes as many as keep the text at the legible
+ * size (`LEGIBLE_FRACTION` of the frame's short side); when `count` cards fit one page that way, the layout that draws them
+ * biggest is taken instead of more empty cells. A fixed axis is kept even where it pushes the text below that size (`small`).
  */
-export function chooseCardLayout<L extends CardLayout>(layouts: readonly L[], o: { minText: number; frameHeight: number; roomWidth: number; roomHeight: number; gap: number }): { layout: L; scale: number; perPage: number } | null {
-  const options = layouts
-    .filter((l) => l.w > 0 && l.h > 0)
-    .map((layout) => {
-      const scale = pageScale({ minText: o.minText, frameHeight: o.frameHeight, contentWidth: layout.w, roomWidth: o.roomWidth, minHeight: layout.h, roomHeight: o.roomHeight });
-      return { layout, scale, perPage: cardsPerPage(o.roomHeight, layout.h, o.gap, scale) };
-    });
-  if (!options.length) return null;
-  const best = Math.max(...options.map((x) => x.scale));
-  return options
-    .filter((x) => x.scale >= best * 0.98)
-    .sort((a, b) => b.perPage - a.perPage || b.layout.w - a.layout.w || a.layout.columns - b.layout.columns)[0];
+export function planGrid(o: {
+  minText: number;
+  frameShortSide: number;
+  card: { w: number; h: number };
+  roomWidth: number;
+  roomHeight: number;
+  /** Gap between cells, px at the frame's own size. */
+  gap: number;
+  columns: Axis;
+  rows: Axis;
+  count: number;
+}): GridPlan | null {
+  const { card, roomWidth, roomHeight, gap } = o;
+  if (!(card.w > 0 && card.h > 0 && roomWidth > 0 && roomHeight > 0)) return null;
+  const floor = legibleScale(o.minText, o.frameShortSide);
+  const upTo = (n: number) => Array.from({ length: n }, (_, i) => i + 1);
+  const options = (o.columns ? [o.columns] : upTo(MAX_COLUMNS)).flatMap((columns) => (o.rows ? [o.rows] : upTo(MAX_ROWS)).map((rows) => {
+    const cw = (roomWidth - (columns - 1) * gap) / columns;
+    const ch = (roomHeight - (rows - 1) * gap) / rows;
+    return { columns, rows, perPage: columns * rows, scale: Math.min(cw / card.w, ch / card.h) };
+  }));
+  const legible = options.filter((x) => x.scale >= floor - 1e-9);
+  // Where nothing reaches the legible size (a fixed axis, or a frame too small), the layout that draws the text biggest.
+  const best = legible.length
+    ? (() => {
+        const holdsAll = legible.filter((x) => x.perPage >= o.count);
+        return holdsAll.length ? holdsAll.sort((a, b) => b.scale - a.scale || a.perPage - b.perPage)[0] : legible.sort((a, b) => b.perPage - a.perPage || b.scale - a.scale)[0];
+      })()
+    : options.sort((a, b) => b.scale - a.scale || a.perPage - b.perPage)[0];
+  const scale = Math.max(0.05, best.scale);
+  return {
+    columns: best.columns, rows: best.rows, perPage: best.perPage, scale,
+    width: roomWidth / scale, height: roomHeight / scale, gap: gap / scale,
+    cellW: (roomWidth - (best.columns - 1) * gap) / best.columns / scale,
+    cellH: (roomHeight - (best.rows - 1) * gap) / best.rows / scale,
+    small: scale < floor - 1e-9,
+  };
 }
 
 /** A stretch of the video: what it is and how long it lasts (ms). */

@@ -1,21 +1,22 @@
 /**
- * Team pages for the video export (ReplayExport.tsx): the team's overview (a single column of the video's compact unit
- * cards, `VideoUnitCard`), as full frames shown before the replay, after it, or both, each for a second. A page draws the
- * cards at the size that keeps their smallest text legible in the frame (exporting/teamPages.ts has the arithmetic), as
- * many to a page as fit, flipping through pages until every unit picked is covered. The units, their order, fallen units
- * and faces follow Export Team's rules; each card's weapon or spell is the one the unit used most in the battle exported.
+ * Team pages for the video export (ReplayExport.tsx): the team's overview (a grid of the video's poster cards,
+ * `VideoUnitCard`), as full frames shown before the replay, after it, or both, each for a second. The player picks how many
+ * columns and rows a page has, or leaves either Auto: as many as keep the cards' smallest text legible in the frame
+ * (exporting/teamPages.ts has the arithmetic). Pages flip until every unit picked is covered. The units, their order,
+ * fallen units and faces follow Export Team's rules; each card lists what the unit used in the battle exported.
  */
 import "./replay-export.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Battle, RunRoute, Unit } from "../../api";
 import { plural } from "../../format";
-import { featuredWeapon, type Featured } from "../../exporting/mostUsed";
-import { chooseCardLayout, chunk, PLACEMENTS, sidesOf, type CardLayout, type Placement } from "../../exporting/teamPages";
+import { gambitUses, gearName, usageList, type CardGear } from "../../exporting/usageList";
+import { chunk, MAX_COLUMNS, MAX_ROWS, PLACEMENTS, planGrid, sidesOf, type Axis, type GridPlan, type Placement } from "../../exporting/teamPages";
 import { CardBanner, RunIcon, Segmented } from "../ui";
+import { StepSlider } from "../Slider";
 import { FACES, layoutSlots, ORDER_BY, orderFor, pickRows, UnitSlots, type ExportFace, type OrderBy } from "../TeamExport";
 import { buildRunLedger } from "./runStatsLedger";
 import { countedBattles } from "./rosterRule";
-import { VideoUnitCard, type CardShape } from "./TeamVideoCard";
+import { POSTER, VideoUnitCard } from "./TeamVideoCard";
 
 /** The settings of the team pages, remembered with the video's other options. */
 export interface TeamPagesOptions {
@@ -25,6 +26,9 @@ export interface TeamPagesOptions {
   /** Whether units that died are in the pages (greyed). */
   fallen: boolean;
   face: ExportFace;
+  /** Cards across and down a page; null is Auto (as many as keep the text legible). */
+  columns: Axis;
+  rows: Axis;
   /** Keys of units unticked. */
   left: string[];
   /** The units in their slots (see TeamExport.tsx `layoutSlots`). */
@@ -37,6 +41,8 @@ export const DEFAULT_TEAM_PAGES: TeamPagesOptions = {
   order: "joined:asc",
   fallen: true,
   face: "portrait",
+  columns: null,
+  rows: null,
   left: [],
   placed: [],
 };
@@ -45,6 +51,7 @@ export const DEFAULT_TEAM_PAGES: TeamPagesOptions = {
 export function sanitizeTeamPages(saved: unknown): TeamPagesOptions {
   const s = (saved && typeof saved === "object" ? saved : {}) as Partial<Record<keyof TeamPagesOptions, unknown>>;
   const placement = (v: unknown, fallback: Placement) => PLACEMENTS.find(([p]) => p === v)?.[0] ?? fallback;
+  const axis = (v: unknown, max: number): Axis => (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= max ? v : null);
   const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((k): k is string => typeof k === "string").slice(0, 500) : []);
   return {
     overview: s.overview === true,
@@ -52,12 +59,14 @@ export function sanitizeTeamPages(saved: unknown): TeamPagesOptions {
     order: s.order === "custom" || ORDER_BY.some(([id]) => id === s.order) ? (s.order as OrderBy) : DEFAULT_TEAM_PAGES.order,
     fallen: s.fallen !== false,
     face: FACES.some(([f]) => f === s.face) ? (s.face as ExportFace) : DEFAULT_TEAM_PAGES.face,
+    columns: axis(s.columns, MAX_COLUMNS),
+    rows: axis(s.rows, MAX_ROWS),
     left: strings(s.left),
     placed: Array.isArray(s.placed) ? s.placed.slice(0, 500).map((k) => (typeof k === "string" ? k : null)) : [],
   };
 }
 
-/** Units side by side in the picker (it is only a list; the pages are one column). */
+/** Units side by side in the picker (it is only a list; the pages have their own grid). */
 const PICKER_COLUMNS = 3;
 /** A frame's padding and the gap under its title strip (px, as the replay's frame has them), and between cards. */
 const PAD = 16;
@@ -76,30 +85,26 @@ export interface PageFrame {
 /** One page of the video. */
 export interface TeamPage {
   id: string;
-  /** How the cards are drawn: on one line each, or stacked (a narrow frame). */
-  shape: CardShape;
   /** 1-based, and how many pages there are. */
   number: number;
   of: number;
   units: Unit[];
   /** Every unit the pages cover. */
   all: Unit[];
-  /** How many times bigger than natural the cards are drawn, and their natural width. */
-  scale: number;
-  contentW: number;
-  /** How many cards fit a page of this frame. */
-  perPage: number;
+  /** The page's grid (the same on every page of a video). */
+  grid: GridPlan;
+  /** The face's width in a card of this grid (px, natural size). */
+  poster: number;
 }
 
-/** The shapes the pages choose between (`columns` only breaks a tie: the one-line card is preferred). */
-const SHAPES: { shape: CardShape; columns: number }[] = [{ shape: "row", columns: 1 }, { shape: "stack", columns: 2 }];
+/** A card's natural width (px): the width the hidden copies are measured at. */
+const CARD_W = 480;
 
-/** What the hidden copy of the cards measures. */
+/** What the hidden copy of the cards measures: the tallest card at its natural width, and the smallest text on any. */
 interface Measured {
   keys: string;
-  /** Each shape's card size, and the smallest text on a card. */
-  layouts: (CardLayout & { shape: CardShape })[];
-  cardText: number;
+  h: number;
+  minText: number;
 }
 
 /** The smallest font size (px) of text under `root`, leaving out what matches `skip`. */
@@ -113,7 +118,12 @@ function smallestText(root: Element, skip: string): number {
   return Number.isFinite(least) ? least : 0;
 }
 
-const finiteOr0 = (n: number) => (Number.isFinite(n) ? n : 0);
+/** How wide a card's face is drawn in a cell: wider than natural by half the cell's spare width, within reason (it takes all the spare height anyway). */
+function posterFor(grid: GridPlan): number {
+  return Math.round(POSTER + Math.max(0, Math.min((grid.cellW - CARD_W) / 2, POSTER * 0.5)));
+}
+
+const EMPTY_GEAR: CardGear = { used: [], accessory: null, battalion: null, gambits: null };
 
 export interface TeamPagesState {
   /** Hidden copies the pages are measured from; render once, anywhere in the window. */
@@ -122,8 +132,8 @@ export interface TeamPagesState {
   slots: (string | null)[];
   byKey: Map<string, Unit>;
   chosen: Unit[];
-  /** Each unit's weapon or spell of the battle, by unit key. */
-  featured: Map<string, Featured | null>;
+  /** What each unit used in the battle, and its accessory and battalion, by unit key. */
+  gear: Map<string, CardGear>;
   overview: TeamPage[];
   /** Pages before and after the replay, in order. */
   start: TeamPage[];
@@ -138,7 +148,7 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
   update: (patch: Partial<TeamPagesOptions>) => void;
   units: Unit[];
   history: Battle[];
-  /** The battle exported: each card's weapon or spell is the unit's most used in it. */
+  /** The battle exported: each card lists what the unit used in it. */
   battle: Battle;
   part2: boolean;
   frame: PageFrame;
@@ -150,11 +160,16 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
   const slots = useMemo(() => layoutSlots(team.placed, units.map((u) => u.key), PICKER_COLUMNS), [team.placed, units]);
   const left = useMemo(() => new Set(team.left), [team.left]);
   const chosen = useMemo(() => pickRows(slots, byKey, left, PICKER_COLUMNS, team.fallen).flat(), [slots, byKey, left, team.fallen]);
-  const featured = useMemo(() => {
-    const out = new Map<string, Featured | null>();
+  const gear = useMemo(() => {
+    const out = new Map<string, CardGear>();
     for (const u of units) {
-      const inBattle = battle.units.find((b) => b.key === u.key);
-      out.set(u.key, featuredWeapon(inBattle?.usage, battle.log, u.key, inBattle?.inventory?.length ? inBattle.inventory : u.inventory));
+      const b = battle.units.find((x) => x.key === u.key);
+      out.set(u.key, {
+        used: usageList(b?.usage, battle.log, u.key),
+        accessory: gearName(b?.accessory, u.accessory),
+        battalion: gearName(b?.battalion, u.battalion),
+        gambits: gambitUses(b?.usage),
+      });
     }
     return out;
   }, [units, battle]);
@@ -167,7 +182,7 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [ledger, units, team.order]);
 
-  // Hidden copies of every card (in each shape) at their natural size, measured for the pages.
+  // Hidden copies of every card at their natural size, measured for the pages.
   const host = useRef<HTMLDivElement>(null);
   const [measured, setMeasured] = useState<Measured | null>(null);
   const key = `${chosen.map((u) => u.key).join(",")}|${team.face}`;
@@ -175,14 +190,10 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
     const el = host.current;
     if (!enabled || !el) return;
     const measure = () => {
-      const layouts: Measured["layouts"] = [];
-      for (const { shape, columns } of SHAPES) {
-        const cards = Array.from(el.querySelectorAll<HTMLElement>(`[data-card-shape="${shape}"] .vcard`));
-        if (!cards.length) continue;
-        layouts.push({ shape, columns, w: Math.max(...cards.map((n) => n.offsetWidth)), h: Math.max(...cards.map((n) => n.offsetHeight)) });
-      }
-      const cardEls = Array.from(el.querySelectorAll<HTMLElement>('[data-card-shape="stack"] .vcard'));
-      const next: Measured = { keys: key, layouts, cardText: finiteOr0(Math.min(...cardEls.map((c) => smallestText(c, "[data-asset-error]")).filter((n) => n > 0))) };
+      const cards = Array.from(el.querySelectorAll<HTMLElement>(".vcard"));
+      if (!cards.length) return;
+      const least = Math.min(...cards.map((c) => smallestText(c, "[data-asset-error]")).filter((n) => n > 0));
+      const next: Measured = { keys: key, h: Math.max(...cards.map((n) => n.offsetHeight)), minText: Number.isFinite(least) ? least : 0 };
       setMeasured((now) => (now && JSON.stringify(now) === JSON.stringify(next) ? now : next));
     };
     const observer = new ResizeObserver(measure);
@@ -193,28 +204,26 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
   }, [enabled, key]);
 
   const pages = useMemo(() => {
-    if (!enabled || !measured || !measured.keys.startsWith(chosen.map((u) => u.key).join(",")) || !chosen.length) return [] as TeamPage[];
-    const roomW = frame.width - 2 * PAD;
-    const roomH = frame.height - 2 * PAD - frame.titleH - GAP;
-    // The shape that lets the text be biggest in this frame (and then holds the most cards to a page).
-    const pick = chooseCardLayout(measured.layouts, { minText: measured.cardText, frameHeight: frame.height, roomWidth: roomW, roomHeight: roomH, gap: CARD_GAP });
-    if (!pick) return [];
-    const groups = chunk(chosen, pick.perPage);
-    return groups.map((g, i): TeamPage => ({ id: `overview-${i + 1}`, shape: pick.layout.shape, number: i + 1, of: groups.length, units: g, all: chosen, scale: pick.scale, contentW: pick.layout.w, perPage: pick.perPage }));
-  }, [enabled, measured, chosen, frame.width, frame.height, frame.titleH]);
+    if (!enabled || !measured || measured.keys !== key || !chosen.length) return [] as TeamPage[];
+    const grid = planGrid({
+      minText: measured.minText, frameShortSide: Math.min(frame.width, frame.height), card: { w: CARD_W, h: measured.h },
+      roomWidth: frame.width - 2 * PAD, roomHeight: frame.height - 2 * PAD - frame.titleH - GAP, gap: CARD_GAP,
+      columns: team.columns, rows: team.rows, count: chosen.length,
+    });
+    if (!grid) return [];
+    const groups = chunk(chosen, grid.perPage);
+    const poster = posterFor(grid);
+    return groups.map((g, i): TeamPage => ({ id: `overview-${i + 1}`, number: i + 1, of: groups.length, units: g, all: chosen, grid, poster }));
+  }, [enabled, measured, key, chosen, frame.width, frame.height, frame.titleH, team.columns, team.rows]);
 
   const sides = sidesOf(team.overviewAt);
   const measure = enabled ? (
     <div ref={host} className="team-page-measure" aria-hidden>
-      {SHAPES.map(({ shape }) => (
-        <div key={shape} className="team-page-measure-cards" data-card-shape={shape}>
-          {chosen.map((u) => <VideoUnitCard key={u.key} unit={u} part2={part2} face={team.face} shape={shape} featured={featured.get(u.key) ?? null} />)}
-        </div>
-      ))}
+      {chosen.map((u) => <div key={u.key} className="vcard-natural"><VideoUnitCard unit={u} part2={part2} face={team.face} gear={gear.get(u.key) ?? EMPTY_GEAR} /></div>)}
     </div>
   ) : null;
   return {
-    measure, enabled, slots, byKey, chosen, featured,
+    measure, enabled, slots, byKey, chosen, gear,
     overview: pages,
     start: enabled && sides.includes("start") ? pages : [],
     end: enabled && sides.includes("end") ? pages : [],
@@ -222,16 +231,29 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
   };
 }
 
-/** One page, at the frame's exact size: the title strip (the run, the picture, "2 / 4") over the cards, centred. */
-export function TeamPageView({ page, frame, run, part2, face, featured, ref }: {
+/** One page, at the frame's exact size: the title strip (the run, the picture, "2 / 4") over the grid of cards. */
+export function TeamPageView({ page, frame, run, part2, face, gear, ref }: {
   page: TeamPage;
   frame: PageFrame;
   run: { name: string; route: RunRoute | null };
   part2: boolean;
   face: ExportFace;
-  featured: Map<string, Featured | null>;
+  gear: Map<string, CardGear>;
   ref?: React.Ref<HTMLDivElement>;
 }) {
+  const g = page.grid;
+  // The lists of a page's cards all take the height of the longest, so the faces above them line up.
+  const content = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = content.current;
+    if (!el) return;
+    const fit = () => {
+      el.style.setProperty("--list-h", "0px");
+      el.style.setProperty("--list-h", `${Math.max(0, ...Array.from(el.querySelectorAll<HTMLElement>(".vcard-list")).map((l) => l.offsetHeight))}px`);
+    };
+    fit();
+    void document.fonts.ready.then(fit);
+  });
   return (
     <div ref={ref} className={`team-page${frame.portrait ? " team-page-tall" : ""}`} style={{ width: frame.width, height: frame.height, gridTemplateRows: `${frame.titleH}px minmax(0, 1fr)` }}>
       <header className="replay-stage-title">
@@ -242,9 +264,16 @@ export function TeamPageView({ page, frame, run, part2, face, featured, ref }: {
         </div>
       </header>
       <div className="team-page-body">
-        <div className="team-page-fit" style={{ width: page.contentW * page.scale }}>
-          <div className="team-page-content" style={{ width: page.contentW, transform: `scale(${page.scale})`, transformOrigin: "0 0" }}>
-            {page.units.map((u) => <VideoUnitCard key={u.key} unit={u} part2={part2} face={face} shape={page.shape} featured={featured.get(u.key) ?? null} />)}
+        <div className="team-page-fit" style={{ width: g.width * g.scale, height: g.height * g.scale }}>
+          <div
+            ref={content}
+            className="team-page-content"
+            style={{
+              width: g.width, height: g.height, gap: g.gap, transform: `scale(${g.scale})`, transformOrigin: "0 0",
+              gridTemplateColumns: `repeat(${g.columns}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${g.rows}, minmax(0, 1fr))`,
+            }}
+          >
+            {page.units.map((u) => <VideoUnitCard key={u.key} unit={u} part2={part2} face={face} gear={gear.get(u.key) ?? EMPTY_GEAR} poster={page.poster} />)}
           </div>
         </div>
       </div>
@@ -260,6 +289,7 @@ export function TeamPagesSection({ team, update, pages, units, part2 }: {
   units: Unit[];
   part2: boolean;
 }) {
+  const small = pages.overview[0]?.grid.small ? pages.overview[0].grid : null;
   const fallenCount = units.filter((u) => u.death).length;
   const toggle = (key: string) => update({ left: team.left.includes(key) ? team.left.filter((k) => k !== key) : [...team.left, key] });
   return (
@@ -272,6 +302,13 @@ export function TeamPagesSection({ team, update, pages, units, part2 }: {
         {team.overview && <Segmented<Placement> size="mini" label="Team overview placement" value={team.overviewAt} onChange={(overviewAt) => update({ overviewAt })} options={PLACEMENTS} />}
         {team.overview && pages.overview.length > 0 && <small className="team-pages-count" aria-live="polite">{plural(pages.overview.length, "page")}, a second each</small>}
       </div>
+      {team.overview && (
+        <div className="team-pages-grid">
+          <AxisSlider label="Columns" max={MAX_COLUMNS} value={team.columns} onChange={(columns) => update({ columns })} />
+          <AxisSlider label="Rows" max={MAX_ROWS} value={team.rows} onChange={(rows) => update({ rows })} />
+          {small && <p className="team-pages-note" role="status">Text will be small at {small.columns} × {small.rows}</p>}
+        </div>
+      )}
       {team.overview && pages.chosen.length === 0 && (
         <p className="team-pages-note" role="status">No units are ticked, so there are no pages. Tick some under Units.</p>
       )}
@@ -311,5 +348,21 @@ export function TeamPagesSection({ team, update, pages, units, part2 }: {
         </div>
       )}
     </div>
+  );
+}
+
+/** A grid axis as a slider: Auto, then 1 to `max`. */
+function AxisSlider({ label, max, value, onChange }: { label: string; max: number; value: Axis; onChange: (v: Axis) => void }) {
+  return (
+    <StepSlider
+      label={label}
+      stops={max + 1}
+      value={value ?? 0}
+      onChange={(i) => onChange(i === 0 ? null : i)}
+      valueText={value ? `${value}` : "Auto"}
+      after={<span className="team-pages-axis-value">{value ?? "Auto"}</span>}
+      variant="timeline"
+      slim
+    />
   );
 }

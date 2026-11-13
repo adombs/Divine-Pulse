@@ -1,37 +1,15 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cardsPerPage, chooseCardLayout, chunk, FADE_MS, LEGIBLE_FRACTION, legibleScale, PAGE_MS, pageScale, sceneAt, sidesOf } from "../src/exporting/teamPages.ts";
-import { featuredWeapon } from "../src/exporting/mostUsed.ts";
+import { chunk, FADE_MS, LEGIBLE_FRACTION, legibleScale, MAX_COLUMNS, MAX_ROWS, PAGE_MS, planGrid, sceneAt, sidesOf } from "../src/exporting/teamPages.ts";
+import { gambitUses, gearName, usageList } from "../src/exporting/usageList.ts";
 
-const base = { minText: 14, frameHeight: 720, contentWidth: 520, roomWidth: 1248, minHeight: 190, roomHeight: 600 };
-
-test("the smallest text is drawn at 2.0% of the frame's height where the room allows", () => {
-  const k = pageScale(base);
-  assert.ok(Math.abs(14 * k - 720 * 0.02) < 1e-9);
-  // The same text in a 1080-high frame is 26 px at output size.
-  assert.ok(Math.abs(pageScale({ ...base, frameHeight: 1080 }) * 14 - 21.6) < 1e-9);
-});
-
-test("legibleScale is the smallest text as a share of the frame's height", () => {
+test("the smallest text is 2.0% of the frame's short side", () => {
+  assert.equal(LEGIBLE_FRACTION, 0.02);
+  // 22 px text in a 1080 frame is already legible; 14 px must be drawn 1.54 times bigger.
+  assert.ok(Math.abs(legibleScale(22, 1080) - 21.6 / 22) < 1e-9);
+  assert.ok(Math.abs(legibleScale(14, 1080) - 21.6 / 14) < 1e-9);
   assert.ok(Math.abs(legibleScale(10, 1000) - 2.0) < 1e-9);
   assert.equal(legibleScale(0, 1000), 1);
-});
-
-test("a narrow frame limits the scale by the width, and one card always fits", () => {
-  const narrow = pageScale({ ...base, frameHeight: 1280, roomWidth: 688 });
-  assert.ok(Math.abs(narrow - 688 / 520) < 1e-9);
-  const short = pageScale({ ...base, roomHeight: 150 });
-  assert.ok(Math.abs(short - 150 / 190) < 1e-9);
-});
-
-test("cards per page: as many as fit, never fewer than one", () => {
-  assert.equal(cardsPerPage(560, 190, 12, 1.2), 2); // 2 * 228 + 12 = 468 <= 560 < 3 * 228 + 24
-  assert.equal(cardsPerPage(1200, 190, 12, 1), 6);
-  assert.equal(cardsPerPage(100, 190, 12, 1), 1);
-  // A taller frame holds more cards than a wide one at the same legibility.
-  const wide = cardsPerPage(600, 190, 12, pageScale({ ...base, frameHeight: 720 }));
-  const tall = cardsPerPage(1200, 190, 12, pageScale({ ...base, frameHeight: 1280, roomWidth: 688 }));
-  assert.ok(tall > wide);
 });
 
 test("chunk splits in order and covers everything", () => {
@@ -95,89 +73,129 @@ test("no pages: the replay alone never fades", () => {
   assert.deepEqual(sceneAt([{ id: "replay", ms: 5000 }], 4900), { a: { index: 0, local: 4900 }, b: null, mix: 0 });
 });
 
-// The video's two card shapes, measured as the app draws them: one line each (1000 wide, ~64 high at 14 px text), or stacked (376 wide, ~180 high).
-const shapes = [
-  { columns: 1, w: 1000, h: 64 },
-  { columns: 2, w: 376, h: 180 },
-];
-const fit = (aspect) => ({ minText: 14, gap: 14, ...aspect });
+// A poster card at its natural size: 480 wide, about 330 high, its smallest text 22 px.
+const card = { w: 480, h: 330 };
 const FRAMES = {
-  "16:9": { frameHeight: 720, roomWidth: 1248, roomHeight: 630 },
-  "1.91:1": { frameHeight: 720, roomWidth: 1344, roomHeight: 630 },
-  "9:16": { frameHeight: 1280, roomWidth: 688, roomHeight: 1160 },
-  "4:5": { frameHeight: 900, roomWidth: 688, roomHeight: 780 },
+  "16:9": { frameShortSide: 720, roomWidth: 1248, roomHeight: 592 },
+  "1.91:1": { frameShortSide: 720, roomWidth: 1344, roomHeight: 592 },
+  "9:16": { frameShortSide: 720, roomWidth: 688, roomHeight: 1128 },
+  "4:5": { frameShortSide: 720, roomWidth: 688, roomHeight: 748 },
 };
+const plan = (frame, o = {}) => planGrid({ minText: 22, gap: 14, card, columns: null, rows: null, count: 40, ...frame, ...o });
+const floor = legibleScale(22, 720);
 
-test("cards: a wide frame takes the one-line card, a tall one the stacked card", () => {
-  assert.equal(chooseCardLayout(shapes, fit(FRAMES["16:9"])).layout.columns, 1);
-  assert.equal(chooseCardLayout(shapes, fit(FRAMES["1.91:1"])).layout.columns, 1);
-  assert.equal(chooseCardLayout(shapes, fit(FRAMES["9:16"])).layout.columns, 2);
-  assert.equal(chooseCardLayout(shapes, fit(FRAMES["4:5"])).layout.columns, 2);
+test("grid: Auto and Auto holds as many cards as keep the text legible, in every aspect", () => {
+  for (const [name, frame] of Object.entries(FRAMES)) {
+    const g = plan(frame);
+    assert.ok(g.scale >= floor - 1e-9 && !g.small, `${name}: scale ${g.scale}`);
+    assert.equal(g.perPage, g.columns * g.rows);
+    // One more column or row would no longer be legible.
+    const more = [plan(frame, { columns: g.columns + 1, rows: g.rows }), plan(frame, { columns: g.columns, rows: g.rows + 1 })];
+    assert.ok(more.every((m) => m.small), `${name}: ${g.columns} x ${g.rows} is not the most`);
+  }
+  assert.ok(plan(FRAMES["9:16"]).rows > plan(FRAMES["16:9"]).rows, "a tall frame has more rows");
+  assert.ok(plan(FRAMES["16:9"]).columns > plan(FRAMES["9:16"]).columns, "a wide frame has more columns");
 });
 
-test("pagination: at least three cards on a page in every aspect, with the text at 2% of the frame's height", () => {
-  for (const [name, frame] of Object.entries(FRAMES)) {
-    const pick = chooseCardLayout(shapes, fit(frame));
-    assert.ok(pick.perPage >= 3, `${name}: ${pick.perPage} to a page`);
-    assert.ok(14 * pick.scale >= frame.frameHeight * 0.02 - 1e-9, `${name}: text ${14 * pick.scale}`);
-  }
+test("grid: the smallest text is at least 2.0% of the short side at Auto, 22 px at 1080p either way up", () => {
+  for (const frame of Object.values(FRAMES)) assert.ok(22 * plan(frame).scale >= frame.frameShortSide * 0.02 - 1e-9);
+  const g = plan({ frameShortSide: 1080, roomWidth: 1888, roomHeight: 888 });
+  assert.ok(22 * g.scale >= 21.6 - 1e-9);
+});
+
+test("grid: a fixed axis overrides Auto and the other axis fills what fits", () => {
+  const frame = FRAMES["16:9"];
+  const two = plan(frame, { columns: 2 });
+  assert.equal(two.columns, 2);
+  assert.ok(two.rows >= 1 && two.scale >= floor - 1e-9);
+  const rows3 = plan(FRAMES["9:16"], { rows: 3 });
+  assert.equal(rows3.rows, 3);
+  assert.ok(rows3.columns >= 1 && !rows3.small);
+  assert.equal(plan(frame, { columns: 3, rows: 2 }).perPage, 6);
+});
+
+test("grid: fixed values that push the text below the floor are kept, drawn to fit, and flagged small", () => {
+  const g = plan(FRAMES["16:9"], { columns: 6, rows: 5 });
+  assert.equal(g.columns, 6);
+  assert.equal(g.rows, 5);
+  assert.ok(g.small);
+  assert.ok(g.scale < floor);
+  // It still fits the room: the grid drawn at that scale is no bigger than the room.
+  assert.ok(g.width * g.scale <= FRAMES["16:9"].roomWidth + 1e-6 && g.height * g.scale <= FRAMES["16:9"].roomHeight + 1e-6);
+  assert.ok(g.cellW >= card.w - 1e-6 && g.cellH >= card.h - 1e-6, "every card has at least its natural size");
+  assert.ok(!plan(FRAMES["16:9"], { columns: 3, rows: 1 }).small);
+});
+
+test("grid: few units take the layout that draws them biggest, not the most empty cells", () => {
+  const frame = FRAMES["16:9"];
+  const all = plan(frame);
+  const some = plan(frame, { count: 2 });
+  assert.ok(some.perPage >= 2 && some.perPage < all.perPage);
+  assert.ok(some.scale > all.scale);
+  assert.equal(plan(frame, { count: 1 }).perPage, 1);
+});
+
+test("grid: columns and rows are bounded by what the Team tab offers, and a room too small for a card is still one", () => {
+  assert.equal(MAX_COLUMNS, 6);
+  assert.equal(MAX_ROWS, 8);
+  const g = plan({ frameShortSide: 720, roomWidth: 200, roomHeight: 100 });
+  assert.equal(g.perPage, 1);
+  assert.ok(g.small);
+  assert.equal(planGrid({ minText: 22, frameShortSide: 720, card, roomWidth: 0, roomHeight: 100, gap: 14, columns: null, rows: null, count: 3 }), null);
+  const big = plan({ frameShortSide: 4000, roomWidth: 50000, roomHeight: 50000 });
+  assert.ok(big.columns <= MAX_COLUMNS && big.rows <= MAX_ROWS);
 });
 
 test("pagination: pages flip until every unit is shown, in order, none twice", () => {
   const units = Array.from({ length: 23 }, (_, i) => `u${i}`);
   for (const frame of Object.values(FRAMES)) {
-    const pick = chooseCardLayout(shapes, fit(frame));
-    const pages = chunk(units, pick.perPage);
+    const g = plan(frame, { count: units.length });
+    const pages = chunk(units, g.perPage);
     assert.deepEqual(pages.flat(), units);
-    assert.ok(pages.slice(0, -1).every((p) => p.length === pick.perPage));
+    assert.ok(pages.slice(0, -1).every((p) => p.length === g.perPage));
   }
+  // The page count follows the grid: fewer cards to a page, more pages.
+  assert.ok(chunk(units, plan(FRAMES["16:9"], { columns: 1, rows: 1 }).perPage).length > chunk(units, plan(FRAMES["16:9"]).perPage).length);
 });
 
-test("cards: when none reaches the legible size, the one drawn biggest wins", () => {
-  const pick = chooseCardLayout(shapes, { minText: 14, gap: 14, frameHeight: 1280, roomWidth: 300, roomHeight: 1160 });
-  assert.equal(pick.layout.columns, 2);
-  assert.ok(pick.scale < (1280 * 0.02) / 14);
-  assert.equal(chooseCardLayout([], fit(FRAMES["16:9"])), null);
-});
-
-test("cards: among shapes that read equally well, more cards to a page, then the wider", () => {
-  const same = [{ columns: 1, w: 270, h: 300 }, { columns: 2, w: 527, h: 200 }];
-  const pick = chooseCardLayout(same, { minText: 14, gap: 14, frameHeight: 720, roomWidth: 1248, roomHeight: 630 });
-  assert.equal(pick.layout.columns, 2);
-});
-
-// --- The weapon or spell a card shows: the one used most in the battle ---
+// --- What a card lists: what the unit used in the battle ---
 
 const use = (kind, name, times, weapon = null) => ({ kind, id: 1, name, times, spent: times, damage: 0, weapon });
 const say = (unit, detail) => ({ t: 0, turn: 1, kind: "spell", text: "", unit, target: null, detail });
 
-test("most used: the weapon or spell used in the most actions", () => {
-  const usage = [use("weapon", "Iron Sword", 5, "sword"), use("spell", "Fire", 7, "reason"), use("art", "Wrath Strike", 9), use("item", "Vulnerary", 8)];
-  assert.deepEqual(featuredWeapon(usage, [], "a", []), { kind: "spell", name: "Fire", weapon: "reason", times: 7 });
-  assert.equal(featuredWeapon([use("weapon", "Iron Sword", 5, "sword"), use("weapon", "Iron Axe", 2)], [], "a", []).name, "Iron Sword");
+test("usage list: every weapon, spell and art used, the most used first", () => {
+  const usage = [use("weapon", "Iron Sword", 5, "sword"), use("spell", "Fire", 7, "reason"), use("art", "Wrath Strike", 9), use("item", "Vulnerary", 8), use("gambit", "Fire Emblem", 2), use("rally", "Rally Strength", 3)];
+  assert.deepEqual(usageList(usage, [], "a").map((u) => [u.kind, u.name, u.times]), [["art", "Wrath Strike", 9], ["spell", "Fire", 7], ["weapon", "Iron Sword", 5]]);
+  assert.deepEqual(usageList(usage, [], "a")[1], { kind: "spell", name: "Fire", weapon: "reason", times: 7 });
 });
 
-test("most used: arts, items, Rallies and gambits never count, nor does a use of none", () => {
-  assert.equal(featuredWeapon([use("art", "Wrath Strike", 4), use("item", "Vulnerary", 3), use("weapon", "Iron Sword", 0)], [], "a", []), null);
+test("usage list: only what was used in this battle", () => {
+  assert.deepEqual(usageList([use("weapon", "Iron Sword", 0), use("art", "Smite", 0)], [], "a"), []);
+  assert.deepEqual(usageList(null, [], "a"), []);
+  assert.deepEqual(usageList(undefined, undefined, "a"), []);
+  assert.deepEqual(usageList([use("item", "Vulnerary", 3), use("rally", "Rally", 1)], [], "a"), []);
 });
 
-test("most used: a tie goes to the one the unit used last in the log", () => {
-  const usage = [use("spell", "Fire", 3), use("spell", "Thunder", 3), use("weapon", "Iron Sword", 1)];
-  const log = [say("a", "Thunder"), say("a", "Fire"), say("b", "Thunder")]; // b's Thunder is another unit's
-  assert.equal(featuredWeapon(usage, log, "a", []).name, "Fire");
-  assert.equal(featuredWeapon(usage, [say("a", "Fire"), say("a", "Thunder")], "a", []).name, "Thunder");
-  // Nothing in the log to tell them apart: the game's order (most used first) stands.
-  assert.equal(featuredWeapon(usage, [], "a", []).name, "Fire");
+test("usage list: a tie goes to the one the unit used last in the log, else the record's order", () => {
+  const usage = [use("spell", "Fire", 3), use("art", "Smite", 3), use("weapon", "Iron Sword", 3), use("weapon", "Iron Axe", 1)];
+  const log = [say("a", "Smite"), say("a", "Fire"), say("b", "Smite")]; // b's Smite is another unit's
+  assert.deepEqual(usageList(usage, log, "a").map((u) => u.name), ["Fire", "Smite", "Iron Sword", "Iron Axe"]);
+  assert.deepEqual(usageList(usage, [say("a", "Fire"), say("a", "Smite")], "a").map((u) => u.name), ["Smite", "Fire", "Iron Sword", "Iron Axe"]);
+  // Nothing in the log to tell them apart: the record's own order stands.
+  assert.deepEqual(usageList(usage, [], "a").map((u) => u.name), ["Fire", "Smite", "Iron Sword", "Iron Axe"]);
 });
 
-test("most used: no attacks in the battle falls back to the equipped weapon, or nothing", () => {
-  const inventory = [
-    { id: 1, name: "Vulnerary", kind: "item", uses: 3, full: 3 },
-    { id: 2, name: "Iron Sword", kind: "weapon", uses: 30, full: 40, weapon: "sword" },
-    { id: 3, name: "Steel Sword", kind: "weapon", uses: 25, full: 35, weapon: "sword", equipped: true },
-  ];
-  assert.deepEqual(featuredWeapon([], [], "a", inventory), { kind: "weapon", name: "Steel Sword", weapon: "sword", times: 0 });
-  assert.equal(featuredWeapon(null, undefined, "a", inventory.slice(0, 2)).name, "Iron Sword");
-  assert.equal(featuredWeapon(undefined, [], "a", [inventory[0]]), null);
-  assert.equal(featuredWeapon(null, null, "a", null), null);
+test("gambit uses: the count when the record has one, else none", () => {
+  assert.equal(gambitUses([use("gambit", "Fire Emblem", 2), use("weapon", "Iron Sword", 4)]), 2);
+  assert.equal(gambitUses([use("gambit", "Fire Emblem", 1), use("gambit", "Other", 2)]), 3);
+  assert.equal(gambitUses([use("weapon", "Iron Sword", 4)]), null);
+  assert.equal(gambitUses(null), null);
+});
+
+test("accessory and battalion: the battle's own record, else the roster's, blank is none", () => {
+  assert.equal(gearName("Ring", "Shield"), "Ring");
+  assert.equal(gearName(null, "Shield"), "Shield");
+  assert.equal(gearName(undefined, undefined), null);
+  assert.equal(gearName("", "Old battalion"), null);
+  assert.equal(gearName(null, "  "), null);
 });

@@ -1,67 +1,76 @@
 /**
- * A unit's card in the video's team overview: the smallest card that still reads in a frame. Face, name and class, the
- * stats, the weapon or spell it used most in the battle, its accessory and battalion, and its abilities as bare icons.
- * Nothing else (the Export Team picture's LoadoutCard has the rest). Drawn in one of two shapes: `row` (everything on
- * one line, for a wide frame) or `stack` (face and abilities over the stats over the gear, for a narrow one).
+ * A unit's card in the video's team overview, a poster: the face with the name and class printed over it, the ten stats
+ * in a 5 x 2 grid beside it with the abilities as bare icons centred in the space under them, and under both the list of
+ * what the unit used in the battle (weapons, spells and combat arts, each with its count), its accessory and its
+ * battalion. Nothing else (the Export Team picture's LoadoutCard has the rest). The card fills its grid cell: the list
+ * keeps the height of the longest list on the page (`--list-h`, set by TeamPages.tsx) and the face takes all the room left.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { LABELS, type Unit } from "../../api";
 import { tidyAbility } from "../../appearance";
 import { AbilityIcon, ItemIcon } from "../../reference/icons";
-import type { Featured } from "../../exporting/mostUsed";
+import type { CardGear } from "../../exporting/usageList";
 import { Icon } from "../Icon";
 import { GearIcon } from "./gameIcons";
 import { STATS, UnitFaceImage, type ExportFace } from "../TeamExport";
 
-export type CardShape = "row" | "stack";
+/** The face's width, and its least height, at the card's natural size (px). */
+export const POSTER = 168;
 
-export function VideoUnitCard({ unit, part2, face, shape, featured }: { unit: Unit; part2: boolean; face: ExportFace; shape: CardShape; featured: Featured | null }) {
+export function VideoUnitCard({ unit, part2, face, gear, poster = POSTER }: { unit: Unit; part2: boolean; face: ExportFace; gear: CardGear; poster?: number }) {
   const abilities = [unit.personal_ability, ...unit.abilities].filter(Boolean).map(tidyAbility);
+  const listed = gear.used.length > 0 || gear.accessory || gear.battalion;
   return (
-    <article className={`vcard vcard-${shape}${unit.death ? " fallen" : ""}`} data-vcard>
-      <div className="vcard-face">
-        <UnitFaceImage unit={unit} part2={part2} size={shape === "row" ? 48 : 40} face={face} />
-      </div>
-      <div className="vcard-id">
-        <b>{unit.name}</b>
-        <span>{unit.class_name || "—"}</span>
-      </div>
-      <dl className="vcard-stats">
-        {STATS.map((k) => (
-          <div key={k} className={unit.blue.includes(k) ? "boosted" : undefined}>
-            <dt>{LABELS[k]}</dt>
-            <dd>{unit.displayed[k]}</dd>
-          </div>
-        ))}
-      </dl>
-      <div className="vcard-gear">
-        {featured && (
-          <p>
-            <GearIcon kind={featured.kind} weapon={featured.weapon} name={featured.name} />
-            <span>{featured.name}</span>
-          </p>
-        )}
-        {unit.accessory && (
-          <p>
-            <ItemIcon name={unit.accessory} />
-            <span>{unit.accessory}</span>
-          </p>
-        )}
-        {unit.battalion && (
-          <p className="vcard-battalion">
-            <Icon name={CONCEPT_ICON.battalion} />
-            <span>{unit.battalion}</span>
-          </p>
-        )}
-      </div>
-      {abilities.length > 0 && (
-        <div className="vcard-abilities">
-          {abilities.map((a, i) => (
-            <span key={`${a}-${i}`} role="img" aria-label={a} title={a}>
-              <AbilityIcon name={a} />
-            </span>
-          ))}
+    <article className={`vcard${unit.death ? " fallen" : ""}`} data-vcard style={{ "--poster": `${poster}px` } as React.CSSProperties}>
+      <div className="vcard-poster">
+        <UnitFaceImage unit={unit} part2={part2} size={poster} face={face} />
+        <div className="vcard-name">
+          <b>{unit.name}</b>
+          <span>{unit.class_name || "—"}</span>
         </div>
+      </div>
+      <div className="vcard-side">
+        <dl className="vcard-stats">
+          {STATS.map((k) => (
+            <div key={k} className={unit.blue.includes(k) ? "boosted" : undefined}>
+              <dt>{LABELS[k]}</dt>
+              <dd>{unit.displayed[k]}</dd>
+            </div>
+          ))}
+        </dl>
+        {abilities.length > 0 && (
+          <div className="vcard-abilities">
+            {abilities.map((a, i) => (
+              <span key={`${a}-${i}`} role="img" aria-label={a} title={a}>
+                <AbilityIcon name={a} />
+              </span>
+            ))}
+          </div>
+        )}
+      </div>
+      {listed && (
+        <ul className="vcard-list">
+          {gear.used.map((it) => (
+            <li key={`${it.kind}-${it.name}`}>
+              <GearIcon kind={it.kind} weapon={it.weapon} name={it.name} />
+              <span className="vcard-item">{it.name}</span>
+              <span className="vcard-times">×{it.times}</span>
+            </li>
+          ))}
+          {gear.accessory && (
+            <li className="vcard-accessory">
+              <span className="vcard-glyph"><ItemIcon name={gear.accessory} /></span>
+              <span className="vcard-item">{gear.accessory}</span>
+            </li>
+          )}
+          {gear.battalion && (
+            <li className="vcard-battalion">
+              <span className="vcard-glyph"><Icon name={CONCEPT_ICON.battalion} /></span>
+              <span className="vcard-item">{gear.battalion}</span>
+              {gear.gambits != null && <span className="vcard-times">×{gear.gambits}</span>}
+            </li>
+          )}
+        </ul>
       )}
     </article>
   );
