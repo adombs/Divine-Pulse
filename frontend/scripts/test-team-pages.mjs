@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { chunk, FADE_MS, LEGIBLE_FRACTION, legibleScale, MAX_COLUMNS, MAX_ROWS, PAGE_MS, planGrid, sceneAt, sidesOf } from "../src/exporting/teamPages.ts";
-import { gambitUses, gearName, usageList } from "../src/exporting/usageList.ts";
+import { cardSlots, gambitUses, gearName, LIST_SLOTS, usageList } from "../src/exporting/usageList.ts";
 
 test("the smallest text is 2.0% of the frame's short side", () => {
   assert.equal(LEGIBLE_FRACTION, 0.02);
@@ -73,8 +73,8 @@ test("no pages: the replay alone never fades", () => {
   assert.deepEqual(sceneAt([{ id: "replay", ms: 5000 }], 4900), { a: { index: 0, local: 4900 }, b: null, mix: 0 });
 });
 
-// A poster card at its natural size: 480 wide, about 330 high, its smallest text 22 px.
-const card = { w: 480, h: 330 };
+// A compact card at its natural size: 400 wide, about 300 high, its smallest text 22 px.
+const card = { w: 400, h: 300 };
 const FRAMES = {
   "16:9": { frameShortSide: 720, roomWidth: 1248, roomHeight: 592 },
   "1.91:1": { frameShortSide: 720, roomWidth: 1344, roomHeight: 592 },
@@ -198,4 +198,38 @@ test("accessory and battalion: the battle's own record, else the roster's, blank
   assert.equal(gearName(undefined, undefined), null);
   assert.equal(gearName("", "Old battalion"), null);
   assert.equal(gearName(null, "  "), null);
+});
+
+// --- The card's ten list slots ---
+
+const used = (n) => Array.from({ length: n }, (_, i) => ({ kind: "weapon", name: `W${i}`, weapon: "sword", times: 20 - i }));
+const gearOf = (n, accessory = null, battalion = null) => ({ used: used(n), accessory, battalion, gambits: battalion ? 2 : null });
+const types = (g) => cardSlots(g).map((s) => s.type);
+
+test("card slots: always exactly ten, whatever the unit has", () => {
+  assert.equal(LIST_SLOTS, 10);
+  for (const g of [gearOf(0), gearOf(1), gearOf(10), gearOf(12, "Ring", "Corps"), gearOf(3, "Ring"), gearOf(40, "Ring", "Corps")]) assert.equal(cardSlots(g).length, 10);
+});
+
+test("card slots: used, then the accessory, then the battalion, then empty ones", () => {
+  assert.deepEqual(types(gearOf(2, "Ring", "Corps")), ["used", "used", "accessory", "battalion", ...Array(6).fill("empty")]);
+  assert.deepEqual(types(gearOf(0)), Array(10).fill("empty"));
+  const s = cardSlots(gearOf(1, null, "Seiros Magic Corps"));
+  assert.deepEqual(s[1], { type: "battalion", name: "Seiros Magic Corps", gambits: 2 });
+});
+
+test("card slots: ten used fit when there is no accessory or battalion; the accessory and battalion are never pushed out", () => {
+  assert.deepEqual(types(gearOf(10)), Array(10).fill("used"));
+  const t = types(gearOf(8, "Ring", "Corps"));
+  assert.deepEqual(t, [...Array(8).fill("used"), "accessory", "battalion"]);
+});
+
+test("card slots: an overflow turns the last used slot into '+N more' (counting the entry it replaces)", () => {
+  const s = cardSlots(gearOf(12, "Ring", "Corps"));
+  assert.deepEqual(s.map((x) => x.type), [...Array(7).fill("used"), "more", "accessory", "battalion"]);
+  assert.deepEqual(s[7], { type: "more", count: 5 });
+  assert.deepEqual(s.slice(0, 7).map((x) => x.item.name), ["W0", "W1", "W2", "W3", "W4", "W5", "W6"]);
+  assert.deepEqual(cardSlots(gearOf(11))[9], { type: "more", count: 2 });
+  assert.deepEqual(cardSlots(gearOf(9, "Ring"))[9], { type: "accessory", name: "Ring" });
+  assert.equal(cardSlots(gearOf(10, "Ring"))[8].type, "more");
 });

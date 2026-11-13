@@ -55,3 +55,36 @@ export interface CardGear {
 
 /** The text of a unit's accessory or battalion: the battle's own record when it has one, else the roster's; blank is none. */
 export const gearName = (recorded: string | null | undefined, roster: string | null | undefined): string | null => (recorded ?? roster ?? "").trim() || null;
+
+/** How many slots a card's list has (2 columns x 5 rows), whatever the unit has. */
+export const LIST_SLOTS = 10;
+
+/** One slot of a card's list. */
+export type CardSlot =
+  | { type: "used"; item: UsedItem }
+  | { type: "more"; count: number }
+  | { type: "accessory"; name: string }
+  | { type: "battalion"; name: string; gambits: number | null }
+  | { type: "empty" };
+
+/**
+ * A card's list as exactly `slots` slots: what the unit used (most used first), then its accessory, then its battalion,
+ * then empty slots. The accessory and battalion always get a slot when the unit has them, so what it used has the rest;
+ * when that overflows, its last slot says how many more there are ("+N more", which counts the entry it replaces).
+ */
+export function cardSlots(gear: CardGear, slots = LIST_SLOTS): CardSlot[] {
+  const reserved = (gear.accessory ? 1 : 0) + (gear.battalion ? 1 : 0);
+  const room = Math.max(0, slots - reserved);
+  const out: CardSlot[] = [];
+  if (gear.used.length <= room) {
+    for (const item of gear.used) out.push({ type: "used", item });
+  } else {
+    const shown = Math.max(0, room - 1);
+    for (const item of gear.used.slice(0, shown)) out.push({ type: "used", item });
+    if (room > 0) out.push({ type: "more", count: gear.used.length - shown });
+  }
+  if (gear.accessory) out.push({ type: "accessory", name: gear.accessory });
+  if (gear.battalion) out.push({ type: "battalion", name: gear.battalion, gambits: gear.gambits });
+  while (out.length < slots) out.push({ type: "empty" });
+  return out.slice(0, slots);
+}

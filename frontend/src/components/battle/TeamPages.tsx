@@ -1,5 +1,5 @@
 /**
- * Team pages for the video export (ReplayExport.tsx): the team's overview (a grid of the video's poster cards,
+ * Team pages for the video export (ReplayExport.tsx): the team's overview (a grid of the video's compact cards,
  * `VideoUnitCard`), as full frames shown before the replay, after it, or both, each for a second. The player picks how many
  * columns and rows a page has, or leaves either Auto: as many as keep the cards' smallest text legible in the frame
  * (exporting/teamPages.ts has the arithmetic). Pages flip until every unit picked is covered. The units, their order,
@@ -16,7 +16,7 @@ import { StepSlider } from "../Slider";
 import { FACES, layoutSlots, ORDER_BY, orderFor, pickRows, UnitSlots, type ExportFace, type OrderBy } from "../TeamExport";
 import { buildRunLedger } from "./runStatsLedger";
 import { countedBattles } from "./rosterRule";
-import { POSTER, VideoUnitCard } from "./TeamVideoCard";
+import { VideoUnitCard } from "./TeamVideoCard";
 
 /** The settings of the team pages, remembered with the video's other options. */
 export interface TeamPagesOptions {
@@ -93,12 +93,10 @@ export interface TeamPage {
   all: Unit[];
   /** The page's grid (the same on every page of a video). */
   grid: GridPlan;
-  /** The face's width in a card of this grid (px, natural size). */
-  poster: number;
 }
 
 /** A card's natural width (px): the width the hidden copies are measured at. */
-const CARD_W = 480;
+const CARD_W = 400;
 
 /** What the hidden copy of the cards measures: the tallest card at its natural width, and the smallest text on any. */
 interface Measured {
@@ -116,11 +114,6 @@ function smallestText(root: Element, skip: string): number {
     least = Math.min(least, parseFloat(getComputedStyle(el).fontSize));
   }
   return Number.isFinite(least) ? least : 0;
-}
-
-/** How wide a card's face is drawn in a cell: wider than natural by half the cell's spare width, within reason (it takes all the spare height anyway). */
-function posterFor(grid: GridPlan): number {
-  return Math.round(POSTER + Math.max(0, Math.min((grid.cellW - CARD_W) / 2, POSTER * 0.5)));
 }
 
 const EMPTY_GEAR: CardGear = { used: [], accessory: null, battalion: null, gambits: null };
@@ -212,8 +205,7 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
     });
     if (!grid) return [];
     const groups = chunk(chosen, grid.perPage);
-    const poster = posterFor(grid);
-    return groups.map((g, i): TeamPage => ({ id: `overview-${i + 1}`, number: i + 1, of: groups.length, units: g, all: chosen, grid, poster }));
+    return groups.map((g, i): TeamPage => ({ id: `overview-${i + 1}`, number: i + 1, of: groups.length, units: g, all: chosen, grid }));
   }, [enabled, measured, key, chosen, frame.width, frame.height, frame.titleH, team.columns, team.rows]);
 
   const sides = sidesOf(team.overviewAt);
@@ -242,18 +234,6 @@ export function TeamPageView({ page, frame, run, part2, face, gear, ref }: {
   ref?: React.Ref<HTMLDivElement>;
 }) {
   const g = page.grid;
-  // The lists of a page's cards all take the height of the longest, so the faces above them line up.
-  const content = useRef<HTMLDivElement>(null);
-  useLayoutEffect(() => {
-    const el = content.current;
-    if (!el) return;
-    const fit = () => {
-      el.style.setProperty("--list-h", "0px");
-      el.style.setProperty("--list-h", `${Math.max(0, ...Array.from(el.querySelectorAll<HTMLElement>(".vcard-list")).map((l) => l.offsetHeight))}px`);
-    };
-    fit();
-    void document.fonts.ready.then(fit);
-  });
   return (
     <div ref={ref} className={`team-page${frame.portrait ? " team-page-tall" : ""}`} style={{ width: frame.width, height: frame.height, gridTemplateRows: `${frame.titleH}px minmax(0, 1fr)` }}>
       <header className="replay-stage-title">
@@ -266,14 +246,13 @@ export function TeamPageView({ page, frame, run, part2, face, gear, ref }: {
       <div className="team-page-body">
         <div className="team-page-fit" style={{ width: g.width * g.scale, height: g.height * g.scale }}>
           <div
-            ref={content}
             className="team-page-content"
             style={{
               width: g.width, height: g.height, gap: g.gap, transform: `scale(${g.scale})`, transformOrigin: "0 0",
               gridTemplateColumns: `repeat(${g.columns}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${g.rows}, minmax(0, 1fr))`,
             }}
           >
-            {page.units.map((u) => <VideoUnitCard key={u.key} unit={u} part2={part2} face={face} gear={gear.get(u.key) ?? EMPTY_GEAR} poster={page.poster} />)}
+            {page.units.map((u) => <VideoUnitCard key={u.key} unit={u} part2={part2} face={face} gear={gear.get(u.key) ?? EMPTY_GEAR} />)}
           </div>
         </div>
       </div>

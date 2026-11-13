@@ -102,43 +102,44 @@
 .team-include-fallen small { color: var(--ink-soft); }
 .team-units-grid { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 1px; }
 
-/* The video's unit card (TeamVideoCard.tsx), a poster: the face with its name over it, the stats beside it, what the unit used
-   under both. Drawn at its natural size (text 22 px and up) and scaled by the page (teamPages.ts `planGrid`) to the size
-   its grid cell allows, so every piece of text is scaled alike. It fills its cell: the face grows with `--poster`, the list
-   takes the rest. */
+/* The video's unit card (TeamVideoCard.tsx), compact: a header line (name, class, abilities), a small face beside the stats,
+   and ten fixed list slots (2 x 5). Drawn at its natural size (text 22 px and up) and scaled by the page (teamPages.ts
+   `planGrid`) to the size its grid cell allows, so every piece of text is scaled alike. It fills its cell: spare height goes
+   to the slots. */
 .vcard {
   display: grid; box-sizing: border-box; width: 100%; height: 100%; min-width: 0; min-height: 0; overflow: hidden;
-  grid-template-columns: var(--poster, 168px) minmax(0, 1fr); grid-template-rows: minmax(168px, 1fr) auto; gap: 8px 12px; padding: 10px;
+  grid-template-rows: auto auto minmax(0, 1fr); gap: 3px; padding: 5px;
   background: var(--paper-2); border: 1px solid var(--row-border); border-radius: 4px; font-size: 22px; line-height: 1.2;
 }
-.vcard-natural { width: 480px; height: auto; }
-.vcard-poster {
-  position: relative; width: var(--poster, 168px); min-height: 168px; overflow: hidden; display: grid; place-items: center;
-  border-radius: 4px; background: var(--face-wash-blue); border: 1px solid var(--row-border); box-shadow: inset 0 -2px 0 var(--team-player);
+.vcard-natural { width: 400px; height: auto; }
+.vcard-head { display: flex; align-items: center; gap: 8px; min-width: 0; padding: 0 2px; }
+.vcard-name { flex: 0 1 auto; min-width: 0; max-width: 62%; font: 600 24px/1.1 var(--display); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vcard-class { flex: 1 1 0; min-width: 0; color: var(--ink-soft); font-size: 22px; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.vcard-abilities { flex: none; margin-left: auto; display: inline-flex; gap: 1px; }
+.vcard-abilities > span { display: inline-grid; place-items: center; width: 26px; height: 26px; }
+.vcard-abilities img, .vcard-abilities svg { max-width: 26px; max-height: 26px; }
+.vcard-mid { display: grid; grid-template-columns: 100px minmax(0, 1fr); gap: 3px; }
+.vcard-face {
+  position: relative; overflow: hidden; display: grid; place-items: center; border-radius: 3px;
+  background: var(--face-wash-blue); border: 1px solid var(--row-border); box-shadow: inset 0 -2px 0 var(--team-player);
 }
-.vcard-poster .portrait { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; border-radius: 0; background: none; box-shadow: none; }
-.vcard-poster .team-face-sprite { box-shadow: none; }
-.vcard-name { position: absolute; left: 0; right: 0; bottom: 0; display: grid; padding: 22px 8px 5px; background: linear-gradient(180deg, transparent, rgb(16 12 26 / 0.92) 55%); }
-.vcard-name b { font: 600 26px/1.08 var(--display); color: #fbf8f1; text-shadow: 0 1px 3px #000; overflow-wrap: anywhere; }
-.vcard-name span { color: #d8d0e4; font-size: 22px; line-height: 1.1; overflow-wrap: anywhere; }
-.vcard-side { display: flex; flex-direction: column; gap: 6px; min-width: 0; min-height: 0; }
-.vcard-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; margin: 0; }
-.vcard-stats div { display: grid; justify-items: center; padding: 0 0 1px; border-radius: 3px; background: var(--row); border: 1px solid var(--row-border); min-width: 0; }
+.vcard-face .portrait { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; border-radius: 0; background: none; box-shadow: none; }
+.vcard-face .team-face-sprite { box-shadow: none; }
+.vcard-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 2px; margin: 0; }
+.vcard-stats div { display: grid; justify-items: center; align-content: center; border-radius: 3px; background: var(--row); border: 1px solid var(--row-border); min-width: 0; }
 .vcard-stats dt { font: 600 22px/1.05 var(--display); color: var(--ink-soft); }
 .vcard-stats dd { margin: 0; font: 600 24px/1.05 var(--nums); font-variant-numeric: tabular-nums; }
 .vcard-stats .boosted dd { color: var(--blue); }
-.vcard-abilities { flex: 1 1 auto; display: flex; flex-wrap: wrap; justify-content: center; align-content: center; gap: 3px; min-height: 0; }
-.vcard-abilities > span { display: inline-grid; place-items: center; width: 28px; height: 28px; }
-.vcard-abilities img, .vcard-abilities svg { max-width: 28px; max-height: 28px; }
-.vcard-list { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 3px 8px; align-content: start; align-items: stretch; min-height: var(--list-h, 0px); margin: 0; padding: 0; list-style: none; }
-.vcard-list li { display: flex; align-items: center; gap: 6px; min-height: 30px; min-width: 0; padding: 0 8px 0 4px; border-radius: 3px; background: var(--row); }
-.vcard-list li:only-child { grid-column: 1 / -1; }
+.vcard-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-template-rows: repeat(5, minmax(28px, 1fr)); gap: 2px 4px; margin: 0; padding: 0; list-style: none; min-height: 0; }
+.vcard-list li { display: flex; align-items: center; gap: 4px; min-width: 0; padding: 0 5px 0 2px; border-radius: 3px; background: var(--row); }
+.vcard-list li.vcard-empty { background: none; box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--row-border) 38%, transparent); }
+.vcard-list li.vcard-more { background: none; padding-left: 6px; color: var(--ink-soft); font-style: italic; }
 .vcard-list .game-icon, .vcard-glyph { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; }
 .vcard-list img, .vcard-list svg { max-width: 24px; max-height: 24px; }
-.vcard-item { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; line-height: 1.1; }
+.vcard-item { flex: 1 1 auto; min-width: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vcard-times { flex: none; margin-left: auto; font: 600 22px var(--nums); color: var(--amber); font-variant-numeric: tabular-nums; }
 .vcard-list .vcard-accessory { background: var(--amber-bg); }
 .vcard-list .vcard-battalion { background: color-mix(in srgb, var(--accent) 16%, var(--paper-2)); }
 .vcard-battalion .icon { color: var(--accent); }
-.vcard.fallen .vcard-poster .portrait, .vcard.fallen .team-face-sprite { filter: grayscale(1); }
-.vcard.fallen .vcard-name b { color: var(--ink-soft); }
+.vcard.fallen .vcard-face .portrait, .vcard.fallen .team-face-sprite { filter: grayscale(1); }
+.vcard.fallen .vcard-name { color: var(--ink-soft); }
