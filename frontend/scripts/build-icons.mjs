@@ -19,7 +19,7 @@ const ICONS = {
   battle: ["sword"],
   history: ["clock-counter-clockwise"],
   characters: ["identification-badge"],
-  classes: ["shield-chevron"],
+  classes: ["graduation-cap"],
   mastery: ["battery-charging"],
   archive: ["books"],
   supports: ["hand-heart"],
