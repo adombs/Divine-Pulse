@@ -70,7 +70,8 @@ class UnitOut(Unit):
     boosted_unexplained: list[str]
     # Whether the Roster shows it (in the army, or dead); `in_army` alone is the game's in-army flag.
     on_roster: bool
-    # The unit's run score (domain/best_unit.py): 1,000 per battle MVP plus damage dealt and healing done; 0 when none.
+    # The unit's run score (domain/best_unit.py): damage dealt plus healing done, averaged over the finished battles it
+    # was deployed in (not as an adjutant); 0 when none.
     score: int = 0
 
     @classmethod
