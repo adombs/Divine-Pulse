@@ -27,8 +27,6 @@ export const AWARDS = [
   { key: "bench", label: "Bench Warmers", title: "Bench Warmer", group: "Support & Movement", icon: "wait" },
   { key: "first", label: "First Bloods", title: "First Blood", group: "Turning Points", icon: "start" },
   { key: "last", label: "Final Blows", title: "Final Blow", group: "Turning Points", icon: "finalBlow" },
-  { key: "saved", label: "Didn't Happen", title: "Didn't Happen", group: "Turning Points", icon: "pulse", battleWide: true },
-  { key: "redo", label: "Do-overs", title: "Do-over", group: "Turning Points", icon: "pulse", battleWide: true },
 ] as const;
 export type AwardKey = typeof AWARDS[number]["key"];
 export interface BattleAward { key: AwardKey; id: string | null; value: number | string }
@@ -67,7 +65,6 @@ export function battleAwards(battle: Battle, items: Item[], s = moreStats(battle
   if (s.bench) out.push({ key: "bench", id: s.bench.id, value: 0 });
   for (const [key, r] of [["first", s.firstBlood], ["last", s.lastBlow]] as const)
     if (r) out.push({ key, id: r.id, value: r.turn ? `T${r.turn}` : "—" });
-  if (s.pulses) out.push({ key: s.pulses.falls.length ? "saved" : "redo", id: null, value: s.pulses.uses });
   return out;
 }
 
@@ -85,13 +82,6 @@ export interface UnitRecord {
   turn?: number | null;
   /** Out of how many, where the record is a share (enemy attacks that did no damage...). */
   of?: number;
-}
-
-export interface PulseStats {
-  uses: number;
-  /** Actions the undone timelines had and your units' falls in them. */
-  undone: number;
-  falls: string[];
 }
 
 export interface MoreStats {
@@ -117,7 +107,6 @@ export interface MoreStats {
   bench: UnitRecord | null;
   /** The biggest share of your army's damage one unit dealt (0-1). */
   carry: UnitRecord | null;
-  pulses: PulseStats | null;
   /** Damage your units dealt and took, and defeats, each turn. */
   perTurn: { turn: number; dealt: number; taken: number; defeats: number }[];
   /** Fights and HP restored each turn. */
@@ -233,23 +222,6 @@ export function closestCall(battle: Battle): (UnitRecord & { max: number }) | nu
   return out;
 }
 
-/** What the timelines Divine Pulse undid had in them. */
-export function pulseStats(battle: Battle): PulseStats | null {
-  if (!battle.divine_pulses) return null;
-  const branches = battle.branches ?? [];
-  const names = new Map(battle.units.map((u) => [armyId(u.key), u.name]));
-  let undone = 0;
-  const falls: string[] = [];
-  for (const b of branches) {
-    for (const e of b.log) {
-      if (e.kind === "phase" || e.kind === "pulse") continue;
-      undone += 1;
-      if (e.kind === "fell" && isArmy(e.actor_id ?? null)) falls.push(names.get(e.actor_id!) ?? "A unit");
-    }
-  }
-  return { uses: battle.divine_pulses, undone, falls };
-}
-
 /** A unit on the map from start to end of a finished battle that never fought or used anything (the one that moved least). */
 export function benchWarmer(battle: Battle, items: Item[]): UnitRecord | null {
   const busy = new Set<string>();
@@ -307,7 +279,6 @@ export function moreStats(battle: Battle, items: Item[]): MoreStats {
     lastBlow: battle.active || defeats.length < 2 ? null : blood(defeats[defeats.length - 1]),
     bench: benchWarmer(battle, items),
     carry: dealtBy.length >= 2 && top && total ? { id: armyId(top.key), value: (top.damage_dealt ?? 0) / total } : null,
-    pulses: pulseStats(battle),
     perTurn: perTurn(items, isFoe, battle.turn),
     activity: activity(items, battle.turn),
     board: board(battle, isFoe),

@@ -120,12 +120,11 @@ await t.test("unknown observations remain distinct from zero and sort last both 
   }
 });
 
-await t.test("Records retain canonical groups, finished-battle evidence and battle-wide sentinels", () => {
+await t.test("Records retain canonical groups and finished-battle evidence", () => {
   const data = buildRunLedger([battle("1"), battle("2", { active: true, ended_at: null })], "characters");
   assert.equal(data.awards.battles, 1);
   assert.deepEqual(data.columns.records.map((c) => [c.key, c.label, c.group]), AWARDS.map((a) => [a.key, a.label, a.group]));
   for (let i = 0; i < AWARDS.length; i++) {
-    if ("battleWide" in AWARDS[i]) assert.equal(data.rows[0].values.records[i], null);
     assert.equal(data.totals.records[i], data.awards.totals[AWARDS[i].key]);
   }
 });
@@ -149,14 +148,15 @@ await t.test("the popup shows the recorded damage total when a unit has none", a
   const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx?review=partial");
   const html = renderToStaticMarkup(h(RunStatsPopup, { kind: "characters", onClose() {}, battles: [battle("1", { units: [unit("a", { damage_dealt: null }), unit("b", { damage_dealt: 14 })] })], error: false, onRetry() {} }));
   assert.match(html, /Damage dealt<\/dt><dd>14<\/dd>/);
+  assert.match(html, /Divine Pulses<\/dt><dd>0<\/dd>/);
 });
 
-await t.test("Records renders group filtering and honest run-only sentinels without footer clutter", async () => {
+await t.test("Records renders group filtering and without footer clutter", async () => {
   const { RunStatsPopup } = await vite.ssrLoadModule("/src/components/battle/RunStatsPopup.tsx?review=records");
   const html = renderToStaticMarkup(h(RunStatsPopup, { kind: "characters", onClose() {}, battles: [battle("1")], error: false, onRetry() {} }));
   assert.match(html, /Record group<select/);
   assert.match(html, /<option value="" selected="">All records<\/option>/);
-  assert.match(html, /Battle-wide record; no character recipient/);
+  assert.doesNotMatch(html, /Didn.t Happen|Do-over/);
   assert.doesNotMatch(html, /run-stats-footnote|Records earned/);
 });
 

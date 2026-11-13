@@ -57,7 +57,7 @@ export function buildRunLedger(source: Battle[], kind: LedgerKind) {
     sprite: armySprite(c.appearances[0].unit),
     values: { combat: [scores.get(c.key) ?? 0, c.battles, c.fights, c.defeats, c.damage_dealt, c.damage_taken, c.healing_given, c.healed, c.tiles_moved],
       growth: [c.level_ups, c.stat_points, c.weapon_uses, c.spells_cast, c.item_uses],
-      records: AWARDS.map((a) => "battleWide" in a ? null : awards.characters.get(c.key)?.[a.key] ?? 0) } }));
+      records: AWARDS.map((a) => awards.characters.get(c.key)?.[a.key] ?? 0) } }));
   const columns: Record<LedgerPart, LedgerColumn[]> = {
     combat: [...(kind === "characters" ? [metric("score", "Score", SCORE_EXPLANATION)] : []),
       kind === "battles" ? metric("seconds", "Time") : metric("battles", "Battles", "Battles this character appeared in; the total counts all character appearances"),
@@ -68,7 +68,7 @@ export function buildRunLedger(source: Battle[], kind: LedgerKind) {
     growth: [metric("levels", "Level-ups"), metric("stats", "Stat increases"), metric("weapons", "Weapon attacks"), metric("spells", "Spells"), metric("items", "Items"),
       ...(kind === "battles" ? [metric("pulses", "Divine Pulse")] : [])],
     records: AWARDS.map((a) => ({ key: a.key, label: a.label, group: a.group,
-      hint: "battleWide" in a ? "Battle-wide record; counted in the run total only" : `${a.title}: times received in finished battles` })),
+      hint: `${a.title}: times received in finished battles` })),
   };
   // Damage, healing and movement totals add up what was recorded.
   const sums = { dealt: partialSum(battles.flatMap((b) => b.units.map((u) => u.damage_dealt))), taken: partialSum(battles.flatMap((b) => b.units.map((u) => u.damage_taken))),
@@ -79,7 +79,9 @@ export function buildRunLedger(source: Battle[], kind: LedgerKind) {
     growth: [run.level_ups, run.stat_points, run.weapon_uses, run.spells_cast, run.item_uses, ...(kind === "battles" ? [run.divine_pulses] : [])],
     records: AWARDS.map((a) => awards.totals[a.key]),
   };
-  return { battles, characters, run, awards, rows, columns, totals, sums };
+  // The Divine Pulses of the battles counted above; unknown while none are.
+  const pulses = battles.length ? run.divine_pulses : null;
+  return { battles, characters, run, awards, rows, columns, totals, sums, pulses };
 }
 
 /** Search never changes totals. Missing observations sort last in either direction. */

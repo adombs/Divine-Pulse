@@ -786,12 +786,12 @@ const RECORD_WEIGHT: Partial<Record<string, number>> = { bench: 0.5 };
 
 /**
  * A unit's three most telling records: those it holds the biggest share of across the run (ties: the most times
- * received, then the order History lists them). Battle-wide records (no one unit's) are left out.
+ * received, then the order History lists them).
  */
 export function topRecords(row: LedgerRow | undefined, totals: (number | null)[], n = 3): { key: string; title: string; icon: string; count: number }[] {
   if (!row) return [];
   return AWARDS.map((a, i) => ({ a, i, count: row.values.records[i] ?? 0, total: totals[i] ?? 0 }))
-    .filter((r) => !("battleWide" in r.a) && r.count > 0)
+    .filter((r) => r.count > 0)
     .map((r) => ({ ...r, score: (r.count / Math.max(r.count, r.total)) * (RECORD_WEIGHT[r.a.key] ?? 1) }))
     .sort((x, y) => y.score - x.score || y.count - x.count || x.i - y.i)
     .slice(0, n)
