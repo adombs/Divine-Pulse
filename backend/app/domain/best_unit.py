@@ -25,9 +25,8 @@ class _Totals:
         return MVP_POINTS * self.mvps + self.damage + self.healing
 
 
-def best_unit(battles: Iterable[Battle], roster: Collection[str] = ()) -> BestUnit | None:
-    """The unit with the highest score over the run's finished battles. Ties go to more kills, then fewer falls, a
-    higher level, and the earliest in `roster` (unit keys in recruitment order). None if nobody scored anything."""
+def _totals(battles: Iterable[Battle], roster: Collection[str]) -> dict[str, _Totals]:
+    """What each unit did over the run's finished battles. A guest is left out unless `roster` has it."""
     totals: dict[str, _Totals] = {}
     kept = set(roster)
     finished = sorted((b for b in battles if b.ended_at is not None), key=lambda b: b.started_at)
@@ -45,6 +44,18 @@ def best_unit(battles: Iterable[Battle], roster: Collection[str] = ()) -> BestUn
             total.kills += unit.defeats or 0
             # An adjutant is in the battle without being on the map; that isn't a fall.
             total.falls += unit.fell
+    return totals
+
+
+def unit_scores(battles: Iterable[Battle], roster: Collection[str] = ()) -> dict[str, int]:
+    """Every unit's run score: 1,000 per battle MVP plus damage dealt and healing done, over the finished battles."""
+    return {key: total.score for key, total in _totals(battles, roster).items()}
+
+
+def best_unit(battles: Iterable[Battle], roster: Collection[str] = ()) -> BestUnit | None:
+    """The unit with the highest score over the run's finished battles. Ties go to more kills, then fewer falls, a
+    higher level, and the earliest in `roster` (unit keys in recruitment order). None if nobody scored anything."""
+    totals = _totals(battles, roster)
     if not totals:
         return None
     order = {key: i for i, key in enumerate(roster)}
@@ -61,4 +72,4 @@ def best_unit(battles: Iterable[Battle], roster: Collection[str] = ()) -> BestUn
     if best.score <= 0:
         return None
     unit = best.latest
-    return BestUnit(key=key, name=unit.name, class_id=unit.class_id, character=unit.character, female=unit.female, look=unit.look)
+    return BestUnit(key=key, name=unit.name, class_id=unit.class_id, character=unit.character, female=unit.female, look=unit.look, score=best.score)

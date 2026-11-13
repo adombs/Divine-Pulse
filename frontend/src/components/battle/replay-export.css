@@ -59,4 +59,57 @@
 .replay-stage-rows .log-list { flex: none; }
 
 /* The box the video's picture is taken of: exactly the frame's size. */
-.replay-stage-theme { width: 100%; height: 100%; }
+.replay-stage-theme { width: 100%; height: 100%; isolation: isolate; }
+
+/* Team pages (TeamPages.tsx): full frames of the team's cards or statistics before and after the replay, drawn as the
+   replay's own frame is (paper, its inner frame line, the title strip), their content scaled to stay legible. */
+.team-page {
+  position: relative; display: grid; grid-template-areas: "title" "body"; gap: 12px; box-sizing: border-box; padding: 16px; overflow: hidden;
+  color: var(--ink); font: 1rem/1.4 var(--text);
+  background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper);
+  box-shadow: inset 0 0 0 5px var(--paper), inset 0 0 0 6px var(--line);
+}
+.team-page.team-page-tall .replay-stage-title { flex-direction: column; align-items: stretch; gap: 8px; }
+.team-page.team-page-tall .replay-stage-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; max-width: none; padding: 0 2px; }
+.team-page-body { grid-area: body; display: flex; justify-content: center; align-items: flex-start; min-width: 0; min-height: 0; overflow: hidden; }
+.team-page-fit { flex: none; }
+.team-page-content { display: grid; gap: 14px; align-content: start; }
+.team-page-content.team-page-cards .team-card { width: 100%; box-sizing: border-box; }
+.team-page-content.team-page-table .team-stats { width: 100%; }
+/* In the preview a page lies over the replay's frame (faded in or out for a crossfade). */
+.team-page-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
+/* Hidden copies, laid out but off screen: one of every card and of the table, to measure the pages from, and the page being drawn for the video. */
+.team-page-measure, .team-page-raster { position: fixed; left: -40000px; top: 0; pointer-events: none; }
+.team-page-measure { width: max-content; visibility: hidden; display: grid; gap: 24px; justify-items: start; color: var(--ink); font: 1rem/1.4 var(--text); }
+.team-page-measure-cards { display: grid; gap: 14px; justify-items: start; }
+
+/* The Team pages group of the video options: two pictures, each with where it goes, then the pages' pace and units. */
+.team-pages-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.25rem 0.6rem; }
+.team-pages-choice label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.92rem; cursor: pointer; }
+.team-pages-choice input { margin: 0; accent-color: var(--accent); }
+.team-pages-choice .segmented { width: auto; }
+.team-pages-choice .segmented button { flex: none; padding-inline: 0.55rem; }
+.team-pages-count { grid-column: 1 / -1; margin-top: -0.1rem; padding-left: 1.4rem; color: var(--ink-soft); font-size: 0.82rem; }
+.team-pages-note { margin: 0; padding: 0.35rem 0.55rem; border-left: 3px solid var(--amber); background: var(--row); font-size: 0.85rem; color: var(--ink-soft); }
+.team-pages-units { border-top: 1px solid var(--row-border); padding-top: 0.45rem; }
+.team-pages-units summary { cursor: pointer; font-size: 0.92rem; }
+.team-pages-units summary small { margin-left: 0.4rem; color: var(--ink-soft); }
+.team-pages-units-body { display: grid; gap: 0.5rem; padding-top: 0.5rem; }
+.team-pages-units-body .team-order-by { margin-bottom: 0; }
+.team-pages-units-body .team-order { max-height: 15rem; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 1px; }
+.team-pages-units-body .team-include-fallen { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; }
+
+/* The statistics table in a video page (StatsTable `compact`): drawn many times larger than on the sheet, so it gives up
+   what costs width: tighter cells, headings that wrap onto two lines, records one under another. */
+.team-stats.compact th, .team-stats.compact td { padding: 6px 5px; }
+.team-stats.compact .team-records { flex-wrap: nowrap; }
+.team-stats.compact thead th:not(.team-stats-unit) { width: 1px; }
+.team-stats.compact .team-stats-groups th { width: auto; }
+.team-stats.compact .team-stats-unit { padding-right: 10px; }
+.team-stats.compact.stacked .team-records { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; gap: 3px; }
+.team-stats.compact .team-record { font-size: 1rem; }
+.team-stats.compact .muted { white-space: nowrap; }
+
+/* A class or an item that is long wraps in a video page rather than end in an ellipsis: a picture can't be hovered for the rest. */
+.team-page .team-card-name span, .team-page-measure .team-card-name span { white-space: normal; overflow: visible; text-overflow: clip; }
+.team-page .team-gear-name, .team-page-measure .team-gear-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }

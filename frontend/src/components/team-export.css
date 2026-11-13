@@ -62,6 +62,9 @@
 .team-card-name b { font: 600 1.3rem/1.15 var(--display); overflow-wrap: anywhere; }
 .team-card-name span { color: var(--ink-soft); font-size: 0.92rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .team-card-bst { display: grid; justify-items: center; padding: 3px 9px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 14%, transparent); color: var(--accent); font: 700 1.15rem/1.05 var(--nums); font-variant-numeric: tabular-nums; }
+.team-card-badges { display: grid; justify-items: end; gap: 3px; }
+.team-card-score { color: var(--ink-soft); font: 600 0.78rem/1 var(--nums); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.team-card-score small { font: 600 0.62rem var(--display); letter-spacing: 0.08em; text-transform: uppercase; margin-right: 4px; }
 .team-card-bst small { font: 600 0.66rem var(--display); letter-spacing: 0.08em; text-transform: uppercase; }
 .team-card-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 4px; margin: 0; }
 .team-card-stats div { display: grid; justify-items: center; padding: 3px 0 2px; border-radius: 3px; background: var(--row); border: 1px solid var(--row-border); }
@@ -95,6 +98,7 @@
 .team-stats-unit .portrait { width: 32px; height: 32px; border-radius: 50%; background: var(--face-wash-blue); box-shadow: 0 0 0 1.5px var(--team-player); }
 .team-stats tr.unrecorded td { color: var(--ink-soft); }
 .team-stats-records { text-align: left !important; }
+.team-stats td.team-stats-score, .team-stats th.team-stats-score { font-weight: 700; }
 .team-records { display: flex; flex-wrap: wrap; gap: 4px; }
 .team-record {
   display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px 1px 6px; border-radius: 999px; white-space: nowrap;

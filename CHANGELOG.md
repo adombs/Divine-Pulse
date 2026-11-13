@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Each unit now has a run score (1,000 points per battle MVP, plus damage dealt and healing done in completed battles). It shows on the Roster (a sortable Score column) and in the best unit's tooltip on the home page.
+- Export Team shows each unit's score on its card and in a Score column of the run statistics image, and can order units by Score (Ascending) or Score (Descending).
+- Export Video can add Team pages before the replay, after it, or both: the team overview (a column of unit cards, as many to a page as stay legible) and the run statistics, with the units, their order and faces picked as in Export Team, 2 to 10 seconds a page and a short crossfade between pages and the replay.
+
 ## 1.4.4 (2026-11-12)
 
 - Export Video can make 1.91:1 (2064 × 1080) and 4:5 (1080 × 1350) videos. Its choices are now named by aspect ratio: 16:9, 1.91:1, 9:16 and 4:5.

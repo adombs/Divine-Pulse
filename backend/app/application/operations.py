@@ -167,6 +167,12 @@ class BackendOperations:
             raise RunMissing from exc
         return list(run.units.items())
 
+    def unit_scores(self, run_id: str) -> dict[str, int]:
+        try:
+            return self.runs.unit_scores(run_id)
+        except MissingRecord as exc:
+            raise RunMissing from exc
+
     def _unit(self, run_id: str, key: str) -> tuple[Run, Unit]:
         try:
             run = self.runs.get(run_id)

@@ -43,6 +43,7 @@ class BestUnit(BaseModel):
     character: int | None = None
     female: bool = False
     look: str | None = None
+    score: int = 0  # its run score
 
 
 class RunSummary(BaseModel):

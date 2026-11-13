@@ -47,9 +47,11 @@ interface Props {
   fell?: string | null;
   /** The run's route, for its emblem on exports. */
   route?: RunRoute | null;
+  /** The run's name, for exports. */
+  runName?: string;
 }
 
-export function BattlePage({ battle, recording, runId, version, units, part2, mapLook, replaySpeed, onReplaySpeed, onDeleteRecording, at, fell, route }: Props) {
+export function BattlePage({ battle, recording, runId, version, units, part2, mapLook, replaySpeed, onReplaySpeed, onDeleteRecording, at, fell, route, runName }: Props) {
   // The run's battles, for More stats' comparison.
   const [history, setHistory] = useState<Battle[]>([]);
   useEffect(() => {
@@ -74,7 +76,7 @@ export function BattlePage({ battle, recording, runId, version, units, part2, ma
       </section>
     );
   }
-  return <><BattleView key={shown.id} battle={shown} live={battle} history={history} roster={units} part2={part2} mapLook={mapLook} replaySpeed={replaySpeed} onReplaySpeed={onReplaySpeed} at={at} fell={fell} route={route} recording={battle ? undefined : { onDelete: onDeleteRecording }} /></>;
+  return <><BattleView key={shown.id} battle={shown} live={battle} history={history} roster={units} part2={part2} mapLook={mapLook} replaySpeed={replaySpeed} onReplaySpeed={onReplaySpeed} at={at} fell={fell} route={route} runName={runName} recording={battle ? undefined : { onDelete: onDeleteRecording }} /></>;
 }
 
 interface ViewProps {
@@ -93,6 +95,7 @@ interface ViewProps {
   fell?: string | null;
   /** The run's route, for its emblem on exports. */
   route?: RunRoute | null;
+  runName?: string;
   /** Set when this is a selected past battle: delete it. */
   recording?: { onDelete: () => void };
 }
@@ -222,7 +225,7 @@ export function BattleView(p: ViewProps) {
                   Live Battle
                 </button>
               )}
-              <ReplayExportButton battle={battle} route={p.route} />
+              <ReplayExportButton battle={battle} route={p.route} runName={p.runName} units={p.roster} part2={p.part2} history={p.history} />
               <CopySummary battle={counted} seconds={seconds} />
               {recording && (
                 <button type="button" className="btn small danger" onClick={recording.onDelete} title="Delete this battle from the history">

@@ -392,6 +392,9 @@ tr.flash td { animation: flash 1.6s ease-out; }
 .units .ebst-col { padding-left: 0.7rem; }
 .units td.ebst-col { font-size: 1.3rem; color: var(--accent); }
 .units tr.selected td.ebst-col { color: var(--sel-ink); }
+/* Run score: a quiet number after eBST. */
+.units td.score-col { font-size: 1rem; color: var(--ink-soft); padding-left: 0.7rem; }
+.units tr.selected td.score-col { color: var(--sel-ink); }
 .units tr.selected td.excluded { color: color-mix(in srgb, var(--sel-ink) 35%, transparent); }
 /* Stats a unit leaves out of its eBST are dimmed in its row (text only, so the row stays solid). */
 .units td.excluded { color: color-mix(in srgb, currentColor 35%, transparent); }

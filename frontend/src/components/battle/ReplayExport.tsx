@@ -11,9 +11,9 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import "./replay-export.css";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
-import type { Battle, RunRoute } from "../../api";
+import type { Battle, RunRoute, Unit } from "../../api";
 import { clock } from "../../format";
 import { Icon, IconButton } from "../Icon";
 import { Modal } from "../Modal";
@@ -24,6 +24,7 @@ import { StepSlider } from "../Slider";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
+import { sceneAt, type Segment } from "../../exporting/teamPages";
 import { defaultTheme, loadMusic, previewTheme, recording, setPreviewVolume, soundtrack, THEME_GROUPS, type Music, type Theme, type Version } from "../../exporting/music";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
@@ -32,6 +33,10 @@ import { Minimap, type Zoom } from "./Minimap";
 import { ItemList, useBattleNav } from "./parts";
 import { beatDurations, beatFocus, beatOf, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
 import { battleName, KIND_LABEL } from "./scenarios";
+import { DEFAULT_TEAM_PAGES, sanitizeTeamPages, TeamPagesSection, TeamPageView as TeamPageViewPlain, useTeamPages, type PageFrame, type TeamPage, type TeamPagesOptions } from "./TeamPages";
+
+/** A page's view is redrawn only when its page changes, not with every frame of the preview's clock. */
+const TeamPageView = memo(TeamPageViewPlain);
 
 /** The frame's shape: 16:9, 1.91:1 (`wide`, laid out like 16:9), 9:16, or 4:5 (`feed`, laid out like 9:16). */
 type Orientation = "landscape" | "wide" | "portrait" | "feed";
@@ -66,8 +71,10 @@ interface VideoOptions {
   version: Version;
   /** The music's volume: a whole number of percent, 0 to 100. */
   volume: number;
+  /** The team's overview and run statistics shown before and after the replay (TeamPages.tsx). */
+  team: TeamPagesOptions;
 }
-const DEFAULT_OPTIONS: VideoOptions = { resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75 };
+const DEFAULT_OPTIONS: VideoOptions = { resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, team: DEFAULT_TEAM_PAGES };
 
 function loadOptions(): VideoOptions {
   try {
@@ -78,6 +85,7 @@ function loadOptions(): VideoOptions {
       quality: QUALITIES.some(([q]) => q === saved.quality) ? saved.quality! : DEFAULT_OPTIONS.quality,
       version: saved.version === "thunder" ? "thunder" : "rain",
       volume: Number.isInteger(saved.volume) && saved.volume! >= 0 && saved.volume! <= 100 ? saved.volume! : DEFAULT_OPTIONS.volume,
+      team: sanitizeTeamPages(saved.team),
     };
   } catch {
     return DEFAULT_OPTIONS;
@@ -110,7 +118,15 @@ export function replayExportBlocker(battle: Battle, chron: Chronicle): string | 
 }
 
 /** The header button: opens the export window. */
-export function ReplayExportButton({ battle, route }: { battle: Battle; route?: RunRoute | null }) {
+export function ReplayExportButton({ battle, route, runName, units, part2, history }: {
+  battle: Battle;
+  route?: RunRoute | null;
+  /** The run's name, its roster and battles, for the team pages. */
+  runName?: string;
+  units: Unit[];
+  part2: boolean;
+  history: Battle[];
+}) {
   const [open, setOpen] = useState(false);
   const chron = useMemo(() => chronicle(battle), [battle]);
   const blocker = replayExportBlocker(battle, chron);
@@ -125,7 +141,7 @@ export function ReplayExportButton({ battle, route }: { battle: Battle; route?: 
       >
         <Icon name={CONCEPT_ICON.share} /> Export Video
       </button>
-      {open && <ReplayExportDialog battle={battle} chron={chron} route={route ?? null} onClose={() => setOpen(false)} />}
+      {open && <ReplayExportDialog battle={battle} chron={chron} route={route ?? null} runName={runName ?? "Divine Pulse"} units={units} part2={part2} history={history} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -182,6 +198,9 @@ function stageLayout(orientation: Orientation, aspect: number): { columns: strin
   return { columns: "minmax(0, 1fr)", rows: `${TITLE_H[orientation]}px ${mapH}px minmax(0, 1fr)` };
 }
 
+/** A stretch of the video: the replay, or a team page. */
+type Part = { kind: "replay" } | { kind: "page"; page: TeamPage };
+
 /** Where the video stands: a beat, and how far into it (ms). */
 interface Moment {
   beat: number;
@@ -198,18 +217,28 @@ function centre(follow: [number, number][], w: number, h: number): [number, numb
 
 const easeOut = (k: number) => 1 - (1 - Math.max(0, Math.min(1, k))) ** 3;
 
-function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle; chron: Chronicle; route: RunRoute | null; onClose: () => void }) {
+function ReplayExportDialog({ battle, chron, route, runName, units, part2, history, onClose }: {
+  battle: Battle;
+  chron: Chronicle;
+  route: RunRoute | null;
+  runName: string;
+  units: Unit[];
+  part2: boolean;
+  history: Battle[];
+  onClose: () => void;
+}) {
   const nav = useBattleNav();
   const [options, setOptionsState] = useState<VideoOptions>(loadOptions);
-  const setOption = <K extends keyof VideoOptions>(key: K, value: VideoOptions[K]) => setOptionsState((o) => {
-    const next = { ...o, [key]: value };
+  const keep = (next: VideoOptions) => {
     try {
       localStorage.setItem(OPTIONS_KEY, JSON.stringify(next));
     } catch {
       // Not kept; fine.
     }
     return next;
-  });
+  };
+  const setOption = <K extends keyof VideoOptions>(key: K, value: VideoOptions[K]) => setOptionsState((o) => keep({ ...o, [key]: value }));
+  const updateTeam = (patch: Partial<TeamPagesOptions>) => setOptionsState((o) => keep({ ...o, team: { ...o.team, ...patch } }));
   const scale = RESOLUTIONS.find(([r]) => r === options.resolution)?.[2] ?? 1.5;
   const fps = options.fps;
   // The battle themes (imported with the game files), and the one to play: the battle's own to begin with.
@@ -247,6 +276,12 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
       // Not kept; fine.
     }
   };
+  const [width, height] = STAGE[orientation];
+  // The team pages (before and after the replay) fill the frame; their page counts follow its shape.
+  const frame = useMemo<PageFrame>(() => ({ width, height, titleH: TITLE_H[orientation], portrait: !logBeside(orientation) }), [width, height, orientation]);
+  const team = options.team;
+  const pages = useTeamPages({ team, update: updateTeam, units, history, part2, frame });
+  const pageRun = useMemo(() => ({ name: runName, route }), [runName, route]);
   const [speed, setSpeed] = useState(() => nav.replaySpeed ?? 1);
   const [mode, setModeState] = useState<CameraMode>("dynamic");
   const [level, setLevel] = useState(DEFAULT_ZOOM);
@@ -265,7 +300,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
   const durations = useMemo(() => beatDurations(battle, chron, speed), [battle, chron, speed]);
   const focus = useMemo(() => beatFocus(battle, chron), [battle, chron]);
   // When each beat in the range starts (ms into the video), and how long the video is.
-  const { starts, total } = useMemo(() => {
+  const { starts, total: replayTotal } = useMemo(() => {
     const out: number[] = [];
     let t = 0;
     for (let i = first; i <= last; i++) {
@@ -274,6 +309,18 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     }
     return { starts: out, total: t + END_HOLD_MS };
   }, [durations, first, last]);
+  // The video: the pages before the replay, the replay, the pages after it (a crossfade at each cut, sceneAt).
+  const pageMs = team.seconds * 1000;
+  const parts = useMemo<Part[]>(() => [
+    ...pages.start.map((page): Part => ({ kind: "page", page })),
+    { kind: "replay" },
+    ...pages.end.map((page): Part => ({ kind: "page", page })),
+  ], [pages.start, pages.end]);
+  const segments = useMemo<Segment[]>(() => parts.map((p, i) => ({ id: `${i}`, ms: p.kind === "page" ? pageMs : replayTotal })), [parts, pageMs, replayTotal]);
+  const lead = pages.start.length * pageMs;
+  const total = lead + replayTotal + pages.end.length * pageMs;
+  /** Where the replay is (ms into it) when the video is `ms` in. */
+  const replayTime = (ms: number) => Math.max(0, Math.min(replayTotal, ms - lead));
 
   const momentAt = (ms: number): Moment => {
     let lo = 0;
@@ -294,7 +341,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
   const [status, setStatus] = useState<ExportStatus>({ kind: "idle" });
   const working = status.kind === "working";
   const seekTo = (ms: number) => {
-    const m = momentAt(Math.max(0, Math.min(total, ms)));
+    const m = momentAt(replayTime(Math.max(0, Math.min(total, ms))));
     setT(Math.max(0, Math.min(total, ms)));
     setMoment(m);
     replay.pose(m.beat, m.elapsed);
@@ -335,6 +382,15 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     const k = easeOut(m.elapsed / Math.min(CAMERA_MS, durations[m.beat] || CAMERA_MS));
     return [from.x0 + from.w / 2 + (to.x0 - from.x0) * k, from.y0 + from.h / 2 + (to.y0 - from.y0) * k];
   };
+  // The team pages over the replay in the preview: a page, or two while they crossfade (the replay beneath).
+  const scene = sceneAt(segments, t);
+  const layers: { index: number; alpha: number }[] = [];
+  {
+    const a = parts[scene.a.index];
+    const b = scene.b ? parts[scene.b.index] : null;
+    if (a.kind === "page") layers.push({ index: scene.a.index, alpha: b?.kind === "replay" ? 1 - scene.mix : 1 });
+    if (b?.kind === "page") layers.push({ index: scene.b!.index, alpha: scene.mix });
+  }
   const looking = mode === "static" ? still ?? [board.w / 2, board.h / 2] : dynamicCentre(moment);
   const zoom = viewAround(looking, size, board);
 
@@ -364,10 +420,12 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     if (mode !== "static") setModeState("static");
   };
 
-  const [width, height] = STAGE[orientation];
   // The camera's view keeps one shape at a zoom level (the whole map's, zoomed out), so the frame is laid out for it.
   const layout = stageLayout(orientation, size[0] / size[1]);
   const stage = useRef<HTMLDivElement>(null);
+  // The page being drawn for the video, in a hidden copy of the frame.
+  const [raster, setRaster] = useState<TeamPage | null>(null);
+  const rasterRef = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
   useEffect(() => () => abort.current?.abort(), []);
   const name = battleName(battle);
@@ -388,9 +446,31 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     // Each layer is loaded into one image element over and over (snapshot.ts `image`), so no decoded frame is left behind.
     const chromeImg = new Image();
     const mapImg = new Image();
+    // Team pages: each is drawn to a picture once (kept as its document while the video is made), and decoded while it is on screen.
+    const docs = new Map<string, string>();
+    const pageImages = new Map<number, HTMLImageElement>();
+    let snap!: Awaited<ReturnType<typeof snapshotter>>;
+    const pageImage = async (index: number) => {
+      const found = pageImages.get(index);
+      if (found) return found;
+      const part = parts[index];
+      if (part.kind !== "page") throw new Error("Not a team page");
+      let doc = docs.get(part.page.id);
+      if (!doc) {
+        flushSync(() => setRaster(part.page));
+        await new Promise((resolve) => window.setTimeout(resolve, 120)); // sprites and fonts settle
+        if (!rasterRef.current) throw new Cancelled();
+        doc = await snap.svg(rasterRef.current, width, height, scale);
+        docs.set(part.page.id, doc);
+      }
+      const img = await snap.image(doc);
+      pageImages.set(index, img);
+      return img;
+    };
+    let shown = "";
     try {
       const audio = track && options.volume > 0 ? await soundtrack(track, frames / fps, volume) : null;
-      const snap = await snapshotter();
+      snap = await snapshotter();
       // A frame in two layers: the title and the log (with the map's frame) change once a step, so they're drawn once a
       // step; the map (with its turn banner) is drawn each frame on its own, with only the styles it needs.
       let chrome: { beat: number; img: HTMLImageElement } | null = null;
@@ -411,15 +491,44 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
           flushSync(() => seekRef.current(ms));
           const el = stage.current;
           if (!el) throw new Cancelled();
-          const beat = momentAt(Math.min(total, ms)).beat;
-          const newChrome = chrome?.beat !== beat;
-          if (newChrome) chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
-          const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
-          const newMap = map?.doc !== doc;
-          if (newMap) map = { doc, img: await snap.image(doc, mapImg) };
-          if (!newChrome && !newMap) return; // a held frame: the canvas still has it
-          g.drawImage(chrome!.img, 0, 0, out[0], out[1]);
-          g.drawImage(map!.img, 0, 0, out[0], out[1]);
+          const scene = sceneAt(segments, Math.min(total, ms));
+          const a = parts[scene.a.index];
+          const b = scene.b ? parts[scene.b.index] : null;
+          // What is on the canvas now: a page, the replay, or a crossfade (always redrawn).
+          const now = scene.b ? `fade ${i}` : a.kind === "page" ? `page ${scene.a.index}` : "replay";
+          let changed = now !== shown || !!scene.b;
+          shown = now;
+          const withReplay = a.kind === "replay" || b?.kind === "replay";
+          if (withReplay) {
+            const beat = momentAt(replayTime(ms)).beat;
+            const newChrome = chrome?.beat !== beat;
+            if (newChrome) chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
+            const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
+            const newMap = map?.doc !== doc;
+            if (newMap) map = { doc, img: await snap.image(doc, mapImg) };
+            changed ||= newChrome || newMap;
+          }
+          if (!changed) return; // a held frame: the canvas still has it
+          if (withReplay) {
+            g.drawImage(chrome!.img, 0, 0, out[0], out[1]);
+            g.drawImage(map!.img, 0, 0, out[0], out[1]);
+          }
+          // Pages go over the replay (fading out as the replay fades in beneath, in as it fades out), or over each other.
+          if (a.kind === "page") {
+            g.globalAlpha = b?.kind === "replay" ? 1 - scene.mix : 1;
+            g.drawImage(await pageImage(scene.a.index), 0, 0, out[0], out[1]);
+          }
+          if (b?.kind === "page") {
+            g.globalAlpha = scene.mix;
+            g.drawImage(await pageImage(scene.b!.index), 0, 0, out[0], out[1]);
+          }
+          g.globalAlpha = 1;
+          // Pages behind us are let go.
+          for (const [index, img] of pageImages) {
+            if (index >= scene.a.index) continue;
+            img.removeAttribute("src");
+            pageImages.delete(index);
+          }
         },
       });
       try {
@@ -435,6 +544,8 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
       abort.current = null;
       chromeImg.removeAttribute("src");
       mapImg.removeAttribute("src");
+      for (const img of pageImages.values()) img.removeAttribute("src");
+      setRaster(null);
     }
   };
 
@@ -443,11 +554,11 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
     let turn: number | null = null;
     for (let i = first; i <= last; i++) {
       const step = chron.beats[i].step;
-      if (step.turn !== turn) out.push({ at: starts[i - first], className: `${step.phase === 0 ? "player" : step.phase === 1 ? "enemy" : "other"} major` });
+      if (step.turn !== turn) out.push({ at: lead + starts[i - first], className: `${step.phase === 0 ? "player" : step.phase === 1 ? "enemy" : "other"} major` });
       turn = step.turn;
     }
     return out;
-  }, [chron.beats, first, last, starts]);
+  }, [chron.beats, first, last, starts, lead]);
 
   return (
     <Modal
@@ -461,6 +572,12 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
       }}
     >
       <div className="replay-export">
+        {pages.measure}
+        {raster && (
+          <div className="team-page-raster" aria-hidden>
+            <TeamPageView ref={rasterRef} page={raster} frame={frame} run={pageRun} ledger={pages.ledger} part2={part2} face={team.face} />
+          </div>
+        )}
         <ScaledStage
           width={width}
           height={height}
@@ -505,6 +622,11 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
               onWheelAt={working ? undefined : onWheelAt}
               onDrag={working ? undefined : onDrag}
             />
+            {layers.map(({ index, alpha }) => (
+              <div key={index} className="team-page-layer" style={{ opacity: alpha }}>
+                <TeamPageView page={(parts[index] as { page: TeamPage }).page} frame={frame} run={pageRun} ledger={pages.ledger} part2={part2} face={team.face} />
+              </div>
+            ))}
         </ScaledStage>
         <aside className="export-side" aria-label="Video options">
           <fieldset className="export-group" disabled={working}>
@@ -538,6 +660,12 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
             <CameraModeSwitch value={mode} onChange={setMode} labelled />
             <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} after={<ZoomValue level={level} />} />
           </fieldset>
+          {units.length > 0 && (
+            <fieldset className="export-group team-pages" disabled={working}>
+              <legend>Team pages</legend>
+              <TeamPagesSection team={team} update={updateTeam} pages={pages} units={units} part2={part2} />
+            </fieldset>
+          )}
           <fieldset className="export-group" disabled={working}>
             <legend>Music</legend>
             {music === null ? (
@@ -621,7 +749,7 @@ function ReplayExportDialog({ battle, chron, route, onClose }: { battle: Battle;
             </div>
           </fieldset>
           <ExportActions
-            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}` : "No music"]}
+            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), ...(pages.start.length + pages.end.length ? [`${pages.start.length + pages.end.length} team pages`] : []), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}` : "No music"]}
             status={status}
             action="Export MP4…"
             onExport={() => void exportVideo()}
@@ -662,7 +790,7 @@ function ScaledStage({ width, height, footer, children }: { width: number; heigh
     <div className="replay-export-preview" ref={box}>
       <div className="replay-export-room" style={{ width: frame[0] + ROOM_PAD * 2, height: frame[1] + ROOM_PAD * 2 }}>
         <div className="replay-export-screen" style={{ width: frame[0], height: frame[1] }}>
-          <div style={{ width, height, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
+          <div style={{ position: "relative", width, height, transform: `scale(${k})`, transformOrigin: "0 0" }}>{children}</div>
         </div>
       </div>
       <div className="replay-export-foot" ref={foot} style={{ width: frame[0] + ROOM_PAD * 2 }}>{footer}</div>
