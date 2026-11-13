@@ -733,7 +733,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
         <BattalionPanel unit={unit} scope="run" />
       </Section>
 
-      <Section title="Class Mastery" icon={CONCEPT_ICON.classes} summary={unit.mastered_classes ? plural(unit.mastered_classes.length, "class", "classes") : "Not read yet"}>
+      <Section title="Class Mastery" icon={CONCEPT_ICON.mastery} summary={unit.mastered_classes ? plural(unit.mastered_classes.length, "class", "classes") : "Not read yet"}>
         <ClassMasteryPanel unit={unit} />
       </Section>
 

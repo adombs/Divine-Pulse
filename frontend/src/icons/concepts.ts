@@ -16,6 +16,7 @@ export const CONCEPT_ICON = {
   history: "history",
   characters: "characters",
   classes: "classes",
+  mastery: "mastery",
   archive: "archive",
   supports: "supports",
   runs: "runs",

@@ -20,6 +20,7 @@ const ICONS = {
   history: ["clock-counter-clockwise"],
   characters: ["identification-badge"],
   classes: ["shield-chevron"],
+  mastery: ["battery-charging"],
   archive: ["books"],
   supports: ["hand-heart"],
   runs: ["flag-banner"],
