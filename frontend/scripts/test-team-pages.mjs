@@ -73,15 +73,15 @@ test("no pages: the replay alone never fades", () => {
   assert.deepEqual(sceneAt([{ id: "replay", ms: 5000 }], 4900), { a: { index: 0, local: 4900 }, b: null, mix: 0 });
 });
 
-// A compact card at its natural size: 400 wide, about 300 high, its smallest text 22 px.
-const card = { w: 400, h: 300 };
+// A compact card at its natural size: 460 wide, about 310 high, its smallest text 22 px.
+const card = { w: 460, h: 310 };
 const FRAMES = {
-  "16:9": { frameShortSide: 720, roomWidth: 1248, roomHeight: 592 },
-  "1.91:1": { frameShortSide: 720, roomWidth: 1344, roomHeight: 592 },
-  "9:16": { frameShortSide: 720, roomWidth: 688, roomHeight: 1128 },
-  "4:5": { frameShortSide: 720, roomWidth: 688, roomHeight: 748 },
+  "16:9": { frameShortSide: 720, roomWidth: 1248, roomHeight: 630 },
+  "1.91:1": { frameShortSide: 720, roomWidth: 1344, roomHeight: 630 },
+  "9:16": { frameShortSide: 720, roomWidth: 688, roomHeight: 1160 },
+  "4:5": { frameShortSide: 720, roomWidth: 688, roomHeight: 780 },
 };
-const plan = (frame, o = {}) => planGrid({ minText: 22, gap: 14, card, columns: null, rows: null, count: 40, ...frame, ...o });
+const plan = (frame, o = {}) => planGrid({ minText: 22, gap: 8, card, columns: null, rows: null, count: 40, ...frame, ...o });
 const floor = legibleScale(22, 720);
 
 test("grid: Auto and Auto holds as many cards as keep the text legible, in every aspect", () => {
@@ -95,6 +95,15 @@ test("grid: Auto and Auto holds as many cards as keep the text legible, in every
   }
   assert.ok(plan(FRAMES["9:16"]).rows > plan(FRAMES["16:9"]).rows, "a tall frame has more rows");
   assert.ok(plan(FRAMES["16:9"]).columns > plan(FRAMES["9:16"]).columns, "a wide frame has more columns");
+});
+
+test("grid: the 460 x 310 card fits 4 x 3 in a 16:9 frame and 2 x 5 in a 9:16 one, drawn at its natural size or a little under", () => {
+  const wide = plan(FRAMES["16:9"]);
+  assert.deepEqual([wide.columns, wide.rows], [4, 3]);
+  const tall = plan(FRAMES["9:16"]);
+  assert.deepEqual([tall.columns, tall.rows], [2, 5]);
+  // Spare room goes around the cards, never into them: a card is never drawn bigger than its cell allows in either direction.
+  for (const g of [wide, tall]) assert.ok(g.cellW >= card.w - 1e-6 && g.cellH >= card.h - 1e-6);
 });
 
 test("grid: the smallest text is at least 2.0% of the short side at Auto, 22 px at 1080p either way up", () => {
@@ -141,7 +150,7 @@ test("grid: columns and rows are bounded by what the Team tab offers, and a room
   const g = plan({ frameShortSide: 720, roomWidth: 200, roomHeight: 100 });
   assert.equal(g.perPage, 1);
   assert.ok(g.small);
-  assert.equal(planGrid({ minText: 22, frameShortSide: 720, card, roomWidth: 0, roomHeight: 100, gap: 14, columns: null, rows: null, count: 3 }), null);
+  assert.equal(planGrid({ minText: 22, frameShortSide: 720, card, roomWidth: 0, roomHeight: 100, gap: 8, columns: null, rows: null, count: 3 }), null);
   const big = plan({ frameShortSide: 4000, roomWidth: 50000, roomHeight: 50000 });
   assert.ok(big.columns <= MAX_COLUMNS && big.rows <= MAX_ROWS);
 });

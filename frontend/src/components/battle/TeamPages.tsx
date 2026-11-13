@@ -71,7 +71,7 @@ const PICKER_COLUMNS = 3;
 /** A frame's padding and the gap under its title strip (px, as the replay's frame has them), and between cards. */
 const PAD = 16;
 const GAP = 12;
-const CARD_GAP = 14;
+const CARD_GAP = 8;
 
 /** The frame the pages fill (CSS px) and its title strip's height. */
 export interface PageFrame {
@@ -96,7 +96,7 @@ export interface TeamPage {
 }
 
 /** A card's natural width (px): the width the hidden copies are measured at. */
-const CARD_W = 400;
+const CARD_W = 460;
 
 /** What the hidden copy of the cards measures: the tallest card at its natural width, and the smallest text on any. */
 interface Measured {

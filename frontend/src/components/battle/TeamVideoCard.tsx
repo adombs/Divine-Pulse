@@ -1,9 +1,9 @@
 /**
- * A unit's card in the video's team overview, compact: a header line (name, class, and the abilities as bare icons), under
- * it a small face beside the ten stats in a 5 x 2 grid, and under both ten fixed slots (2 columns x 5 rows) listing what
+ * A unit's card in the video's team overview, compact: a header line (name and class), under it a small face beside
+ * the ten stats in a 5 x 2 grid with the abilities as a centred row of icons under them, and under both ten fixed slots (2 columns x 5 rows) listing what
  * the unit used in the battle (weapons, spells and combat arts, each with its count), its accessory and its battalion;
  * `cardSlots` (exporting/usageList.ts) fills them. Nothing else (the Export Team picture's LoadoutCard has the rest).
- * Every card is the same size, whatever the unit has, and fills its grid cell: the slots take whatever height is spare.
+ * Every card is the same size, whatever the unit has, and keeps its own proportions: a taller grid cell leaves room around it, never inside it.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { LABELS, type Unit } from "../../api";
@@ -24,28 +24,28 @@ export function VideoUnitCard({ unit, part2, face, gear }: { unit: Unit; part2: 
       <header className="vcard-head">
         <b className="vcard-name">{unit.name}</b>
         <span className="vcard-class">{unit.class_name || "—"}</span>
-        {abilities.length > 0 && (
-          <span className="vcard-abilities">
-            {abilities.map((a, i) => (
-              <span key={`${a}-${i}`} role="img" aria-label={a} title={a}>
-                <AbilityIcon name={a} />
-              </span>
-            ))}
-          </span>
-        )}
       </header>
       <div className="vcard-mid">
         <div className="vcard-face">
           <UnitFaceImage unit={unit} part2={part2} size={FACE} face={face} />
         </div>
-        <dl className="vcard-stats">
-          {STATS.map((k) => (
-            <div key={k} className={unit.blue.includes(k) ? "boosted" : undefined}>
-              <dt>{LABELS[k]}</dt>
-              <dd>{unit.displayed[k]}</dd>
-            </div>
-          ))}
-        </dl>
+        <div className="vcard-right">
+          <dl className="vcard-stats">
+            {STATS.map((k) => (
+              <div key={k} className={unit.blue.includes(k) ? "boosted" : undefined}>
+                <dt>{LABELS[k]}</dt>
+                <dd>{unit.displayed[k]}</dd>
+              </div>
+            ))}
+          </dl>
+          <div className="vcard-abilities">
+            {abilities.map((ab, i) => (
+              <span key={`${ab}-${i}`} role="img" aria-label={ab} title={ab}>
+                <AbilityIcon name={ab} />
+              </span>
+            ))}
+          </div>
+        </div>
       </div>
       <ul className="vcard-list">
         {cardSlots(gear).map((slot, i) => {
