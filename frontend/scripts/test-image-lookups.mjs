@@ -256,12 +256,12 @@ test("a unit with no known affiliation gets its army's banner", async () => {
   assert.equal(mod.affiliationBanner(undefined), null);
 });
 
-test("Jeralt as a Paladin rides in his own sprite, with his own head", async () => {
+test("Jeralt as a Paladin rides in his own sprite, with his own head, framed as mounted", async () => {
   globalThis.fallbackFixture = { React };
   const { spriteLayers } = await moduleWithStubs("../src/components/battle/mapIcons.tsx", "const spoilerShown = () => false;", compileTsx);
   const index = {
     armies: ["player", "enemy", "ally", "third"], classes: { 51: { m: 33 } }, characters: { 35: 105 }, mounted: [33],
     heads: { characters: {}, m: 0, f: 1 }, class_heads: { 51: { m: 169 } }, character_classes: { 35: { 51: 116 } },
   };
-  assert.deepEqual(spriteLayers(index, { classId: 51, female: false, side: "ally", character: 35 }, true), { row: 116, head: null, mounted: false });
+  assert.deepEqual(spriteLayers(index, { classId: 51, female: false, side: "ally", character: 35 }, true), { row: 116, head: null, mounted: true });
 });
