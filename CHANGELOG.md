@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.4.6 (2026-11-13)
+
 - A unit's run score is now its damage dealt plus healing done, averaged over the completed battles it was deployed in. Battles where it was only an adjutant don't count, and battle MVPs no longer add points. The Character Stats total for Score is left blank, since averages don't add up.
 
 ## 1.4.5 (2026-11-13)
