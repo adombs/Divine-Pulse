@@ -19,14 +19,14 @@ from ..application.operations import (
     RunNameTaken,
     UnitMissing,
 )
-from .inputs import DeadIn, DuplicatesResolveIn, RestoreIn, EbstIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
+from .inputs import DeadIn, DuplicatesResolveIn, RestoreIn, EbstIn, RulesetIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
 from ..domain.ebst import EbstConfig
 from ..domain.runs import RunSummary
-from ..domain.runs import Run
+from ..domain.runs import Rule, Run
 from ..domain.battle import Battle
 from pydantic import ValidationError
 from .responses import UnitOut
-from .responses import RunsOut, battle_out
+from .responses import RulesetOut, RunsOut, battle_out
 from .runtime import RuntimeView, runtime_for
 
 router = APIRouter(prefix="/api")
@@ -170,6 +170,17 @@ def set_run_ebst(run_id: str, body: EbstIn, request: Request) -> EbstConfig:
         run_id,
         body.model_dump(exclude_none=True),
     )
+
+
+@router.get("/runs/{run_id}/ruleset")
+def get_run_ruleset(run_id: str, request: Request) -> RulesetOut:
+    return RulesetOut(rules=_call(_state(request).operations.get_ruleset, run_id))
+
+
+@router.put("/runs/{run_id}/ruleset")
+def set_run_ruleset(run_id: str, body: RulesetIn, request: Request) -> RulesetOut:
+    rules = [Rule(name=rule.name, description=rule.description) for rule in body.rules]
+    return RulesetOut(rules=_call(_state(request).operations.set_ruleset, run_id, rules))
 
 
 @router.get("/runs/{run_id}/units")

@@ -1,4 +1,5 @@
 import type { EbstConfig } from "./ebst";
+import type { Rule } from "./ruleset";
 import type { SkillKey } from "./reference/types";
 
 export const STAT_KEYS = ["str", "mag", "dex", "spd", "lck", "def", "res", "cha"] as const;
@@ -579,6 +580,10 @@ export const api = {
   renameRun: (id: string, name: string) => request<void>("PATCH", `/runs/${enc(id)}`, { name }),
   deleteRun: (id: string) => request<void>("DELETE", `/runs/${enc(id)}`),
   activateRun: (id: string) => request<void>("POST", `/runs/${enc(id)}/activate`),
+
+  /** The run's self-imposed rules, in order; saving replaces them all. */
+  ruleset: (runId: string) => request<{ rules: Rule[] }>("GET", `/runs/${enc(runId)}/ruleset`),
+  setRuleset: (runId: string, rules: Rule[]) => request<{ rules: Rule[] }>("PUT", `/runs/${enc(runId)}/ruleset`, { rules }),
 
   units: (runId: string) => request<Unit[]>("GET", `/runs/${enc(runId)}/units`),
   /** Change a unit's offense / defense type or which other stats count. */

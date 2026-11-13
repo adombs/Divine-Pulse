@@ -5,7 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from ..domain.battle import Battle, BattleUnitStats
-from ..domain.runs import RunSummary
+from ..domain.runs import Rule, RunSummary
 from ..domain.membership import on_roster
 from ..domain.units import Unit, VALUE_KEYS
 from ..domain.ebst import EbstConfig
@@ -15,6 +15,10 @@ from ..domain.outlook import outlook
 class RunsOut(BaseModel):
     runs: list[RunSummary]
     active_run_id: str | None
+
+
+class RulesetOut(BaseModel):
+    rules: list[Rule]
 
 
 class BattleUnitOut(BattleUnitStats):

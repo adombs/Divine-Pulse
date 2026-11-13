@@ -13,7 +13,7 @@ from uuid import uuid4
 from ..domain import deaths, duplicates
 from ..domain.text import normalize
 from ..domain.ebst import EbstConfig
-from ..domain.runs import Run, RunSummary
+from ..domain.runs import Rule, Run, RunSummary
 from ..domain.membership import on_roster
 from ..domain.units import Unit
 from .death_links import relink_deaths
@@ -159,6 +159,20 @@ class BackendOperations:
             raise RunMissing from exc
         self.events.publish("units_changed", {"run_id": run_id})
         return config
+
+    def get_ruleset(self, run_id: str) -> list[Rule]:
+        try:
+            return self.runs.get(run_id).ruleset
+        except MissingRecord as exc:
+            raise RunMissing from exc
+
+    def set_ruleset(self, run_id: str, rules: list[Rule]) -> list[Rule]:
+        try:
+            saved = self.runs.set_ruleset(run_id, rules)
+        except MissingRecord as exc:
+            raise RunMissing from exc
+        self.events.publish("runs_changed")
+        return saved
 
     def list_units(self, run_id: str) -> list[tuple[str, Unit]]:
         try:

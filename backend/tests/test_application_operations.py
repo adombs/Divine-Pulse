@@ -65,6 +65,12 @@ class MemoryRuns:
         run.ebst_default = config
         self.values[run_id] = run
 
+    def set_ruleset(self, run_id, rules):
+        run = self.get(run_id)
+        run.ruleset = list(rules)
+        self.values[run_id] = run
+        return list(rules)
+
     def delete_unit(self, run_id, key):
         run = self.get(run_id)
         if key not in run.units:

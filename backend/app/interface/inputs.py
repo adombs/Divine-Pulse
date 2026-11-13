@@ -13,6 +13,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validat
 from ..domain.text import clean_text
 from ..domain.settings import DuplicateBattles, MemoryReader, WindowMode
 from ..domain.ebst import OTHER_KEYS, EbstType, ordered_others
+from ..domain.runs import MAX_RULES, RULE_DESCRIPTION_LEN, RULE_NAME_LEN
 
 
 def _text(max_len: int, *, required: bool = True, what: str = "This"):
@@ -43,6 +44,17 @@ class GameDumpIn(Body):
 
 class RunName(Body):
     name: _text(60, what="Run name")  # type: ignore[valid-type]
+
+
+class RuleIn(Body):
+    name: _text(RULE_NAME_LEN, what="A rule's name")  # type: ignore[valid-type]
+    description: _text(RULE_DESCRIPTION_LEN, required=False, what="A rule's description") = ""  # type: ignore[valid-type]
+
+
+class RulesetIn(Body):
+    """The run's rules, all of them, in order (replacing what was there)."""
+
+    rules: list[RuleIn] = Field(max_length=MAX_RULES)
 
 
 class DuplicatesResolveIn(Body):

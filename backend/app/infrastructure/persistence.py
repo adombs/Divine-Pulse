@@ -17,7 +17,7 @@ from ..domain.ebst import EbstConfig
 from ..domain.runs import MAIN_SCENARIOS, BestUnit, ChapterRef, RunSummary
 from ..domain.membership import on_roster
 from ..domain.units import Unit, byleth_look, now
-from ..domain.runs import Run
+from ..domain.runs import Rule, Run
 from .saved_models import Run as SavedRun, decode_battle, decode_battles
 import json
 from .route_inference import route_of
@@ -273,6 +273,15 @@ class RunStore:
                 unit.ebst_defense = config.defense
                 unit.ebst_stats = list(config.stats)
             self._save(run)
+
+    def set_ruleset(self, run_id: str, rules: list[Rule]) -> list[Rule]:
+        """Replace the run's rules, in one locked save."""
+        with self._lock:
+            run = self.get(run_id)
+            run.ruleset = [rule.model_copy() for rule in rules]
+            self._save(run)
+            return [rule.model_copy() for rule in run.ruleset]
+
 
 class BattleStore:
     """Finished battles, one JSON list per run in data/battles/<run id>.json (newest last)."""

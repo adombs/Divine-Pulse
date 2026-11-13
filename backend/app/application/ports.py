@@ -12,7 +12,7 @@ from pathlib import Path
 
 from ..domain.battle import Battle
 from ..domain.ebst import EbstConfig
-from ..domain.runs import Run, RunSummary
+from ..domain.runs import Rule, Run, RunSummary
 from ..domain.units import Unit
 
 
@@ -30,6 +30,7 @@ class RunRepository(Protocol):
     def put_unit(self, run_id: str, key: str, unit: Unit) -> None: ...
     def apply_units(self, run_id: str, units: Mapping[str, Unit | None]) -> None: ...
     def set_ebst(self, run_id: str, config: EbstConfig) -> None: ...
+    def set_ruleset(self, run_id: str, rules: list[Rule]) -> list[Rule]: ...
     def unit_scores(self, run_id: str) -> dict[str, int]: ...
 
 
