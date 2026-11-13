@@ -4,16 +4,15 @@
  * video (a page, the replay, or a crossfade between two). Nothing here touches the page, so it is tested on its own.
  */
 
-/** Where a picture goes in the video: before the replay, after it, or both. */
-export type Placement = "start" | "end" | "both";
+/** Where a picture goes in the video: before the replay or after it. */
+export type Placement = "start" | "end";
 export const PLACEMENTS: [Placement, string, string][] = [
   ["start", "Start", "Before the replay"],
   ["end", "End", "After the replay"],
-  ["both", "Both", "Before and after the replay"],
 ];
 
 /** The sides of the replay a placement puts a picture on. */
-export const sidesOf = (placement: Placement): ("start" | "end")[] => (placement === "both" ? ["start", "end"] : [placement]);
+export const sidesOf = (placement: Placement): ("start" | "end")[] => ([placement]);
 
 /** How long each team page stays on screen (ms). */
 export const PAGE_MS = 1000;

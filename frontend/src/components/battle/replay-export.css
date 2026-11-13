@@ -100,6 +100,10 @@
 .team-units-count small { margin-left: 0.3rem; color: var(--ink-soft); }
 .team-include-fallen { display: inline-flex; align-items: center; gap: 0.3rem; }
 .team-include-fallen small { color: var(--ink-soft); }
+.team-fallen-options { flex: none; display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 1.2rem; font-size: 0.88rem; }
+.team-fallen-options .team-include-fallen { white-space: nowrap; }
+.team-fallen-options .team-include-fallen small { margin-left: 0; }
+.team-units-count { white-space: nowrap; }
 .team-units-grid { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 1px; }
 
 /* The video's unit card (TeamVideoCard.tsx), compact: a header line (name and class across the whole width), a face beside
@@ -121,12 +125,9 @@
 .vcard-abilities { display: flex; justify-content: center; align-items: center; gap: 6px; min-width: 0; }
 .vcard-abilities > span { display: inline-grid; place-items: center; width: 22px; height: 22px; }
 .vcard-abilities img, .vcard-abilities svg { max-width: 22px; max-height: 22px; }
-.vcard-face {
-  position: relative; overflow: hidden; display: grid; place-items: center; border-radius: 3px;
-  background: var(--face-wash-blue); border: 1px solid var(--row-border); box-shadow: inset 0 -2px 0 var(--team-player);
-}
-.vcard-face .portrait { position: absolute; inset: 0; display: block; width: 100%; height: 100%; object-fit: cover; object-position: 50% 15%; border-radius: 0; background: none; box-shadow: none; }
-.vcard-face .team-face-sprite { box-shadow: none; }
+/* The face is Export Team's own (team-export.css): a round portrait on the blue face wash, or the sprite in its disc, each in the team ring. */
+.vcard-face { display: grid; place-items: center; }
+.vcard-face .portrait { background: var(--face-wash-blue); box-shadow: 0 0 0 2px var(--team-player); }
 .vcard-stats { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; margin: 0; }
 .vcard-stats div { display: grid; justify-items: center; align-content: center; gap: 0; padding: 1px 0; border-radius: 3px; background: var(--row); border: 1px solid var(--row-border); min-width: 0; }
 .vcard-stats dt { font: 600 22px/1 var(--display); color: var(--ink-soft); }
@@ -140,8 +141,9 @@
 .vcard-list img, .vcard-list svg { max-width: 22px; max-height: 22px; }
 .vcard-item { flex: 1 1 auto; min-width: 0; line-height: 1.1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .vcard-times { flex: none; margin-left: auto; font: 600 22px var(--nums); color: var(--amber); font-variant-numeric: tabular-nums; }
-.vcard-list .vcard-accessory { background: var(--amber-bg); }
-.vcard-list .vcard-battalion { background: color-mix(in srgb, var(--accent) 16%, var(--paper-2)); }
-.vcard-battalion .icon { color: var(--accent); }
+.vcard-list li.vcard-none { color: var(--ink-soft); font-style: italic; }
+.vcard-list li.vcard-none .vcard-glyph { opacity: 0.45; }
 .vcard.fallen .vcard-face .portrait, .vcard.fallen .team-face-sprite { filter: grayscale(1); }
-.vcard.fallen .vcard-name { color: var(--ink-soft); }
+.vcard.fallen { filter: saturate(0.35); }
+.vcard.fallen .vcard-name, .vcard.fallen .vcard-class, .vcard.fallen .vcard-stats dd, .vcard.fallen .vcard-stats dt { color: var(--ink-soft); }
+.vcard.fallen .vcard-list li, .vcard.fallen .vcard-abilities { opacity: 0.7; }

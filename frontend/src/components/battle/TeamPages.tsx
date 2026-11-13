@@ -1,6 +1,6 @@
 /**
  * Team pages for the video export (ReplayExport.tsx): the team's overview (a grid of the video's compact cards,
- * `VideoUnitCard`), as full frames shown before the replay, after it, or both, each for a second. The player picks how many
+ * `VideoUnitCard`), as full frames shown before the replay or after it, each for a second. The player picks how many
  * columns and rows a page has, or leaves either Auto: as many as keep the cards' smallest text legible in the frame
  * (exporting/teamPages.ts has the arithmetic). Pages flip until every unit picked is covered. The units, their order,
  * fallen units and faces follow Export Team's rules; each card lists what the unit used in the battle exported.
@@ -9,7 +9,7 @@ import "./replay-export.css";
 import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import type { Battle, RunRoute, Unit } from "../../api";
 import { plural } from "../../format";
-import { gambitUses, gearName, usageList, type CardGear } from "../../exporting/usageList";
+import { equippedAccessory, gambitUses, gearName, usageList, type CardGear } from "../../exporting/usageList";
 import { chunk, MAX_COLUMNS, MAX_ROWS, PLACEMENTS, planGrid, sidesOf, type Axis, type GridPlan, type Placement } from "../../exporting/teamPages";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
@@ -25,6 +25,8 @@ export interface TeamPagesOptions {
   order: OrderBy;
   /** Whether units that died are in the pages (greyed). */
   fallen: boolean;
+  /** Whether fallen units' cards are greyed out. */
+  markFallen: boolean;
   face: ExportFace;
   /** Cards across and down a page; null is Auto (as many as keep the text legible). */
   columns: Axis;
@@ -40,6 +42,7 @@ export const DEFAULT_TEAM_PAGES: TeamPagesOptions = {
   overviewAt: "start",
   order: "joined:asc",
   fallen: true,
+  markFallen: true,
   face: "portrait",
   columns: null,
   rows: null,
@@ -50,7 +53,8 @@ export const DEFAULT_TEAM_PAGES: TeamPagesOptions = {
 /** Team pages as saved, made safe to use (anything unknown falls back to its default; options this version no longer has, such as run statistics and the seconds a page stays, are dropped). */
 export function sanitizeTeamPages(saved: unknown): TeamPagesOptions {
   const s = (saved && typeof saved === "object" ? saved : {}) as Partial<Record<keyof TeamPagesOptions, unknown>>;
-  const placement = (v: unknown, fallback: Placement) => PLACEMENTS.find(([p]) => p === v)?.[0] ?? fallback;
+  // "both" was once a choice: it is now Start.
+  const placement = (v: unknown, fallback: Placement) => PLACEMENTS.find(([p]) => p === (v === "both" ? "start" : v))?.[0] ?? fallback;
   const axis = (v: unknown, max: number): Axis => (typeof v === "number" && Number.isInteger(v) && v >= 1 && v <= max ? v : null);
   const strings = (v: unknown): string[] => (Array.isArray(v) ? v.filter((k): k is string => typeof k === "string").slice(0, 500) : []);
   return {
@@ -58,6 +62,7 @@ export function sanitizeTeamPages(saved: unknown): TeamPagesOptions {
     overviewAt: placement(s.overviewAt, DEFAULT_TEAM_PAGES.overviewAt),
     order: s.order === "custom" || ORDER_BY.some(([id]) => id === s.order) ? (s.order as OrderBy) : DEFAULT_TEAM_PAGES.order,
     fallen: s.fallen !== false,
+    markFallen: s.markFallen !== false,
     face: FACES.some(([f]) => f === s.face) ? (s.face as ExportFace) : DEFAULT_TEAM_PAGES.face,
     columns: axis(s.columns, MAX_COLUMNS),
     rows: axis(s.rows, MAX_ROWS),
@@ -159,7 +164,7 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
       const b = battle.units.find((x) => x.key === u.key);
       out.set(u.key, {
         used: usageList(b?.usage, battle.log, u.key),
-        accessory: gearName(b?.accessory, u.accessory),
+        accessory: equippedAccessory(b?.inventory, b?.accessory, u.accessory),
         battalion: gearName(b?.battalion, u.battalion),
         gambits: gambitUses(b?.usage),
       });
@@ -211,7 +216,7 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
   const sides = sidesOf(team.overviewAt);
   const measure = enabled ? (
     <div ref={host} className="team-page-measure" aria-hidden>
-      {chosen.map((u) => <div key={u.key} className="vcard-natural"><VideoUnitCard unit={u} part2={part2} face={team.face} gear={gear.get(u.key) ?? EMPTY_GEAR} /></div>)}
+      {chosen.map((u) => <div key={u.key} className="vcard-natural"><VideoUnitCard unit={u} part2={part2} face={team.face} markFallen={team.markFallen} gear={gear.get(u.key) ?? EMPTY_GEAR} /></div>)}
     </div>
   ) : null;
   return {
@@ -224,12 +229,13 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
 }
 
 /** One page, at the frame's exact size: the title strip (the run, the picture, "2 / 4") over the grid of cards. */
-export function TeamPageView({ page, frame, run, part2, face, gear, ref }: {
+export function TeamPageView({ page, frame, run, part2, face, markFallen, gear, ref }: {
   page: TeamPage;
   frame: PageFrame;
   run: { name: string; route: RunRoute | null };
   part2: boolean;
   face: ExportFace;
+  markFallen: boolean;
   gear: Map<string, CardGear>;
   ref?: React.Ref<HTMLDivElement>;
 }) {
@@ -252,7 +258,7 @@ export function TeamPageView({ page, frame, run, part2, face, gear, ref }: {
               gridTemplateColumns: `repeat(${g.columns}, minmax(0, 1fr))`, gridTemplateRows: `repeat(${g.rows}, minmax(0, 1fr))`,
             }}
           >
-            {page.units.map((u) => <VideoUnitCard key={u.key} unit={u} part2={part2} face={face} gear={gear.get(u.key) ?? EMPTY_GEAR} />)}
+            {page.units.map((u) => <VideoUnitCard key={u.key} unit={u} part2={part2} face={face} markFallen={markFallen} gear={gear.get(u.key) ?? EMPTY_GEAR} />)}
           </div>
         </div>
       </div>
@@ -311,16 +317,22 @@ export function TeamPagesSection({ team, update, pages, units, part2 }: {
           </div>
           <div className="team-units-bar">
             <span className="team-units-count">Units <small>{pages.chosen.length} of {units.length}</small></span>
-            {fallenCount > 0 && (
-              <label className="team-include-fallen">
-                <input type="checkbox" checked={team.fallen} onChange={(e) => update({ fallen: e.target.checked })} />
-                Fallen <small>{fallenCount}</small>
-              </label>
-            )}
             <button type="button" className="checklist-clear" onClick={() => update({ left: team.left.length ? [] : units.map((u) => u.key) })}>
               {team.left.length ? "Select all" : "Select none"}
             </button>
           </div>
+          {fallenCount > 0 && (
+            <div className="team-fallen-options">
+              <label className="team-include-fallen">
+                <input type="checkbox" checked={team.fallen} onChange={(e) => update({ fallen: e.target.checked })} />
+                Include fallen units <small>{fallenCount}</small>
+              </label>
+              <label className="team-include-fallen">
+                <input type="checkbox" checked={team.markFallen} onChange={(e) => update({ markFallen: e.target.checked })} />
+                Mark fallen units
+              </label>
+            </div>
+          )}
           <div className="team-units-grid">
             <UnitSlots slots={pages.slots} byKey={pages.byKey} left={new Set(team.left)} includeFallen={team.fallen} part2={part2} columns={PICKER_COLUMNS} onToggle={toggle} onPlace={(placed) => update({ placed, order: "custom" })} />
           </div>

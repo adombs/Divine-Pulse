@@ -618,7 +618,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
         {pages.measure}
         {raster && (
           <div className="team-page-raster" aria-hidden>
-            <TeamPageView ref={rasterRef} page={raster} frame={frame} run={pageRun} part2={part2} face={team.face} gear={pages.gear} />
+            <TeamPageView ref={rasterRef} page={raster} frame={frame} run={pageRun} part2={part2} face={team.face} markFallen={team.markFallen} gear={pages.gear} />
           </div>
         )}
         <ScaledStage
@@ -667,7 +667,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
             />
             {layers.map(({ index, alpha }) => (
               <div key={index} className="team-page-layer" style={{ opacity: alpha }}>
-                <TeamPageView page={(parts[index] as { page: TeamPage }).page} frame={frame} run={pageRun} part2={part2} face={team.face} gear={pages.gear} />
+                <TeamPageView page={(parts[index] as { page: TeamPage }).page} frame={frame} run={pageRun} part2={part2} face={team.face} markFallen={team.markFallen} gear={pages.gear} />
               </div>
             ))}
         </ScaledStage>

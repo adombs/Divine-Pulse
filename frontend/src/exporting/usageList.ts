@@ -3,7 +3,7 @@
  * each unit used (`BattleUnit.usage`, read from the game's history: how many actions each weapon, spell, combat art
  * and gambit was in); the battle's log orders a tie. Pure, so it is tested on its own.
  */
-import type { LogEntry, Usage } from "../api";
+import type { InventoryItem, LogEntry, Usage } from "../api";
 
 /** A weapon, spell or combat art used in the battle, as a card lists it. */
 export interface UsedItem {
@@ -44,37 +44,55 @@ export function gambitUses(usage: readonly Usage[] | null | undefined): number |
   return total > 0 ? total : null;
 }
 
-/** What a unit's card lists below its face: what it used, then its accessory and battalion (with the gambit count). */
+/** What a unit's card lists below its face: what it used, then its equipped item and battalion (with the gambit count). */
 export interface CardGear {
   used: UsedItem[];
+  /** The one accessory it has equipped (never one it only carries). */
   accessory: string | null;
   battalion: string | null;
   /** Gambit uses in the battle, when the record has them. */
   gambits: number | null;
 }
 
-/** The text of a unit's accessory or battalion: the battle's own record when it has one, else the roster's; blank is none. */
+/** The text of a battalion: the battle's own record when it has one, else the roster's; blank is none. */
 export const gearName = (recorded: string | null | undefined, roster: string | null | undefined): string | null => (recorded ?? roster ?? "").trim() || null;
+
+/**
+ * The accessory a unit has EQUIPPED, never one it only carries. The battle's inventory marks it (`InventoryItem.equipped`,
+ * from game memory); without a mark the roster's accessory (the equipped one) stands, and the battle's own single
+ * `accessory` only when the unit carries at most one accessory, so it cannot be a carried spare.
+ */
+export function equippedAccessory(
+  inventory: readonly Pick<InventoryItem, "name" | "kind" | "equipped">[] | null | undefined,
+  recorded: string | null | undefined,
+  roster: string | null | undefined,
+): string | null {
+  const carried = (inventory ?? []).filter((it) => it.kind === "equipment");
+  const marked = carried.find((it) => it.equipped)?.name.trim();
+  if (marked) return marked;
+  const rostered = (roster ?? "").trim();
+  if (rostered) return rostered;
+  return carried.length <= 1 ? (recorded ?? "").trim() || null : null;
+}
 
 /** How many slots a card's list has (2 columns x 5 rows), whatever the unit has. */
 export const LIST_SLOTS = 10;
 
-/** One slot of a card's list. */
+/** One slot of a card's list. An item or battalion slot with no name is the placeholder ("No Equipment", "No Battalion"). */
 export type CardSlot =
   | { type: "used"; item: UsedItem }
   | { type: "more"; count: number }
-  | { type: "accessory"; name: string }
-  | { type: "battalion"; name: string; gambits: number | null }
+  | { type: "accessory"; name: string | null }
+  | { type: "battalion"; name: string | null; gambits: number | null }
   | { type: "empty" };
 
 /**
- * A card's list as exactly `slots` slots: what the unit used (most used first), then its accessory, then its battalion,
- * then empty slots. The accessory and battalion always get a slot when the unit has them, so what it used has the rest;
- * when that overflows, its last slot says how many more there are ("+N more", which counts the entry it replaces).
+ * A card's list as exactly `slots` slots. The bottom row is fixed: the equipped item on the left and the battalion on the
+ * right, always there (a placeholder when the unit has none). Every slot above holds what the unit used, the most used
+ * first; when that overflows, the last of them says how many more there are ("+N more", which counts the entry it replaces).
  */
 export function cardSlots(gear: CardGear, slots = LIST_SLOTS): CardSlot[] {
-  const reserved = (gear.accessory ? 1 : 0) + (gear.battalion ? 1 : 0);
-  const room = Math.max(0, slots - reserved);
+  const room = Math.max(0, slots - 2);
   const out: CardSlot[] = [];
   if (gear.used.length <= room) {
     for (const item of gear.used) out.push({ type: "used", item });
@@ -83,8 +101,8 @@ export function cardSlots(gear: CardGear, slots = LIST_SLOTS): CardSlot[] {
     for (const item of gear.used.slice(0, shown)) out.push({ type: "used", item });
     if (room > 0) out.push({ type: "more", count: gear.used.length - shown });
   }
-  if (gear.accessory) out.push({ type: "accessory", name: gear.accessory });
-  if (gear.battalion) out.push({ type: "battalion", name: gear.battalion, gambits: gear.gambits });
-  while (out.length < slots) out.push({ type: "empty" });
+  while (out.length < room) out.push({ type: "empty" });
+  out.push({ type: "accessory", name: gear.accessory });
+  out.push({ type: "battalion", name: gear.battalion, gambits: gear.battalion ? gear.gambits : null });
   return out.slice(0, slots);
 }

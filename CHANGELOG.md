@@ -5,7 +5,7 @@
 - Each unit now has a run score (1,000 points per battle MVP, plus damage dealt and healing done in completed battles). It shows on the Roster (a sortable Score column) and in the best unit's tooltip on the home page.
 - Character Stats shows each unit's run score.
 - Export Team shows each unit's score on its card and in a Score column of the run statistics image, and can order units by Score (Ascending) or Score (Descending).
-- Export Video can add the team overview before the replay, after it, or both: a grid of compact unit cards, each with a small face, the name and class, the stats, ability icons, and ten slots for the weapons, spells and combat arts the unit used in that battle with how many times, then its accessory and battalion. Choose the columns and rows per page, or leave them on Auto, each page on screen for a second.
+- Export Video can add the team overview before or after the replay: a grid of compact unit cards, each with a small face, the name and class, the stats, ability icons, and ten slots: the weapons, spells and combat arts the unit used in that battle with how many times, and a bottom row for its equipped item and battalion ("No Equipment" and "No Battalion" when it has none). Fallen units are greyed out unless you untick Mark fallen units. Choose the columns and rows per page, or leave them on Auto, each page on screen for a second.
 - Export Video's options are now in tabs (Format, Replay, Team, Music) so they fit without scrolling, and it remembers the tab you were on.
 - Character and Battle Stats show a relative bar in every column.
 - Character and Battle Stats show the run's Divine Pulse uses.
