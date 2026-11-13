@@ -1,7 +1,7 @@
 /**
  * A unit's card in the video's team overview, compact: a header line (name and class), under it a small face beside
  * the ten stats in a 5 x 2 grid with the abilities as a centred row of icons under them, and under both ten fixed slots (2 columns x 5 rows) listing what
- * the unit used in the battle (weapons, spells and combat arts, each with its count), the equipped item and the battalion in a fixed bottom row;
+ * the unit used in the battle (weapons, spells and combat arts, each with its count), the equipped item and the battalion in a fixed top row (tinted purple);
  * `cardSlots` (exporting/usageList.ts) fills them. Nothing else (the Export Team picture's LoadoutCard has the rest).
  * Every card is the same size, whatever the unit has, and keeps its own proportions: a taller grid cell leaves room around it, never inside it.
  */
@@ -10,12 +10,20 @@ import { LABELS, type Unit } from "../../api";
 import { tidyAbility } from "../../appearance";
 import { AbilityIcon, ItemIcon } from "../../reference/icons";
 import { cardSlots, type CardGear } from "../../exporting/usageList";
+import { GameImage } from "../GameImage";
 import { Icon } from "../Icon";
+import { useBattalion } from "../character/Battalion";
 import { GearIcon } from "./gameIcons";
 import { STATS, UnitFaceImage, type ExportFace } from "../TeamExport";
 
 /** The face's width and height at the card's natural size (px): about the height of the two rows of stats beside it. */
 export const FACE = 100;
+
+/** The battalion's own artwork (its import entry's icon), the generic battalion glyph when it has none. */
+function BattalionGlyph({ name, id }: { name: string | null; id?: number | null }) {
+  const entry = useBattalion(name, id);
+  return entry?.icon ? <GameImage imported={entry.icon} alt="" aria-hidden draggable={false} /> : <Icon name={CONCEPT_ICON.battalion} />;
+}
 
 export function VideoUnitCard({ unit, part2, face, markFallen, gear }: { unit: Unit; part2: boolean; face: ExportFace; markFallen: boolean; gear: CardGear }) {
   const abilities = [unit.personal_ability, ...unit.abilities].filter(Boolean).map(tidyAbility);
@@ -70,7 +78,7 @@ export function VideoUnitCard({ unit, part2, face, markFallen, gear }: { unit: U
             case "battalion":
               return (
                 <li key={i} className={slot.name ? "vcard-battalion" : "vcard-none"} title={slot.name ?? undefined}>
-                  <span className="vcard-glyph"><Icon name={CONCEPT_ICON.battalion} /></span>
+                  <span className="vcard-glyph">{slot.name ? <BattalionGlyph name={slot.name} id={gear.battalionId} /> : <Icon name={CONCEPT_ICON.battalion} />}</span>
                   <span className="vcard-item">{slot.name ?? "No Battalion"}</span>
                   {slot.gambits != null && <span className="vcard-times">×{slot.gambits}</span>}
                 </li>

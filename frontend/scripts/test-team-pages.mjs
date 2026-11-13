@@ -232,22 +232,22 @@ test("card slots: always exactly ten, whatever the unit has", () => {
   for (const g of [gearOf(0), gearOf(1), gearOf(10), gearOf(12, "Ring", "Corps"), gearOf(3, "Ring"), gearOf(40, "Ring", "Corps")]) assert.equal(cardSlots(g).length, 10);
 });
 
-test("card slots: the bottom row is the item then the battalion, always there", () => {
-  assert.deepEqual(types(gearOf(2, "Ring", "Corps")), ["used", "used", ...Array(6).fill("empty"), "accessory", "battalion"]);
-  assert.deepEqual(types(gearOf(0)), [...Array(8).fill("empty"), "accessory", "battalion"]);
-  assert.deepEqual(cardSlots(gearOf(0)).slice(8), [{ type: "accessory", name: null }, { type: "battalion", name: null, gambits: null }]);
-  assert.deepEqual(cardSlots(gearOf(1, null, "Seiros Magic Corps"))[9], { type: "battalion", name: "Seiros Magic Corps", gambits: 2 });
+test("card slots: the top row is the item then the battalion, always there", () => {
+  assert.deepEqual(types(gearOf(2, "Ring", "Corps")), ["accessory", "battalion", "used", "used", ...Array(6).fill("empty")]);
+  assert.deepEqual(types(gearOf(0)), ["accessory", "battalion", ...Array(8).fill("empty")]);
+  assert.deepEqual(cardSlots(gearOf(0)).slice(0, 2), [{ type: "accessory", name: null }, { type: "battalion", name: null, gambits: null }]);
+  assert.deepEqual(cardSlots(gearOf(1, null, "Seiros Magic Corps"))[1], { type: "battalion", name: "Seiros Magic Corps", gambits: 2 });
 });
 
 test("card slots: eight used fill the rows above", () => {
-  assert.deepEqual(types(gearOf(8, "Ring", "Corps")), [...Array(8).fill("used"), "accessory", "battalion"]);
+  assert.deepEqual(types(gearOf(8, "Ring", "Corps")), ["accessory", "battalion", ...Array(8).fill("used")]);
 });
 
 test("card slots: more than eight turns the eighth into '+N more' (counting the entry it replaces)", () => {
   const s = cardSlots(gearOf(10, "Ring", "Corps"));
-  assert.deepEqual(s.map((x) => x.type), [...Array(7).fill("used"), "more", "accessory", "battalion"]);
-  assert.deepEqual(s[7], { type: "more", count: 3 });
-  assert.deepEqual(s.slice(0, 7).map((x) => x.item.name), ["W0", "W1", "W2", "W3", "W4", "W5", "W6"]);
-  assert.deepEqual(cardSlots(gearOf(9))[7], { type: "more", count: 2 });
-  assert.deepEqual(cardSlots(gearOf(9, "Ring"))[8], { type: "accessory", name: "Ring" });
+  assert.deepEqual(s.map((x) => x.type), ["accessory", "battalion", ...Array(7).fill("used"), "more"]);
+  assert.deepEqual(s[9], { type: "more", count: 3 });
+  assert.deepEqual(s.slice(2, 9).map((x) => x.item.name), ["W0", "W1", "W2", "W3", "W4", "W5", "W6"]);
+  assert.deepEqual(cardSlots(gearOf(9))[9], { type: "more", count: 2 });
+  assert.deepEqual(cardSlots(gearOf(9, "Ring"))[0], { type: "accessory", name: "Ring" });
 });

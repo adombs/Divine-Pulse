@@ -166,6 +166,7 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
         used: usageList(b?.usage, battle.log, u.key),
         accessory: equippedAccessory(b?.inventory, b?.accessory, u.accessory),
         battalion: gearName(b?.battalion, u.battalion),
+        battalionId: b?.battalion ? b.battalion_id : u.battalion_id,
         gambits: gambitUses(b?.usage),
       });
     }

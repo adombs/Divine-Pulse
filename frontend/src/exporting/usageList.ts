@@ -50,6 +50,8 @@ export interface CardGear {
   /** The one accessory it has equipped (never one it only carries). */
   accessory: string | null;
   battalion: string | null;
+  /** The battalion's id, when the record has it (picks its artwork among same-named ones). */
+  battalionId?: number | null;
   /** Gambit uses in the battle, when the record has them. */
   gambits: number | null;
 }
@@ -87,13 +89,16 @@ export type CardSlot =
   | { type: "empty" };
 
 /**
- * A card's list as exactly `slots` slots. The bottom row is fixed: the equipped item on the left and the battalion on the
- * right, always there (a placeholder when the unit has none). Every slot above holds what the unit used, the most used
+ * A card's list as exactly `slots` slots. The top row is fixed: the equipped item on the left and the battalion on the
+ * right, always there (a placeholder when the unit has none). Every slot below holds what the unit used, the most used
  * first; when that overflows, the last of them says how many more there are ("+N more", which counts the entry it replaces).
  */
 export function cardSlots(gear: CardGear, slots = LIST_SLOTS): CardSlot[] {
   const room = Math.max(0, slots - 2);
-  const out: CardSlot[] = [];
+  const out: CardSlot[] = [
+    { type: "accessory", name: gear.accessory },
+    { type: "battalion", name: gear.battalion, gambits: gear.battalion ? gear.gambits : null },
+  ];
   if (gear.used.length <= room) {
     for (const item of gear.used) out.push({ type: "used", item });
   } else {
@@ -101,8 +106,6 @@ export function cardSlots(gear: CardGear, slots = LIST_SLOTS): CardSlot[] {
     for (const item of gear.used.slice(0, shown)) out.push({ type: "used", item });
     if (room > 0) out.push({ type: "more", count: gear.used.length - shown });
   }
-  while (out.length < room) out.push({ type: "empty" });
-  out.push({ type: "accessory", name: gear.accessory });
-  out.push({ type: "battalion", name: gear.battalion, gambits: gear.battalion ? gear.gambits : null });
+  while (out.length < slots) out.push({ type: "empty" });
   return out.slice(0, slots);
 }
