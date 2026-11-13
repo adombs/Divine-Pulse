@@ -17,6 +17,8 @@ import { IconButton } from "../Icon";
 import { BattleKindChip } from "./BattleList";
 import { battleName } from "./scenarios";
 import { Num, UsageList } from "./parts";
+import { unitScores } from "./runStatsLedger";
+import { SCORE_EXPLANATION } from "../../score";
 import type { CharacterStats } from "./stats";
 import "./run-card.css";
 import "../character/panels.css";
@@ -88,7 +90,9 @@ export function RunCharacterCard({ stats: c, face, backFace, className, female, 
 
 /** Totals and the average per battle side by side, one row per measure. */
 function CombatLedger({ c }: { c: CharacterStats }) {
+  const score = unitScores(c.appearances.map((a) => a.battle)).get(c.key) ?? 0;
   const rows: [string, number | null, string][] = [
+    ["Score", score, SCORE_EXPLANATION],
     ["Fights", c.fights, "fights they were in"],
     ["Kills", c.defeats, "units they killed"],
     ["Damage dealt", c.damage_dealt, "damage to other units"],

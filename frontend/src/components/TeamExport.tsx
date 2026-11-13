@@ -102,7 +102,7 @@ function readPerRow(): number {
   }
 }
 
-const STATS: ValueKey[] = ["hp", "str", "mag", "dex", "spd", "lck", "def", "res", "cha", "mv"];
+export const STATS: ValueKey[] = ["hp", "str", "mag", "dex", "spd", "lck", "def", "res", "cha", "mv"];
 /** The stats a base stat total adds up (all but movement). */
 const BST_STATS: ValueKey[] = ["hp", "str", "mag", "dex", "spd", "lck", "def", "res", "cha"];
 
@@ -660,7 +660,7 @@ export function packWithin(heights: number[], titles: boolean[], maxColumns: num
  * no sprite (the game's sprites aren't imported, or none fits) keeps its portrait: an exported image should never carry
  * a "missing" mark.
  */
-function UnitFaceImage({ unit, part2, size, face }: { unit: Unit; part2: boolean; size: number; face: ExportFace }) {
+export function UnitFaceImage({ unit, part2, size, face }: { unit: Unit; part2: boolean; size: number; face: ExportFace }) {
   const sprite = useMemo(() => unitSprite(unit), [unit]);
   const has = useHasSprite(sprite);
   if (!has || face === "portrait") return <Portrait unit={unit} part2={part2} size={size} />;

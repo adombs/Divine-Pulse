@@ -19,7 +19,7 @@ const vite = await createServer({
   } }],
 });
 try {
-const { buildRunLedger, selectLedgerRows } = await vite.ssrLoadModule("/src/components/battle/runStatsLedger.ts");
+const { buildRunLedger, selectLedgerRows, unitScores } = await vite.ssrLoadModule("/src/components/battle/runStatsLedger.ts");
 const { AWARDS } = await vite.ssrLoadModule("/src/components/battle/moreStats.ts");
 const unit = (key, overrides = {}) => ({ key, name: `Test ${key}`, class_name: "Synthetic Class", start_level: 1, level: 2,
   start: { hp: 20 }, now: { hp: 21 }, on_map: true, combats: 2, defeats: 1, damage_dealt: 12, damage_taken: 3,
@@ -45,7 +45,7 @@ await t.test("search and sorting never recompute the entire-run totals", () => {
   assert.deepEqual(selectLedgerRows(data.rows, "combat", " beta archer ", null).map((r) => r.id), ["beta"]);
   assert.equal(selectLedgerRows(data.rows, "combat", "no match", null).length, 0);
   assert.deepEqual(data.totals, before);
-  assert.equal(data.totals.combat[3], 24);
+  assert.equal(data.totals.combat[4], 24);
 });
 
 await t.test("character rows use the latest recorded native sprite identity", () => {
@@ -114,9 +114,9 @@ await t.test("a battle's type is read from its scenario id: five kinds, named th
 
 await t.test("unknown observations remain distinct from zero and sort last both ways", () => {
   const data = buildRunLedger([battle("1", { units: [unit("unknown", { damage_dealt: null }), unit("zero", { damage_dealt: 0 }), unit("known", { damage_dealt: 14 })] })], "characters");
-  assert.equal(data.totals.combat[3], 14); // what was recorded
+  assert.equal(data.totals.combat[4], 14); // what was recorded
   for (const [direction, expected] of [["ascending", ["zero", "known", "unknown"]], ["descending", ["known", "zero", "unknown"]]]) {
-    assert.deepEqual(selectLedgerRows(data.rows, "combat", "", { column: 3, direction }).map((r) => r.id), expected);
+    assert.deepEqual(selectLedgerRows(data.rows, "combat", "", { column: 4, direction }).map((r) => r.id), expected);
   }
 });
 
@@ -170,6 +170,28 @@ await t.test("battle comparison shows type tags beside dates using History's sha
     assert.match(html, new RegExp(`class="run-stats-row-meta"><span>[^<]+</span><span class="run-stats-kind">${label}</span>`));
   }
   assert.doesNotMatch(html, /Select a column to compare|run-stats-footnote|Battle comparison/);
+});
+
+await t.test("run score: 1,000 per shared MVP plus damage and healing, finished battles only", () => {
+  const u = (key, defeats, damage_dealt, healing_given) => unit(key, { defeats, damage_dealt, healing_given });
+  const source = [
+    battle("1", { units: [u("a", 3, 10, 5), u("b", 3, 20, 0), u("c", 1, 0, 7)] }),
+    battle("2", { units: [u("a", 0, 4, 1), u("b", 0, 0, 0)] }),
+    battle("3", { units: [u("a", 9, 999, 999)], ended_at: null, active: true }),
+    battle("4", { units: [u("a", 1, 0, 0), u("b", 2, 1, 1)] }),
+  ];
+  const scores = unitScores(source);
+  assert.equal(scores.get("a"), 1020);
+  assert.equal(scores.get("b"), 2022);
+  assert.equal(scores.get("c"), 7);
+  const data = buildRunLedger(source, "characters");
+  assert.equal(data.columns.combat[0].key, "score");
+  assert.match(data.columns.combat[0].hint, /MVP/);
+  const row = data.rows.find((r) => r.id === "b");
+  assert.equal(row.values.combat[0], 2022);
+  assert.equal(data.totals.combat[0], 1020 + 2022 + 7);
+  assert.deepEqual(selectLedgerRows(data.rows, "combat", "", { column: 0, direction: "descending" }).map((r) => r.id), ["b", "a", "c"]);
+  assert.equal(buildRunLedger(source, "battles").columns.combat.some((c) => c.key === "score"), false);
 });
 
 await t.test("loading, empty and error states provide a named status or recovery", async () => {

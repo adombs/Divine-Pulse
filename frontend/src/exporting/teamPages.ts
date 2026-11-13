@@ -1,6 +1,6 @@
 /**
  * The pure arithmetic of the video's team pages (components/battle/TeamPages.tsx): how big a page's content is drawn so it
- * stays legible, how many cards or rows a page holds, which pages come where, and what is on screen at a moment of the
+ * stays legible, how many cards a page holds, which pages come where, and what is on screen at a moment of the
  * video (a page, the replay, or a crossfade between two). Nothing here touches the page, so it is tested on its own.
  */
 
@@ -15,12 +15,12 @@ export const PLACEMENTS: [Placement, string, string][] = [
 /** The sides of the replay a placement puts a picture on. */
 export const sidesOf = (placement: Placement): ("start" | "end")[] => (placement === "both" ? ["start", "end"] : [placement]);
 
-/** How long each page stays (seconds): the least, the most and the usual. */
-export const PAGE_SECONDS = { min: 2, max: 10, usual: 4 } as const;
-/** How long the crossfade between two scenes lasts (ms), half either side of the cut. */
-export const FADE_MS = 400;
-/** The smallest body text is drawn at least this share of the frame's height (about 26 px in a 1080p frame). */
-export const LEGIBLE_FRACTION = 0.024;
+/** How long each team page stays on screen (ms). */
+export const PAGE_MS = 1000;
+/** How long the crossfade between two scenes lasts (ms), half either side of the cut; well inside a page's second. */
+export const FADE_MS = 200;
+/** The smallest body text is drawn at least this share of the frame's height (about 22 px in a 1080p frame). */
+export const LEGIBLE_FRACTION = 0.02;
 
 /** How many times bigger than natural text of `minText` px must be drawn to be `LEGIBLE_FRACTION` of the frame's height. */
 export const legibleScale = (minText: number, frameHeight: number): number => (minText > 0 ? (frameHeight * LEGIBLE_FRACTION) / minText : 1);
@@ -60,36 +60,6 @@ export function chunk<T>(items: readonly T[], size: number): T[][] {
   return out;
 }
 
-/**
- * Splits table rows over pages: each page repeats the header (`headHeight`) and holds rows while they fit `capacity`
- * (all px at the table's own size); the totals (`footHeight`) are on the last page, which gives up its last rows (about
- * half of them) to a page of its own if they would not fit. A page always has a row. Returns the row indexes of each page.
- */
-export function paginateRows(rowHeights: readonly number[], capacity: number, headHeight: number, footHeight: number): number[][] {
-  if (!rowHeights.length) return [];
-  const pages: number[][] = [[]];
-  let used = headHeight;
-  rowHeights.forEach((h, i) => {
-    const page = pages[pages.length - 1];
-    if (page.length && used + h > capacity) {
-      pages.push([]);
-      used = headHeight;
-    }
-    pages[pages.length - 1].push(i);
-    used += h;
-  });
-  const last = pages[pages.length - 1];
-  if (last.length > 1 && used + footHeight > capacity) {
-    // The totals don't fit under the last rows: the second half of them go to a page of their own, with the totals
-    // (fewer if that is all that fits), rather than one row alone.
-    let take = Math.ceil(last.length / 2);
-    const fits = (n: number) => headHeight + last.slice(-n).reduce((sum, i) => sum + rowHeights[i], 0) + footHeight <= capacity;
-    while (take > 1 && !fits(take)) take--;
-    pages.push(last.splice(-take));
-  }
-  return pages;
-}
-
 /** A way to lay a loadout card out: how many columns it packs into, and how big that makes it (px, natural size). */
 export interface CardLayout {
   columns: number;
@@ -114,63 +84,6 @@ export function chooseCardLayout<L extends CardLayout>(layouts: readonly L[], o:
   return options
     .filter((x) => x.scale >= best * 0.98)
     .sort((a, b) => b.perPage - a.perPage || b.layout.w - a.layout.w || a.layout.columns - b.layout.columns)[0];
-}
-
-/** A table column's id and its natural width (px). */
-export interface PlanColumn {
-  id: string;
-  w: number;
-}
-/** Columns that belong together (Combat; Growth; the Score with the top records), in the order their pages come. */
-export interface ColumnGroup {
-  id: string;
-  columns: PlanColumn[];
-}
-
-/**
- * Splits a statistics table's columns over pages that each draw the unit beside (`unitW` px) and at most `maxW` px in
- * all, so the table can be drawn big enough to read. A group is kept whole on a page where it fits (and shares it
- * with the next group if that fits too); a group too wide for one page is split into as few, as even, pages as it takes.
- * A page has at least one column, however wide. Returns the column ids of each page, in order.
- */
-export function planColumns(groups: readonly ColumnGroup[], unitW: number, maxW: number): string[][] {
-  const room = Math.max(1, maxW - unitW);
-  const width = (cols: readonly PlanColumn[]) => cols.reduce((n, c) => n + c.w, 0);
-  const pages: PlanColumn[][] = [];
-  let current: PlanColumn[] = [];
-  const flush = () => {
-    if (current.length) pages.push(current);
-    current = [];
-  };
-  for (const group of groups) {
-    if (!group.columns.length) continue;
-    if (width(current) + width(group.columns) <= room) {
-      current = [...current, ...group.columns];
-      continue;
-    }
-    flush();
-    if (width(group.columns) <= room) {
-      current = [...group.columns];
-      continue;
-    }
-    // Too wide for a page of its own: fill the fewest pages, as evenly as the columns allow.
-    const total = width(group.columns);
-    const pagesNeeded = Math.max(2, Math.ceil(total / room));
-    for (let limit = Math.max(total / pagesNeeded, ...group.columns.map((c) => c.w)); ; limit += 2) {
-      const split: PlanColumn[][] = [[]];
-      for (const c of group.columns) {
-        const page = split[split.length - 1];
-        if (page.length && width(page) + c.w > Math.min(limit, room)) split.push([c]);
-        else page.push(c);
-      }
-      if (split.length <= pagesNeeded || limit >= room) {
-        pages.push(...split);
-        break;
-      }
-    }
-  }
-  flush();
-  return pages.map((p) => p.map((c) => c.id));
 }
 
 /** A stretch of the video: what it is and how long it lasts (ms). */

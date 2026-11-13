@@ -3,8 +3,12 @@
 ## Unreleased
 
 - Each unit now has a run score (1,000 points per battle MVP, plus damage dealt and healing done in completed battles). It shows on the Roster (a sortable Score column) and in the best unit's tooltip on the home page.
+- Character Stats shows each unit's run score.
 - Export Team shows each unit's score on its card and in a Score column of the run statistics image, and can order units by Score (Ascending) or Score (Descending).
-- Export Video can add Team pages before the replay, after it, or both: the team overview (a column of unit cards, as many to a page as stay legible) and the run statistics, with the units, their order and faces picked as in Export Team, 2 to 10 seconds a page and a short crossfade between pages and the replay.
+- Export Video can add the team overview before the replay, after it, or both: a single list of compact unit cards (face, name, class, stats, the weapon or spell the unit used most in that battle, accessory, battalion and ability icons), at least three to a page, each page on screen for a second.
+- Export Video's options are now in tabs (Format, Replay, Team, Music) so they fit without scrolling, and it remembers the tab you were on.
+- Export Video's music can be your own audio file (MP3, M4A, OGG, WAV, FLAC): it loops if shorter than the video and fades out at the end if longer.
+- Battle unit lists drop the army dot beside each name; the face's colour already shows the army.
 
 ## 1.4.4 (2026-11-12)
 

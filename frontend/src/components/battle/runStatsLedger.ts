@@ -2,6 +2,7 @@
 import type { Battle } from "../../api";
 import { armyTotals, partialSum, recordedSum, statGains } from "./model";
 import { AWARDS } from "./moreStats";
+import { SCORE_EXPLANATION } from "../../score";
 import { armySprite } from "./map";
 import type { Sprite } from "./mapIcons";
 import { battleName, type Kind } from "./scenarios";
@@ -19,12 +20,31 @@ export interface LedgerRow {
 export interface LedgerSort { column: number; direction: "ascending" | "descending" }
 const metric = (key: string, label: string, hint?: string): LedgerColumn => ({ key, label, hint });
 
+const MVP_POINTS = 1000;
+
+/** Each unit's run score, as the backend's domain/best_unit.py works it out: over finished battles only, 1,000 per battle
+ *  MVP (everyone whose defeats equal the battle's maximum, which must be at least 1, so ties are shared) plus damage
+ *  dealt and healing given. */
+export function unitScores(source: Battle[]): Map<string, number> {
+  const scores = new Map<string, number>();
+  for (const b of source) {
+    if (!b.ended_at) continue;
+    const most = b.units.reduce((m, u) => Math.max(m, u.defeats ?? 0), 0);
+    for (const u of b.units) {
+      const mvp = most > 0 && (u.defeats ?? 0) === most ? MVP_POINTS : 0;
+      scores.set(u.key, (scores.get(u.key) ?? 0) + mvp + (u.damage_dealt ?? 0) + (u.healing_given ?? 0));
+    }
+  }
+  return scores;
+}
+
 export function buildRunLedger(source: Battle[], kind: LedgerKind) {
   const battles = runBattles(source);
   const items = timelines(battles);
   const characters = characterStats(battles, items);
   const run = runStats(battles, characters, items);
   const awards = runAwards(source);
+  const scores = unitScores(battles);
   const rows: LedgerRow[] = kind === "battles" ? battles.map((b) => {
     const t = armyTotals(b);
     const identity = battleName(b);
@@ -35,11 +55,12 @@ export function buildRunLedger(source: Battle[], kind: LedgerKind) {
       } };
   }) : characters.map((c) => ({ id: c.key, name: c.name, note: `${c.class_name} · Lv ${c.level}`, live: false,
     sprite: armySprite(c.appearances[0].unit),
-    values: { combat: [c.battles, c.fights, c.defeats, c.damage_dealt, c.damage_taken, c.healing_given, c.healed, c.tiles_moved],
+    values: { combat: [scores.get(c.key) ?? 0, c.battles, c.fights, c.defeats, c.damage_dealt, c.damage_taken, c.healing_given, c.healed, c.tiles_moved],
       growth: [c.level_ups, c.stat_points, c.weapon_uses, c.spells_cast, c.item_uses],
       records: AWARDS.map((a) => "battleWide" in a ? null : awards.characters.get(c.key)?.[a.key] ?? 0) } }));
   const columns: Record<LedgerPart, LedgerColumn[]> = {
-    combat: [kind === "battles" ? metric("seconds", "Time") : metric("battles", "Battles", "Battles this character appeared in; the total counts all character appearances"),
+    combat: [...(kind === "characters" ? [metric("score", "Score", SCORE_EXPLANATION)] : []),
+      kind === "battles" ? metric("seconds", "Time") : metric("battles", "Battles", "Battles this character appeared in; the total counts all character appearances"),
       ...(kind === "battles" ? [metric("turns", "Turns")] : []),
       metric("fights", "Fights", "Each character’s participation, from battle counters when read, otherwise recorded actions"),
       metric("kills", "Kills"), metric("dealt", "Dealt", "Damage dealt"), metric("taken", "Taken", "Damage taken"), metric("healing", "Healing", "Healing given"),
@@ -54,7 +75,7 @@ export function buildRunLedger(source: Battle[], kind: LedgerKind) {
     healing: partialSum(battles.flatMap((b) => b.units.map((u) => u.healing_given))), tiles: partialSum(battles.flatMap((b) => b.units.map((u) => u.tiles_moved))) };
   const totals: Record<LedgerPart, (number | null)[]> = {
     combat: kind === "battles" ? [run.seconds, run.turns, run.fights, run.defeats, sums.dealt.value, sums.taken.value, sums.healing.value, sums.tiles.value]
-      : [characters.reduce((n, c) => n + c.battles, 0), run.fights, run.defeats, sums.dealt.value, sums.taken.value, sums.healing.value, recordedSum(characters.map((c) => c.healed)), sums.tiles.value],
+      : [[...scores.values()].reduce((n, v) => n + v, 0), characters.reduce((n, c) => n + c.battles, 0), run.fights, run.defeats, sums.dealt.value, sums.taken.value, sums.healing.value, recordedSum(characters.map((c) => c.healed)), sums.tiles.value],
     growth: [run.level_ups, run.stat_points, run.weapon_uses, run.spells_cast, run.item_uses, ...(kind === "battles" ? [run.divine_pulses] : [])],
     records: AWARDS.map((a) => awards.totals[a.key]),
   };

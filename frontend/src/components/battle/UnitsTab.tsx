@@ -16,7 +16,7 @@ import { countsForRun } from "./rosterRule";
 import { armyId, enemies, enemyId, hpShare, Item, tally } from "./model";
 import { WeaponIcon } from "./gameIcons";
 import { battleWeapon } from "./unitAppearance";
-import { HouseMark, Num, UnitFace, useBattleNav } from "./parts";
+import { HouseMark, Num, UnitFace } from "./parts";
 import { enemyStatus, UnitDetail } from "./UnitPopup";
 import { HpBar } from "./HpBar";
 import { deathText } from "../../deaths";
@@ -71,7 +71,6 @@ interface Props {
 }
 
 export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: Props) {
-  const nav = useBattleNav();
   const risks = new Map((battle.outlook?.at_risk ?? []).map((r) => [r.key, r]));
   const [sides, setSides] = useState<Team[]>([]);
   const [states, setStates] = useState<State[]>([]);
@@ -230,7 +229,6 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
                   </td>
                   <td className="left">
                     <span className="status-cell">
-                      {(r.team === "player" ? nav.mapLook?.myFaces : nav.mapLook?.otherFaces) === "sprites" && <TeamTag team={r.team} />}
                       <Flags flags={r.flags} />
                     </span>
                   </td>

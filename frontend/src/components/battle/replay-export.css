@@ -74,8 +74,6 @@
 .team-page-body { grid-area: body; display: flex; justify-content: center; align-items: flex-start; min-width: 0; min-height: 0; overflow: hidden; }
 .team-page-fit { flex: none; }
 .team-page-content { display: grid; gap: 14px; align-content: start; }
-.team-page-content.team-page-cards .team-card { width: 100%; box-sizing: border-box; }
-.team-page-content.team-page-table .team-stats { width: 100%; }
 /* In the preview a page lies over the replay's frame (faded in or out for a crossfade). */
 .team-page-layer { position: absolute; inset: 0; z-index: 10; pointer-events: none; }
 /* Hidden copies, laid out but off screen: one of every card and of the table, to measure the pages from, and the page being drawn for the video. */
@@ -83,33 +81,56 @@
 .team-page-measure { width: max-content; visibility: hidden; display: grid; gap: 24px; justify-items: start; color: var(--ink); font: 1rem/1.4 var(--text); }
 .team-page-measure-cards { display: grid; gap: 14px; justify-items: start; }
 
-/* The Team pages group of the video options: two pictures, each with where it goes, then the pages' pace and units. */
+/* The Team tab of the video options: whether the overview is in, where, then which units in what order. The unit grid is the
+   one thing that scrolls (inside itself) when a long roster doesn't fit. */
+.team-tab { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.5rem; }
 .team-pages-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.25rem 0.6rem; }
 .team-pages-choice label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.92rem; cursor: pointer; }
-.team-pages-choice input { margin: 0; accent-color: var(--accent); }
+.team-pages-choice input, .team-include-fallen input { margin: 0; accent-color: var(--accent); }
 .team-pages-choice .segmented { width: auto; }
 .team-pages-choice .segmented button { flex: none; padding-inline: 0.55rem; }
-.team-pages-count { grid-column: 1 / -1; margin-top: -0.1rem; padding-left: 1.4rem; color: var(--ink-soft); font-size: 0.82rem; }
-.team-pages-note { margin: 0; padding: 0.35rem 0.55rem; border-left: 3px solid var(--amber); background: var(--row); font-size: 0.85rem; color: var(--ink-soft); }
-.team-pages-units { border-top: 1px solid var(--row-border); padding-top: 0.45rem; }
-.team-pages-units summary { cursor: pointer; font-size: 0.92rem; }
-.team-pages-units summary small { margin-left: 0.4rem; color: var(--ink-soft); }
-.team-pages-units-body { display: grid; gap: 0.5rem; padding-top: 0.5rem; }
-.team-pages-units-body .team-order-by { margin-bottom: 0; }
-.team-pages-units-body .team-order { max-height: 15rem; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 1px; }
-.team-pages-units-body .team-include-fallen { display: flex; align-items: center; gap: 0.4rem; font-size: 0.88rem; }
+.team-pages-count { grid-column: 1 / -1; padding-left: 1.4rem; color: var(--ink-soft); font-size: 0.82rem; }
+.team-pages-note { margin: 0; padding: 0.35rem 0.55rem; border-radius: 3px; background: var(--row); font-size: 0.85rem; color: var(--ink-soft); }
+.team-pages-units { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; gap: 0.45rem; border-top: 1px solid var(--row-border); padding-top: 0.5rem; }
+.team-units-bar { flex: none; display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; font-size: 0.88rem; }
+.team-units-bar .team-order-by { margin: 0; display: flex; align-items: center; gap: 0.4rem; }
+.team-units-bar select { min-width: 0; }
+.team-units-count small { margin-left: 0.3rem; color: var(--ink-soft); }
+.team-include-fallen { display: inline-flex; align-items: center; gap: 0.3rem; }
+.team-include-fallen small { color: var(--ink-soft); }
+.team-units-grid { flex: 1 1 auto; min-height: 0; overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; padding: 1px; }
 
-/* The statistics table in a video page (StatsTable `compact`): drawn many times larger than on the sheet, so it gives up
-   what costs width: tighter cells, headings that wrap onto two lines, records one under another. */
-.team-stats.compact th, .team-stats.compact td { padding: 6px 5px; }
-.team-stats.compact .team-records { flex-wrap: nowrap; }
-.team-stats.compact thead th:not(.team-stats-unit) { width: 1px; }
-.team-stats.compact .team-stats-groups th { width: auto; }
-.team-stats.compact .team-stats-unit { padding-right: 10px; }
-.team-stats.compact.stacked .team-records { flex-direction: column; align-items: flex-start; flex-wrap: nowrap; gap: 3px; }
-.team-stats.compact .team-record { font-size: 1rem; }
-.team-stats.compact .muted { white-space: nowrap; }
+/* The video's unit card (TeamVideoCard.tsx): the smallest card that reads in a frame. Every piece of text is at least 14px at
+   its natural size, so the page scales them all alike to the frame's legible size (teamPages.ts). `row` is one line (a wide
+   frame); `stack` is face, name and abilities over the stats over the gear (a narrow one). */
+.vcard {
+  display: grid; box-sizing: border-box; align-items: center; column-gap: 14px; row-gap: 6px; padding: 8px 10px;
+  background: var(--paper-2); border: 1px solid var(--row-border); border-radius: 4px; font-size: 14px; line-height: 1.2;
+}
+.vcard-row { width: 1000px; grid-template-columns: 48px 150px 372px 232px minmax(0, 1fr); grid-template-areas: "face id stats gear abilities"; }
+.vcard-stack { width: 376px; grid-template-columns: 40px minmax(0, 1fr) auto; grid-template-areas: "face id abilities" "stats stats stats" "gear gear gear"; column-gap: 10px; }
+.vcard-face { grid-area: face; display: grid; place-items: center; }
+.vcard .portrait { border-radius: 50%; background: var(--face-wash-blue); box-shadow: 0 0 0 2px var(--team-player); }
+.vcard-id { grid-area: id; display: grid; min-width: 0; }
+.vcard-id b { font: 600 17px/1.15 var(--display); overflow-wrap: anywhere; }
+.vcard-id span { color: var(--ink-soft); font-size: 14px; overflow-wrap: anywhere; }
+.vcard-stats { grid-area: stats; display: grid; grid-template-columns: repeat(10, minmax(0, 1fr)); gap: 3px; margin: 0; }
+.vcard-stats div { display: grid; justify-items: center; padding: 2px 0 1px; border-radius: 3px; background: var(--row); border: 1px solid var(--row-border); }
+.vcard-stats dt { font: 600 14px/1.15 var(--display); color: var(--ink-soft); }
+.vcard-stats dd { margin: 0; font: 600 15px/1.15 var(--nums); font-variant-numeric: tabular-nums; }
+.vcard-stats .boosted dd { color: var(--blue); }
+.vcard-gear { grid-area: gear; display: grid; gap: 2px; min-width: 0; }
+.vcard-gear p { display: grid; grid-template-columns: 20px minmax(0, 1fr); align-items: center; gap: 6px; margin: 0; min-height: 20px; }
+.vcard-gear p > :first-child { display: inline-grid; place-items: center; width: 20px; height: 20px; }
+.vcard-gear img, .vcard-gear svg { max-width: 20px; max-height: 20px; }
+.vcard-gear span { overflow-wrap: anywhere; }
+.vcard-battalion { color: var(--ink-soft); }
+.vcard-battalion .icon { color: var(--accent); }
+.vcard-abilities { grid-area: abilities; display: flex; flex-wrap: wrap; justify-content: flex-end; align-content: center; gap: 3px; min-width: 0; }
+.vcard-stack .vcard-abilities { max-width: 128px; }
+.vcard-abilities > span { display: inline-grid; place-items: center; width: 22px; height: 22px; }
+.vcard-abilities img, .vcard-abilities svg { max-width: 22px; max-height: 22px; }
+.vcard.fallen .vcard-id b { color: var(--ink-soft); }
+.vcard.fallen .team-face-sprite { filter: grayscale(1); }
+.vcard-face .team-face-sprite { box-shadow: 0 0 0 2px var(--team-player); }
 
-/* A class or an item that is long wraps in a video page rather than end in an ellipsis: a picture can't be hovered for the rest. */
-.team-page .team-card-name span, .team-page-measure .team-card-name span { white-space: normal; overflow: visible; text-overflow: clip; }
-.team-page .team-gear-name, .team-page-measure .team-gear-name { white-space: normal; overflow: visible; text-overflow: clip; overflow-wrap: anywhere; }

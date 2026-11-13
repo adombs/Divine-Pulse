@@ -37,6 +37,26 @@ export function soundPlan(theme: Track, audio: { sampleRate: number; length: num
   };
 }
 
+/** How long a soundtrack of the player's own audio fades out at the end of a video (s). */
+export const CUSTOM_FADE_OUT = 1;
+
+/**
+ * The soundtrack plan for the player's own audio: from its start, round and round when it is shorter than the video,
+ * cut off at the video's end when it is longer, faded out over the last second either way.
+ */
+export function customPlan(audio: { sampleRate: number; length: number }, seconds: number, volume: number): SoundPlan {
+  const rate = audio.sampleRate;
+  const fadeStart = (seconds - Math.min(CUSTOM_FADE_OUT, seconds / 3)) * rate;
+  return {
+    total: Math.max(1, Math.ceil(seconds * rate)),
+    size: audio.length,
+    loop: audio.length > 0 ? { start: 0, length: audio.length } : null,
+    fadeStart,
+    fadeLength: Math.max(1, seconds * rate - fadeStart),
+    volume,
+  };
+}
+
 /** The samples `from` to `from + out[0].length` of the soundtrack: the audio from its start, then round its loop, at
  * the plan's volume and faded out at the end. */
 export function mixPiece(input: ArrayLike<number>[], out: Float32Array[], from: number, plan: SoundPlan): void {
