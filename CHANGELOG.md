@@ -4,6 +4,8 @@
 
 ## 1.4.6 (2026-11-13)
 
+- New battle recordings capture their starting roster after the battle begins for team-overview cards; later roster changes no longer change those cards. Older recordings without a snapshot omit the team overview.
+- Condensed replay log entries fade and slide smoothly as actions enter and leave, including in exported videos.
 - Export Video’s Music tab separates battle music and uploaded audio. Both follow the video’s playback controls and timeline. The preview is view-only; camera and zoom are controlled in the Replay tab.
 - Video overlays stay inside the map at every zoom level and fit within their selected corners. The dedicated log automatically follows the latest complete rows, and turning it off gives the map the full frame below the title.
 - The unit-count legend opens and closes away from its selected map corner, with the counts anchored to that corner.

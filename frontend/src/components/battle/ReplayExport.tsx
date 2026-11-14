@@ -23,6 +23,7 @@ import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
 import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
 import { CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
+import { isPostTimeskip } from "../../portraits";
 import { useReplayAudio } from "../../exporting/useReplayAudio";
 import { fitReplayFrame } from "../../exporting/replayFrameFit";
 import { CondensedLog } from "./CondensedLog";
@@ -151,7 +152,7 @@ export function replayExportBlocker(battle: Battle, chron: Chronicle): string | 
 }
 
 /** The header button: opens the export window. */
-export function ReplayExportButton({ battle, route, runName, units, part2, history }: {
+export function ReplayExportButton({ battle, route, runName, part2, history }: {
   battle: Battle;
   route?: RunRoute | null;
   /** The run's name, its roster and battles, for the team pages. */
@@ -174,7 +175,7 @@ export function ReplayExportButton({ battle, route, runName, units, part2, histo
       >
         <Icon name={CONCEPT_ICON.share} /> Export Video
       </button>
-      {open && <ReplayExportDialog battle={battle} chron={chron} route={route ?? null} runName={runName ?? "Divine Pulse"} units={units} part2={part2} history={history} onClose={() => setOpen(false)} />}
+      {open && <ReplayExportDialog battle={battle} chron={chron} route={route ?? null} runName={runName ?? "Divine Pulse"} units={Object.values(battle.roster_snapshot ?? {}).filter((u) => u.on_roster !== false)} part2={battle.roster_snapshot ? isPostTimeskip(Object.values(battle.roster_snapshot)) : part2} history={history} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -551,6 +552,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
       return img;
     };
     let shown = "";
+    let overlayDoc = "";
     try {
       const audio = track && custom && volume > 0 && options.customVolume > 0 ? mixedSoundtrack(track, custom, frames / fps, volume, options.customVolume / 100) : track && volume > 0 ? soundtrack(track, frames / fps, volume) : custom && options.customVolume > 0 ? customSoundtrack(custom, frames / fps, options.customVolume / 100) : null;
       snap = await snapshotter();
@@ -588,12 +590,18 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
             const newChrome = chrome?.beat !== beat;
             if (newChrome) {
               chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
-              over = overlays ? await snap.image(await snap.svg(el, width, height, scale, OVERLAY_LAYER), condensedImg) : null;
+
+            }
+            const nextOverlay = overlays ? await snap.svg(el, width, height, scale, OVERLAY_LAYER) : "";
+            const newOverlay = nextOverlay !== overlayDoc;
+            if (newOverlay) {
+              overlayDoc = nextOverlay;
+              over = nextOverlay ? await snap.image(nextOverlay, condensedImg) : null;
             }
             const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
             const newMap = map?.doc !== doc;
             if (newMap) map = { doc, img: await snap.image(doc, mapImg) };
-            changed ||= newChrome || newMap;
+            changed ||= newChrome || newMap || newOverlay;
           }
           if (!changed) return; // a held frame: the canvas still has it
           if (withReplay) {
@@ -712,6 +720,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
               log={options.log}
               route={route}
               zoom={zoom}
+              time={t}
             />
             {layers.map(({ index, alpha }) => {
               const part = parts[index];
@@ -832,7 +841,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                       <TeamPagesSection team={team} update={updateTeam} pages={pages} units={units} part2={part2} />
                     </fieldset>
                   ) : (
-                    <p className="export-note">This run has no units to show yet.</p>
+                    <p className="export-note">This recording has no pre-battle roster snapshot. Team pages are available for battles recorded with roster snapshots.</p>
                   )}
                 </>
               ),
@@ -996,11 +1005,12 @@ interface StageProps {
   log: VideoLogOptions;
   route: RunRoute | null;
   zoom: Zoom | null;
+  time: number;
   ref?: React.Ref<HTMLDivElement>;
 }
 
 /** One frame of the video: the title strip, the map and the log. */
-function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, route, zoom, ref }: StageProps) {
+function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, route, zoom, time, ref }: StageProps) {
   const name = battleName(battle);
   // The log up to the step on the map: rows of later steps aren't shown yet (the newest is at the bottom).
   const rows = useMemo(() => {
@@ -1063,7 +1073,7 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
           <div key={corner} className={`replay-stage-corner ${corner}`}>
             {stacks[corner].map((o) =>
               o === "condensed" ? (
-                <CondensedLog key={o} entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} />
+                <CondensedLog key={o} entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} time={time} />
               ) : o === "counter" ? (
                 <ReplayBanner key={o} replay={replay} size={log.counterSize} showTurn={log.counterTurn} showPhase={log.counterPhase} showStep={log.counterStep} className="in-corner" />
               ) : (

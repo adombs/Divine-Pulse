@@ -7,6 +7,8 @@
  * heal, item, Rally or gambit its own icon. Older lines fade a little; the newest is at the bottom. Its rows come from
  * replayLabels.ts `condensedEntries`; its text is the log's size.
  */
+import { useEffect, useState } from "react";
+import { LOG_MOTION_MS, sampleLogMotion, startLogMotion, type LogMotion } from "./condensedMotion";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { abilityIconUrl, artWeaponKind, gambitIconUrl, isCombatArt, itemIconUrl, RefIcon, spellIconUrl, spellMagic } from "../../reference/icons";
 import { Icon } from "../Icon";
@@ -74,7 +76,7 @@ function ActionIcon({ item }: { item: Item }) {
   }
 }
 
-export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX, size = 1, className }: {
+export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX, size = 1, className, time }: {
   entries: CondensedEntry[];
   /** The beat on the map: its own rows fade in with `fade` (0-1) as its action plays. */
   current: number | null;
@@ -84,20 +86,40 @@ export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX
   /** How big it is against the text around it (1: the same). */
   size?: number;
   className?: string;
+  /** The video clock in milliseconds; omitted for the live replay. */
+  time?: number;
 }) {
   const nav = useBattleNav();
   const shown = entries.slice(Math.max(0, entries.length - lines));
-  if (!shown.length) return null;
+  const [, setClock] = useState(() => performance.now());
+  const now = time ?? performance.now();
+  const [motion, setMotion] = useState<LogMotion>(() => startLogMotion(null, shown, now));
+  const signature = shown.map((e) => e.key).join("|");
+  if (signature !== motion.to.map((e) => e.key).join("|") || now < motion.start) {
+    setMotion(startLogMotion(now < motion.start ? null : motion, shown, now));
+  }
+  useEffect(() => {
+    if (time !== undefined) return;
+    let frame = 0;
+    const tick = () => {
+      const at = performance.now();
+      setClock(at);
+      if (at < motion.start + LOG_MOTION_MS) frame = requestAnimationFrame(tick);
+    };
+    frame = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(frame);
+  }, [motion, time]);
+  const moving = sampleLogMotion(motion, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? motion.start + LOG_MOTION_MS : now);
   const nameOf = (id: string) => nav.people.get(id)?.name ?? "A unit";
   return (
     <ol className={`condensed-log${className ? ` ${className}` : ""}`} aria-label="Recent actions" style={size !== 1 ? { fontSize: `${size}em` } : undefined}>
-      {shown.map((e, n) => {
+      {moving.map(({ entry, presence, opacity: ageOpacity }) => {
+        const e = shown.find((row) => row.key === entry.key) ?? entry;
         const { actor, target } = e.item;
-        const age = shown.length - 1 - n;
-        const opacity = (e.beat === current ? fade : 1) * (shown.length - age) / shown.length;
+        const opacity = (e.beat === current ? fade : 1) * ageOpacity;
         const named = shownName(e.item);
         return (
-          <li key={e.key} className={`condensed-row tone-${e.tone}${actor ? ` by-${sideOf(nav, actor)}` : ""}`} style={{ opacity }} title={actionName(e.item)}>
+          <li key={e.key} className="condensed-slot" style={{ gridTemplateRows: `${presence}fr`, marginTop: `${0.3 * presence}em` }}><div className="condensed-slot-clip"><div className={`condensed-row tone-${e.tone}${actor ? ` by-${sideOf(nav, actor)}` : ""}`} style={{ opacity, transform: `translateY(${(1 - presence) * 0.4}em)` }} title={actionName(e.item)}>
             {actor && <UnitFace id={actor} name={nameOf(actor)} size="sm" />}
             <span className="condensed-action">
               <span className="condensed-icon">
@@ -107,7 +129,7 @@ export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX
               {e.value && <span className="condensed-value">{e.value}</span>}
             </span>
             {target && target !== actor && <UnitFace id={target} name={nameOf(target)} size="sm" />}
-          </li>
+          </div></div></li>
         );
       })}
     </ol>

@@ -1297,7 +1297,7 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 /* The condensed log (CondensedLog.tsx): the replay's newest actions in the map's bottom-right corner, one line each:
    who, the action as an oval (icon, name and number), and whom. Text the log's size. */
 .condensed-log {
-  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.3em;
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0;
   pointer-events: none; font: inherit; line-height: 1.35;
 }
 .condensed-row {
@@ -2095,3 +2095,8 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .duplicate-when { display: inline-flex; align-items: center; gap: 0.5rem; white-space: nowrap; }
 .duplicate-num { text-align: right; font-variant-numeric: tabular-nums; }
 .duplicate-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.6rem; margin-top: 0.4rem; }
+
+.condensed-slot { display: grid; flex: none; min-height: 0; }
+.condensed-slot:first-child { margin-top: 0 !important; }
+.condensed-slot-clip { min-height: 0; overflow: hidden; }
+@media (prefers-reduced-motion: reduce) { .condensed-row { transform: none !important; } }

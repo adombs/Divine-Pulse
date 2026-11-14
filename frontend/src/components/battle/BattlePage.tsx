@@ -109,6 +109,7 @@ export function BattleView(p: ViewProps) {
     const person = personFor(portraitData, personId);
     return [slot, person?.name && person.face && !isObject(enemy) ? { ...enemy, name: person.name, label: person.name } : enemy];
   })) }), [p.battle, portraitData]);
+  const replayRoster = useMemo(() => Object.values(battle.roster_snapshot ?? {}), [battle.roster_snapshot]);
   const [showIdentities] = useSpoiler("identities");
   const [showLaterPortraits] = useSpoiler("portraits");
   const go = useNav().go;
@@ -144,14 +145,14 @@ export function BattleView(p: ViewProps) {
     // or name (Tomas to Solon) or falls has the right face. Your roster's own pick (Byleth's) comes first.
     const out = new Map<string, string | null>();
     for (const u of battle.units) {
-      const mine = p.roster.find((r) => r.key === u.key);
+      const mine = replayRoster.find((r) => r.key === u.key);
       out.set(armyId(u.key), (mine && portraitUrl({ ...mine, look: u.look ?? mine.look }, p.part2, automatic)) || faceUrl({ character: u.character, classId: u.class_id, female: u.female, name: u.name, seed: u.key, look: u.look }, p.part2, automatic));
     }
     for (const [slot, e] of Object.entries(battle.enemy_stats ?? {})) {
       out.set(enemyId(slot), faceUrl({ character: e.character, classId: e.class_id, female: e.female, name: e.name || e.label, seed: slot }, p.part2, automatic));
     }
     return out;
-  }, [p.roster, p.part2, automatic, battle.units, battle.enemy_stats, showIdentities, showLaterPortraits]);
+  }, [replayRoster, p.part2, automatic, battle.units, battle.enemy_stats, showIdentities, showLaterPortraits]);
   // A face from the imported game files, only for an enemy who isn't a known character (a boss or soldier the game gives
   // a face of its own, ahead of a generic one): a character keeps the one portrait it has on every page, whatever its HP.
   const importedFaces = useMemo(() => {
@@ -183,7 +184,7 @@ export function BattleView(p: ViewProps) {
     return out;
   }, [battle, showIdentities]);
   const onRosterKeys = useMemo(() => new Set(rosterUnits(p.roster).map((u) => u.key)), [p.roster]);
-  const configs = useMemo(() => new Map(p.roster.map((u) => [u.key, u.ebst_effective])), [p.roster]);
+  const configs = useMemo(() => new Map(replayRoster.map((u) => [u.key, u.ebst_effective])), [replayRoster]);
   const nav: BattleNav = {
     people: who,
     portrait: (id) => portraits.get(id) ?? null,
