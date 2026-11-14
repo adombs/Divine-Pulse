@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cornerStacks, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, placeOverlay, sanitizeVideoLog, setCounterField, setCounterEnabled } from "../src/exporting/videoLog.ts";
+import { cornerStacks, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, placeOverlay, sanitizeVideoLog, setCounterField, setCounterEnabled, loadBattleOverlaySettings, saveBattleOverlaySettings } from "../src/exporting/videoLog.ts";
 
 const PLACED = { place: { condensed: "bottom-right", counter: "bottom-left", counts: "top-right" }, order: ["counts", "counter", "condensed"] };
 
@@ -57,4 +57,17 @@ test("counter fields control visibility and can be re-enabled", () => {
   assert.equal(log.counterTurn && log.counterPhase && log.counterStep, true);
   assert.equal(sanitizeVideoLog({ counterTurn: false, counterPhase: false, counterStep: false }).counter, false);
   assert.equal(sanitizeVideoLog({ countsZero: false }).countsZero, false);
+});
+
+test("battle replay settings preserve the existing saved map layout", () => {
+  const values = new Map();
+  globalThis.localStorage = { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value) };
+  try {
+    const saved = { ...DEFAULT_VIDEO_LOG, condensedLines: 2, counterPhase: false, countsZero: false };
+    saveBattleOverlaySettings(saved);
+    assert.deepEqual(loadBattleOverlaySettings(), saved);
+    assert.ok(values.has("divine-pulse-map-overlays"));
+    values.set("divine-pulse-map-overlays", "invalid");
+    assert.deepEqual(loadBattleOverlaySettings(), DEFAULT_VIDEO_LOG);
+  } finally { delete globalThis.localStorage; }
 });

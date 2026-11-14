@@ -1,7 +1,7 @@
-import { type KeyboardEvent, type ReactNode, useRef } from "react";
+import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
 import { Switch } from "../ui";
 import { StepSlider } from "../Slider";
-import { cornerStacks, CORNERS, OVERLAY_SIZES, type Corner, type Overlay, type VideoLogOptions, setCounterField } from "../../exporting/videoLog";
+import { cornerStacks, CORNERS, MAX_CONDENSED_LINES, OVERLAY_SIZES, type Corner, type Overlay, type VideoLogOptions, setCounterField, setCounterEnabled, placeOverlay, loadBattleOverlaySettings, saveBattleOverlaySettings } from "../../exporting/videoLog";
 import "../export.css";
 import "./replay-export.css";
 const CORNER_NAME: Record<Corner, string> = { "top-left": "Top left", "top-right": "Top right", "bottom-left": "Bottom left", "bottom-right": "Bottom right" };
@@ -92,4 +92,26 @@ export function CounterFields({ log, onChange }: { log: VideoLogOptions; onChang
 }
 export function ZeroCounts({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
   return <label className="overlay-zero-counts"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /> Include zero counts</label>;
+}
+
+/** The battle page's overlay choices, saved independently of the export settings. */
+export function BattleReplaySettings() {
+  const [layout, setLayout] = useState(loadBattleOverlaySettings);
+  const updateLayout = (next: VideoLogOptions) => {
+    setLayout(next);
+    saveBattleOverlaySettings(next);
+  };
+  const patch = (changes: Partial<VideoLogOptions>) => updateLayout({ ...layout, ...changes });
+  return <div className="export-group export-layout map-overlay-settings">
+    {(["condensed", "counter", "counts"] as Overlay[]).map((item) => {
+      const title = item === "condensed" ? "Condensed log" : item === "counter" ? "Turn counter" : "Unit counts";
+      const sizeKey = item === "condensed" ? "condensedSize" : item === "counter" ? "counterSize" : "countsSize";
+      return <LayoutSection key={item} title={title} note={item === "condensed" ? "The latest actions, over the map" : item === "counter" ? "Turn, phase and step, over the map" : "Each army's units on the map, and the killed"} on={layout[item]} onToggle={(on) => item === "counter" ? updateLayout(setCounterEnabled(layout, on)) : patch({ [item]: on })} always={item === "counter" ? <CounterFields log={layout} onChange={updateLayout} /> : undefined}>
+        <CornerPicker label={`${title} corner`} which={item} log={layout} onChange={(corner) => updateLayout(placeOverlay(layout, item, corner))} />
+        {item === "condensed" && <StepSlider label="# of Lines" stops={MAX_CONDENSED_LINES} value={layout.condensedLines - 1} onChange={(i) => patch({ condensedLines: i + 1 })} valueText={`${layout.condensedLines} at most`} after={<span className="team-pages-axis-value">{layout.condensedLines}</span>} variant="timeline" slim />}
+        {item === "counts" && <ZeroCounts checked={layout.countsZero} onChange={(countsZero) => patch({ countsZero })} />}
+        <SizeSlider value={layout[sizeKey]} onChange={(size) => patch({ [sizeKey]: size })} />
+      </LayoutSection>;
+    })}
+  </div>;
 }

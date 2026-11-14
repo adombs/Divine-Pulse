@@ -110,3 +110,13 @@ export function setCounterEnabled(log: VideoLogOptions, enabled: boolean): Video
     ? { ...log, counter: true, counterTurn: true, counterPhase: true, counterStep: true }
     : { ...log, counter: enabled };
 }
+
+/** Battle-page overlays are stored independently from the video export layout. */
+export const BATTLE_OVERLAYS_KEY = "divine-pulse-map-overlays";
+export function loadBattleOverlaySettings(): VideoLogOptions {
+  try { return sanitizeVideoLog(JSON.parse(localStorage.getItem(BATTLE_OVERLAYS_KEY) ?? "{}")); }
+  catch { return DEFAULT_VIDEO_LOG; }
+}
+export function saveBattleOverlaySettings(layout: VideoLogOptions): void {
+  try { localStorage.setItem(BATTLE_OVERLAYS_KEY, JSON.stringify(layout)); } catch { /* Session only. */ }
+}
