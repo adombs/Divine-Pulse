@@ -40,7 +40,7 @@
 .replay-stage.portrait .replay-stage-title { flex-direction: column; align-items: stretch; gap: 8px; }
 .replay-stage.portrait .replay-stage-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; max-width: none; padding: 0 2px; }
 
-.replay-stage-map { grid-area: map; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 6px; }
+.replay-stage-map { position: relative; overflow: hidden; grid-area: map; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 6px; }
 .replay-stage-map .minimap { width: 100%; height: 100%; max-height: none; }
 /* The camera is moved frame by frame (the export's own clock), so the map doesn't ease on its own. */
 .replay-stage-map .map-zoom { transition: none; }
@@ -54,17 +54,22 @@
 /* The newest row at the bottom; older ones go up and fade out at the top (no scrolling in a picture). */
 .replay-stage-rows {
   flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; overflow: hidden; padding-top: 4px;
-  mask-image: linear-gradient(180deg, transparent, #000 56px);
+  mask-image: none;
 }
 .replay-stage-rows .log-list { flex: none; }
 
 /* No log (Export Video > Format > Log off): the map has the frame to itself under the title. The condensed log
    (CondensedLog.tsx) sits in the map's bottom-right corner, over it, in either layout. */
-.replay-stage.no-log .replay-stage-map { grid-area: map; }
+.replay-stage.no-log .replay-stage-map { position: relative; overflow: hidden; grid-area: map; }
 /* What sits over the video's map (the condensed log, the turn counter, the unit counts), each in the corner it was put
    in: a top corner stacks down from it, a bottom one up, the first put there nearest the corner. The layer is the map's
    cell, inset as the condensed log always was. */
-.replay-stage-overlays { grid-area: map; position: relative; pointer-events: none; z-index: 1; min-width: 0; min-height: 0; }
+.replay-stage-overlays { position: absolute; inset: 7px; pointer-events: none; z-index: 1; min-width: 0; min-height: 0; }
+.replay-stage-overlays .replay-stage-corner { width: max-content; transform-origin: top left; }
+.replay-stage-overlays .top-right { transform-origin: top right; }
+.replay-stage-overlays .bottom-left { transform-origin: bottom left; }
+.replay-stage-overlays .bottom-right { transform-origin: bottom right; }
+.replay-stage-rows .log-list { transform-origin: bottom left; width: 100%; }
 .replay-stage-corner { position: absolute; display: flex; gap: 10px; max-width: calc(100% - 28px); }
 .replay-stage-corner.top-left, .replay-stage-corner.top-right { top: 14px; flex-direction: column; }
 .replay-stage-corner.bottom-left, .replay-stage-corner.bottom-right { bottom: 14px; flex-direction: column-reverse; }
