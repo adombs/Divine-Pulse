@@ -46,9 +46,13 @@ class SettingsStore:
             return self._settings.model_copy(deep=True)
 
     def reset_installation(self, version: str, replace_import: bool, active_run_id: str | None) -> None:
-        """Start an installation with clean preferences and discard backups containing old source paths."""
+        """Start an installation: the player's preferences (Settings page, window, port) carry over from the one before;
+        what belongs to an installation (its version, the import choice, the active run) is set anew, and the old backup
+        is discarded."""
         with self._lock:
-            clean = Settings(installation_version=version, replace_import=replace_import, active_run_id=active_run_id)
+            clean = self._settings.model_copy(
+                update={"installation_version": version, "replace_import": replace_import, "active_run_id": active_run_id}
+            )
             atomic_write_text(self.path, clean.model_dump_json(indent=2))
             self.path.with_suffix(self.path.suffix + ".bak").unlink(missing_ok=True)
             self._settings = clean

@@ -1,8 +1,9 @@
 /**
  * The logs of a video (components/battle/ReplayExport.tsx): the log, its own part of the frame beside the map (16:9,
  * 1.91:1) or under it (9:16, 4:5), with how many of its rows show; and the condensed log, the newest actions as one line
- * each in the map's bottom-right corner (CondensedLog.tsx). Without the log, the map takes the whole frame under the
- * title. Kept apart from the page so it is tested on its own.
+ * each in the map's bottom-right corner (CondensedLog.tsx); and what else sits over the map, the turn counter and the
+ * legend's counts. Without the log, the map takes the whole frame under the title. Kept apart from the page so it is
+ * tested on its own.
  */
 
 /** The most log rows the Lines slider offers. */
@@ -10,8 +11,10 @@ export const MAX_LOG_LINES = 15;
 /** The most condensed log rows its Lines slider offers, and how many it shows unless set. */
 export const MAX_CONDENSED_LINES = 8;
 export const DEFAULT_CONDENSED_LINES = 4;
-/** The condensed log's sizes (its text and faces, against the log's text size), smallest to largest. */
+/** The sizes the condensed log, the turn counter and the legend's counts can be (against their own size), smallest to
+ * largest. */
 export const CONDENSED_SIZES = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6, 1.8, 2] as const;
+export const OVERLAY_SIZES = CONDENSED_SIZES;
 
 export interface VideoLogOptions {
   /** Whether the frame has the log. */
@@ -24,8 +27,16 @@ export interface VideoLogOptions {
   condensedLines: number;
   /** How big the condensed log is (one of CONDENSED_SIZES; 1 is the log's text size). */
   condensedSize: number;
+  /** Whether the map has the turn counter (Turn 3/12 · Player Phase · Step 45/69) in its bottom-left corner, and how big. */
+  counter: boolean;
+  counterSize: number;
+  /** Whether the map has the legend's counts (units standing in each army, and the killed) in its top-right corner, and how big. */
+  counts: boolean;
+  countsSize: number;
 }
-export const DEFAULT_VIDEO_LOG: VideoLogOptions = { show: true, lines: null, condensed: true, condensedLines: DEFAULT_CONDENSED_LINES, condensedSize: 1 };
+export const DEFAULT_VIDEO_LOG: VideoLogOptions = { show: true, lines: null, condensed: true, condensedLines: DEFAULT_CONDENSED_LINES, condensedSize: 1, counter: true, counterSize: 1, counts: true, countsSize: 1 };
+
+const size = (saved: unknown) => ((OVERLAY_SIZES as readonly unknown[]).includes(saved) ? (saved as number) : 1);
 
 export function sanitizeVideoLog(saved: unknown): VideoLogOptions {
   const s = (saved && typeof saved === "object" ? saved : {}) as Partial<Record<keyof VideoLogOptions, unknown>>;
@@ -35,7 +46,11 @@ export function sanitizeVideoLog(saved: unknown): VideoLogOptions {
     condensed: s.condensed !== false,
     condensedLines:
       typeof s.condensedLines === "number" && Number.isInteger(s.condensedLines) && s.condensedLines >= 1 && s.condensedLines <= MAX_CONDENSED_LINES ? s.condensedLines : DEFAULT_CONDENSED_LINES,
-    condensedSize: (CONDENSED_SIZES as readonly unknown[]).includes(s.condensedSize) ? (s.condensedSize as number) : 1,
+    condensedSize: size(s.condensedSize),
+    counter: s.counter !== false,
+    counterSize: size(s.counterSize),
+    counts: s.counts !== false,
+    countsSize: size(s.countsSize),
   };
 }
 

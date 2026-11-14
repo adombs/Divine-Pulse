@@ -21,7 +21,7 @@ import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
-import { CONDENSED_SIZES, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { CONDENSED_SIZES, DEFAULT_VIDEO_LOG, OVERLAY_SIZES, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
 import { CondensedLog } from "./CondensedLog";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
@@ -31,7 +31,7 @@ import { CUSTOM_ID, customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, 
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap } from "./map";
-import { Minimap, type Zoom } from "./Minimap";
+import { MapCounts, Minimap, type Zoom } from "./Minimap";
 import { ItemList, useBattleNav } from "./parts";
 import { beatDurations, beatFocus, beatOf, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
 import { battleName, KIND_LABEL } from "./scenarios";
@@ -116,7 +116,7 @@ function loadOptions(): VideoOptions {
 
 /** A video frame's two layers (snapshot.ts `Layer`). The chrome: the title, the log and the map's frame, without the
  * map or anything over it. The map: the map with its turn banner and rewind badge, over a see-through frame. */
-const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap", ".replay-stage-condensed"], remove: [".replay-banner", ".rewind-badge"] };
+const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap", ".replay-stage-condensed"], remove: [".replay-banner", ".replay-stage-counts", ".rewind-badge"] };
 const MAP_LAYER: Layer = {
   hide: [".replay-stage-title", ".replay-stage-log", ".replay-stage-condensed"],
   styles: "map",
@@ -211,6 +211,23 @@ function viewAround([cx, cy]: [number, number], [w, h]: [number, number], board:
   if (w >= board.w && h >= board.h) return null;
   const clamp = (v: number, hi: number) => Math.max(0, Math.min(hi, v));
   return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
+}
+
+/** A size for something over the map (OVERLAY_SIZES), as a percentage. */
+function SizeSlider({ label, value, onChange }: { label: string; value: number; onChange: (size: number) => void }) {
+  const pct = `${Math.round(value * 100)}%`;
+  return (
+    <StepSlider
+      label={label}
+      stops={OVERLAY_SIZES.length}
+      value={Math.max(0, OVERLAY_SIZES.indexOf(value as (typeof OVERLAY_SIZES)[number]))}
+      onChange={(i) => onChange(OVERLAY_SIZES[i])}
+      valueText={pct}
+      after={<span className="team-pages-axis-value">{pct}</span>}
+      variant="timeline"
+      slim
+    />
+  );
 }
 
 /** A frame's grid (set inline): its tracks, and with no log, its own areas and no gaps. */
@@ -816,6 +833,16 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                         slim
                       />
                     </>)}
+                    <label className="export-check">
+                      <input type="checkbox" checked={options.log.counter} onChange={(e) => updateLog({ counter: e.target.checked })} />
+                      Turn counter <small>turn, phase and step in the map's corner</small>
+                    </label>
+                    {options.log.counter && <SizeSlider label="Turn counter size" value={options.log.counterSize} onChange={(counterSize) => updateLog({ counterSize })} />}
+                    <label className="export-check">
+                      <input type="checkbox" checked={options.log.counts} onChange={(e) => updateLog({ counts: e.target.checked })} />
+                      Unit counts <small>each army's units on the map, and the killed</small>
+                    </label>
+                    {options.log.counts && <SizeSlider label="Unit counts size" value={options.log.countsSize} onChange={(countsSize) => updateLog({ countsSize })} />}
                   </fieldset>
                   <fieldset className="export-group" disabled={working}>
                     <legend>Video</legend>
@@ -1127,7 +1154,12 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
             <Icon name={CONCEPT_ICON.pulse} />
           </div>
         )}
-        <ReplayBanner replay={replay} />
+        {log.counter && <ReplayBanner replay={replay} size={log.counterSize} />}
+        {log.counts && (
+          <div className="replay-stage-counts" style={log.countsSize !== 1 ? { fontSize: `${log.countsSize}em` } : undefined} aria-label="Units on the map">
+            <MapCounts board={replay.board} />
+          </div>
+        )}
       </div>
       {log.condensed && <CondensedLog entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} className="replay-stage-condensed" />}
       {log.show && (

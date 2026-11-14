@@ -644,12 +644,6 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
       // Not kept; fine.
     }
   };
-  const { pieces } = board;
-  // Standing units by army: your army with your units outside the roster (team 0), allies, enemies, a third army.
-  const standing = (side: string) => pieces.filter((p) => !p.object && !p.down && (p.army ? "player" : p.sprite.side) === side).length;
-  // Every army's count, 0 included, in the legend's order.
-  const teams = (["player", "enemy", "ally", "third"] as const).map((side) => [side, standing(side)] as const);
-  const down = pieces.filter((p) => p.down && !p.object).length;
   if (mode === "hidden") {
     return (
       <div className="map-key-panel hidden">
@@ -664,14 +658,7 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
     <div ref={panel} className={`map-key-panel${open ? " open" : ""}${narrow ? " narrow" : ""}`} role="group" aria-label="Map Legend">
       <div className="map-key-head">
         <button type="button" className="map-key-toggle" aria-expanded={open} onClick={() => setMode(open ? "closed" : "open")} title={open ? "Close the legend" : "Open the legend"}>
-          {teams.map(([side, n]) => (
-            <span key={side} className={`map-count team-${side}${n ? "" : " zero"}`} title={COUNT_TITLE[side]}>
-              {n}
-            </span>
-          ))}
-          <span className={`map-count down${down ? "" : " zero"}`} title="Killed">
-            {down}
-          </span>
+          <MapCounts board={board} />
           <Icon name={CONCEPT_ICON.down} className="map-key-caret" />
         </button>
         <button type="button" className="map-key-hide" onClick={() => setMode("hidden")} title="Hide the legend" aria-label="Hide the legend">
@@ -682,6 +669,29 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
         <MapLegend replay={replay} board={board} />
       </Collapse>
     </div>
+  );
+}
+
+/** The legend's counts: units standing in each army (your army with your units outside the roster, allies, enemies, a
+ * third army), 0 included, in the legend's order, then the killed. Also on its own over a video's map. */
+export function MapCounts({ board }: { board: Board }) {
+  const { pieces } = board;
+  const standing = (side: string) => pieces.filter((p) => !p.object && !p.down && (p.army ? "player" : p.sprite.side) === side).length;
+  const down = pieces.filter((p) => p.down && !p.object).length;
+  return (
+    <>
+      {(["player", "enemy", "ally", "third"] as const).map((side) => {
+        const n = standing(side);
+        return (
+          <span key={side} className={`map-count team-${side}${n ? "" : " zero"}`} title={COUNT_TITLE[side]}>
+            {n}
+          </span>
+        );
+      })}
+      <span className={`map-count down${down ? "" : " zero"}`} title="Killed">
+        {down}
+      </span>
+    </>
   );
 }
 
