@@ -208,6 +208,9 @@
 .map-overlay-corner { z-index: 2; gap: 0.6rem; pointer-events: none; }
 .map-overlay-key { width: max-content; max-width: 100%; min-width: 0; pointer-events: auto; }
 .map-overlay-key .map-key-panel { position: static; width: max-content; max-width: min(23rem, 100%); font-size: inherit; }
+/* The wrapper can be wider than the capped panel. Anchor the panel itself to the right edge. */
+.map-overlay-corner.top-right .map-key-panel,
+.map-overlay-corner.bottom-right .map-key-panel { margin-left: auto; }
 /* Keep the counts nearest the selected corner as the legend grows away from it. */
 .map-overlay-corner.bottom-left .map-key-panel:not(.hidden),
 .map-overlay-corner.bottom-right .map-key-panel:not(.hidden) { display: flex; flex-direction: column-reverse; }
