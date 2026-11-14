@@ -35,8 +35,8 @@ const TABS: { id: SettingsTab; label: string; icon: IconName; blurb: string }[] 
   { id: "game-files", label: "Game files", icon: CONCEPT_ICON.item, blurb: "Import from your own game" },
   { id: "ebst", label: "eBST", icon: CONCEPT_ICON.statUp, blurb: "How effective stats are counted" },
   { id: "spoilers", label: "Spoilers", icon: CONCEPT_ICON.hide, blurb: "What stays hidden for now" },
-  { id: "battle-replay", label: "Battle Replay", icon: CONCEPT_ICON.play, blurb: "Battle map overlays" },
-  { id: "appearance", label: "Appearance", icon: CONCEPT_ICON.edit, blurb: "Text, faces and the map" },
+  { id: "battle-replay", label: "Battle Replay", icon: CONCEPT_ICON.play, blurb: "Units, playback and overlays" },
+  { id: "appearance", label: "Appearance", icon: CONCEPT_ICON.edit, blurb: "Text size and font" },
   { id: "about", label: "About", icon: CONCEPT_ICON.info, blurb: "Version, data folder, credits" },
 ];
 
@@ -73,7 +73,6 @@ function Row({ label, hint, htmlFor, error, wide, children }: { label: ReactNode
 
 function AppearanceSection({ state }: { state: AppearanceState }) {
   const { appearance, update } = state;
-  const { preferences, setSpoiler } = useSpoilers();
   // Load every font so the previews below render in their own typeface.
   useEffect(() => FONTS.forEach(loadFont), []);
   // The text size waits for Apply: resizing everything while the slider is dragged makes the page jump.
@@ -133,6 +132,16 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
           </div>
         </Row>
       </Group>
+    </>
+  );
+}
+
+/** Settings > Battle Replay: how units look in battle and on the map, how a replay plays, then the map's overlays. */
+function BattleReplaySection({ state }: { state: AppearanceState }) {
+  const { appearance, update } = state;
+  const { preferences, setSpoiler } = useSpoilers();
+  return (
+    <>
       <Group title="Portraits and faces" note="When a sprite is unavailable, its portrait is used instead.">
         <Row
           label="Portraits"
@@ -167,7 +176,12 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
         <Row label="Replay speed" hint="How fast a battle replays on the map.">
           <ReplaySpeedSlider value={appearance.replaySpeed} onChange={(replaySpeed) => update({ replaySpeed })} />
         </Row>
+        <Row label="Group moves" hint="Consecutive moves in one phase, with nothing else between them, replay at once, on the map and in videos (Export Video can change it for one video).">
+          <Switch checked={appearance.groupMoves} label="Replay consecutive moves together" onChange={(groupMoves) => update({ groupMoves })} />
+        </Row>
       </Group>
+      <p className="set-group-note">These settings apply to the battle map and are saved as you change them. Video export has its own layout settings.</p>
+      <BattleReplaySettings />
     </>
   );
 }
@@ -439,7 +453,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
               {tab === "spoilers" && <SpoilerSection />}
               {tab === "ebst" && <EbstSection key={settings.active_run_id} runId={settings.active_run_id} toasts={toasts} />}
               {tab === "appearance" && <AppearanceSection state={appearance} />}
-              {tab === "battle-replay" && <><p className="set-group-note">These settings apply to the battle map and are saved as you change them. Video export has its own layout settings.</p><BattleReplaySettings /></>}
+              {tab === "battle-replay" && <BattleReplaySection state={appearance} />}
               {tab === "about" && <AboutSection toasts={toasts} />}
             </div>
           </div>

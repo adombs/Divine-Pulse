@@ -18,7 +18,7 @@
 
 
 /* The video's frame (1280 × 720, 1376 × 720, 720 × 1280 or 720 × 900, drawn at 1.5×): a sheet of the app's paper with its inner frame line,
-   the title strip across the top, the map, and the log beside it (16:9 and 1.91:1, class landscape) or under it (9:16 and 4:5, class portrait). The map takes
+   the title strip across the top, the map, and the log beside it (16:9 and 1.91:1, class log-beside) or under it (9:16 and 4:5, class log-under). The map takes
    all the room its view needs (ReplayExport.tsx `stageLayout`, set inline); the log, the rest. Sizes are in pixels,
    so a frame is laid out the same whatever the window's size. */
 .replay-stage {
@@ -27,8 +27,9 @@
   background: radial-gradient(ellipse at 20% 0%, rgb(140 110 220 / 0.07), transparent 60%), var(--paper);
   box-shadow: inset 0 0 0 5px var(--paper), inset 0 0 0 6px var(--line);
 }
-.replay-stage.landscape { grid-template-areas: "title title" "map log"; }
-.replay-stage.portrait { grid-template-areas: "title" "map" "log"; }
+.replay-stage.log-beside { grid-template-areas: "title title" "map log"; }
+/* Not .portrait or .landscape: the page's .portrait is a unit's picture (a round block), and would undo the grid. */
+.replay-stage.log-under { grid-template-areas: "title" "map" "log"; }
 
 .replay-stage-title { grid-area: title; display: flex; align-items: center; gap: 18px; min-width: 0; }
 .replay-stage-title .name-banner { flex: 1 1 auto; min-width: 0; }
@@ -37,8 +38,8 @@
 .replay-stage-credit { flex: none; font: 700 0.78rem var(--display); letter-spacing: 0.16em; text-transform: uppercase; color: var(--ink); white-space: nowrap; }
 .replay-stage-credit span { color: var(--amber); }
 /* Portrait: the banner across the whole width, the facts and the credit on a line under it. */
-.replay-stage.portrait .replay-stage-title { flex-direction: column; align-items: stretch; gap: 8px; }
-.replay-stage.portrait .replay-stage-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; max-width: none; padding: 0 2px; }
+.replay-stage.log-under .replay-stage-title { flex-direction: column; align-items: stretch; gap: 8px; }
+.replay-stage.log-under .replay-stage-meta { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; max-width: none; padding: 0 2px; }
 
 .replay-stage-map { position: relative; overflow: hidden; grid-area: map; display: grid; place-items: center; min-width: 0; min-height: 0; padding: 6px; }
 .replay-stage-map .minimap { width: 100%; height: 100%; max-height: none; }

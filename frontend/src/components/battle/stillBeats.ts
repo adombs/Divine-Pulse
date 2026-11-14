@@ -14,7 +14,7 @@ export interface StillCandidate {
 }
 
 /** Who is on the map in a frame, and whether they are down (as the map draws it: map.boardAt). */
-function shown(frame: Frame): Map<string, [number, number, boolean]> {
+export function shown(frame: Frame): Map<string, [number, number, boolean]> {
   const out = new Map<string, [number, number, boolean]>();
   for (const [id, [x, y, hp]] of frame) if (x >= 0 && y >= 0 && x < MAP_SIZE && y < MAP_SIZE) out.set(id, [x, y, hp <= 0]);
   return out;

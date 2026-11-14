@@ -115,6 +115,8 @@ export interface Appearance {
   otherUnitFaces: MapLook["otherFaces"];
   /** How fast the battle map's replay plays (1 normal). */
   replaySpeed: number;
+  /** Whether consecutive moves of one phase replay together, everyone moving at once. */
+  groupMoves: boolean;
 }
 
 const KEY = "divine-pulse-appearance";
@@ -131,6 +133,7 @@ export function loadAppearance(): Appearance {
     myUnitFaces: "portraits",
     otherUnitFaces: "portraits",
     replaySpeed: 1,
+    groupMoves: true,
   };
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? "null");
@@ -139,6 +142,7 @@ export function loadAppearance(): Appearance {
       // A theme saved by an earlier version (the app has one theme now) is dropped.
       delete (current as Record<string, unknown>).theme;
       const out: Appearance = { ...fallback, ...current };
+      out.groupMoves = out.groupMoves !== false;
       out.mapMine = isUnitLook(out.mapMine) ? out.mapMine : fallback.mapMine;
       out.mapOthers = isUnitLook(out.mapOthers) ? out.mapOthers : fallback.mapOthers;
       if (!("mapMine" in current) && isUnitLook(mapNamed)) out.mapMine = mapNamed;

@@ -37,7 +37,7 @@ import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap } from "./map";
 import { MapCounts, Minimap, type Zoom } from "./Minimap";
 import { ItemList, useBattleNav } from "./parts";
-import { beatDurations, beatFocus, beatOf, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
+import { beatDurations, beatFocus, beatOf, beatRuns, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
 import { battleName, KIND_LABEL } from "./scenarios";
 import { api } from "../../api";
 import { sanitizeRules, type Rule } from "../../ruleset";
@@ -213,11 +213,24 @@ function viewSize(orientation: Orientation, logShown: boolean, tiles: number, bo
   return [Math.min(across, board.w), Math.min(down, board.h)];
 }
 
-/** The view `size` tiles big centred on (cx, cy), kept inside the map (null: the whole map is in view). */
+/** The view `size` tiles big centred on (cx, cy), kept inside the map (null: the whole map is in view). A view wider or
+ * taller than the map (widened to hold several moves) is centred on it that way. */
 function viewAround([cx, cy]: [number, number], [w, h]: [number, number], board: { w: number; h: number }): Zoom | null {
-  if (w >= board.w && h >= board.h) return null;
-  const clamp = (v: number, hi: number) => Math.max(0, Math.min(hi, v));
-  return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
+  if (w >= board.w && h >= board.h && w <= board.w + 0.3 && h <= board.h + 0.3) return null;
+  const place = (c: number, size: number, edge: number) => (size >= edge ? (edge - size) / 2 : Math.max(0, Math.min(edge - size, c - size / 2)));
+  return { w, h, x0: place(cx, w, board.w), y0: place(cy, h, board.h) };
+}
+
+/** A view `size` big, widened (keeping its shape) until all of `follow` fits with a tile to spare on each side, up to the
+ * whole map. */
+function fitView(follow: [number, number][], [w, h]: [number, number], board: { w: number; h: number }): [number, number] {
+  if (!follow.length) return [w, h];
+  const xs = follow.map(([x]) => x);
+  const ys = follow.map(([, y]) => y);
+  const need = Math.max(1, (Math.max(...xs) - Math.min(...xs) + 3) / w, (Math.max(...ys) - Math.min(...ys) + 3) / h);
+  // Never wider than it takes to show the whole map.
+  const k = Math.min(need, Math.max(1, (board.w + 0.3) / w, (board.h + 0.3) / h));
+  return [w * k, h * k];
 }
 
 /** A frame's grid (set inline): its tracks, and with no log, its own areas and no gaps. */
@@ -378,6 +391,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const rulesPage = useRulesetPage({ options: options.rules, rules: rules ?? NO_RULES, frame });
   const rulesView = useMemo(() => ({ columns: rulesPage.columns, scale: rulesPage.scale, width: rulesPage.width }), [rulesPage.columns, rulesPage.scale, rulesPage.width]);
   const [speed, setSpeed] = useState(() => nav.replaySpeed ?? 1);
+  // Whether consecutive moves play together: Settings' choice, changed for this video only.
+  const [group, setGroup] = useState(() => nav.groupMoves !== false);
   const [mode, setModeState] = useState<CameraMode>("dynamic");
   const [level, setLevel] = useState(DEFAULT_ZOOM);
   // Where a static camera looks (the middle of its view, in tiles).
@@ -391,9 +406,10 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const lastIndex = chron.beats.length - 1 - [...chron.beats].reverse().findIndex((b) => b.step.turn <= to);
   const last = Math.max(first, Math.min(chron.beats.length - 1, lastIndex));
 
-  const replay = useReplay(battle, chron, { speed, manual: true });
-  const durations = useMemo(() => beatDurations(battle, chron, speed), [battle, chron, speed]);
-  const focus = useMemo(() => beatFocus(battle, chron), [battle, chron]);
+  const replay = useReplay(battle, chron, { speed, group, manual: true });
+  const durations = useMemo(() => beatDurations(battle, chron, speed, group), [battle, chron, speed, group]);
+  const focus = useMemo(() => beatFocus(battle, chron, group), [battle, chron, group]);
+  const runs = useMemo(() => beatRuns(chron, group), [chron, group]);
   // When each beat in the range starts (ms into the video), and how long the video is.
   const { starts, total: replayTotal } = useMemo(() => {
     const out: number[] = [];
@@ -457,7 +473,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   // A new range or speed starts the preview over.
   useEffect(() => {
     seekRef.current(0);
-  }, [first, last, speed]);
+  }, [first, last, speed, group]);
 
   useEffect(() => {
     if (!playing || working) return;
@@ -479,13 +495,17 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   // The camera, from the moment alone: a dynamic one glides from the last step's action to this one's.
   const { board } = replay;
   const size = viewSize(orientation, options.log.show, ZOOM_TILES[level], board);
-  const viewOf = (c: [number, number]): Zoom => viewAround(c, size, board) ?? { x0: 0, y0: 0, w: board.w, h: board.h };
-  const dynamicCentre = (m: Moment): [number, number] => {
-    const to = viewOf(centre(focus[m.beat] ?? [], board.w, board.h));
-    if (m.beat <= first) return [to.x0 + to.w / 2, to.y0 + to.h / 2];
-    const from = viewOf(centre(focus[m.beat - 1] ?? [], board.w, board.h));
+  const whole: Zoom = { x0: -0.15, y0: -0.15, w: board.w + 0.3, h: board.h + 0.3 };
+  // A beat's view: around what it follows, widened while several moves played together wouldn't fit.
+  const viewOf = (follow: [number, number][]): Zoom => viewAround(centre(follow, board.w, board.h), fitView(follow, size, board), board) ?? whole;
+  // Dynamic, the camera glides from the view of the beat this one plays from (before a run of moves) to its own.
+  const dynamicView = (m: Moment): Zoom => {
+    const to = viewOf(focus[m.beat] ?? []);
+    if (m.beat <= first) return to;
+    const from = viewOf(focus[Math.max(first, runs.from[m.beat])] ?? []);
     const k = easeOut(m.elapsed / Math.min(CAMERA_MS, durations[m.beat] || CAMERA_MS));
-    return [from.x0 + from.w / 2 + (to.x0 - from.x0) * k, from.y0 + from.h / 2 + (to.y0 - from.y0) * k];
+    const mix = (a: number, b: number) => a + (b - a) * k;
+    return { x0: mix(from.x0, to.x0), y0: mix(from.y0, to.y0), w: mix(from.w, to.w), h: mix(from.h, to.h) };
   };
   // The team pages over the replay in the preview: a page, or two while they crossfade (the replay beneath).
   const scene = sceneAt(segments, t);
@@ -496,8 +516,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     if (a.kind !== "replay") layers.push({ index: scene.a.index, alpha: b?.kind === "replay" ? 1 - scene.mix : 1 });
     if (b && b.kind !== "replay") layers.push({ index: scene.b!.index, alpha: scene.mix });
   }
-  const looking = mode === "static" ? still ?? [board.w / 2, board.h / 2] : dynamicCentre(moment);
-  const zoom = viewAround(looking, size, board);
+  const dynamic = mode === "static" ? null : dynamicView(moment);
+  const zoom = dynamic ? (dynamic.w >= board.w + 0.3 && dynamic.h >= board.h + 0.3 && dynamic.x0 <= -0.15 && dynamic.y0 <= -0.15 ? null : dynamic) : viewAround(still ?? [board.w / 2, board.h / 2], size, board);
 
   const setMode = (m: CameraMode) => {
     // Static holds where the camera is now.
@@ -824,6 +844,9 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                   <fieldset className="export-group" disabled={working}>
                     <legend>Replay</legend>
                     <ReplaySpeedSlider value={speed} onChange={setSpeed} labelled />
+                    <label className="export-check" title="Consecutive moves in one phase, with nothing else between them, play at once">
+                      <input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} /> Group consecutive moves
+                    </label>
                     <CameraModeSwitch value={mode} onChange={setMode} labelled />
                     <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} after={<ZoomValue level={level} />} />
                   </fieldset>
@@ -1041,7 +1064,7 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
     <div ref={ref} className="replay-stage-theme" inert>
     <div
       ref={frameRef}
-      className={`replay-stage ${logBeside(orientation) ? "landscape" : "portrait"} ${orientation}${log.show ? "" : " no-log"}`}
+      className={`replay-stage ${logBeside(orientation) ? "log-beside" : "log-under"} format-${orientation}${log.show ? "" : " no-log"}`}
       style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows, gridTemplateAreas: layout.areas, gap: layout.gap }}
     >
       <header className="replay-stage-title">

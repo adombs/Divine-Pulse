@@ -2,7 +2,7 @@
  * The battle map as a grid of tiles with every unit on it, each in its army's colour (yours blue, enemies red, allies
  * green, a third army yellow, breakable walls grey): as the game's map sprite, or drawn like the game's minimap, a
  * rounded badge with their portrait or the game's icon for the weapon they fight with
- * (fists for the unarmed), as Settings > Appearance says (`mapLook`). Units that fell or left the map
+ * (fists for the unarmed), as Settings > Battle Replay says (`mapLook`). Units that fell or left the map
  * aren't drawn: in a replay they fade away.
  * When the map's terrain is known it's drawn as the game's minimap draws it: the game's own minimap of the map when
  * there is one (map.gameMinimap); an unavailable native image stays explicit, with the game's icons for
@@ -35,7 +35,7 @@ import { CORNERS, cornerStacks, loadBattleOverlaySettings, overlaySizeStyle } fr
 import { NotchedRange } from "../Slider";
 import { BattleNavContext, useBattleNav } from "./parts";
 import { CameraTools, DEFAULT_ZOOM, view, ZOOM_TILES, zoomText, useMapCamera } from "./camera";
-import { followed, Replay, ReplayBanner, ReplayBar, StepAnimation } from "./replay";
+import { Replay, ReplayBanner, ReplayBar, StepAnimation } from "./replay";
 import { CondensedLog } from "./CondensedLog";
 
 interface Props {
@@ -840,7 +840,7 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
   const { board, at, cursor } = replay;
   const [layout] = useState(loadBattleOverlaySettings);
   const stacks = cornerStacks(layout);
-  const camera = useMapCamera("overview", board, followed(replay), at === null ? `now ${cursor ?? ""}` : `step ${at}`);
+  const camera = useMapCamera("overview", board, replay.follow, at === null ? `now ${cursor ?? ""}` : `step ${at}`);
   return (
     <div className="map-pane">
       {hasMap(battle) && (
