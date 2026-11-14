@@ -113,7 +113,7 @@ export interface CondensedEntry {
   item: Item;
   /** The beat it happened at (its last hit's, for a double attack). */
   beat: number;
-  /** The number: damage ("12", "12 · 12") or HP restored ("+21"); null when there is none. */
+  /** The number: damage ("12", "12 · 12") or HP restored ("21", healing being plain from its icon); null when there is none. */
   value: string | null;
   tone: LabelTone;
   /** Its target was defeated. */
@@ -151,7 +151,7 @@ export function condensedEntries(items: Item[], at: number, max = CONDENSED_MAX)
     const restored = num(item.restored);
     const value = item.kind === "attack" ? (item.dealt != null ? String(item.dealt) : null)
       : item.kind === "rally" ? null
-      : dealt ? String(item.dealt) : restored ? `+${item.restored}` : null;
+      : dealt ? String(item.dealt) : restored ? String(item.restored) : null;
     const tone: LabelTone = item.kind === "attack" || dealt ? "attack" : restored || item.kind === "heal" ? "heal" : "plain";
     out.push({ key: item.key, item, beat: item.beat, value, tone, defeated: !!item.defeated });
   }

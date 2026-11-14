@@ -151,7 +151,7 @@ test("condensed log: the newest actions up to the beat, a double hit as one row,
     row({ key: "x", beat: 5, kind: "item", detail: "Vulnerary", target: null, restored: 20, undoneAt: 6 }),
   ];
   const at4 = condensedEntries(items, 4);
-  assert.deepEqual(at4.map((e) => [e.key, e.beat, e.value, e.tone, e.defeated]), [["a1", 1, "7", "attack", false], ["a2", 3, "12 · 12", "attack", true], ["h", 4, "+21", "heal", false]]);
+  assert.deepEqual(at4.map((e) => [e.key, e.beat, e.value, e.tone, e.defeated]), [["a1", 1, "7", "attack", false], ["a2", 3, "12 · 12", "attack", true], ["h", 4, "21", "heal", false]]);
   assert.deepEqual(condensedEntries(items, 2).map((e) => e.key), ["a1"], "nothing after the beat shown");
   assert.deepEqual(condensedEntries(items, 5).map((e) => e.key).at(-1), "x");
   assert.equal(condensedEntries(items, 6).some((e) => e.key === "x"), false, "turned back by the Divine Pulse at beat 6");

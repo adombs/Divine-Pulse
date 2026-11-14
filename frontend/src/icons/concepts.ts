@@ -107,6 +107,7 @@ export const CONCEPT_ICON = {
   avoid: "avoid",
   carry: "carry",
   absorb: "absorb",
+  star: "star",
   // Shared aliases.
   weapon: "attack",
   actions: "act",
