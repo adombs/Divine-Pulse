@@ -11,6 +11,7 @@ import { DetailCard, EmptyState, Facts, ListRow, MasterDetail, PageHeader, RowLi
 import { BattleFacts, BattleKindChip, RunTotals } from "./battle/BattleList";
 import { countedBattles } from "./battle/rosterRule";
 import { RunTransfer } from "./RunTransfer";
+import { RulesetSection } from "./Ruleset";
 import "./runs.css";
 
 interface Props {
@@ -197,6 +198,7 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
           {renameError && <span className="field-hint error">{renameError}</span>}
         </form>
       ) : null}
+      <RulesetSection run={run} toasts={toasts} />
       <section className="block runs-battle-overview">
         <div className="sec-head"><h2>Battles</h2></div>
         {battleError ? (

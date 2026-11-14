@@ -33,14 +33,29 @@ let SPELLS = index(DATA.spells);
 let ITEMS = index(DATA.items);
 let NATIVE_ITEMS = index(DATA.native_items);
 let NATIVE_SPELLS = index(DATA.native_spells);
+let GAMBITS = new Map<string, string>();
+/** A spell's magic by its name: "reason" (black), "faith" (white) or "dark". */
+let SPELL_MAGIC = new Map<string, string>();
 
 export async function loadReferenceIcons(): Promise<void> {
-  const kinds = ["abilities", "combat-arts", "spells", "weapons", "equipment", "items", "crests-by-person"];
+  const kinds = ["abilities", "combat-arts", "spells", "weapons", "equipment", "items", "crests-by-person", "battalions"];
   const files = await Promise.all(kinds.map((kind) => loadGameJson<Record<string, any>>(`data/${kind}.json`)));
   const native = await loadGameJson<Record<string, Record<string, number>>>("data/exe/item-icons.json");
   const categories = ["ability", "combat_art", "spell", "weapon", "equipment", "item", "crest_major", "crest_minor"];
   const texts = await Promise.all(categories.map((category) => loadGameText(category, gameLanguage())));
-  const [abilities, arts, spells, weapons, equipment, items, crests] = files;
+  const [abilities, arts, spells, weapons, equipment, items, crests, battalions] = files;
+  GAMBITS = new Map();
+  SPELL_MAGIC = new Map();
+  const MAGIC: Record<number, string> = { 5: "reason", 6: "faith", 7: "dark" };
+  for (const row of spells?.spells ?? []) {
+    const magic = MAGIC[row.skill];
+    if (!magic) continue;
+    for (const name of [row.name, texts[2]?.[String(row.id)]]) if (name) {
+      SPELL_MAGIC.set(norm(name), magic);
+      SPELL_MAGIC.set(norm(name.replace(/\s+\S$/u, "")), magic); // "Miasma Δ" is logged as "Miasma"
+    }
+  }
+  for (const row of battalions?.battalions ?? []) if (row.gambit?.name && row.gambit.icon) GAMBITS.set(norm(row.gambit.name), row.gambit.icon);
   ABILITIES = new Map(); CRESTS = new Map(); ARTS = new Map(); SPELLS = new Map(); ITEMS = new Map(); NATIVE_ITEMS = new Map(); NATIVE_SPELLS = new Map();
   const add = (map: Map<string, string>, rows: any[], names: Record<string, string>, path: (row: any) => string) => {
     for (const row of rows ?? []) for (const name of [row.name, names[String(row.id)]]) if (name) map.set(norm(name), path(row));
@@ -108,6 +123,23 @@ export function itemIconUrl(name: string): string | null {
   const file = NATIVE_ITEMS.get(key) ?? ITEMS.get(key);
   return file ? url(file) : null;
 }
+
+/** A gambit's icon by its name ("Onslaught"), from the battalions that have it. */
+export function gambitIconUrl(name: string): string | null {
+  return GAMBITS.get(norm(name)) ?? null;
+}
+
+/** A spell's magic ("reason", "faith" or "dark"), for its plain glyph; null when unknown. */
+export const spellMagic = (name: string) => SPELL_MAGIC.get(norm(name)) ?? null;
+
+/** The weapon a combat art is used with ("sword", "lance", "axe", "bow", "gauntlets"), or null for one used with none. */
+export function artWeaponKind(name: string): string | null {
+  const weapon = ARTS.get(norm(name))?.weapon;
+  return weapon === "brawling" ? "gauntlets" : weapon && weapon !== "other" ? weapon : null;
+}
+
+/** Whether a name is a combat art's (known once the game's data is imported). */
+export const isCombatArt = (name: string) => ARTS.has(norm(name));
 
 /** The weapon a combat art is used with, as its battle-map weapon icon. */
 export function artWeaponIconUrl(name: string): string | null {

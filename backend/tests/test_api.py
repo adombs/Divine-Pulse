@@ -207,3 +207,45 @@ def test_window_mode_is_saved_and_applied_to_the_desktop_window(client):
 def test_about_says_where_the_data_lives(client, tmp_path):
     about = client.get("/api/about").json()
     assert about == {"version": __version__, "data_dir": str(tmp_path), "desktop": False}
+
+
+def test_run_ruleset_round_trip(client):
+    run_id = make_run(client)
+    assert client.get(f"/api/runs/{run_id}/ruleset").json() == {"rules": []}
+    rules = [
+        {"name": "  No   Divine Pulse ", "description": "Mistakes stand."},
+        {"name": "Maddening"},
+        {"name": "My own rule", "description": ""},
+    ]
+    saved = client.put(f"/api/runs/{run_id}/ruleset", json={"rules": rules})
+    assert saved.status_code == 200
+    expected = [
+        {"name": "No Divine Pulse", "description": "Mistakes stand."},
+        {"name": "Maddening", "description": ""},
+        {"name": "My own rule", "description": ""},
+    ]
+    assert saved.json() == {"rules": expected}
+    assert client.get(f"/api/runs/{run_id}/ruleset").json() == {"rules": expected}
+    # Reordering and removing is a full replacement, kept on disk with the run.
+    client.put(f"/api/runs/{run_id}/ruleset", json={"rules": [expected[2], expected[0]]})
+    assert [r["name"] for r in client.get(f"/api/runs/{run_id}/ruleset").json()["rules"]] == ["My own rule", "No Divine Pulse"]
+    exported = client.get(f"/api/runs/{run_id}/export").json()
+    assert [r["name"] for r in exported["run"]["ruleset"]] == ["My own rule", "No Divine Pulse"]
+
+
+def test_run_ruleset_is_validated(client):
+    run_id = make_run(client)
+    assert client.put(f"/api/runs/{run_id}/ruleset", json={"rules": [{"name": "   "}]}).status_code == 422
+    assert client.put(f"/api/runs/{run_id}/ruleset", json={"rules": [{"name": "x" * 61}]}).status_code == 422
+    assert client.put(f"/api/runs/{run_id}/ruleset", json={"rules": [{"name": "A", "extra": 1}]}).status_code == 422
+    assert client.put(f"/api/runs/{run_id}/ruleset", json={"rules": [{"name": f"R{i}"} for i in range(41)]}).status_code == 422
+    assert client.put("/api/runs/missing/ruleset", json={"rules": []}).status_code == 404
+    assert client.get("/api/runs/missing/ruleset").status_code == 404
+
+
+def test_runs_saved_before_rulesets_load_with_none(tmp_path):
+    from app.infrastructure.persistence import RunStore
+
+    store = RunStore(tmp_path)
+    (tmp_path / "old.json").write_text('{"schema_version": 1, "id": "old", "name": "Old"}', encoding="utf-8")
+    assert store.get("old").ruleset == []

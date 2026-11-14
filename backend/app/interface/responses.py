@@ -5,7 +5,7 @@ from __future__ import annotations
 from pydantic import BaseModel, Field
 
 from ..domain.battle import Battle, BattleUnitStats
-from ..domain.runs import RunSummary
+from ..domain.runs import Rule, RunSummary
 from ..domain.membership import on_roster
 from ..domain.units import Unit, VALUE_KEYS
 from ..domain.ebst import EbstConfig
@@ -15,6 +15,10 @@ from ..domain.outlook import outlook
 class RunsOut(BaseModel):
     runs: list[RunSummary]
     active_run_id: str | None
+
+
+class RulesetOut(BaseModel):
+    rules: list[Rule]
 
 
 class BattleUnitOut(BattleUnitStats):
@@ -70,7 +74,8 @@ class UnitOut(Unit):
     boosted_unexplained: list[str]
     # Whether the Roster shows it (in the army, or dead); `in_army` alone is the game's in-army flag.
     on_roster: bool
-    # The unit's run score (domain/best_unit.py): 1,000 per battle MVP plus damage dealt and healing done; 0 when none.
+    # The unit's run score (domain/best_unit.py): damage dealt plus healing done, averaged over the finished battles it
+    # was deployed in (not as an adjutant); 0 when none.
     score: int = 0
 
     @classmethod

@@ -56,7 +56,7 @@ function RunLedger({ kind, battles: source }: { kind: LedgerKind; battles: Battl
   const toggleSort = (column: number) => setSort((old) => ({ column,
     direction: old?.column === column ? old.direction === "descending" ? "ascending" : "descending" : column < 0 ? "ascending" : "descending" }));
   const sortIcon = (column: number) => <Icon name={sort?.column === column && sort.direction === "ascending" ? CONCEPT_ICON.up : CONCEPT_ICON.down} />;
-  const formatValue = (value: number | null, key: string) => value === null ? unknown() : key === "seconds" ? clock(value) : numberFormat.format(value);
+  const formatValue = (value: number | null, key: string) => value === null ? unknown(key === "score" ? "Scores are averages, so they aren't added up" : undefined) : key === "seconds" ? clock(value) : numberFormat.format(value);
   // Each column scales to its own maximum; time columns and all-zero columns get no bars.
   const maxes = useMemo(() => data.columns[part].map((column, index) => column.key === "seconds" ? 0 : rows.reduce((max, row) => Math.max(max, row.values[part][index] ?? 0), 0)), [data.columns, rows, part]);
   return <div className="run-stats-ledger">

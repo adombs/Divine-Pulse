@@ -983,6 +983,39 @@ def test_staves_and_items_are_named_in_the_log(roster_import):
     assert (lys.healed, lys.tiles_moved) == (10, 7)
 
 
+def test_the_spell_an_attack_or_heal_cast_is_logged(roster_import):
+    # Whatever a spell does, the log names it: from the spell uses the caster spent, or the history's own spell byte
+    # (ACTION_SPELL) when the caster knows that spell. A sword's kill (the same action code) names none.
+    from app.battle import STEP_ATTACK, STEP_SPELL, HistoryStep, StepUnit
+
+    def u(uid, hp, uses=None, spells=()):
+        return StepUnit(uid, hp, 1, 1, 40 if uid.startswith("a:") else None, spells=spells, spell_uses=(uses,) if uses is not None else ())
+
+    def me(key):
+        return ArmySample(key, key.capitalize(), "Mage", 16, dict(STATS, hp=40), (), (5,), 40, 1, 1)
+
+    def thief(hp):
+        return EnemySample("Thief", 5, 100.0, 30, hp, 7, 3, 3)
+
+    steps = [
+        HistoryStep(1, 0, True, units=(u("a:lysithea", 40, 5, (14,)), u("a:marianne", 40, 3, (24,)), u("a:byleth", 40), u("a:raphael", 20), u("e:7", 30), u("e:8", 30))),
+        # Miasma (14): spent one of its uses; an attack that leaves the target standing (ACTION_ATTACK).
+        HistoryStep(1, 0, False, STEP_ATTACK, "a:lysithea", "e:7", units=(u("a:lysithea", 40, 4, (14,)), u("e:7", 12))),
+        # The same, read from the spell byte of a magic entry, with no uses in the step.
+        HistoryStep(1, 0, False, STEP_SPELL, "a:lysithea", "e:7", units=(u("a:lysithea", 40, 4, (14,)), u("e:7", 0)), spell=14),
+        # Heal (24) on Raphael, from the uses Marianne spent (an attack's action code, as seen in game).
+        HistoryStep(1, 0, False, STEP_ATTACK, "a:marianne", "a:raphael", units=(u("a:marianne", 40, 2, (24,)), u("a:raphael", 38))),
+        # Byleth's sword kill holds the same action code: no spell.
+        HistoryStep(1, 0, False, STEP_SPELL, "a:byleth", "e:8", units=(u("a:byleth", 40), u("e:8", 0)), spell=0),
+    ]
+    tracker = BattleTracker()
+    army = (me("lysithea"), me("marianne"), me("byleth"), me("raphael"))
+    tracker.update(BattleSample(army, (thief(30), thief(30)), "k", 1, 3, tuple(steps)), "run", at(1))
+    log = [(e.kind, e.detail) for e in tracker.battle.log if e.kind in ("attack", "heal")]
+    assert log == [("attack", "Miasma"), ("attack", "Miasma"), ("heal", "Heal"), ("attack", None)]
+    assert next(e for e in tracker.battle.log if e.kind == "heal").text == "Marianne used Heal on Raphael. Restored 18 HP."
+
+
 def test_a_divine_pulse_keeps_the_undone_timeline_as_a_branch():
     from app.battle import STEP_ATTACK, HistoryStep, StepUnit
 

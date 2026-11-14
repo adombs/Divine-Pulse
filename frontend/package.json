@@ -2,7 +2,7 @@
   "name": "divine-pulse-frontend",
   "private": true,
   "license": "GPL-3.0-only",
-  "version": "1.4.5",
+  "version": "1.4.6",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -10,7 +10,7 @@
     "typecheck": "tsc -b",
     "test:spoilers": "node --experimental-strip-types --test scripts/test-spoilers.mjs",
     "test:nav": "node --experimental-strip-types --test scripts/test-nav.mjs scripts/test-unit-appearance.mjs scripts/test-duplicate-battles.mjs scripts/test-timeline-tree.mjs scripts/test-class-mastery.mjs scripts/test-roster.mjs",
-    "test:resilience": "node --experimental-strip-types --test scripts/test-resilience.mjs scripts/test-chronicle.mjs scripts/test-still-beats.mjs scripts/test-game-file-selection.mjs scripts/test-statistics.mjs scripts/test-roster-rule.mjs scripts/test-filters.mjs scripts/test-snapshot-css.mjs scripts/test-team-pages.mjs",
+    "test:resilience": "node --experimental-strip-types --test scripts/test-resilience.mjs scripts/test-chronicle.mjs scripts/test-still-beats.mjs scripts/test-game-file-selection.mjs scripts/test-statistics.mjs scripts/test-roster-rule.mjs scripts/test-filters.mjs scripts/test-snapshot-css.mjs scripts/test-team-pages.mjs scripts/test-ruleset.mjs scripts/test-video-log.mjs",
     "test": "npm run test:spoilers && npm run test:nav && npm run test:resilience && npm run test:game-images && npm run test:game-data && npm run test:game-language && npm run test:reference-prose && npm run test:links && npm run test:persons && npm run test:export-music",
     "test:export-music": "node --experimental-strip-types --test scripts/test-export-music.mjs",
     "test:persons": "node --experimental-strip-types --test scripts/test-persons.mjs",

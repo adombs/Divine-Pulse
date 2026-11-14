@@ -2,7 +2,8 @@
  * The condensed labels a replay beat puts on the map: the core of its log entries, from their structured fields (never
  * their text), placed on the unit they are about. The arrow already says who acted on whom, so a label carries only the
  * action: an attack's damage, the art or spell used, HP restored, an item, a Rally or a gambit. No label for moves,
- * waits, phase starts or a unit falling (it disappears). Pure: Minimap.tsx draws them.
+ * waits, phase starts or a unit falling (it disappears). The same entries make the condensed log (`condensedEntries`): the
+ * newest actions as one line each in the map's corner (CondensedLog.tsx), which is what the replay shows. Pure.
  */
 import type { Item } from "./model";
 
@@ -99,4 +100,66 @@ export function beatLabels(items: Item[], beat: number, icons: LabelIcons): MapL
     }
   });
   return out;
+}
+
+/** How many rows the condensed log shows unless told otherwise (the newest), and the most it keeps to choose from. */
+export const CONDENSED_MAX = 4;
+export const CONDENSED_KEEP = 8;
+
+/** A row of the condensed log: who did what to whom, as one line. */
+export interface CondensedEntry {
+  key: string;
+  /** The log row it comes from (a double attack: its first hit), for its actor, target, kind, art or spell, and icon. */
+  item: Item;
+  /** The beat it happened at (its last hit's, for a double attack). */
+  beat: number;
+  /** The number: damage ("12", "12 · 12") or HP restored ("21", healing being plain from its icon); null when there is none. */
+  value: string | null;
+  tone: LabelTone;
+  /** Its target was defeated. */
+  defeated: boolean;
+}
+
+/**
+ * The condensed log at beat `at`: the newest `max` actions done up to it (attacks, heals, items, arts, spells, Rallies
+ * and gambits, the same entries the labels are made from), oldest first. A double attack is one row with every hit's
+ * damage; a row a Divine Pulse turned back is gone once the replay is at or past that use.
+ */
+export function condensedEntries(items: Item[], at: number, max = CONDENSED_MAX): CondensedEntry[] {
+  const out: CondensedEntry[] = [];
+  // The row before this one in the log: a double attack is two hits one after the other, with nothing between.
+  let previous: Item | null = null;
+  for (const item of items) {
+    const before = previous;
+    if (!item.heading) previous = item;
+    if (item.heading || !LABELLED.has(item.kind) || (item.actor == null && item.target == null)) continue;
+    if (item.beat == null || item.beat > at) continue;
+    if (item.undoneAt != null && at >= item.undoneAt) continue;
+    const last = out[out.length - 1];
+    if (
+      last && before?.kind === "attack" && before.beat === last.beat && item.kind === "attack" && last.item.kind === "attack" && item.actor === last.item.actor && item.target === last.item.target &&
+      item.detail === last.item.detail && item.turn === last.item.turn && item.phase === last.item.phase
+    ) {
+      const hits = [...(last.item.hits ?? [{ dealt: last.item.dealt, taken: last.item.taken }]), { dealt: item.dealt, taken: item.taken }];
+      last.item = { ...last.item, hits };
+      last.beat = item.beat;
+      last.defeated ||= !!item.defeated;
+      last.value = hits.some((h) => h.dealt != null) ? hits.map((h) => h.dealt ?? 0).join(" · ") : null;
+      continue;
+    }
+    const dealt = num(item.dealt);
+    const restored = num(item.restored);
+    const value = item.kind === "attack" ? (item.dealt != null ? String(item.dealt) : null)
+      : item.kind === "rally" ? null
+      : dealt ? String(item.dealt) : restored ? String(item.restored) : null;
+    const tone: LabelTone = item.kind === "attack" || dealt ? "attack" : restored || item.kind === "heal" ? "heal" : "plain";
+    out.push({ key: item.key, item, beat: item.beat, value, tone, defeated: !!item.defeated });
+  }
+  return out.slice(Math.max(0, out.length - max));
+}
+
+/** The words for an action in the condensed log: its art, spell, item, Rally or gambit by name, else what it was. */
+export function actionName(item: Item): string {
+  if (item.detail) return item.detail;
+  return ({ attack: "Attack", heal: "Heal", item: "Item", spell: "Spell", art: "Combat Art", rally: "Rally", gambit: "Gambit" } as Record<string, string>)[item.kind] ?? "Action";
 }

@@ -20,33 +20,28 @@ def best(*battles: Battle, roster: tuple[str, ...] = ()) -> str | None:
     return found.key if found else None
 
 
-def test_score_adds_mvps_damage_and_healing_over_the_whole_run():
-    # Felix is MVP twice: 2 x 1000 + 100 damage.
+def test_score_is_damage_and_healing_and_mvps_add_nothing():
+    # Felix has every kill (the battle's MVP) but less damage.
     assert best(
-        battle(1, unit("dimitri", damage_dealt=1200, defeats=1), unit("felix", damage_dealt=50, defeats=2)),
-        battle(2, unit("dimitri", damage_dealt=1200, defeats=1), unit("felix", damage_dealt=50, defeats=3)),
-    ) == "dimitri"  # 2400 damage beats 2100
-    assert best(
-        battle(1, unit("dimitri", damage_dealt=400, defeats=1), unit("felix", damage_dealt=50, defeats=2)),
-        battle(2, unit("dimitri", damage_dealt=400, defeats=1), unit("felix", damage_dealt=50, defeats=3)),
-    ) == "felix"  # 800 damage doesn't
+        battle(1, unit("dimitri", damage_dealt=120), unit("felix", damage_dealt=50, defeats=5)),
+        battle(2, unit("dimitri", damage_dealt=120), unit("felix", damage_dealt=50, defeats=5)),
+    ) == "dimitri"
 
 
 def test_healing_counts_like_damage():
     assert best(battle(1, unit("mercedes", healing_given=90), unit("felix", damage_dealt=80))) == "mercedes"
 
 
-def test_mvp_is_shared_on_a_tie_and_needs_a_defeat():
-    found = best_unit([battle(1, unit("a", defeats=2), unit("b", defeats=2, damage_dealt=1))], ())
-    assert found.key == "b"  # both are MVP, then damage decides
-    assert best(battle(1, unit("a", defeats=0), unit("b", defeats=0))) is None
+def test_nothing_dealt_or_healed_scores_nothing():
+    assert best(battle(1, unit("a", defeats=2), unit("b", defeats=2, damage_dealt=1))) == "b"
+    assert best(battle(1, unit("a", defeats=3), unit("b", defeats=0))) is None
 
 
 def test_ties_go_to_kills_then_falls_then_level_then_roster_order():
-    # x and y each score 1000 + 100; x has the extra kill.
+    # x and y each average 100 / 2; x has the extra kill.
     assert best(
         battle(1, unit("x", defeats=1, damage_dealt=100), unit("y", defeats=1, healing_given=100)),
-        battle(2, unit("x", defeats=1), unit("y", defeats=0), unit("z", defeats=2)),
+        battle(2, unit("x", defeats=1), unit("y", defeats=0)),
     ) == "x"
     assert best(battle(1, unit("x", damage_dealt=100, on_map=False), unit("y", damage_dealt=100))) == "y"
     assert best(battle(1, unit("x", damage_dealt=100, level=9), unit("y", damage_dealt=100, level=12))) == "y"
@@ -56,7 +51,34 @@ def test_ties_go_to_kills_then_falls_then_level_then_roster_order():
 
 
 def test_an_adjutant_off_the_map_has_not_fallen():
-    assert best(battle(1, unit("x", damage_dealt=100, on_map=False, adjutant_of="y", level=9), unit("y", damage_dealt=100, level=1))) == "x"
+    # x and y each average 100 over their one deployment; x's battle as an adjutant isn't a fall (or a deployment).
+    assert best(
+        battle(1, unit("x", damage_dealt=100, level=9), unit("y", damage_dealt=100, level=1)),
+        battle(2, unit("x", on_map=False, adjutant_of="z"), unit("z", on_map=False)),
+    ) == "x"
+
+
+def test_score_is_the_average_per_deployment():
+    battles = [
+        battle(1, unit("felix", damage_dealt=300, defeats=2), unit("mercedes", healing_given=400)),
+        battle(2, unit("felix", damage_dealt=100), unit("mercedes", healing_given=201)),
+        battle(3, unit("felix", damage_dealt=201)),
+    ]
+    # Both earned 601 in all; Mercedes did it in fewer battles: 601 / 3 against 601 / 2.
+    assert unit_scores(battles) == {"felix": 200, "mercedes": 301}
+    assert best(*battles) == "mercedes"
+    assert unit_scores([battle(1, unit("x", damage_dealt=1)), battle(2, unit("x", damage_dealt=0))]) == {"x": 1}  # halves round up
+
+
+def test_battles_as_an_adjutant_are_not_deployments():
+    battles = [
+        battle(1, unit("felix", damage_dealt=300), unit("dedue", damage_dealt=100)),
+        battle(2, unit("felix", damage_dealt=50, on_map=False, adjutant_of="dedue"), unit("dedue", damage_dealt=100)),
+        battle(3, unit("felix", on_map=False, adjutant_of="dedue"), unit("dedue")),
+    ]
+    # Felix was deployed once (300); Dedue three times (200 / 3). Only ever an adjutant: no deployments, so 0.
+    assert unit_scores(battles) == {"felix": 300, "dedue": 67}
+    assert unit_scores([battle(1, unit("ashe", damage_dealt=80, on_map=False, adjutant_of="felix"), unit("felix"))]) == {"ashe": 0, "felix": 0}
 
 
 def test_no_data_means_no_best_unit():
@@ -108,8 +130,8 @@ def test_unit_scores_are_what_the_best_unit_is_chosen_by():
         battle(1, unit("felix", damage_dealt=100, defeats=2), unit("mercedes", healing_given=40), unit("ingrid")),
         battle(2, unit("felix", damage_dealt=50, defeats=1), unit("mercedes", healing_given=10, defeats=3), finished=False),
     ]
-    # Felix: MVP once (1,000) + 100 damage; the unfinished battle counts for nothing.
-    assert unit_scores(battles) == {"felix": 1100, "mercedes": 40, "ingrid": 0}
+    # Felix: 100 damage in one deployment; the unfinished battle counts for nothing.
+    assert unit_scores(battles) == {"felix": 100, "mercedes": 40, "ingrid": 0}
     assert best(*battles) == "felix"
 
 

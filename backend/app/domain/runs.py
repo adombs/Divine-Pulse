@@ -11,6 +11,20 @@ from .ebst import EbstConfig
 from .units import Unit, now
 
 
+class Rule(BaseModel):
+    """One self-imposed rule of a run (No Divine Pulse, Classic, a rule of the player's own): a short name and, if
+    wanted, what it means."""
+
+    name: str
+    description: str = ""
+
+
+# How many rules a ruleset holds, and how long a rule's name and description may be.
+MAX_RULES = 40
+RULE_NAME_LEN = 60
+RULE_DESCRIPTION_LEN = 280
+
+
 class Run(BaseModel):
     schema_version: Literal[1] = 1
     id: str
@@ -20,6 +34,8 @@ class Run(BaseModel):
     units: dict[str, Unit] = Field(default_factory=dict)
     ebst_default: EbstConfig = Field(default_factory=EbstConfig)
     route: str | None = None
+    # The run's self-imposed rules, in the order the player put them.
+    ruleset: list[Rule] = Field(default_factory=list)
 
 
 # The game's scenario ids for main-story chapters (the prologue to the last chapter of every route), as in

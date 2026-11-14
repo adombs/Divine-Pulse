@@ -21,10 +21,12 @@ import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
+import { CONDENSED_SIZES, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { CondensedLog } from "./CondensedLog";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
-import { PAGE_MS, sceneAt, type Segment } from "../../exporting/teamPages";
+import { sceneAt, type Segment } from "../../exporting/teamPages";
 import { CUSTOM_ID, customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, previewTheme, recording, releaseCustomAudio, setPreviewVolume, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
@@ -33,10 +35,17 @@ import { Minimap, type Zoom } from "./Minimap";
 import { ItemList, useBattleNav } from "./parts";
 import { beatDurations, beatFocus, beatOf, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
 import { battleName, KIND_LABEL } from "./scenarios";
+import { api } from "../../api";
+import { sanitizeRules, type Rule } from "../../ruleset";
+import { DEFAULT_RULESET_PAGE, RulesetPageSection, RulesetPageView as RulesetPageViewPlain, sanitizeRulesetPage, useRulesetPage, type RulesetPageOptions } from "./RulesetPage";
 import { DEFAULT_TEAM_PAGES, sanitizeTeamPages, TeamPagesSection, TeamPageView as TeamPageViewPlain, useTeamPages, type PageFrame, type TeamPage, type TeamPagesOptions } from "./TeamPages";
+
+/** No rules (one array, so the views it is passed to keep still). */
+const NO_RULES: Rule[] = [];
 
 /** A page's view is redrawn only when its page changes, not with every frame of the preview's clock. */
 const TeamPageView = memo(TeamPageViewPlain);
+const RulesetPageView = memo(RulesetPageViewPlain);
 
 /** The frame's shape: 16:9, 1.91:1 (`wide`, laid out like 16:9), 9:16, or 4:5 (`feed`, laid out like 9:16). */
 type Orientation = "landscape" | "wide" | "portrait" | "feed";
@@ -79,8 +88,12 @@ interface VideoOptions {
   volume: number;
   /** The team's overview shown before and after the replay (TeamPages.tsx). */
   team: TeamPagesOptions;
+  /** The run's ruleset shown before or after the replay (RulesetPage.tsx). */
+  rules: RulesetPageOptions;
+  /** Whether the frame has the log and how many rows it shows, and whether the map has the condensed log (videoLog.ts). */
+  log: VideoLogOptions;
 }
-const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, team: DEFAULT_TEAM_PAGES };
+const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, team: DEFAULT_TEAM_PAGES, rules: DEFAULT_RULESET_PAGE, log: DEFAULT_VIDEO_LOG };
 
 function loadOptions(): VideoOptions {
   try {
@@ -93,6 +106,8 @@ function loadOptions(): VideoOptions {
       version: saved.version === "thunder" ? "thunder" : "rain",
       volume: Number.isInteger(saved.volume) && saved.volume! >= 0 && saved.volume! <= 100 ? saved.volume! : DEFAULT_OPTIONS.volume,
       team: sanitizeTeamPages(saved.team),
+      rules: sanitizeRulesetPage(saved.rules),
+      log: sanitizeVideoLog(saved.log),
     };
   } catch {
     return DEFAULT_OPTIONS;
@@ -101,10 +116,15 @@ function loadOptions(): VideoOptions {
 
 /** A video frame's two layers (snapshot.ts `Layer`). The chrome: the title, the log and the map's frame, without the
  * map or anything over it. The map: the map with its turn banner and rewind badge, over a see-through frame. */
-const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap"], remove: [".replay-banner", ".rewind-badge"] };
+const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap", ".replay-stage-condensed"], remove: [".replay-banner", ".rewind-badge"] };
 const MAP_LAYER: Layer = {
-  hide: [".replay-stage-title", ".replay-stage-log"],
+  hide: [".replay-stage-title", ".replay-stage-log", ".replay-stage-condensed"],
   styles: "map",
+  css: ".replay-stage { background: none !important; box-shadow: none !important; }",
+};
+/** The condensed log, over the map: a third layer that changes once a step, like the chrome. */
+const CONDENSED_LAYER: Layer = {
+  hide: [".replay-stage-title", ".replay-stage-map", ".replay-stage-log"],
   css: ".replay-stage { background: none !important; box-shadow: none !important; }",
 };
 
@@ -161,11 +181,13 @@ const TITLE_H: Record<Orientation, number> = { landscape: 46, wide: 46, portrait
 const MAP_FRAME = 14;
 const LOG_MIN: Record<Orientation, number> = { landscape: 380, wide: 380, portrait: 360, feed: 240 };
 
-/** The most room the map can have: the whole height (log beside) or width (log under) and all but the log's least. */
-function mapRoom(orientation: Orientation): [number, number] {
+/** The most room the map can have: the whole height (log beside) or width (log under) and all but the log's least; with
+ * no log, everything under the title. */
+function mapRoom(orientation: Orientation, logShown: boolean): [number, number] {
   const [width, height] = STAGE[orientation];
   const innerW = width - 2 * PAD;
   const innerH = height - 2 * PAD - TITLE_H[orientation] - GAP;
+  if (!logShown) return [innerW - MAP_FRAME, innerH - MAP_FRAME];
   return logBeside(orientation)
     ? [innerW - GAP - LOG_MIN[orientation] - MAP_FRAME, innerH - MAP_FRAME]
     : [innerW - MAP_FRAME, innerH - GAP - LOG_MIN[orientation] - MAP_FRAME];
@@ -175,11 +197,12 @@ function mapRoom(orientation: Orientation): [number, number] {
  * The camera's view in tiles at a zoom level: the whole map zoomed out; zoomed in, `tiles` along the map's short side
  * of the frame and as many along the long side as the room there holds, so the map fills all the room it can.
  */
-function viewSize(orientation: Orientation, tiles: number, board: { w: number; h: number }): [number, number] {
+function viewSize(orientation: Orientation, logShown: boolean, tiles: number, board: { w: number; h: number }): [number, number] {
   if (!tiles) return [board.w + 0.3, board.h + 0.3];
-  const [w, h] = mapRoom(orientation);
-  const across = logBeside(orientation) ? tiles * (w / h) : tiles;
-  const down = logBeside(orientation) ? tiles : tiles * (h / w);
+  const [w, h] = mapRoom(orientation, logShown);
+  const wide = logShown ? logBeside(orientation) : w >= h;
+  const across = wide ? tiles * (w / h) : tiles;
+  const down = wide ? tiles : tiles * (h / w);
   return [Math.min(across, board.w), Math.min(down, board.h)];
 }
 
@@ -190,13 +213,32 @@ function viewAround([cx, cy]: [number, number], [w, h]: [number, number], board:
   return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
 }
 
+/** A frame's grid (set inline): its tracks, and with no log, its own areas and no gaps. */
+interface StageLayout {
+  columns: string;
+  rows: string;
+  areas?: string;
+  gap?: number;
+}
+
 /**
  * The rows and columns of a frame: the title strip across the top, then the map on the left and the log beside it
  * (16:9, 1.91:1), or the map and the log under it (9:16, 4:5). The map gets what its view's shape needs (`aspect`, its
- * width over its height) of the room `mapRoom` allows; the log, the rest.
+ * width over its height) of the room `mapRoom` allows; the log, the rest. With no log, the map is centred under the
+ * title at exactly its size, so the condensed log's corner is the map's.
  */
-function stageLayout(orientation: Orientation, aspect: number): { columns: string; rows: string } {
-  const [w, h] = mapRoom(orientation);
+function stageLayout(orientation: Orientation, logShown: boolean, aspect: number): StageLayout {
+  const [w, h] = mapRoom(orientation, logShown);
+  if (!logShown) {
+    const mapW = Math.min(h * aspect, w);
+    const mapH = mapW / aspect;
+    return {
+      columns: `minmax(0, 1fr) ${Math.round(mapW + MAP_FRAME)}px minmax(0, 1fr)`,
+      rows: `${TITLE_H[orientation]}px ${GAP}px minmax(0, 1fr) ${Math.round(mapH + MAP_FRAME)}px minmax(0, 1fr)`,
+      areas: '"title title title" ". . ." ". . ." ". map ." ". . ."',
+      gap: 0,
+    };
+  }
   if (logBeside(orientation)) {
     const mapW = Math.round(Math.min(h * aspect, w) + MAP_FRAME);
     return { columns: `${mapW}px minmax(0, 1fr)`, rows: `${TITLE_H[orientation]}px minmax(0, 1fr)` };
@@ -205,8 +247,10 @@ function stageLayout(orientation: Orientation, aspect: number): { columns: strin
   return { columns: "minmax(0, 1fr)", rows: `${TITLE_H[orientation]}px ${mapH}px minmax(0, 1fr)` };
 }
 
-/** A stretch of the video: the replay, or a team page. */
-type Part = { kind: "replay" } | { kind: "page"; page: TeamPage };
+/** A stretch of the video: the replay, a team page, or the ruleset page. */
+type Part = { kind: "replay" } | { kind: "page"; page: TeamPage } | { kind: "rules" };
+/** A picture's id among the documents drawn for the video. */
+const pictureId = (part: Part) => (part.kind === "page" ? part.page.id : part.kind);
 
 /** Where the video stands: a beat, and how far into it (ms). */
 interface Moment {
@@ -246,6 +290,15 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   };
   const setOption = <K extends keyof VideoOptions>(key: K, value: VideoOptions[K]) => setOptionsState((o) => keep({ ...o, [key]: value }));
   const updateTeam = (patch: Partial<TeamPagesOptions>) => setOptionsState((o) => keep({ ...o, team: { ...o.team, ...patch } }));
+  const updateLog = (patch: Partial<VideoLogOptions>) => setOptionsState((o) => keep({ ...o, log: { ...o.log, ...patch } }));
+  const updateRules = (patch: Partial<RulesetPageOptions>) => setOptionsState((o) => keep({ ...o, rules: { ...o.rules, ...patch } }));
+  // The run's ruleset, for its page.
+  const [rules, setRules] = useState<Rule[] | null>(null);
+  useEffect(() => {
+    let live = true;
+    api.ruleset(battle.run_id).then((r) => { if (live) setRules(sanitizeRules(r.rules)); }, () => { if (live) setRules([]); });
+    return () => { live = false; };
+  }, [battle.run_id]);
   const scale = RESOLUTIONS.find(([r]) => r === options.resolution)?.[2] ?? 1.5;
   const fps = options.fps;
   // The battle themes (imported with the game files), and the one to play: the battle's own to begin with.
@@ -325,6 +378,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const team = options.team;
   const pages = useTeamPages({ team, update: updateTeam, units, history, battle, part2, frame });
   const pageRun = useMemo(() => ({ name: runName, route }), [runName, route]);
+  const rulesPage = useRulesetPage({ options: options.rules, rules: rules ?? NO_RULES, frame });
+  const rulesView = useMemo(() => ({ columns: rulesPage.columns, scale: rulesPage.scale, width: rulesPage.width }), [rulesPage.columns, rulesPage.scale, rulesPage.width]);
   const [speed, setSpeed] = useState(() => nav.replaySpeed ?? 1);
   const [mode, setModeState] = useState<CameraMode>("dynamic");
   const [level, setLevel] = useState(DEFAULT_ZOOM);
@@ -352,16 +407,25 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     }
     return { starts: out, total: t + END_HOLD_MS };
   }, [durations, first, last]);
-  // The video: the pages before the replay, the replay, the pages after it (a crossfade at each cut, sceneAt).
-  const pageMs = PAGE_MS;
+  // The video: the pages before the replay (the ruleset first), the replay, the pages after it (the ruleset last), with
+  // a crossfade at each cut (sceneAt).
+  const pageMs = options.team.seconds * 1000;
+  const rulesAt = rulesPage.enabled ? options.rules.at : null;
   const parts = useMemo<Part[]>(() => [
+    ...(rulesAt === "start" ? [{ kind: "rules" } as Part] : []),
     ...pages.start.map((page): Part => ({ kind: "page", page })),
     { kind: "replay" },
     ...pages.end.map((page): Part => ({ kind: "page", page })),
-  ], [pages.start, pages.end]);
-  const segments = useMemo<Segment[]>(() => parts.map((p, i) => ({ id: `${i}`, ms: p.kind === "page" ? pageMs : replayTotal })), [parts, pageMs, replayTotal]);
-  const lead = pages.start.length * pageMs;
-  const total = lead + replayTotal + pages.end.length * pageMs;
+    ...(rulesAt === "end" ? [{ kind: "rules" } as Part] : []),
+  ], [pages.start, pages.end, rulesAt]);
+  const rulesMs = rulesPage.ms;
+  const segments = useMemo<Segment[]>(
+    () => parts.map((p, i) => ({ id: `${i}`, ms: p.kind === "page" ? pageMs : p.kind === "rules" ? rulesMs : replayTotal })),
+    [parts, pageMs, rulesMs, replayTotal],
+  );
+  const replayAt = parts.findIndex((p) => p.kind === "replay");
+  const lead = segments.slice(0, replayAt).reduce((sum, seg) => sum + seg.ms, 0);
+  const total = segments.reduce((sum, seg) => sum + seg.ms, 0);
   /** Where the replay is (ms into it) when the video is `ms` in. */
   const replayTime = (ms: number) => Math.max(0, Math.min(replayTotal, ms - lead));
 
@@ -416,7 +480,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
 
   // The camera, from the moment alone: a dynamic one glides from the last step's action to this one's.
   const { board } = replay;
-  const size = viewSize(orientation, ZOOM_TILES[level], board);
+  const size = viewSize(orientation, options.log.show, ZOOM_TILES[level], board);
   const viewOf = (c: [number, number]): Zoom => viewAround(c, size, board) ?? { x0: 0, y0: 0, w: board.w, h: board.h };
   const dynamicCentre = (m: Moment): [number, number] => {
     const to = viewOf(centre(focus[m.beat] ?? [], board.w, board.h));
@@ -431,8 +495,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   {
     const a = parts[scene.a.index];
     const b = scene.b ? parts[scene.b.index] : null;
-    if (a.kind === "page") layers.push({ index: scene.a.index, alpha: b?.kind === "replay" ? 1 - scene.mix : 1 });
-    if (b?.kind === "page") layers.push({ index: scene.b!.index, alpha: scene.mix });
+    if (a.kind !== "replay") layers.push({ index: scene.a.index, alpha: b?.kind === "replay" ? 1 - scene.mix : 1 });
+    if (b && b.kind !== "replay") layers.push({ index: scene.b!.index, alpha: scene.mix });
   }
   const looking = mode === "static" ? still ?? [board.w / 2, board.h / 2] : dynamicCentre(moment);
   const zoom = viewAround(looking, size, board);
@@ -449,7 +513,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     if (next === level) return;
     if (mode === "static") {
       const fromView = zoom ?? { x0: 0, y0: 0, w: board.w, h: board.h };
-      const toView = viewAround(looking, viewSize(orientation, ZOOM_TILES[next], board), board) ?? { x0: 0, y0: 0, w: board.w, h: board.h };
+      const toView = viewAround(looking, viewSize(orientation, options.log.show, ZOOM_TILES[next], board), board) ?? { x0: 0, y0: 0, w: board.w, h: board.h };
       const nx0 = x - ((x - fromView.x0) * toView.w) / fromView.w;
       const ny0 = y - ((y - fromView.y0) * toView.h) / fromView.h;
       setStill([nx0 + toView.w / 2, ny0 + toView.h / 2]);
@@ -464,10 +528,10 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   };
 
   // The camera's view keeps one shape at a zoom level (the whole map's, zoomed out), so the frame is laid out for it.
-  const layout = stageLayout(orientation, size[0] / size[1]);
+  const layout = stageLayout(orientation, options.log.show, size[0] / size[1]);
   const stage = useRef<HTMLDivElement>(null);
   // The page being drawn for the video, in a hidden copy of the frame.
-  const [raster, setRaster] = useState<TeamPage | null>(null);
+  const [raster, setRaster] = useState<Part | null>(null);
   const rasterRef = useRef<HTMLDivElement>(null);
   const abort = useRef<AbortController | null>(null);
   useEffect(() => () => abort.current?.abort(), []);
@@ -489,6 +553,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     // Each layer is loaded into one image element over and over (snapshot.ts `image`), so no decoded frame is left behind.
     const chromeImg = new Image();
     const mapImg = new Image();
+    const condensedImg = new Image();
+    const condensed = options.log.condensed;
     // Team pages: each is drawn to a picture once (kept as its document while the video is made), and decoded while it is on screen.
     const docs = new Map<string, string>();
     const pageImages = new Map<number, HTMLImageElement>();
@@ -497,14 +563,14 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
       const found = pageImages.get(index);
       if (found) return found;
       const part = parts[index];
-      if (part.kind !== "page") throw new Error("Not a team page");
-      let doc = docs.get(part.page.id);
+      if (part.kind === "replay") throw new Error("Not a page");
+      let doc = docs.get(pictureId(part));
       if (!doc) {
-        flushSync(() => setRaster(part.page));
+        flushSync(() => setRaster(part));
         await new Promise((resolve) => window.setTimeout(resolve, 120)); // sprites and fonts settle
         if (!rasterRef.current) throw new Cancelled();
         doc = await snap.svg(rasterRef.current, width, height, scale);
-        docs.set(part.page.id, doc);
+        docs.set(pictureId(part), doc);
       }
       const img = await snap.image(doc);
       pageImages.set(index, img);
@@ -518,6 +584,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
       // step; the map (with its turn banner) is drawn each frame on its own, with only the styles it needs.
       let chrome: { beat: number; img: HTMLImageElement } | null = null;
       let map: { doc: string; img: HTMLImageElement } | null = null;
+      let over: HTMLImageElement | null = null;
       const video = await encodeVideo({
         width: out[0],
         height: out[1],
@@ -538,14 +605,17 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
           const a = parts[scene.a.index];
           const b = scene.b ? parts[scene.b.index] : null;
           // What is on the canvas now: a page, the replay, or a crossfade (always redrawn).
-          const now = scene.b ? `fade ${i}` : a.kind === "page" ? `page ${scene.a.index}` : "replay";
+          const now = scene.b ? `fade ${i}` : a.kind !== "replay" ? `page ${scene.a.index}` : "replay";
           let changed = now !== shown || !!scene.b;
           shown = now;
           const withReplay = a.kind === "replay" || b?.kind === "replay";
           if (withReplay) {
             const beat = momentAt(replayTime(ms)).beat;
             const newChrome = chrome?.beat !== beat;
-            if (newChrome) chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
+            if (newChrome) {
+              chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
+              over = condensed ? await snap.image(await snap.svg(el, width, height, scale, CONDENSED_LAYER), condensedImg) : null;
+            }
             const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
             const newMap = map?.doc !== doc;
             if (newMap) map = { doc, img: await snap.image(doc, mapImg) };
@@ -555,13 +625,14 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
           if (withReplay) {
             g.drawImage(chrome!.img, 0, 0, out[0], out[1]);
             g.drawImage(map!.img, 0, 0, out[0], out[1]);
+            if (over) g.drawImage(over, 0, 0, out[0], out[1]);
           }
           // Pages go over the replay (fading out as the replay fades in beneath, in as it fades out), or over each other.
-          if (a.kind === "page") {
+          if (a.kind !== "replay") {
             g.globalAlpha = b?.kind === "replay" ? 1 - scene.mix : 1;
             g.drawImage(await pageImage(scene.a.index), 0, 0, out[0], out[1]);
           }
-          if (b?.kind === "page") {
+          if (b && b.kind !== "replay") {
             g.globalAlpha = scene.mix;
             g.drawImage(await pageImage(scene.b!.index), 0, 0, out[0], out[1]);
           }
@@ -587,6 +658,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
       abort.current = null;
       chromeImg.removeAttribute("src");
       mapImg.removeAttribute("src");
+      condensedImg.removeAttribute("src");
       for (const img of pageImages.values()) img.removeAttribute("src");
       setRaster(null);
     }
@@ -616,9 +688,12 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     >
       <div className="replay-export">
         {pages.measure}
-        {raster && (
+        {rulesPage.measure}
+        {raster && raster.kind !== "replay" && (
           <div className="team-page-raster" aria-hidden>
-            <TeamPageView ref={rasterRef} page={raster} frame={frame} run={pageRun} part2={part2} face={team.face} markFallen={team.markFallen} gear={pages.gear} />
+            {raster.kind === "page"
+              ? <TeamPageView ref={rasterRef} page={raster.page} frame={frame} run={pageRun} part2={part2} face={team.face} markFallen={team.markFallen} gear={pages.gear} />
+              : <RulesetPageView ref={rasterRef} rules={rules ?? NO_RULES} frame={frame} run={pageRun} page={rulesView} />}
           </div>
         )}
         <ScaledStage
@@ -660,16 +735,22 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
               moment={moment}
               orientation={orientation}
               layout={layout}
+              log={options.log}
               route={route}
               zoom={zoom}
               onWheelAt={working ? undefined : onWheelAt}
               onDrag={working ? undefined : onDrag}
             />
-            {layers.map(({ index, alpha }) => (
-              <div key={index} className="team-page-layer" style={{ opacity: alpha }}>
-                <TeamPageView page={(parts[index] as { page: TeamPage }).page} frame={frame} run={pageRun} part2={part2} face={team.face} markFallen={team.markFallen} gear={pages.gear} />
-              </div>
-            ))}
+            {layers.map(({ index, alpha }) => {
+              const part = parts[index];
+              return (
+                <div key={index} className="team-page-layer" style={{ opacity: alpha }}>
+                  {part.kind === "page"
+                    ? <TeamPageView page={part.page} frame={frame} run={pageRun} part2={part2} face={team.face} markFallen={team.markFallen} gear={pages.gear} />
+                    : <RulesetPageView rules={rules ?? NO_RULES} frame={frame} run={pageRun} page={rulesView} />}
+                </div>
+              );
+            })}
         </ScaledStage>
         <aside className="export-side export-tabbed" aria-label="Video options">
           <ExportTabs tab={options.tab} onTab={(tab) => setOption("tab", tab)}>
@@ -683,12 +764,58 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                       value={orientation}
                       onChange={setOrientation}
                       options={[
-                        ["landscape", "16:9", "1920 × 1080, the log beside the map"],
-                        ["wide", "1.91:1", "2064 × 1080, the log beside the map"],
-                        ["portrait", "9:16", "1080 × 1920, the log under the map"],
-                        ["feed", "4:5", "1080 × 1350, the log under the map"],
+                        ["landscape", "16:9", options.log.show ? "1920 × 1080, the log beside the map" : "1920 × 1080"],
+                        ["wide", "1.91:1", options.log.show ? "2064 × 1080, the log beside the map" : "2064 × 1080"],
+                        ["portrait", "9:16", options.log.show ? "1080 × 1920, the log under the map" : "1080 × 1920"],
+                        ["feed", "4:5", options.log.show ? "1080 × 1350, the log under the map" : "1080 × 1350"],
                       ]}
                     />
+                  </fieldset>
+                  <fieldset className="export-group" disabled={working}>
+                    <legend>Log</legend>
+                    <label className="export-check">
+                      <input type="checkbox" checked={options.log.show} onChange={(e) => updateLog({ show: e.target.checked })} />
+                      Log <small>beside or under the map</small>
+                    </label>
+                    {options.log.show && (<>
+                    <StepSlider
+                      label="Lines"
+                      stops={MAX_LOG_LINES + 1}
+                      value={options.log.lines ?? 0}
+                      onChange={(i) => updateLog({ lines: i === 0 ? null : i })}
+                      valueText={options.log.lines === null ? "As many as fit" : `${options.log.lines} at most`}
+                      after={<span className="team-pages-axis-value">{options.log.lines ?? "Auto"}</span>}
+                      variant="timeline"
+                      slim
+                    />
+                    <p className="export-note">{options.log.lines === null ? "Auto: as many lines as fit." : `The newest ${options.log.lines} ${options.log.lines === 1 ? "line" : "lines"} at a time.`}</p>
+                    </>)}
+                    <label className="export-check">
+                      <input type="checkbox" checked={options.log.condensed} onChange={(e) => updateLog({ condensed: e.target.checked })} />
+                      Condensed log <small>the latest actions in the map's corner</small>
+                    </label>
+                    {options.log.condensed && (<>
+                      <StepSlider
+                        label="Condensed lines"
+                        stops={MAX_CONDENSED_LINES}
+                        value={options.log.condensedLines - 1}
+                        onChange={(i) => updateLog({ condensedLines: i + 1 })}
+                        valueText={`${options.log.condensedLines} at most`}
+                        after={<span className="team-pages-axis-value">{options.log.condensedLines}</span>}
+                        variant="timeline"
+                        slim
+                      />
+                      <StepSlider
+                        label="Condensed size"
+                        stops={CONDENSED_SIZES.length}
+                        value={Math.max(0, CONDENSED_SIZES.indexOf(options.log.condensedSize as (typeof CONDENSED_SIZES)[number]))}
+                        onChange={(i) => updateLog({ condensedSize: CONDENSED_SIZES[i] })}
+                        valueText={`${Math.round(options.log.condensedSize * 100)}%`}
+                        after={<span className="team-pages-axis-value">{Math.round(options.log.condensedSize * 100)}%</span>}
+                        variant="timeline"
+                        slim
+                      />
+                    </>)}
                   </fieldset>
                   <fieldset className="export-group" disabled={working}>
                     <legend>Video</legend>
@@ -737,13 +864,21 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                   </fieldset>
                 </>
               ),
-              team: units.length > 0 ? (
-                <fieldset className="export-group team-pages" disabled={working}>
-                  <legend>Team pages</legend>
-                  <TeamPagesSection team={team} update={updateTeam} pages={pages} units={units} part2={part2} />
-                </fieldset>
-              ) : (
-                <p className="export-note">This run has no units to show yet.</p>
+              team: (
+                <>
+                  <fieldset className="export-group ruleset-pages" disabled={working}>
+                    <legend>Ruleset page</legend>
+                    <RulesetPageSection options={options.rules} update={updateRules} rules={rules} page={rulesPage} />
+                  </fieldset>
+                  {units.length > 0 ? (
+                    <fieldset className="export-group team-pages" disabled={working}>
+                      <legend>Team pages</legend>
+                      <TeamPagesSection team={team} update={updateTeam} pages={pages} units={units} part2={part2} />
+                    </fieldset>
+                  ) : (
+                    <p className="export-note">This run has no units to show yet.</p>
+                  )}
+                </>
               ),
               music: (
                 <fieldset className="export-group" disabled={working}>
@@ -838,7 +973,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
             }}
           </ExportTabs>
           <ExportActions
-            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), ...(pages.start.length + pages.end.length ? [`${pages.start.length + pages.end.length} team page${pages.start.length + pages.end.length === 1 ? "" : "s"}`] : []), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}` : usingCustom ? "Your audio" : "No music"]}
+            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), ...(pages.start.length + pages.end.length ? [`${pages.start.length + pages.end.length} team page${pages.start.length + pages.end.length === 1 ? "" : "s"}`] : []), ...(rulesAt ? ["Ruleset page"] : []), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}` : usingCustom ? "Your audio" : "No music"]}
             status={status}
             action="Export MP4…"
             onExport={() => void exportVideo()}
@@ -935,7 +1070,8 @@ interface StageProps {
   replay: ReturnType<typeof useReplay>;
   moment: Moment;
   orientation: Orientation;
-  layout: { columns: string; rows: string };
+  layout: StageLayout;
+  log: VideoLogOptions;
   route: RunRoute | null;
   zoom: Zoom | null;
   onWheelAt?: (x: number, y: number, deltaY: number) => void;
@@ -944,7 +1080,7 @@ interface StageProps {
 }
 
 /** One frame of the video: the title strip, the map and the log. */
-function ReplayStage({ battle, chron, replay, moment, orientation, layout, route, zoom, onWheelAt, onDrag, ref }: StageProps) {
+function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, route, zoom, onWheelAt, onDrag, ref }: StageProps) {
   const name = battleName(battle);
   // The log up to the step on the map: rows of later steps aren't shown yet (the newest is at the bottom).
   const rows = useMemo(() => {
@@ -956,11 +1092,15 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, route
     }
     return out;
   }, [chron.log, moment.beat]);
+  const shown = useMemo(() => newestRows(rows, log.lines), [rows, log.lines]);
   const date = new Date(battle.started_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   return (
     // The picture is taken of the outer box, exactly the frame's size.
     <div ref={ref} className="replay-stage-theme">
-    <div className={`replay-stage ${logBeside(orientation) ? "landscape" : "portrait"} ${orientation}`} style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows }}>
+    <div
+      className={`replay-stage ${logBeside(orientation) ? "landscape" : "portrait"} ${orientation}${log.show ? "" : " no-log"}`}
+      style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows, gridTemplateAreas: layout.areas, gap: layout.gap }}
+    >
       <header className="replay-stage-title">
         <CardBanner title={name.title} icon={<RunIcon route={route} />} />
         <div className="replay-stage-meta">
@@ -977,8 +1117,6 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, route
           board={replay.board}
           action={replay.action}
           animation={replay.animation}
-          labels={replay.labels}
-          labelsShown={replay.labelsShown}
           label={`The battle map at ${replay.label}`}
           zoom={zoom}
           onWheelAt={onWheelAt}
@@ -991,14 +1129,17 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, route
         )}
         <ReplayBanner replay={replay} />
       </div>
-      <section className="replay-stage-log" aria-label="Log">
-        <h3 className="replay-stage-log-title">
-          <Icon name={CONCEPT_ICON.log} /> Log
-        </h3>
-        <div className="replay-stage-rows">
-          <ItemList items={rows} current={replay.at} empty="The battle begins." />
-        </div>
-      </section>
+      {log.condensed && <CondensedLog entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} className="replay-stage-condensed" />}
+      {log.show && (
+        <section className="replay-stage-log" aria-label="Log">
+          <h3 className="replay-stage-log-title">
+            <Icon name={CONCEPT_ICON.log} /> Log
+          </h3>
+          <div className="replay-stage-rows">
+            <ItemList items={shown as typeof rows} current={replay.at} empty="The battle begins." />
+          </div>
+        </section>
+      )}
     </div>
     </div>
   );

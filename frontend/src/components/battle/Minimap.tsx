@@ -21,7 +21,7 @@ import { loadGameJson, onGameAssetsChange } from "../../gameAssets";
 import { faceUrl } from "../../portraits";
 import { PortraitPhaseContext } from "../../appearance";
 import { flushSync } from "react-dom";
-import { KeyboardEvent, memo, PointerEvent as ReactPointerEvent, useContext, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { KeyboardEvent, memo, PointerEvent as ReactPointerEvent, useContext, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Collapse } from "../disclosure";
 import type { Battle } from "../../api";
 import { Section } from "../layout";
@@ -29,14 +29,13 @@ import type { TerrainTile } from "../../api";
 import { Action, Board, boardNow, EMPTY_MINIMAP_INDEX, describe, describeTile, gameMinimap, hasMap, MINIMAP_TILES, minimapTile, type MinimapIndex, Piece, TILE_MARKS, tileAt, tileMark, tileMarks, terrainRuns } from "./map";
 import { ActionBadge, MapLook, miniBadge, miniImage, objectIcon, SpriteIndex, spriteLayers, TileMarkGlyph, UnitSprite, useSprites, WEAPON_LABEL, WeaponGlyph } from "./mapIcons";
 import { ICON, LOW_HP } from "./model";
-import { ICON_PATHS } from "../iconPaths";
-import type { MapLabel } from "./replayLabels";
 import { TEAM_LABEL } from "./marks";
 import { Icon } from "../Icon";
 import { NotchedRange } from "../Slider";
 import { BattleNavContext, useBattleNav } from "./parts";
 import { CameraTools, DEFAULT_ZOOM, view, ZOOM_TILES, zoomText, useMapCamera } from "./camera";
 import { followed, Replay, ReplayBanner, ReplayBar, StepAnimation } from "./replay";
+import { CondensedLog } from "./CondensedLog";
 
 interface Props {
   board: Board;
@@ -47,9 +46,6 @@ interface Props {
   action?: Action | null;
   /** The replay step being animated, if one is. */
   animation?: StepAnimation | null;
-  /** The condensed labels of the replay step shown (replay.labels), and how visible they are (0-1). */
-  labels?: MapLabel[];
-  labelsShown?: number;
   onPick?: (id: string) => void;
   /** "compact" in cards (no HP bars, smaller), "full" on the Map tab. */
   size?: "compact" | "full";
@@ -181,7 +177,7 @@ function stage(board: Board, animation: StepAnimation | null | undefined, keep: 
   return { drawn, effects };
 }
 
-export function Minimap({ board, selected, focus, action, animation, labels, labelsShown = 1, onPick, size = "full", part2 = false, label, zoom, cursor, onWheelAt, onDrag }: Props) {
+export function Minimap({ board, selected, focus, action, animation, onPick, size = "full", part2 = false, label, zoom, cursor, onWheelAt, onDrag }: Props) {
   const automatic = useContext(PortraitPhaseContext) === "auto";
   const uid = useId().replace(/:/g, "");
   const svg = useRef<SVGSVGElement>(null);
@@ -247,19 +243,6 @@ export function Minimap({ board, selected, focus, action, animation, labels, lab
     d.y = e.clientY;
   };
   const { w, h, pieces, terrain, tiles } = board;
-  // Layout pixels per tile (labels are sized in screen terms): the map's own scale on screen (camera zoom included),
-  // without any CSS scaling of a frame around it (the video export's preview), measured after every render.
-  const [perTile, setPerTile] = useState(24);
-  useLayoutEffect(() => {
-    const el = svg.current;
-    if (!el || !labels?.length) return;
-    const outer = el.ownerSVGElement ?? el;
-    const shown = outer.getBoundingClientRect().width;
-    const cssScale = shown > 0 && outer.clientWidth > 0 ? shown / outer.clientWidth : 1;
-    const a = el.getScreenCTM()?.a ?? 0;
-    const next = a > 0 ? a / cssScale : 0;
-    if (next > 0 && Math.abs(next - perTile) > perTile * 0.01) setPerTile(next);
-  });
   // The game's own minimap; missing native artwork remains an explicit unavailable state.
   const index = useMinimapIndex();
   const candidate = gameMinimap(board.mapId, index);
@@ -425,15 +408,6 @@ export function Minimap({ board, selected, focus, action, animation, labels, lab
           </g>
         );
       })}
-      {!!labels?.length && (
-        <MapLabels
-          labels={labels}
-          board={board}
-          perTile={perTile}
-          bounds={zoom ? { x0: zoom.x0, y0: zoom.y0, x1: zoom.x0 + zoom.w, y1: zoom.y0 + zoom.h } : { x0: -0.15, y0: -0.15, x1: w + 0.15, y1: h + 0.15 }}
-          opacity={labelsShown}
-        />
-      )}
       {cursor && (
         <g className="map-game-cursor" style={{ transform: `translate(${cursor[0]}px, ${cursor[1]}px)` }}>
           <MapImage className="map-cursor game" href={miniImage("cursor")} x={-0.2} y={-0.2} width={1.4} height={1.4} />
@@ -441,71 +415,6 @@ export function Minimap({ board, selected, focus, action, animation, labels, lab
       )}
       </g>
     </svg>
-  );
-}
-
-// A label's size in screen pixels: its height, side padding, icon, gaps, text size and an average glyph's width.
-const PILL = { h: 20, pad: 6, icon: 14, gap: 4, font: 12, glyph: 0.6, stack: 3, lift: 4 };
-
-/** A label's icon: the game's own when it is known and loads, else the concept's (the log's icon for the kind). */
-function LabelIcon({ label, x, y }: { label: MapLabel; x: number; y: number }) {
-  const url = useGameImageUrl(label.game ?? "");
-  if (label.game && url) return <image href={url} x={x} y={y} width={PILL.icon} height={PILL.icon} />;
-  const paths: Partial<Record<string, string>> = ICON_PATHS[ICON[label.kind] ?? ICON.act];
-  return <svg x={x} y={y} width={PILL.icon} height={PILL.icon} viewBox="0 0 256 256" fill="currentColor" dangerouslySetInnerHTML={{ __html: paths.duotone ?? "" }} />;
-}
-
-/**
- * The replay step's labels as small pills (icon, name, number) above the unit each is about, drawn in screen pixels at
- * any zoom (the group is scaled by 1 / perTile), kept inside the visible map, those of one unit stacked upward (below
- * it when there is no room above).
- */
-function MapLabels({ labels, board, perTile, bounds, opacity }: { labels: MapLabel[]; board: Board; perTile: number; bounds: { x0: number; y0: number; x1: number; y1: number }; opacity: number }) {
-  if (opacity <= 0) return null;
-  const px = 1 / perTile;
-  const clampTo = (v: number, lo: number, hi: number) => (hi < lo ? (lo + hi) / 2 : Math.max(lo, Math.min(hi, v)));
-  const pieces = new Map(board.pieces.map((p) => [p.id, p]));
-  const placed = new Map<string, number>();
-  const per = new Map<string, number>();
-  const spot = (l: MapLabel) => l.at ?? pieces.get(l.unit);
-  const boxes: { x0: number; x1: number; y0: number; y1: number }[] = [];
-  for (const l of labels) if (spot(l)) per.set(l.unit, (per.get(l.unit) ?? 0) + 1);
-  return (
-    <g className="map-labels" style={{ opacity }} aria-hidden="true">
-      {labels.map((l) => {
-        const p = spot(l);
-        if (!p) return null;
-        const n = placed.get(l.unit) ?? 0;
-        placed.set(l.unit, n + 1);
-        const text = [l.name, l.value].filter(Boolean).join(" ");
-        const width = PILL.pad * 2 + PILL.icon + (text ? PILL.gap + text.length * PILL.font * PILL.glyph : 0);
-        const step = (PILL.h + PILL.stack) * px;
-        const total = (per.get(l.unit) ?? 1) * step - PILL.stack * px;
-        const above = p.y - PILL.lift * px - total >= bounds.y0;
-        const top = above ? p.y - PILL.lift * px - total + n * step : p.y + p.span + PILL.lift * px + n * step;
-        const left = clampTo(p.x + p.span / 2 - (width * px) / 2, bounds.x0, bounds.x1 - width * px);
-        // Labels of units side by side would overlap: move this one a row away (up when there's room, else down).
-        let y = clampTo(top, bounds.y0, bounds.y1 - PILL.h * px);
-        const clash = (yy: number) => boxes.some((b) => left < b.x1 && left + width * px > b.x0 && yy < b.y1 && yy + PILL.h * px > b.y0);
-        for (let tries = 0; tries < 6 && clash(y); tries++) {
-          const up = y - step;
-          y = up >= bounds.y0 && !clash(up) ? up : y + step;
-        }
-        boxes.push({ x0: left, x1: left + width * px, y0: y, y1: y + PILL.h * px });
-        return (
-          <g key={l.key} data-unit={l.unit} className={`map-label ${l.tone}${l.side ? ` team-${l.side}` : ""}`} transform={`translate(${left} ${y}) scale(${px})`}>
-            <rect width={width} height={PILL.h} rx={PILL.h / 2} />
-            <LabelIcon label={l} x={PILL.pad} y={(PILL.h - PILL.icon) / 2} />
-            {text && (
-              <text x={PILL.pad + PILL.icon + PILL.gap} y={PILL.h / 2}>
-                {l.name && <tspan>{l.name}</tspan>}
-                {l.value && <tspan className="value" dx={l.name ? PILL.gap : 0}>{l.value}</tspan>}
-              </text>
-            )}
-          </g>
-        );
-      })}
-    </g>
   );
 }
 
@@ -657,11 +566,7 @@ const Token = memo(function Token({
           <rect className="map-hp-fill" x={bar.x + HP_IN} y={HP_Y + HP_IN} width={Math.max(0.02, (bar.w - 2 * HP_IN) * hp)} height={HP_H - 2 * HP_IN} />
         </g>
       )}
-      {targeted && !selected ? (
-        <MapImage className="map-cursor-target" href={miniImage("cursor-target")} x={-0.2} y={-0.2} width={1.4} height={1.4} />
-      ) : (
-        (selected || acting) && <Cursor kind={selected ? "picked" : "acting"} />
-      )}
+      {(selected || acting) && <Cursor kind={selected ? "picked" : targeted ? "target" : "acting"} />}
       </g>
     </g>
   );
@@ -682,7 +587,7 @@ const HP_IN = 0.025;
 
 /** Four rounded corners just around a tile: the unit picked (the app's accent) or one acting in the replay step (the
  * same, quieter). The game's own cursor is the minimap's. */
-function Cursor({ kind }: { kind: "picked" | "acting" }) {
+function Cursor({ kind }: { kind: "picked" | "acting" | "target" }) {
   const a = -0.03;
   const b = 1.03;
   const l = 0.27;
@@ -935,9 +840,7 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
             board={board}
             action={replay.action}
             animation={replay.animation}
-            labels={replay.labels}
-            labelsShown={replay.labelsShown}
-            onPick={(other) => nav.open(other)}
+              onPick={(other) => nav.open(other)}
             label={at === null ? "The battle map now" : `The battle map at ${replay.label}`}
             zoom={camera.zoom}
             cursor={cursor}
@@ -954,6 +857,7 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
         )}
         {hasMap(battle) && <MapKey board={board} replay={replay.steps.length > 0} place="overview" />}
         {hasMap(battle) && <ReplayBanner replay={replay} />}
+        {hasMap(battle) && <CondensedLog entries={replay.condensed} current={replay.at} fade={replay.condensedShown} className="map-condensed" />}
       </div>
       {hasMap(battle) && <ReplayBar replay={replay} />}
     </div>

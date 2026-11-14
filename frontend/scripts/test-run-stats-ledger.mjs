@@ -172,25 +172,27 @@ await t.test("battle comparison shows type tags beside dates using History's sha
   assert.doesNotMatch(html, /Select a column to compare|run-stats-footnote|Battle comparison/);
 });
 
-await t.test("run score: 1,000 per shared MVP plus damage and healing, finished battles only", () => {
-  const u = (key, defeats, damage_dealt, healing_given) => unit(key, { defeats, damage_dealt, healing_given });
+await t.test("run score: damage plus healing averaged per deployment (not as an adjutant), finished battles only", () => {
+  const u = (key, defeats, damage_dealt, healing_given, extra = {}) => unit(key, { defeats, damage_dealt, healing_given, ...extra });
   const source = [
-    battle("1", { units: [u("a", 3, 10, 5), u("b", 3, 20, 0), u("c", 1, 0, 7)] }),
-    battle("2", { units: [u("a", 0, 4, 1), u("b", 0, 0, 0)] }),
+    battle("1", { units: [u("a", 3, 10, 5), u("b", 3, 20, 0), u("c", 1, 0, 3)] }),
+    battle("2", { units: [u("a", 0, 4, 1), u("b", 0, 0, 0), u("c", 0, 50, 0, { adjutant_of: "a", on_map: false })] }),
     battle("3", { units: [u("a", 9, 999, 999)], ended_at: null, active: true }),
     battle("4", { units: [u("a", 1, 0, 0), u("b", 2, 1, 1)] }),
+    battle("5", { units: [u("b", 1, 30, 0), u("d", 0, 90, 0, { adjutant_of: "b", on_map: false })] }),
   ];
   const scores = unitScores(source);
-  assert.equal(scores.get("a"), 1020);
-  assert.equal(scores.get("b"), 2022);
-  assert.equal(scores.get("c"), 7);
+  assert.equal(scores.get("a"), 7); // 20 over 3 deployments; MVPs add nothing
+  assert.equal(scores.get("b"), 13); // 52 over 4
+  assert.equal(scores.get("c"), 3); // its battle as an adjutant isn't a deployment
+  assert.equal(scores.get("d"), 0); // only ever an adjutant
   const data = buildRunLedger(source, "characters");
   assert.equal(data.columns.combat[0].key, "score");
-  assert.match(data.columns.combat[0].hint, /MVP/);
+  assert.match(data.columns.combat[0].hint, /deployed/);
   const row = data.rows.find((r) => r.id === "b");
-  assert.equal(row.values.combat[0], 2022);
-  assert.equal(data.totals.combat[0], 1020 + 2022 + 7);
-  assert.deepEqual(selectLedgerRows(data.rows, "combat", "", { column: 0, direction: "descending" }).map((r) => r.id), ["b", "a", "c"]);
+  assert.equal(row.values.combat[0], 13);
+  assert.equal(data.totals.combat[0], null); // averages don't add up
+  assert.deepEqual(selectLedgerRows(data.rows, "combat", "", { column: 0, direction: "descending" }).map((r) => r.id), ["b", "a", "c", "d"]);
   assert.equal(buildRunLedger(source, "battles").columns.combat.some((c) => c.key === "score"), false);
 });
 

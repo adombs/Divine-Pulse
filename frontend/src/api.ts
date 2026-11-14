@@ -1,4 +1,5 @@
 import type { EbstConfig } from "./ebst";
+import type { Rule } from "./ruleset";
 import type { SkillKey } from "./reference/types";
 
 export const STAT_KEYS = ["str", "mag", "dex", "spd", "lck", "def", "res", "cha"] as const;
@@ -91,7 +92,7 @@ export interface Unit {
   in_army?: boolean;
   /** Whether the Roster shows it: in the army, or dead. Units off the Roster keep their history. */
   on_roster?: boolean;
-  /** The unit's run score (1,000 per battle MVP, plus damage dealt and healing done in completed battles); 0 when none. */
+  /** The unit's run score (damage dealt plus healing done, averaged over the completed battles it was deployed in, not as an adjutant); 0 when none. */
   score?: number;
 }
 
@@ -579,6 +580,10 @@ export const api = {
   renameRun: (id: string, name: string) => request<void>("PATCH", `/runs/${enc(id)}`, { name }),
   deleteRun: (id: string) => request<void>("DELETE", `/runs/${enc(id)}`),
   activateRun: (id: string) => request<void>("POST", `/runs/${enc(id)}/activate`),
+
+  /** The run's self-imposed rules, in order; saving replaces them all. */
+  ruleset: (runId: string) => request<{ rules: Rule[] }>("GET", `/runs/${enc(runId)}/ruleset`),
+  setRuleset: (runId: string, rules: Rule[]) => request<{ rules: Rule[] }>("PUT", `/runs/${enc(runId)}/ruleset`, { rules }),
 
   units: (runId: string) => request<Unit[]>("GET", `/runs/${enc(runId)}/units`),
   /** Change a unit's offense / defense type or which other stats count. */

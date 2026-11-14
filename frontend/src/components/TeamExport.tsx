@@ -36,7 +36,7 @@ import { StepSlider } from "./Slider";
 /** The run statistics image's least width on the page (CSS pixels); it is saved at its chosen size (SIZES) times its size. */
 const WIDTH = 1500;
 /** The image sizes offered: how many times the preview's size each image is saved at. */
-const SIZES: [number, string][] = [
+export const SIZES: [number, string][] = [
   [1, "S"],
   [1.5, "M"],
   [2, "L"],
@@ -44,14 +44,14 @@ const SIZES: [number, string][] = [
 ];
 /** The images' shapes: as big as the content (auto), or padded out to a width over height. */
 export type Aspect = "auto" | "16:9" | "1.91:1" | "9:16" | "4:5";
-const ASPECTS: [Aspect, string, string][] = [
+export const ASPECTS: [Aspect, string, string][] = [
   ["auto", "Auto", "As big as the content"],
   ["16:9", "16:9", "Padded out to 16:9"],
   ["1.91:1", "1.91:1", "Padded out to 1.91:1"],
   ["9:16", "9:16", "Padded out to 9:16"],
   ["4:5", "4:5", "Padded out to 4:5"],
 ];
-const ASPECT_RATIO: Record<Exclude<Aspect, "auto">, number> = { "16:9": 16 / 9, "1.91:1": 1.91, "9:16": 9 / 16, "4:5": 4 / 5 };
+export const ASPECT_RATIO: Record<Exclude<Aspect, "auto">, number> = { "16:9": 16 / 9, "1.91:1": 1.91, "9:16": 9 / 16, "4:5": 4 / 5 };
 const IMAGE_OPTIONS_KEY = "divine-pulse-export-team";
 
 /** The images' own options, remembered between exports: their size, and which of the two to save. */
@@ -565,7 +565,7 @@ export function aspectSize([w, h]: [number, number], ratio: number | null): [num
  * the sheet grows to it around its content, which stays in the middle at its own size (measured on its own, so the
  * sheet's size never feeds back into it).
  */
-export function TeamSheet({ run, units, title, note, className, width, aspect, children, ref }: { run: Pick<RunSummary, "name" | "route">; units: Unit[]; title: string; note?: string; className?: string; width: number; aspect: Aspect; children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
+export function TeamSheet({ run, units, title, note, className, width, aspect, children, ref }: { run: Pick<RunSummary, "name" | "route">; /** Counted in the meta line (none: no count). */ units?: Unit[]; title: string; note?: string; className?: string; width: number; aspect: Aspect; children: ReactNode; ref?: React.Ref<HTMLDivElement> }) {
   const date = new Date().toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   const sheet = useRef<HTMLDivElement>(null);
   const content = useRef<HTMLDivElement>(null);
@@ -595,7 +595,7 @@ export function TeamSheet({ run, units, title, note, className, width, aspect, c
         <header className="team-sheet-title">
           <CardBanner title={`${run.name} · ${title}`} icon={<RunIcon route={run.route} />} />
           <div className="team-sheet-meta">
-            <span>{[plural(units.length, "unit"), note, date].filter(Boolean).join(" · ")}</span>
+            <span>{[units && plural(units.length, "unit"), note, date].filter(Boolean).join(" · ")}</span>
             <span className="team-sheet-credit">Divine Pulse <span>· by Adombs</span></span>
           </div>
         </header>

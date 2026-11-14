@@ -111,6 +111,8 @@ const ICONS = {
   avoid: ["shield-slash"],
   carry: ["barbell"],
   absorb: ["shield-check"],
+  // A combat art used with no weapon (the condensed log)
+  star: ["star", "fill"],
 };
 
 const inner = (name, weight) => {

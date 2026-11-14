@@ -8,21 +8,22 @@ from dataclasses import dataclass
 from .battle import Battle, BattleUnitStats
 from .runs import BestUnit
 
-MVP_POINTS = 1000
-
-
 @dataclass
 class _Totals:
     latest: BattleUnitStats  # as of the newest battle it was in: its look and current level
-    mvps: int = 0
     damage: int = 0
     healing: int = 0
     kills: int = 0
     falls: int = 0
+    deployments: int = 0  # finished battles it was on the map in (not as an adjutant)
 
     @property
     def score(self) -> int:
-        return MVP_POINTS * self.mvps + self.damage + self.healing
+        """Damage dealt plus healing done, averaged over the battles it was deployed in (0 if none)."""
+        if not self.deployments:
+            return 0
+        # Halves round up, as the frontend's Math.round does.
+        return int((self.damage + self.healing) / self.deployments + 0.5)
 
 
 def _totals(battles: Iterable[Battle], roster: Collection[str]) -> dict[str, _Totals]:
@@ -31,24 +32,26 @@ def _totals(battles: Iterable[Battle], roster: Collection[str]) -> dict[str, _To
     kept = set(roster)
     finished = sorted((b for b in battles if b.ended_at is not None), key=lambda b: b.started_at)
     for battle in finished:
-        # A battle's MVP is whoever defeated the most (at least one, ties shared), as on the Stats page.
-        most = max((u.defeats or 0 for u in battle.units), default=0)
         for unit in battle.units:
             if unit.guest and unit.key not in kept:
                 continue  # a guest counts only for a unit the run has; it never becomes the best unit by itself
             total = totals.setdefault(unit.key, _Totals(latest=unit))
             total.latest = unit
-            total.mvps += most > 0 and unit.defeats == most
+            # An adjutant is in the battle without being on the map; that isn't a fall, and isn't a deployment, so
+            # it doesn't count towards the score.
+            total.falls += unit.fell
+            if unit.adjutant_of is not None:
+                continue
+            total.deployments += 1
             total.damage += unit.damage_dealt or 0
             total.healing += unit.healing_given or 0
             total.kills += unit.defeats or 0
-            # An adjutant is in the battle without being on the map; that isn't a fall.
-            total.falls += unit.fell
     return totals
 
 
 def unit_scores(battles: Iterable[Battle], roster: Collection[str] = ()) -> dict[str, int]:
-    """Every unit's run score: 1,000 per battle MVP plus damage dealt and healing done, over the finished battles."""
+    """Every unit's run score: damage dealt plus healing done, averaged over its deployments (the finished battles it
+    was in, not as an adjutant)."""
     return {key: total.score for key, total in _totals(battles, roster).items()}
 
 

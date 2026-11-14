@@ -10,6 +10,7 @@ from ..domain.battle import (
     STEP_WAIT,
     STEP_ATTACK,
     STEP_DEFEAT,
+    STEP_SPELL,
     STEP_ITEM,
     UsageKind,
     Usage,
@@ -1121,6 +1122,16 @@ class BattleTracker:
         def bump(d: dict[str, int], uid: str, n: int) -> None:
             d[uid] = d.get(uid, 0) + n
 
+        weapons = {f"a:{u.key}": u.weapon for u in battle.units}
+
+        def casts_magic(uid: str, now: StepUnit | None, spell: int) -> bool:
+            """Whether a unit could have cast `spell`: yours that know it, or anyone who fights with magic. (The
+            history's spell byte is only read for magic entries; this keeps a misread from naming one for a sword.)"""
+            if now is not None and spell in now.spells:
+                return True
+            weapon = weapons.get(uid) if uid.startswith("a:") else getattr(battle.enemy_stats.get(int(uid[2:])), "weapon", "")
+            return weapon in ("reason", "faith", "dark")
+
         fought: dict[str, int] = {}
         fell_to: dict[str, str | None] = {}  # your units that fell -> who did it
         usage: dict[str, dict[tuple[UsageKind, int], Usage]] = {}
@@ -1217,6 +1228,16 @@ class BattleTracker:
                 bump(taken, uid, n)
                 if (source := by(uid)) is not None:
                     bump(dealt, source, n)
+            # The spell the actor cast, whatever it did with it (an attack, a heal): the one whose uses it spent (yours),
+            # else the history's own (ACTION_SPELL), when the actor fights with magic or knows that spell.
+            cast: str | None = None
+            if a is not None and not step.phase_start and step.art is None and step.gambit is None and not step.rally:
+                prev, now = before.get(a), state.get(a)
+                spent = [n for kind, n, _ in used_in_step(prev, now) if kind == "spell"] if prev and now else []
+                if spent:
+                    cast = self.support.spell_name(spent[0])
+                elif step.action == STEP_SPELL and step.spell is not None and casts_magic(a, now, step.spell):
+                    cast = self.support.spell_name(step.spell)
             if step.phase_start:
                 if i == 0:
                     text = "Fight!"
@@ -1324,9 +1345,10 @@ class BattleTracker:
                 )
             ):
                 art = self.support.art_name(step.art) if step.art is not None else None
-                text = f"{name(a)}'s {art or 'attack'} dealt {hurt.get(target, 0)} damage to {name(target)}."
+                used = art or cast
+                text = f"{name(a)}'s {used or 'attack'} dealt {hurt.get(target, 0)} damage to {name(target)}."
                 if bar_broken:
-                    text = f"{name(a)}'s {art or 'attack'} broke one of {name(target)}'s HP bars."
+                    text = f"{name(a)}'s {used or 'attack'} broke one of {name(target)}'s HP bars."
                 if a in hurt:
                     text += f" {name(target)} hit back for {hurt[a]}."
                 add(
@@ -1341,7 +1363,7 @@ class BattleTracker:
                     dealt=hurt.get(target, 0),
                     taken=hurt.get(a or "", 0),
                     phase=step.phase,
-                    detail=art,
+                    detail=used,
                 )
                 for uid in (a, target):
                     if uid is not None:
@@ -1351,13 +1373,16 @@ class BattleTracker:
                     at,
                     step.turn,
                     "heal",
-                    f"{name(a)} restored {gain[target]} HP to {name(target)}.",
+                    f"{name(a)} used {cast} on {name(target)}. Restored {gain[target]} HP."
+                    if cast
+                    else f"{name(a)} restored {gain[target]} HP to {name(target)}.",
                     key(a),
                     aim(target),
                     actor_id=a,
                     target_id=target,
                     restored=gain[target],
                     phase=step.phase,
+                    detail=cast,
                 )
             elif target is not None and a and a.startswith("a:") and target.startswith("a:"):
                 # Something done to one of your own that changed no HP and isn't identified: not an attack.
