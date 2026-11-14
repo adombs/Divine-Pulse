@@ -18,6 +18,7 @@ import { PageHeader } from "./layout";
 import { Icon, IconName } from "./Icon";
 import { MemoryCheck } from "./MemoryCheck";
 import { ReplaySpeedSlider } from "./battle/replay";
+import { BattleReplaySettings } from "./battle/OverlaySettings";
 import { FACE_LOOKS, UNIT_LOOKS } from "./battle/mapIcons";
 import { StepSlider } from "./Slider";
 import { GameFilesSection } from "./game-files/GameFilesSection";
@@ -28,12 +29,13 @@ import "./settings.css";
 
 const TEXT_STOPS = Math.round((TEXT_SCALE.max - TEXT_SCALE.min) / TEXT_SCALE.step) + 1;
 
-type SettingsTab = "game-files" | "general" | "ebst" | "spoilers" | "appearance" | "about";
+type SettingsTab = "game-files" | "general" | "ebst" | "spoilers" | "appearance" | "battle-replay" | "about";
 const TABS: { id: SettingsTab; label: string; icon: IconName; blurb: string }[] = [
   { id: "general", label: "General", icon: CONCEPT_ICON.settings, blurb: "Game connection and window" },
   { id: "game-files", label: "Game files", icon: CONCEPT_ICON.item, blurb: "Import from your own game" },
   { id: "ebst", label: "eBST", icon: CONCEPT_ICON.statUp, blurb: "How effective stats are counted" },
   { id: "spoilers", label: "Spoilers", icon: CONCEPT_ICON.hide, blurb: "What stays hidden for now" },
+  { id: "battle-replay", label: "Battle Replay", icon: CONCEPT_ICON.play, blurb: "Battle map overlays" },
   { id: "appearance", label: "Appearance", icon: CONCEPT_ICON.edit, blurb: "Text, faces and the map" },
   { id: "about", label: "About", icon: CONCEPT_ICON.info, blurb: "Version, data folder, credits" },
 ];
@@ -437,6 +439,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
               {tab === "spoilers" && <SpoilerSection />}
               {tab === "ebst" && <EbstSection key={settings.active_run_id} runId={settings.active_run_id} toasts={toasts} />}
               {tab === "appearance" && <AppearanceSection state={appearance} />}
+              {tab === "battle-replay" && <><p className="set-group-note">These settings apply to the battle map and are saved as you change them. Video export has its own layout settings.</p><BattleReplaySettings /></>}
               {tab === "about" && <AboutSection toasts={toasts} />}
             </div>
           </div>

@@ -30,11 +30,8 @@ import { Action, Board, boardNow, EMPTY_MINIMAP_INDEX, describe, describeTile, g
 import { ActionBadge, MapLook, miniBadge, miniImage, objectIcon, SpriteIndex, spriteLayers, TileMarkGlyph, UnitSprite, useSprites, WEAPON_LABEL, WeaponGlyph } from "./mapIcons";
 import { ICON, LOW_HP } from "./model";
 import { TEAM_LABEL } from "./marks";
-import { Icon, IconButton } from "../Icon";
-import { Modal } from "../Modal";
-import { StepSlider } from "../Slider";
-import { CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
-import { CORNERS, cornerStacks, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, placeOverlay, sanitizeVideoLog, setCounterEnabled, type Overlay, type VideoLogOptions } from "../../exporting/videoLog";
+import { Icon } from "../Icon";
+import { CORNERS, cornerStacks, loadBattleOverlaySettings } from "../../exporting/videoLog";
 import { NotchedRange } from "../Slider";
 import { BattleNavContext, useBattleNav } from "./parts";
 import { CameraTools, DEFAULT_ZOOM, view, ZOOM_TILES, zoomText, useMapCamera } from "./camera";
@@ -841,16 +838,7 @@ export function MapSection({ battle, id }: { battle: Battle; id: string }) {
 export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay }) {
   const nav = useBattleNav();
   const { board, at, cursor } = replay;
-  const [settingsOpen, setSettingsOpen] = useState(false);
-  const [layout, setLayout] = useState<VideoLogOptions>(() => {
-    try { return sanitizeVideoLog(JSON.parse(localStorage.getItem("divine-pulse-map-overlays") ?? "{}")); }
-    catch { return DEFAULT_VIDEO_LOG; }
-  });
-  const updateLayout = (next: VideoLogOptions) => {
-    setLayout(next);
-    try { localStorage.setItem("divine-pulse-map-overlays", JSON.stringify(next)); } catch { /* Session only. */ }
-  };
-  const patch = (changes: Partial<VideoLogOptions>) => updateLayout({ ...layout, ...changes });
+  const [layout] = useState(loadBattleOverlaySettings);
   const stacks = cornerStacks(layout);
   const camera = useMapCamera("overview", board, followed(replay), at === null ? `now ${cursor ?? ""}` : `step ${at}`);
   return (
@@ -858,7 +846,6 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
       {hasMap(battle) && (
         <div className="map-pane-head">
           <CameraTools camera={camera} />
-          <IconButton icon={CONCEPT_ICON.settings} label="Map overlay settings" onClick={() => setSettingsOpen(true)} />
         </div>
       )}
       <div className="map-frame fill">
@@ -892,20 +879,6 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
         ))}
       </div>
       {hasMap(battle) && <ReplayBar replay={replay} />}
-      <Modal open={settingsOpen} onClose={() => setSettingsOpen(false)} title="Map overlay settings">
-        <div className="export-group export-layout map-overlay-settings">
-          {(["condensed", "counter", "counts"] as Overlay[]).map((item) => {
-            const title = item === "condensed" ? "Condensed log" : item === "counter" ? "Turn counter" : "Unit counts";
-            const sizeKey = item === "condensed" ? "condensedSize" : item === "counter" ? "counterSize" : "countsSize";
-            return <LayoutSection key={item} title={title} note={item === "condensed" ? "The latest actions, over the map" : item === "counter" ? "Turn, phase and step, over the map" : "Each army's units on the map, and the killed"} on={layout[item]} onToggle={(on) => item === "counter" ? updateLayout(setCounterEnabled(layout, on)) : patch({ [item]: on })} always={item === "counter" ? <CounterFields log={layout} onChange={updateLayout} /> : undefined}>
-              <CornerPicker label={`${title} corner`} which={item} log={layout} onChange={(corner) => updateLayout(placeOverlay(layout, item, corner))} />
-              {item === "condensed" && <StepSlider label="# of Lines" stops={MAX_CONDENSED_LINES} value={layout.condensedLines - 1} onChange={(i) => patch({ condensedLines: i + 1 })} valueText={`${layout.condensedLines} at most`} after={<span className="team-pages-axis-value">{layout.condensedLines}</span>} variant="timeline" slim />}
-              {item === "counts" && <ZeroCounts checked={layout.countsZero} onChange={(countsZero) => patch({ countsZero })} />}
-              <SizeSlider value={layout[sizeKey]} onChange={(size) => patch({ [sizeKey]: size })} />
-            </LayoutSection>;
-          })}
-        </div>
-      </Modal>
     </div>
   );
 }
