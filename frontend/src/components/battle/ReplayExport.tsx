@@ -21,7 +21,7 @@ import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
-import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
 import { CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
 import { fitReplayFrame } from "../../exporting/replayFrameFit";
 import { CondensedLog } from "./CondensedLog";
@@ -235,14 +235,7 @@ interface StageLayout {
 function stageLayout(orientation: Orientation, logShown: boolean, aspect: number): StageLayout {
   const [w, h] = mapRoom(orientation, logShown);
   if (!logShown) {
-    const mapW = Math.min(h * aspect, w);
-    const mapH = mapW / aspect;
-    return {
-      columns: `minmax(0, 1fr) ${Math.round(mapW + MAP_FRAME)}px minmax(0, 1fr)`,
-      rows: `${TITLE_H[orientation]}px ${GAP}px minmax(0, 1fr) ${Math.round(mapH + MAP_FRAME)}px minmax(0, 1fr)`,
-      areas: '"title title title" ". . ." ". . ." ". map ." ". . ."',
-      gap: 0,
-    };
+    return { columns: "minmax(0, 1fr)", rows: `${TITLE_H[orientation]}px minmax(0, 1fr)`, areas: '"title" "map"' };
   }
   if (logBeside(orientation)) {
     const mapW = Math.round(Math.min(h * aspect, w) + MAP_FRAME);
@@ -808,17 +801,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
               ),
               layout: (
                 <fieldset className="export-group export-layout" disabled={working} aria-label="What the frame shows">
-                  <LayoutSection title="Log" note="The battle's log, beside or under the map" on={options.log.show} onToggle={(show) => updateLog({ show })}>
-                    <StepSlider
-                      label="# of Lines"
-                      stops={MAX_LOG_LINES + 1}
-                      value={options.log.lines ?? 0}
-                      onChange={(i) => updateLog({ lines: i === 0 ? null : i })}
-                      valueText={options.log.lines === null ? "As many as fit" : `${options.log.lines} at most`}
-                      after={<span className="team-pages-axis-value">{options.log.lines ?? "Auto"}</span>}
-                      variant="timeline"
-                      slim
-                    />
+                  <LayoutSection title="Log" note="Automatically follows the latest actions beside or under the map" on={options.log.show} onToggle={(show) => updateLog({ show })}>
+                    <p className="export-note">Shows as many complete rows as fit.</p>
                   </LayoutSection>
                   <LayoutSection title="Condensed log" note="The latest actions, over the map" on={options.log.condensed} onToggle={(on) => turnOn("condensed", on)}>
                     <CornerPicker label="Condensed log corner" which="condensed" log={options.log} onChange={(c) => placeIn("condensed", c)} />
@@ -1091,16 +1075,17 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
     }
     return out;
   }, [chron.log, moment.beat]);
-  const shown = useMemo(() => newestRows(rows, log.lines), [rows, log.lines]);
+  const shown = rows;
   const stacks = cornerStacks(log);
   const frameRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const root = frameRef.current;
     if (!root) return;
-    const fit = () => fitReplayFrame(root, log.lines !== null);
+    const fit = () => fitReplayFrame(root);
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(root);
+    for (const node of root.querySelectorAll(".replay-stage-rows, .log-list")) observer.observe(node);
     return () => observer.disconnect();
   }, [shown, layout, log]);
   const date = new Date(battle.started_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });

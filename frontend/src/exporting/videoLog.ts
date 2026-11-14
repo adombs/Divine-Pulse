@@ -6,8 +6,6 @@
  * tested on its own.
  */
 
-/** The most log rows the Lines slider offers. */
-export const MAX_LOG_LINES = 15;
 /** The most condensed log rows its Lines slider offers, and how many it shows unless set. */
 export const MAX_CONDENSED_LINES = 8;
 export const DEFAULT_CONDENSED_LINES = 4;
@@ -19,8 +17,6 @@ export const OVERLAY_SIZES = CONDENSED_SIZES;
 export interface VideoLogOptions {
   /** Whether the frame has the log. */
   show: boolean;
-  /** The most of its rows shown at a time (the newest ones), or null for Auto: as many as fit. */
-  lines: number | null;
   /** Whether the map has the condensed log in its corner. */
   condensed: boolean;
   /** The most condensed log rows shown at a time (the newest ones). */
@@ -64,7 +60,7 @@ export function cornerStacks(log: VideoLogOptions): Record<Corner, Overlay[]> {
   for (const o of log.order) if (shown[o]) out[log.place[o]].push(o);
   return out;
 }
-export const DEFAULT_VIDEO_LOG: VideoLogOptions = { show: true, lines: null, condensed: true, condensedLines: DEFAULT_CONDENSED_LINES, condensedSize: 1, counter: true, counterSize: 1, counterTurn: true, counterPhase: true, counterStep: true, counts: true, countsSize: 1, countsZero: true,
+export const DEFAULT_VIDEO_LOG: VideoLogOptions = { show: true, condensed: true, condensedLines: DEFAULT_CONDENSED_LINES, condensedSize: 1, counter: true, counterSize: 1, counterTurn: true, counterPhase: true, counterStep: true, counts: true, countsSize: 1, countsZero: true,
   place: DEFAULT_PLACE, order: DEFAULT_ORDER,
 };
 
@@ -74,7 +70,6 @@ export function sanitizeVideoLog(saved: unknown): VideoLogOptions {
   const s = (saved && typeof saved === "object" ? saved : {}) as Partial<Record<keyof VideoLogOptions, unknown>>;
   return {
     show: s.show !== false,
-    lines: typeof s.lines === "number" && Number.isInteger(s.lines) && s.lines >= 1 && s.lines <= MAX_LOG_LINES ? s.lines : null,
     condensed: s.condensed !== false,
     condensedLines:
       typeof s.condensedLines === "number" && Number.isInteger(s.condensedLines) && s.condensedLines >= 1 && s.condensedLines <= MAX_CONDENSED_LINES ? s.condensedLines : DEFAULT_CONDENSED_LINES,
@@ -95,9 +90,6 @@ export function sanitizeVideoLog(saved: unknown): VideoLogOptions {
     order: [...new Set([...(Array.isArray(s.order) ? s.order : []).filter((o): o is Overlay => (OVERLAYS as readonly unknown[]).includes(o)), ...DEFAULT_ORDER])],
   };
 }
-
-/** The rows on screen: the newest `limit` of them (all with no limit). */
-export const newestRows = <T>(rows: readonly T[], limit: number | null): readonly T[] => (limit === null || rows.length <= limit ? rows : rows.slice(rows.length - limit));
 
 /** Selecting a counter field turns the counter on; clearing the last one turns it off. */
 export function setCounterField(log: VideoLogOptions, field: "counterTurn" | "counterPhase" | "counterStep", enabled: boolean): VideoLogOptions {
