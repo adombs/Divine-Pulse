@@ -58,18 +58,10 @@
 }
 .replay-stage-rows .log-list { flex: none; }
 
-/* The log over the map (Export Video > Format > Log: Overlay): the map has the frame to itself under the title, and the
-   log sits in its bottom-right corner, its text the size of the panel's. It is as tall as its rows, up to half the map. */
-.replay-stage.log-overlay .replay-stage-map { grid-area: map; }
-.replay-stage-log.overlay {
-  grid-area: map; align-self: end; justify-self: end; z-index: 1;
-  width: min(380px, 62%); max-height: 50%; margin: 0 12px 12px 0;
-  background: color-mix(in srgb, var(--paper-2) 90%, transparent);
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
-}
-.replay-stage.portrait .replay-stage-log.overlay { width: min(360px, 62%); }
-/* On the map the log is only as tall as its few rows, so nothing fades at its top. */
-.replay-stage-log.overlay.limited .replay-stage-rows { mask-image: none; }
+/* No log (Export Video > Format > Log off): the map has the frame to itself under the title. The condensed log
+   (CondensedLog.tsx) sits in the map's bottom-right corner, over it, in either layout. */
+.replay-stage.no-log .replay-stage-map { grid-area: map; }
+.replay-stage-condensed { grid-area: map; align-self: end; justify-self: end; z-index: 1; margin: 0 14px 14px 0; max-width: calc(100% - 28px); }
 
 /* The box the video's picture is taken of: exactly the frame's size. */
 .replay-stage-theme { width: 100%; height: 100%; isolation: isolate; }
@@ -99,6 +91,10 @@
 .team-pages-choice { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.25rem 0.6rem; }
 .team-pages-choice label { display: inline-flex; align-items: center; gap: 0.4rem; font-size: 0.92rem; cursor: pointer; }
 .team-pages-choice input, .team-include-fallen input { margin: 0; accent-color: var(--accent); }
+/* A switch in the options, with a quiet note after it (Export Video > Format > Log). */
+.export-check { display: flex; align-items: center; gap: 0.45rem; font-size: 0.92rem; cursor: pointer; }
+.export-check input { margin: 0; accent-color: var(--accent); }
+.export-check small { color: var(--ink-soft); }
 .team-pages-choice .segmented { width: auto; }
 .team-pages-choice .segmented button { flex: none; padding-inline: 0.55rem; }
 .team-pages-count { grid-column: 1 / -1; padding-left: 1.4rem; color: var(--ink-soft); font-size: 0.82rem; }

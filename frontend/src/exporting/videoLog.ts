@@ -1,38 +1,31 @@
 /**
- * Where a video's log goes and how much of it shows (components/battle/ReplayExport.tsx). Kept apart from the page so it
- * is tested on its own.
+ * The logs of a video (components/battle/ReplayExport.tsx): the log, its own part of the frame beside the map (16:9,
+ * 1.91:1) or under it (9:16, 4:5), with how many of its rows show; and the condensed log, the newest actions as one line
+ * each in the map's bottom-right corner (CondensedLog.tsx). Without the log, the map takes the whole frame under the
+ * title. Kept apart from the page so it is tested on its own.
  */
-
-/** Panel: the log has its own part of the frame, beside the map (16:9, 1.91:1) or under it (9:16, 4:5). Overlay: the log
- * sits on the map, in its bottom-right corner, and the map takes the whole frame. */
-export type LogPlacement = "panel" | "overlay";
-export const LOG_PLACEMENTS: [LogPlacement, string, string][] = [
-  ["panel", "Panel", "Its own part of the frame, beside or under the map"],
-  ["overlay", "Overlay", "On the map, in its bottom-right corner; the map gets the whole frame"],
-];
 
 /** The most log rows the Lines slider offers. */
 export const MAX_LOG_LINES = 15;
-/** The rows an overlay shows on Auto: enough to follow, little enough to leave the map in view. */
-export const OVERLAY_AUTO_LINES = 5;
 
 export interface VideoLogOptions {
-  place: LogPlacement;
-  /** The most rows shown at a time (the newest ones), or null for Auto: as many as fit in a panel, `OVERLAY_AUTO_LINES` on the map. */
+  /** Whether the frame has the log. */
+  show: boolean;
+  /** The most of its rows shown at a time (the newest ones), or null for Auto: as many as fit. */
   lines: number | null;
+  /** Whether the map has the condensed log in its corner. */
+  condensed: boolean;
 }
-export const DEFAULT_VIDEO_LOG: VideoLogOptions = { place: "panel", lines: null };
+export const DEFAULT_VIDEO_LOG: VideoLogOptions = { show: true, lines: null, condensed: true };
 
 export function sanitizeVideoLog(saved: unknown): VideoLogOptions {
   const s = (saved && typeof saved === "object" ? saved : {}) as Partial<Record<keyof VideoLogOptions, unknown>>;
   return {
-    place: LOG_PLACEMENTS.find(([p]) => p === s.place)?.[0] ?? DEFAULT_VIDEO_LOG.place,
+    show: s.show !== false,
     lines: typeof s.lines === "number" && Number.isInteger(s.lines) && s.lines >= 1 && s.lines <= MAX_LOG_LINES ? s.lines : null,
+    condensed: s.condensed !== false,
   };
 }
-
-/** How many rows show at most (null: no limit, as many as fit). */
-export const logLimit = (o: VideoLogOptions): number | null => o.lines ?? (o.place === "overlay" ? OVERLAY_AUTO_LINES : null);
 
 /** The rows on screen: the newest `limit` of them (all with no limit). */
 export const newestRows = <T>(rows: readonly T[], limit: number | null): readonly T[] => (limit === null || rows.length <= limit ? rows : rows.slice(rows.length - limit));

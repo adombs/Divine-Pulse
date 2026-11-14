@@ -1242,15 +1242,16 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-piece.low .map-token { filter: drop-shadow(0 0 2px rgb(255 70 50 / 0.95)) drop-shadow(0 1px 1.2px rgb(0 0 0 / 0.5)); }
 .map-glyph { pointer-events: none; }
 .map-sprite { overflow: hidden; pointer-events: none; image-rendering: pixelated; }
-/* Rounded corners around a tile (Minimap.tsx Cursor): the unit picked in the app's accent, one acting in a replay step
-   quieter, over a soft dark edge so they read on light and dark ground; the game's own cursor gold, breathing a
-   little. */
+/* Rounded corners around a tile (Minimap.tsx Cursor), all one weight: the unit picked in the app's accent, the one acting
+   in a replay step quieter, the one it attacks in red, over a soft dark edge so they read on light and dark ground; the
+   game's own cursor gold, breathing a little. */
 .map-cursor {
   fill: none; stroke: var(--accent-2); stroke-width: 2.5px; stroke-linecap: round; stroke-linejoin: round; vector-effect: non-scaling-stroke;
   filter: drop-shadow(0 0 0.8px rgb(20 14 36 / 0.95)) drop-shadow(0 1px 2px rgb(0 0 0 / 0.35)); pointer-events: none;
   transform-box: fill-box; transform-origin: center;
 }
-.map-cursor.acting { stroke-width: 2px; opacity: 0.7; }
+.map-cursor.acting { opacity: 0.7; }
+.map-cursor.target { stroke: var(--red); }
 .map-cursor.game { stroke: none; filter: none; animation: map-cursor 1.6s ease-in-out infinite; }
 /* The game's own cursor, where it is in the game. */
 .map-game-cursor { pointer-events: none; transition: transform 0.18s ease-out; }
@@ -1293,18 +1294,29 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-trail-head { fill: var(--tone); stroke: var(--tone); stroke-width: 0.05; stroke-linejoin: round; }
 .map-act { pointer-events: none; color: var(--tone, var(--ink-soft)); filter: drop-shadow(0 0.5px 1.2px rgb(0 0 0 / 0.5)); }
 .map-act circle { fill: color-mix(in srgb, var(--tone, var(--ink-soft)) 14%, var(--paper)); stroke: var(--tone, var(--ink-soft)); stroke-width: 0.03; }
-/* The replay's condensed labels (Minimap.tsx MapLabels): pills in screen pixels, damage in the attack colour, healing in the heal colour. */
-.map-label { pointer-events: none; --tone: var(--ink-soft); color: var(--tone); filter: drop-shadow(0 1px 2px rgb(0 0 0 / 0.45)); }
-.map-label.attack { --tone: var(--red); }
-.map-label.heal { --tone: var(--green); }
-/* Every label takes the colour of the army that acted: yours blue, enemies red, allies green, the Third Army yellow. */
-.map-label.team-player { --tone: var(--team-player); }
-.map-label.team-enemy { --tone: var(--team-enemy); }
-.map-label.team-ally { --tone: var(--team-ally); }
-.map-label.team-third { --tone: var(--team-third); }
-.map-label rect { fill: color-mix(in srgb, var(--tone) 12%, var(--paper)); stroke: var(--tone); stroke-width: 1px; }
-.map-label text { fill: var(--ink); font: 700 14.5px var(--nums); font-variant-numeric: tabular-nums lining-nums; dominant-baseline: central; }
-.map-label text .value { fill: var(--tone); }
+/* The condensed log (CondensedLog.tsx): the replay's newest actions in the map's bottom-right corner, one line each:
+   who, the action's icon, name and number, whom, and the defeat mark. Text the log's size; damage in the attack colour,
+   healing in the heal colour. */
+.condensed-log {
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem;
+  pointer-events: none; font: inherit; line-height: 1.35;
+}
+.condensed-row {
+  display: inline-flex; align-items: center; gap: 0.45rem; max-width: 100%; padding: 0.22rem 0.55rem 0.22rem 0.3rem;
+  border-radius: 99px; background: color-mix(in srgb, var(--paper-2) 92%, transparent);
+  border: 1px solid var(--row-border); box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
+}
+.condensed-row .unit-face { width: 1.9rem; height: 1.9rem; }
+.condensed-action { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; white-space: nowrap; }
+.condensed-icon { display: inline-grid; place-items: center; width: 1.3rem; height: 1.3rem; color: var(--accent); font-size: 1rem; }
+.condensed-icon img, .condensed-icon svg { width: 100%; height: 100%; object-fit: contain; }
+.condensed-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+.condensed-value { font: 700 1em var(--nums); font-variant-numeric: tabular-nums lining-nums; }
+.condensed-row.tone-attack .condensed-value { color: var(--red); }
+.condensed-row.tone-heal .condensed-value { color: var(--green); }
+.condensed-defeat { display: inline-grid; place-items: center; color: var(--red); font-size: 1.05rem; }
+/* On the battle page's map: in its corner, clear of the turn banner. */
+.map-condensed { position: absolute; right: 0.6rem; bottom: 0.6rem; z-index: 2; max-width: calc(100% - 1.2rem); font-size: 0.92rem; }
 .map-caption { margin-top: 0.3rem; }
 
 .map-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; margin: 0.35rem 0 0; }
@@ -1378,7 +1390,6 @@ code.path { word-break: break-all; font-size: 0.9rem; }
    icons for what's on a tile (chests, doors, levers, siege weapons, breakable walls, warp and heal tiles). */
 .map-tile { stroke: none; }
 .map-own { pointer-events: none; image-rendering: pixelated; }
-.map-cursor-target { pointer-events: none; }
 .map-key.tkey.t-floor::before { background: var(--map-tile-floor) center / cover, var(--map-grid) center / cover, #0d0c11; }
 .map-key.tkey.t-forest::before { background: var(--map-tile-forest) center / cover, var(--map-grid) center / cover, #0d0c11; }
 .map-key.tkey.t-thicket::before { background: var(--map-tile-thicket) center / cover, var(--map-grid) center / cover, #0d0c11; }

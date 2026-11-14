@@ -15,10 +15,9 @@ import type { Battle } from "../../api";
 import { plural } from "../../format";
 import { clock } from "../../format";
 import { hpShare, Item } from "./model";
-import { Action, Board, boardAt, boardNow, Frame, Piece, stepAction, stepLabel, turnStarts } from "./map";
+import { Action, Board, boardAt, boardNow, Frame, stepAction, stepLabel, turnStarts } from "./map";
 import { actionKinds, type Chronicle } from "./chronicle";
-import { abilityIconUrl, artIconUrl, itemIconUrl, spellIconUrl } from "../../reference/icons";
-import { actingBeats, beatLabels, type LabelIcons, type MapLabel } from "./replayLabels";
+import { actingBeats, condensedEntries, type CondensedEntry } from "./replayLabels";
 import { BattleNavContext, KeyNumber, keyNumbers, teamNumber } from "./parts";
 import type { Team, TeamCount } from "./marks";
 
@@ -145,9 +144,7 @@ export interface Rewind {
 }
 
 /** The game's icons for the names on the map's labels. */
-const LABEL_ICONS: LabelIcons = { art: artIconUrl, spell: spellIconUrl, item: itemIconUrl, ability: abilityIconUrl };
-
-/** How visible the labels of a beat being animated are (0-1): they fade in as its action plays and hold to its end. */
+/** How visible the condensed log's rows of a beat being animated are (0-1): they fade in as its action plays and hold to its end. */
 export function labelOpacity(animation: StepAnimation | null): number {
   if (!animation) return 1;
   const { timing: t, elapsed } = animation;
@@ -313,26 +310,10 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const rewinding = plan ? rewindAt(plan, elapsed, speed) : null;
   const animation: StepAnimation | null = rewinding ? rewinding.animation : anim ? { ...anim, elapsed } : null;
   const rewind: Rewind | null = rewinding ? { badge: rewinding.badge } : null;
-  // The condensed labels of the beat shown, on the units they are about.
-  const labels = useMemo<MapLabel[]>(() => {
-    if (at === null || beats[at]?.pulse != null) return [];
-    const made = beatLabels(chron.items, at, LABEL_ICONS);
-    // A unit the action took off the map (a defeated target) keeps its label where it stood, and every label takes
-    // the army of the unit that did it (its colour).
-    const here = new Set(board.pieces.filter((p) => !p.down).map((p) => p.id));
-    const now = new Map(board.pieces.map((p) => [p.id, p]));
-    const before = at === 0 ? new Map<string, Piece>() : new Map(boardOf(at - 1).pieces.map((p) => [p.id, p]));
-    const sideOf = (id: string | null) => {
-      const p = id ? (now.get(id) ?? before.get(id)) : undefined;
-      return p ? (p.army ? "player" : p.sprite.side) : id?.startsWith("a:") ? "player" : undefined;
-    };
-    return made.map((l) => {
-      const p = here.has(l.unit) ? null : before.get(l.unit);
-      return { ...l, side: sideOf(l.by), ...(p ? { at: { x: p.x, y: p.y, span: p.span } } : {}) };
-    });
-  }, [chron, beats, at, board]); // eslint-disable-line react-hooks/exhaustive-deps
-  const labelsShown = labelOpacity(animation);
-  return { steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, labels, labelsShown, cursor, go, seek, seeks, next, play, pose, label, detail, army };
+  // The condensed log: the newest actions up to the beat shown (none before the first step, or while a Divine Pulse plays).
+  const condensed = useMemo<CondensedEntry[]>(() => (at === null || beats[at]?.pulse != null ? [] : condensedEntries(chron.log, at)), [chron, beats, at]);
+  const condensedShown = labelOpacity(animation);
+  return { steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, condensed, condensedShown, cursor, go, seek, seeks, next, play, pose, label, detail, army };
 }
 
 export type Replay = ReturnType<typeof useReplay>;

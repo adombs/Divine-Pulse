@@ -6,7 +6,7 @@ const vite = await createServer({ configFile: false, optimizeDeps: { noDiscovery
 after(() => vite.close());
 const { chronicle } = await vite.ssrLoadModule("/src/components/battle/chronicle.ts");
 const { animates, renumber, stillBeats } = await vite.ssrLoadModule("/src/components/battle/stillBeats.ts");
-const { beatLabels, actingBeats } = await vite.ssrLoadModule("/src/components/battle/replayLabels.ts");
+const { beatLabels, actingBeats, condensedEntries, actionName, CONDENSED_MAX } = await vite.ssrLoadModule("/src/components/battle/replayLabels.ts");
 
 const frame = (...rows) => new Map(rows);
 const A = "a:alpha";
@@ -139,4 +139,24 @@ test("labels: a combat art shows its icon and name with the damage; heal and ite
   assert.deepEqual(beatLabels([row({ dealt: 5 })], 3, icons), [], "only the beat's own items");
   assert.deepEqual(beatLabels([row({ dealt: 5, rehomed: true })], 2, icons), [], "not the rows of a beat left out");
   assert.deepEqual([...actingBeats([row({ kind: "rally", detail: "x" }), row({ kind: "wait", beat: 4 })])], [2]);
+});
+
+test("condensed log: the newest actions up to the beat, a double hit as one row, a defeat marked, undone rows gone", () => {
+  const items = [
+    row({ key: "a1", beat: 1, dealt: 7 }),
+    row({ key: "m", beat: 2, kind: "move" }),
+    row({ key: "a2", beat: 3, dealt: 12, taken: 3 }),
+    row({ key: "a3", beat: 3, dealt: 12, defeated: true }),
+    row({ key: "h", beat: 4, kind: "heal", detail: "Heal", restored: 21 }),
+    row({ key: "x", beat: 5, kind: "item", detail: "Vulnerary", target: null, restored: 20, undoneAt: 6 }),
+  ];
+  const at4 = condensedEntries(items, 4);
+  assert.deepEqual(at4.map((e) => [e.key, e.beat, e.value, e.tone, e.defeated]), [["a1", 1, "7", "attack", false], ["a2", 3, "12 · 12", "attack", true], ["h", 4, "+21", "heal", false]]);
+  assert.deepEqual(condensedEntries(items, 2).map((e) => e.key), ["a1"], "nothing after the beat shown");
+  assert.deepEqual(condensedEntries(items, 5).map((e) => e.key).at(-1), "x");
+  assert.equal(condensedEntries(items, 6).some((e) => e.key === "x"), false, "turned back by the Divine Pulse at beat 6");
+  assert.deepEqual(condensedEntries(items, 5, 2).map((e) => e.key), ["h", "x"], "only the newest");
+  assert.equal(CONDENSED_MAX, 4);
+  assert.equal(actionName(row({})), "Attack");
+  assert.equal(actionName(row({ detail: "Frozen Lance" })), "Frozen Lance");
 });

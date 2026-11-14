@@ -104,7 +104,7 @@ export function ItemRow({ item, current, future, undone = item.branch > 0, onSel
 }
 
 /** A log row's icon: the game's own for a combat art, a spell or the weapon an attack was made with, else the kit's. */
-function LogIcon({ item }: { item: Item }) {
+export function LogIcon({ item }: { item: Item }) {
   const who = useBattleNav().people.get(item.actor ?? "");
   const weapon = who?.unit?.weapon ?? who?.enemy?.weapon;
   if (item.detail && (item.kind === "attack" || item.kind === "art")) return <GearIcon kind="art" name={item.detail} />;
