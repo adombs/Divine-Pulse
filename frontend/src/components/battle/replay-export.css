@@ -206,8 +206,15 @@
 
 /* The battle map uses the same corner stacks, while keeping its legend interactive. */
 .map-overlay-corner { z-index: 2; gap: 0.6rem; pointer-events: none; }
-.map-overlay-key { pointer-events: auto; }
-.map-overlay-key .map-key-panel { position: static; max-width: min(23rem, 100%); font-size: inherit; }
+.map-overlay-key { width: max-content; max-width: 100%; min-width: 0; pointer-events: auto; }
+.map-overlay-key .map-key-panel { position: static; width: max-content; max-width: min(23rem, 100%); font-size: inherit; }
+/* Keep the counts nearest the selected corner as the legend grows away from it. */
+.map-overlay-corner.bottom-left .map-key-panel:not(.hidden),
+.map-overlay-corner.bottom-right .map-key-panel:not(.hidden) { display: flex; flex-direction: column-reverse; }
+.map-overlay-corner.bottom-left .map-legends,
+.map-overlay-corner.bottom-right .map-legends { border-top: 0; border-bottom: 1px solid var(--line); }
+.map-overlay-corner.bottom-left .map-key-panel.narrow:not(.open) .collapse,
+.map-overlay-corner.bottom-right .map-key-panel.narrow:not(.open) .collapse { flex: none; }
 .map-overlay-key .map-key-toggle { font-size: 1em; gap: 0.65em; }
 .map-overlay-key .map-count { gap: 0.32em; }
 .map-overlay-key .map-count::before { width: 0.75em; height: 0.7em; }

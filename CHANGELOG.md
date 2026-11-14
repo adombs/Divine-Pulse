@@ -4,6 +4,7 @@
 
 ## 1.4.6 (2026-11-13)
 
+- The unit-count legend opens and closes away from its selected map corner.
 - Settings has a Battle Replay tab for the condensed log, turn counter and unit counts on the battle map, including their corner and size. On the map and in videos, choose the turn counter fields and whether to show zero counts.
 - Condensed replay log lines fade by age; the corner selector has four connected sections.
 - Export Video can mix uploaded audio with a battle theme, with separate volume controls.
