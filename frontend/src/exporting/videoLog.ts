@@ -30,9 +30,13 @@ export interface VideoLogOptions {
   /** Whether the map has the turn counter (Turn 3/12 · Player Phase · Step 45/69), and how big. */
   counter: boolean;
   counterSize: number;
+  counterTurn: boolean;
+  counterPhase: boolean;
+  counterStep: boolean;
   /** Whether the map has the legend's counts (units standing in each army, and the killed), and how big. */
   counts: boolean;
   countsSize: number;
+  countsZero: boolean;
   /** The map's corner each of those is in. */
   place: Record<Overlay, Corner>;
   /** The order they were put in their corners (oldest first): in a corner, the first is nearest the corner, the rest
@@ -60,7 +64,7 @@ export function cornerStacks(log: VideoLogOptions): Record<Corner, Overlay[]> {
   for (const o of log.order) if (shown[o]) out[log.place[o]].push(o);
   return out;
 }
-export const DEFAULT_VIDEO_LOG: VideoLogOptions = { show: true, lines: null, condensed: true, condensedLines: DEFAULT_CONDENSED_LINES, condensedSize: 1, counter: true, counterSize: 1, counts: true, countsSize: 1,
+export const DEFAULT_VIDEO_LOG: VideoLogOptions = { show: true, lines: null, condensed: true, condensedLines: DEFAULT_CONDENSED_LINES, condensedSize: 1, counter: true, counterSize: 1, counterTurn: true, counterPhase: true, counterStep: true, counts: true, countsSize: 1, countsZero: true,
   place: DEFAULT_PLACE, order: DEFAULT_ORDER,
 };
 
@@ -75,10 +79,14 @@ export function sanitizeVideoLog(saved: unknown): VideoLogOptions {
     condensedLines:
       typeof s.condensedLines === "number" && Number.isInteger(s.condensedLines) && s.condensedLines >= 1 && s.condensedLines <= MAX_CONDENSED_LINES ? s.condensedLines : DEFAULT_CONDENSED_LINES,
     condensedSize: size(s.condensedSize),
-    counter: s.counter !== false,
+    counter: s.counter !== false && (s.counterTurn !== false || s.counterPhase !== false || s.counterStep !== false),
     counterSize: size(s.counterSize),
+    counterTurn: s.counterTurn !== false,
+    counterPhase: s.counterPhase !== false,
+    counterStep: s.counterStep !== false,
     counts: s.counts !== false,
     countsSize: size(s.countsSize),
+    countsZero: s.countsZero !== false,
     place: Object.fromEntries(OVERLAYS.map((o) => {
       const saved = (s.place && typeof s.place === "object" ? s.place : {}) as Record<string, unknown>;
       return [o, (CORNERS as readonly unknown[]).includes(saved[o]) ? saved[o] : DEFAULT_PLACE[o]];
@@ -90,3 +98,15 @@ export function sanitizeVideoLog(saved: unknown): VideoLogOptions {
 
 /** The rows on screen: the newest `limit` of them (all with no limit). */
 export const newestRows = <T>(rows: readonly T[], limit: number | null): readonly T[] => (limit === null || rows.length <= limit ? rows : rows.slice(rows.length - limit));
+
+/** Selecting a counter field turns the counter on; clearing the last one turns it off. */
+export function setCounterField(log: VideoLogOptions, field: "counterTurn" | "counterPhase" | "counterStep", enabled: boolean): VideoLogOptions {
+  const next = { ...log, [field]: enabled };
+  return { ...next, counter: next.counterTurn || next.counterPhase || next.counterStep };
+}
+
+export function setCounterEnabled(log: VideoLogOptions, enabled: boolean): VideoLogOptions {
+  return enabled && !log.counterTurn && !log.counterPhase && !log.counterStep
+    ? { ...log, counter: true, counterTurn: true, counterPhase: true, counterStep: true }
+    : { ...log, counter: enabled };
+}

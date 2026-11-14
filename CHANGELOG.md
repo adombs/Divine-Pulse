@@ -4,6 +4,7 @@
 
 ## 1.4.6 (2026-11-13)
 
+- The battle map has settings for the condensed log, turn counter and unit counts, including their corner and size. On the map and in videos, choose the turn counter fields and whether to show zero counts.
 - Condensed replay log lines fade by age; the corner selector has four connected sections.
 - Export Video can mix uploaded audio with a battle theme, with separate volume controls.
 - Each run can have a ruleset: your self-imposed rules, added from common challenge rules (Maddening, No Divine Pulse, No DLC, House only and more) or written yourself, edited and reordered on the Runs page, and shared as an image or as a page before or after the replay in Export Video.

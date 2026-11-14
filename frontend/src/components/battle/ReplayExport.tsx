@@ -11,7 +11,7 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import "./replay-export.css";
-import { type KeyboardEvent, memo, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Battle, RunRoute, Unit } from "../../api";
 import { clock } from "../../format";
@@ -19,9 +19,10 @@ import { Icon, IconButton } from "../Icon";
 import { Modal } from "../Modal";
 import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
-import { CardBanner, RunIcon, Segmented, Switch } from "../ui";
+import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
-import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, OVERLAY_SIZES, placeOverlay, type Corner, type Overlay, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
 import { CondensedLog } from "./CondensedLog";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
@@ -214,85 +215,6 @@ function viewAround([cx, cy]: [number, number], [w, h]: [number, number], board:
   if (w >= board.w && h >= board.h) return null;
   const clamp = (v: number, hi: number) => Math.max(0, Math.min(hi, v));
   return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
-}
-
-const CORNER_NAME: Record<Corner, string> = { "top-left": "Top left", "top-right": "Top right", "bottom-left": "Bottom left", "bottom-right": "Bottom right" };
-const OVERLAY_NAME: Record<Overlay, string> = { condensed: "Condensed log", counter: "Turn counter", counts: "Unit counts" };
-
-/** One thing the frame can show: its name and what it is, a switch, and its settings while it's on. */
-function LayoutSection({ title, note, on, onToggle, children }: { title: string; note: string; on: boolean; onToggle: (on: boolean) => void; children: ReactNode }) {
-  return (
-    <section className={`layout-item${on ? " on" : ""}`}>
-      <div className="layout-item-head">
-        <div className="layout-item-text">
-          <h4>{title}</h4>
-          <p>{note}</p>
-        </div>
-        <Switch checked={on} onChange={onToggle} label={`Show the ${title.toLowerCase()}`} />
-      </div>
-      {on && <div className="layout-item-body">{children}</div>}
-    </section>
-  );
-}
-
-/** Which of the map's corners something over it sits in: a small outline of the map whose corners are clicked (arrow
- * keys move between them). A corner's hover text names what else is already there. */
-function CornerPicker({ label, which, log, onChange }: { label: string; which: Overlay; log: VideoLogOptions; onChange: (corner: Corner) => void }) {
-  const value = log.place[which];
-  const stacks = cornerStacks(log);
-  const refs = useRef<Partial<Record<Corner, HTMLButtonElement | null>>>({});
-  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
-    const [v, h] = value.split("-") as ["top" | "bottom", "left" | "right"];
-    const next: Corner | null =
-      e.key === "ArrowUp" ? `top-${h}` : e.key === "ArrowDown" ? `bottom-${h}` : e.key === "ArrowLeft" ? `${v}-left` : e.key === "ArrowRight" ? `${v}-right` : null;
-    if (!next) return;
-    e.preventDefault();
-    onChange(next);
-    refs.current[next]?.focus();
-  };
-  return (
-    <div className="corner-field">
-      <span className="field-label">Corner</span>
-      <div className="corner-box" role="radiogroup" aria-label={label} onKeyDown={onKey}>
-        {CORNERS.map((corner) => {
-          const others = stacks[corner].filter((o) => o !== which);
-          const picked = corner === value;
-          return (
-            <button
-              key={corner}
-              ref={(el) => { refs.current[corner] = el; }}
-              type="button"
-              role="radio"
-              aria-checked={picked}
-              tabIndex={picked ? 0 : -1}
-              className={`corner-spot ${corner}${picked ? " on" : ""}`}
-              title={`${CORNER_NAME[corner]}${others.length ? ` (with the ${others.map((o) => OVERLAY_NAME[o].toLowerCase()).join(" and ")})` : ""}`}
-              aria-label={CORNER_NAME[corner]}
-              onClick={() => onChange(corner)}
-            />
-          );
-        })}
-      </div>
-      <span className="corner-name">{CORNER_NAME[value]}</span>
-    </div>
-  );
-}
-
-/** How big something over the map is (OVERLAY_SIZES), as a percentage. */
-function SizeSlider({ value, onChange }: { value: number; onChange: (size: number) => void }) {
-  const pct = `${Math.round(value * 100)}%`;
-  return (
-    <StepSlider
-      label="UI Size"
-      stops={OVERLAY_SIZES.length}
-      value={Math.max(0, OVERLAY_SIZES.indexOf(value as (typeof OVERLAY_SIZES)[number]))}
-      onChange={(i) => onChange(OVERLAY_SIZES[i])}
-      valueText={pct}
-      after={<span className="team-pages-axis-value">{pct}</span>}
-      variant="timeline"
-      slim
-    />
-  );
 }
 
 /** A frame's grid (set inline): its tracks, and with no log, its own areas and no gaps. */
@@ -911,12 +833,13 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     />
                     <SizeSlider value={options.log.condensedSize} onChange={(condensedSize) => updateLog({ condensedSize })} />
                   </LayoutSection>
-                  <LayoutSection title="Turn counter" note="Turn, phase and step, over the map" on={options.log.counter} onToggle={(on) => turnOn("counter", on)}>
+                  <LayoutSection title="Turn counter" note="Turn, phase and step, over the map" on={options.log.counter} onToggle={(on) => setOptionsState((o) => keep({ ...o, log: setCounterEnabled(o.log, on) }))} always={<CounterFields log={options.log} onChange={(log) => setOptionsState((o) => keep({ ...o, log }))} />}>
                     <CornerPicker label="Turn counter corner" which="counter" log={options.log} onChange={(c) => placeIn("counter", c)} />
                     <SizeSlider value={options.log.counterSize} onChange={(counterSize) => updateLog({ counterSize })} />
                   </LayoutSection>
                   <LayoutSection title="Unit counts" note="Each army's units on the map, and the killed" on={options.log.counts} onToggle={(on) => turnOn("counts", on)}>
                     <CornerPicker label="Unit counts corner" which="counts" log={options.log} onChange={(c) => placeIn("counts", c)} />
+                    <ZeroCounts checked={options.log.countsZero} onChange={(countsZero) => updateLog({ countsZero })} />
                     <SizeSlider value={options.log.countsSize} onChange={(countsSize) => updateLog({ countsSize })} />
                   </LayoutSection>
                 </fieldset>
@@ -990,7 +913,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                       onClick={() => setPreviewing(previewTheme(listening, volume))}
                     />
                   </div>
-                  <button type="button" onClick={() => picker.current?.click()} disabled={reading}>Upload audio file…</button>
+                  <button type="button" onClick={() => picker.current?.click()} disabled={reading}>Upload audio fileâ€¦</button>
                   <input
                     ref={picker}
                     type="file"
@@ -1211,10 +1134,10 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
               o === "condensed" ? (
                 <CondensedLog key={o} entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} />
               ) : o === "counter" ? (
-                <ReplayBanner key={o} replay={replay} size={log.counterSize} className="in-corner" />
+                <ReplayBanner key={o} replay={replay} size={log.counterSize} showTurn={log.counterTurn} showPhase={log.counterPhase} showStep={log.counterStep} className="in-corner" />
               ) : (
                 <div key={o} className="replay-stage-counts" style={log.countsSize !== 1 ? { fontSize: `${log.countsSize}em` } : undefined} aria-label="Units on the map">
-                  <MapCounts board={replay.board} />
+                  <MapCounts board={replay.board} includeZero={log.countsZero} />
                 </div>
               ),
             )}
