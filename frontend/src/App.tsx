@@ -434,6 +434,7 @@ export default function App() {
                 mapLook={{ mine: appearance.appearance.mapMine, others: appearance.appearance.mapOthers, myFaces: appearance.appearance.myUnitFaces, otherFaces: appearance.appearance.otherUnitFaces }}
                 replaySpeed={appearance.appearance.replaySpeed}
                 onReplaySpeed={(replaySpeed) => appearance.update({ replaySpeed })}
+                groupMoves={appearance.appearance.groupMoves}
                 at={recording?.id === nav.route.id ? nav.route.q : null}
                 fell={recording?.id === nav.route.id ? nav.route.fell : null}
                 onDeleteRecording={deleteRecording}

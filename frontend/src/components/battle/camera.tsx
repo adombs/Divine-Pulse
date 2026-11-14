@@ -30,6 +30,13 @@ export function view([cx, cy]: [number, number], tiles: number, board: Board): Z
   return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
 }
 
+/** How many tiles across a view needs to hold all of `follow` with a tile to spare on each side. */
+export function fitTiles(follow: [number, number][]): number {
+  const xs = follow.map(([x]) => x);
+  const ys = follow.map(([, y]) => y);
+  return Math.max(Math.max(...xs) - Math.min(...xs), Math.max(...ys) - Math.min(...ys)) + 3;
+}
+
 function loadMode(place: string): CameraMode {
   try {
     return localStorage.getItem(`divine-pulse-map-camera-${place}`) === "static" ? "static" : "dynamic";
@@ -53,13 +60,17 @@ export function useMapCamera(place: string, board: Board, follow: [number, numbe
   }, [mode, moment]);
 
   let target: [number, number] = [board.w / 2, board.h / 2];
+  // Following the action, the view is as wide as the zoom says, or wider while what it follows (several units moving
+  // together) wouldn't fit: all of it in view, with a tile to spare around it.
+  let tiles = ZOOM_TILES[level];
   if (follow.length) {
     const xs = follow.map(([x]) => x + 0.5);
     const ys = follow.map(([, y]) => y + 0.5);
     target = [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
+    if (tiles && center === null) tiles = Math.max(tiles, fitTiles(follow));
   }
   const focus = center ?? target;
-  const zoom = view(focus, ZOOM_TILES[level], board);
+  const zoom = view(focus, tiles, board);
   const whole = { x0: 0, y0: 0, w: board.w, h: board.h };
   const middle = (): [number, number] => (zoom ? [zoom.x0 + zoom.w / 2, zoom.y0 + zoom.h / 2] : [board.w / 2, board.h / 2]);
 

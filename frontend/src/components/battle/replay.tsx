@@ -2,9 +2,10 @@
  * Replaying a battle on the map, beat by beat from the one chronology (chronicle.ts): which beat is shown (or now),
  * playing, and the controls, a timeline under the map. Shared by the Map tab and the Overview's map.
  *
- * Stepping forward one beat (Play, or Next step) animates it in stages, at the speed set in Settings > Appearance:
+ * Stepping forward one beat (Play, or Next step) animates it in stages, at the speed set in Settings > Battle Replay:
  * the unit acting moves first, then acts (an attack, a heal), then whoever fell or left the map fades away and
- * whoever arrived fades in. A Divine Pulse plays as a rewind: a badge in the middle of the map, and the steps it
+ * whoever arrived fades in. Consecutive moves of one phase with nothing else in them play together (moveRuns.ts),
+ * everyone moving at once, the camera keeping all of them in view. A Divine Pulse plays as a rewind: a badge in the middle of the map, and the steps it
  * undid played backwards, while the timeline and the log stay on the Divine Pulse. Any other jump shows the beat at once.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
@@ -16,10 +17,11 @@ import type { Battle } from "../../api";
 import { plural } from "../../format";
 import { clock } from "../../format";
 import { hpShare, Item } from "./model";
-import { Action, Board, boardAt, boardNow, Frame, stepAction, stepLabel, turnStarts } from "./map";
-import { actionKinds, type Chronicle } from "./chronicle";
+import { Action, Board, boardAt, boardNow, Frame, stepAction, stepLabel, type StepKinds, turnStarts } from "./map";
+import { actionKinds, type Beat, type Chronicle } from "./chronicle";
 import { actingBeats, CONDENSED_KEEP, condensedEntries, type CondensedEntry } from "./replayLabels";
 import { BattleNavContext, KeyNumber, keyNumbers, teamNumber } from "./parts";
+import { moveRuns, type MoveRuns } from "./moveRuns";
 import type { Team, TeamCount } from "./marks";
 
 /** Each stage of a step's animation at normal speed (ms): moving (a base, and per tile, up to a most), acting, the
@@ -153,29 +155,46 @@ export function labelOpacity(animation: StepAnimation | null): number {
 }
 
 /** How long each beat takes when played (ms), at `speed`: its animation, or the hold of a beat with none to play. */
-export function beatDurations(battle: Battle, chron: Chronicle, speed: number): number[] {
+export function beatDurations(battle: Battle, chron: Chronicle, speed: number, group = true): number[] {
   const { beats } = chron;
   const steps = beats.map((b) => b.step);
   const all = beats.map((b) => b.frame);
   const kinds = actionKinds(chron.items);
   const labelled = actingBeats(chron.items);
   const boards = all.map((f) => boardAt(battle, f));
+  const runs = beatRuns(chron, group);
   return beats.map((beat, i) => {
     if (beat.pulse !== null) return rewindPlan(battle, chron, i, speed).total;
     if (i === 0) return PHASE_HOLD_MS / speed;
-    return timing(boards[i - 1], boards[i], stepAction(steps, all, i, kinds), !steps[i]?.actor, speed, labelled.has(i)).total;
+    if (runs.end[i] !== i) return 0; // played with the last move of its run
+    return timing(boards[runs.from[i]], boards[i], stepAction(steps, all, i, kinds), !steps[i]?.actor, speed, labelled.has(i)).total;
   });
 }
 
+/** The runs of moves played together (moveRuns.ts) in a chronicle; with `group` off, every beat on its own. */
+export function beatRuns(chron: Chronicle, group = true): MoveRuns {
+  if (!group) return { end: chron.beats.map((_, i) => i), from: chron.beats.map((_, i) => Math.max(0, i - 1)) };
+  return moveRuns(chron.beats, chron.items, actionKinds(chron.items), actingBeats(chron.items));
+}
+
+/** The tiles every unit that acted from beat `from` (not included) to beat `to` stood on before and after it. */
+function spanFocus(battle: Battle, steps: Beat["step"][], all: Frame[], kinds: StepKinds, from: number, to: number): [number, number][] {
+  const out: [number, number][] = [];
+  for (let k = Math.max(0, from + 1); k <= to; k++) out.push(...followed({ cursor: null, action: stepAction(steps, all, k, kinds), board: boardAt(battle, all[k]) }));
+  return out;
+}
+
 /** The tiles a camera keeps in view at each beat: the units acting in it (a beat with none keeps the one before's). */
-export function beatFocus(battle: Battle, chron: Chronicle): [number, number][][] {
+export function beatFocus(battle: Battle, chron: Chronicle, group = true): [number, number][][] {
   const { beats } = chron;
   const steps = beats.map((b) => b.step);
   const all = beats.map((b) => b.frame);
   const kinds = actionKinds(chron.items);
+  const runs = beatRuns(chron, group);
   let last: [number, number][] = [];
   return beats.map((_, i) => {
-    const follow = followed({ cursor: null, action: stepAction(steps, all, i, kinds), board: boardAt(battle, all[i]) });
+    // The last move of a run keeps all of its moves in view, from where each started to where it ended.
+    const follow = spanFocus(battle, steps, all, kinds, i === 0 ? -1 : runs.from[i], i);
     if (follow.length) last = follow;
     return last;
   });
@@ -184,6 +203,8 @@ export function beatFocus(battle: Battle, chron: Chronicle): [number, number][][
 export interface ReplayOptions {
   /** Play at this speed rather than the one set in Settings. */
   speed?: number;
+  /** Play consecutive moves together (or not) rather than as Settings says. */
+  group?: boolean;
   /** The caller moves the replay with `pose` (an export's own clock); it never plays on by itself. */
   manual?: boolean;
 }
@@ -198,13 +219,16 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const all = useMemo(() => beats.map((b) => b.frame), [beats]);
   const kinds = useMemo(() => actionKinds(chron.items), [chron]);
   const acting = useMemo(() => actingBeats(chron.items), [chron]);
+  const group = options.group ?? nav?.groupMoves !== false;
+  const runs = useMemo(() => beatRuns(chron, group), [chron, group]);
   const turns = useMemo(() => turnStarts(steps), [steps]);
   // The beat shown (an index into beats), or null for where things stand now.
   const [position, setAt] = useState<number | null>(null);
   const at = position !== null && position >= beats.length ? null : position;
   const [playing, setPlaying] = useState(false);
-  // The beat being animated and when it started (performance.now()), and how far along it is.
-  const [animating, setAnimating] = useState<{ step: number; start: number } | null>(null);
+  // The beat being animated, the beat it plays from (the one before, or before a run of moves), when it started
+  // (performance.now()), and how far along it is.
+  const [animating, setAnimating] = useState<{ step: number; from: number; start: number } | null>(null);
   const [elapsed, setElapsed] = useState(0);
   // Bumped when the timeline is sent to a step on purpose (a log row picked): its thumb glides there rather than jumping.
   const [seeks, setSeeks] = useState(0);
@@ -217,13 +241,14 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const plan = useMemo(() => (running && at !== null && current && current.pulse !== null ? rewindPlan(battle, chron, at, speed) : null), [running, at, current, battle, chron, speed]);
   const anim = useMemo(() => {
     if (!running || at === null || at === 0 || plan) return null;
-    const before = boardOf(at - 1);
+    const before = boardOf(animating?.from ?? at - 1);
     return { before, action, timing: timing(before, board, action, !steps[at]?.actor, speed, acting.has(at)) };
-  }, [running, at, board, action, speed, plan, acting]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [running, at, board, action, speed, plan, acting, animating?.from]); // eslint-disable-line react-hooks/exhaustive-deps
   // How long the beat being animated takes (null: nothing to animate).
   const total = plan ? plan.total : anim ? anim.timing.total : null;
 
-  /** Show beat i, animated from the one before it. Past the last: back to now. */
+  /** Show beat i, animated from the beat shown now; in a run of moves, on to its last, all of them played at once. Past
+   * the last beat: back to now. */
   const advance = (i: number) => {
     if (i >= beats.length) {
       setPlaying(false);
@@ -231,9 +256,11 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
       setAt(null);
       return;
     }
-    setAt(i);
+    const to = runs.end[i];
+    const from = at !== null && at < to ? at : to - 1;
+    setAt(to);
     setElapsed(0);
-    setAnimating(reducedMotion() ? null : { step: i, start: performance.now() });
+    setAnimating(reducedMotion() ? null : { step: to, from, start: performance.now() });
   };
   const advanceRef = useRef(advance);
   advanceRef.current = advance;
@@ -273,7 +300,7 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
     const shown = Math.max(0, Math.min(beats.length - 1, i));
     setPlaying(false);
     setAt(shown);
-    setAnimating({ step: shown, start: 0 });
+    setAnimating({ step: shown, from: runs.from[shown], start: 0 });
     setElapsed(elapsed);
   };
   const seek = (i: number) => {
@@ -325,7 +352,13 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   // The condensed log: the newest actions up to the beat shown (none before the first step, or while a Divine Pulse plays).
   const condensed = useMemo<CondensedEntry[]>(() => (at === null || beats[at]?.pulse != null ? [] : condensedEntries(chron.log, at, CONDENSED_KEEP)), [chron, beats, at]);
   const condensedShown = labelOpacity(animation);
-  return { steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, condensed, condensedShown, cursor, go, seek, seeks, next, play, pose, label, detail, army, counter };
+  // What the camera keeps in view: the action, or every move of a run played together.
+  const span = at === null ? null : running && animating ? animating.from : runs.from[at];
+  const follow = useMemo<[number, number][]>(
+    () => (cursor ? [cursor] : at !== null && span !== null && span < at - 1 ? spanFocus(battle, steps, all, kinds, span, at) : followed({ cursor, action, board })),
+    [cursor, at, span, battle, steps, all, kinds, action, board],
+  );
+  return { follow, steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, condensed, condensedShown, cursor, go, seek, seeks, next, play, pose, label, detail, army, counter };
 }
 
 export type Replay = ReturnType<typeof useReplay>;
@@ -380,7 +413,7 @@ export function replayStats(battle: Battle, replay: Replay, seconds: number): { 
 
 /** The tiles a camera keeps in view: the game's cursor live; in a replay, the units acting in the step; otherwise
  * the map's centre when no action is selected. */
-export function followed({ cursor, action, board }: Pick<Replay, "cursor" | "action" | "board">): [number, number][] {
+export function followed({ cursor, action, board }: { cursor: [number, number] | null; action: Action | null; board: Board }): [number, number][] {
   if (cursor) return [cursor];
   const actor = action ? board.pieces.find((p) => p.id === action.actor) : undefined;
   const aimed = action?.target ? board.pieces.find((p) => p.id === action.target) : undefined;

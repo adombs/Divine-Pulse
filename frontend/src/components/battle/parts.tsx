@@ -24,9 +24,11 @@ export interface BattleNav {
   /** A unit's headshot URL (your units and other characters with a known portrait; null otherwise), for the map. */
   portrait?: (id: string) => string | null;
   importedFace?: (id: string) => string | null;
-  /** How units are drawn on the map, and how fast a replay plays (1 normal), from Settings > Appearance. */
+  /** How units are drawn on the map, and how fast a replay plays (1 normal), from Settings > Battle Replay. */
   mapLook?: MapLook;
   replaySpeed?: number;
+  /** Whether consecutive moves of one phase replay together (moveRuns.ts); on unless set off. */
+  groupMoves?: boolean;
   /** Changes the replay speed from the battle view (it is the Settings value, so it sticks). */
   setReplaySpeed?: (speed: number) => void;
   /** How a unit's eBST is worked out (its roster settings; null when it isn't in the roster). */
