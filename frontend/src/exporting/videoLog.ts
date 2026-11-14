@@ -5,6 +5,7 @@
  * legend's counts. Without the log, the map takes the whole frame under the title. Kept apart from the page so it is
  * tested on its own.
  */
+import type { CSSProperties } from "react";
 
 /** The most condensed log rows its Lines slider offers, and how many it shows unless set. */
 export const MAX_CONDENSED_LINES = 8;
@@ -13,6 +14,10 @@ export const DEFAULT_CONDENSED_LINES = 4;
  * largest. */
 export const CONDENSED_SIZES = [0.7, 0.8, 0.9, 1, 1.1, 1.25, 1.4, 1.6, 1.8, 2] as const;
 export const OVERLAY_SIZES = CONDENSED_SIZES;
+
+/** An overlay's size as the style it carries: each overlay's CSS sets its text to its own base size times
+ * `--overlay-size`, so its size never depends on the text around it or on the other overlays. */
+export const overlaySizeStyle = (size: number) => ({ "--overlay-size": size }) as CSSProperties;
 
 export interface VideoLogOptions {
   /** Whether the frame has the log. */

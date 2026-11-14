@@ -31,7 +31,7 @@ import { ActionBadge, MapLook, miniBadge, miniImage, objectIcon, SpriteIndex, sp
 import { ICON, LOW_HP } from "./model";
 import { TEAM_LABEL } from "./marks";
 import { Icon } from "../Icon";
-import { CORNERS, cornerStacks, loadBattleOverlaySettings } from "../../exporting/videoLog";
+import { CORNERS, cornerStacks, loadBattleOverlaySettings, overlaySizeStyle } from "../../exporting/videoLog";
 import { NotchedRange } from "../Slider";
 import { BattleNavContext, useBattleNav } from "./parts";
 import { CameraTools, DEFAULT_ZOOM, view, ZOOM_TILES, zoomText, useMapCamera } from "./camera";
@@ -874,7 +874,7 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
             {stacks[corner].map((item) => item === "condensed" ?
               <CondensedLog key={item} entries={replay.condensed} current={replay.at} fade={replay.condensedShown} lines={layout.condensedLines} size={layout.condensedSize} /> :
               item === "counter" ? <ReplayBanner key={item} replay={replay} size={layout.counterSize} showTurn={layout.counterTurn} showPhase={layout.counterPhase} showStep={layout.counterStep} className="in-corner" /> :
-              <div key={item} className="map-overlay-key" style={{ fontSize: `${layout.countsSize}em` }}><MapKey board={board} replay={replay.steps.length > 0} place="overview" includeZero={layout.countsZero} /></div>)}
+              <div key={item} className="map-overlay-key" style={overlaySizeStyle(layout.countsSize)}><MapKey board={board} replay={replay.steps.length > 0} place="overview" includeZero={layout.countsZero} /></div>)}
           </div>
         ))}
       </div>

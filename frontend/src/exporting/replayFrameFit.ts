@@ -1,4 +1,4 @@
-/** Keep overlays inside the map viewport and show complete dedicated-log rows in a fixed video frame. */
+/** Keep overlays inside the map viewport, at their set sizes, and show complete dedicated-log rows in a fixed video frame. */
 export function fitReplayFrame(root: HTMLElement): void {
   const layer = root.querySelector<HTMLElement>(".replay-stage-overlays");
   const map = root.querySelector<HTMLElement>(".replay-stage-map");
@@ -11,10 +11,10 @@ export function fitReplayFrame(root: HTMLElement): void {
     const width = view.width * factor, height = view.height * factor;
     Object.assign(layer.style, { inset: "auto", left: `${(image.left - frame.left) / cssScale - map.clientLeft + (svg.clientWidth - width) / 2}px`, top: `${(image.top - frame.top) / cssScale - map.clientTop + (svg.clientHeight - height) / 2}px`, width: `${width}px`, height: `${height}px` });
   }
+  // Each corner gets the room it may fill (half the map where another corner shares its side), and nothing more: an
+  // overlay is never scaled to fit, so it keeps the size it was set to on every frame of a replay whatever the others in
+  // its corner or the actions on screen are. What would cross the room is cut short instead (CSS: a long action name).
   if (layer) for (const corner of layer.querySelectorAll<HTMLElement>(".replay-stage-corner")) {
-    corner.style.transform = "";
-    const width = Math.max(corner.scrollWidth, corner.offsetWidth);
-    const height = Math.max(corner.scrollHeight, corner.offsetHeight);
     const peers = Array.from(layer.querySelectorAll<HTMLElement>(".replay-stage-corner")).filter((other) => other !== corner && other.children.length);
     const right = corner.classList.contains("top-right") || corner.classList.contains("bottom-right");
     const bottom = corner.classList.contains("bottom-left") || corner.classList.contains("bottom-right");
@@ -22,8 +22,8 @@ export function fitReplayFrame(root: HTMLElement): void {
     const shareColumn = peers.some((other) => (other.classList.contains("top-right") || other.classList.contains("bottom-right")) === right);
     const roomW = layer.clientWidth / (shareRow ? 2 : 1) - 28;
     const roomH = layer.clientHeight / (shareColumn ? 2 : 1) - 28;
-    const scale = Math.min(1, Math.max(1, roomW) / Math.max(1, width), Math.max(1, roomH) / Math.max(1, height));
-    corner.style.transform = `scale(${scale})`;
+    corner.style.maxWidth = `${Math.max(1, roomW)}px`;
+    corner.style.maxHeight = `${Math.max(1, roomH)}px`;
   }
   const box = root.querySelector<HTMLElement>(".replay-stage-rows");
   const list = box?.querySelector<HTMLElement>(".log-list");
