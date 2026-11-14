@@ -208,7 +208,9 @@
 .map-overlay-corner { z-index: 2; gap: 0.6rem; pointer-events: none; }
 .map-overlay-key { pointer-events: auto; }
 .map-overlay-key .map-key-panel { position: static; max-width: min(23rem, 100%); font-size: inherit; }
-.map-overlay-key .map-key-toggle { font-size: 1em; }
+.map-overlay-key .map-key-toggle { font-size: 1em; gap: 0.65em; }
+.map-overlay-key .map-count { gap: 0.32em; }
+.map-overlay-key .map-count::before { width: 0.75em; height: 0.7em; }
 .map-overlay-settings { --export-label: 8rem; }
 
 .overlay-counter-fields { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }

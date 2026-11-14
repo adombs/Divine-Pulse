@@ -2,6 +2,7 @@ import { type KeyboardEvent, type ReactNode, useRef } from "react";
 import { Switch } from "../ui";
 import { StepSlider } from "../Slider";
 import { cornerStacks, CORNERS, OVERLAY_SIZES, type Corner, type Overlay, type VideoLogOptions, setCounterField } from "../../exporting/videoLog";
+import "../export.css";
 import "./replay-export.css";
 const CORNER_NAME: Record<Corner, string> = { "top-left": "Top left", "top-right": "Top right", "bottom-left": "Bottom left", "bottom-right": "Bottom right" };
 const OVERLAY_NAME: Record<Overlay, string> = { condensed: "Condensed log", counter: "Turn counter", counts: "Unit counts" };
