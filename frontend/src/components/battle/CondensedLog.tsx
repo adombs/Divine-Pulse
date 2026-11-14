@@ -94,7 +94,7 @@ export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX
       {shown.map((e, n) => {
         const { actor, target } = e.item;
         const age = shown.length - 1 - n;
-        const opacity = (e.beat === current ? fade : 1) * Math.max(0.55, 1 - 0.12 * age);
+        const opacity = (e.beat === current ? fade : 1) * (shown.length - age) / shown.length;
         const named = shownName(e.item);
         return (
           <li key={e.key} className={`condensed-row tone-${e.tone}${actor ? ` by-${sideOf(nav, actor)}` : ""}`} style={{ opacity }} title={actionName(e.item)}>

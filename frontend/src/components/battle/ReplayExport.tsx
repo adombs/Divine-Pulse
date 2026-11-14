@@ -27,7 +27,7 @@ import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
 import { sceneAt, type Segment } from "../../exporting/teamPages";
-import { CUSTOM_ID, customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, previewTheme, recording, releaseCustomAudio, setPreviewVolume, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
+import { customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, mixedSoundtrack, previewTheme, recording, releaseCustomAudio, setPreviewVolume, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap } from "./map";
@@ -86,6 +86,7 @@ interface VideoOptions {
   version: Version;
   /** The music's volume: a whole number of percent, 0 to 100. */
   volume: number;
+  customVolume: number;
   /** The team's overview shown before and after the replay (TeamPages.tsx). */
   team: TeamPagesOptions;
   /** The run's ruleset shown before or after the replay (RulesetPage.tsx). */
@@ -93,7 +94,7 @@ interface VideoOptions {
   /** Whether the frame has the log and how many rows it shows, and whether the map has the condensed log (videoLog.ts). */
   log: VideoLogOptions;
 }
-const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, team: DEFAULT_TEAM_PAGES, rules: DEFAULT_RULESET_PAGE, log: DEFAULT_VIDEO_LOG };
+const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, customVolume: 75, team: DEFAULT_TEAM_PAGES, rules: DEFAULT_RULESET_PAGE, log: DEFAULT_VIDEO_LOG };
 
 function loadOptions(): VideoOptions {
   try {
@@ -105,6 +106,7 @@ function loadOptions(): VideoOptions {
       quality: QUALITIES.some(([q]) => q === saved.quality) ? saved.quality! : DEFAULT_OPTIONS.quality,
       version: saved.version === "thunder" ? "thunder" : "rain",
       volume: Number.isInteger(saved.volume) && saved.volume! >= 0 && saved.volume! <= 100 ? saved.volume! : DEFAULT_OPTIONS.volume,
+      customVolume: Number.isInteger(saved.customVolume) && saved.customVolume! >= 0 && saved.customVolume! <= 100 ? saved.customVolume! : DEFAULT_OPTIONS.customVolume,
       team: sanitizeTeamPages(saved.team),
       rules: sanitizeRulesetPage(saved.rules),
       log: sanitizeVideoLog(saved.log),
@@ -419,8 +421,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const version: Version = theme ? versionOf(theme) : "rain";
   const track = theme ? recording(theme, version) : null;
   const volume = options.volume / 100;
-  const usingCustom = themeId === CUSTOM_ID && !!custom;
-  const listening = usingCustom ? { id: CUSTOM_ID, url: custom.url } : track;
+  const usingCustom = !!custom;
+  const listening = track;
   /** Takes a chosen file: decoded once; if it can't be, the choice before it stays and the reason is shown. */
   const chooseFile = async (file: File) => {
     setReading(true);
@@ -431,7 +433,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
       previewTheme(null);
       setPreviewing(false);
       setCustom(next);
-      setThemeId(CUSTOM_ID);
+
     } catch (error) {
       setCustomError((error as Error).message || "That file couldn't be read as audio.");
     } finally {
@@ -445,7 +447,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     setPreviewing(false);
     setCustom(null);
     setCustomError(null);
-    if (themeId === CUSTOM_ID) setThemeId(music ? defaultTheme(music, battle.scenario).id : "");
+
   };
   const [orientation, setOrientationState] = useState<Orientation>(loadOrientation);
   const setOrientation = (o: Orientation) => {
@@ -662,7 +664,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     };
     let shown = "";
     try {
-      const audio = options.volume <= 0 ? null : usingCustom ? customSoundtrack(custom, frames / fps, volume) : track ? await soundtrack(track, frames / fps, volume) : null;
+      const audio = track && custom && volume > 0 && options.customVolume > 0 ? mixedSoundtrack(track, custom, frames / fps, volume, options.customVolume / 100) : track && volume > 0 ? soundtrack(track, frames / fps, volume) : custom && options.customVolume > 0 ? customSoundtrack(custom, frames / fps, options.customVolume / 100) : null;
       snap = await snapshotter();
       // A frame in two layers: the title and the log (with the map's frame) change once a step, so they're drawn once a
       // step; the map (with its turn banner) is drawn each frame on its own, with only the styles it needs.
@@ -963,19 +965,14 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                   <div className="export-music">
                     <select aria-label="Soundtrack" value={themeId} disabled={music === undefined} onChange={(e) => {
                       const id = e.target.value;
-                      if (id === CUSTOM_ID && !custom) {
-                        picker.current?.click(); // the choice itself waits for a file that can be read
-                        return;
-                      }
                       setThemeId(id);
                       if (previewing) {
                         const found = music?.themes.find((m) => m.id === id);
-                        const next = id === CUSTOM_ID && custom ? { id: CUSTOM_ID, url: custom.url } : found ? recording(found, versionOf(found)) : null;
+                        const next = found ? recording(found, versionOf(found)) : null;
                         setPreviewing(previewTheme(next, volume));
                       }
                     }}>
                       <option value="">No music</option>
-                      <option value={CUSTOM_ID}>{custom ? "Your own audio" : "Your own audio…"}</option>
                       {THEME_GROUPS.map((group) => {
                         const themes = music?.themes.filter((m) => m.group === group) ?? [];
                         return themes.length ? (
@@ -993,6 +990,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                       onClick={() => setPreviewing(previewTheme(listening, volume))}
                     />
                   </div>
+                  <button type="button" onClick={() => picker.current?.click()} disabled={reading}>Upload audio file�</button>
                   <input
                     ref={picker}
                     type="file"
@@ -1016,8 +1014,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     </div>
                   )}
                   {usingCustom && <p className="export-note">{custom.duration * 1000 < total ? "Shorter than the video, so it plays again from the start." : "Longer than the video, so it stops at the end with a fade-out."}</p>}
-                  {/* Only the built-in themes have two versions; hidden (not removed) for your own audio so the layout stays put. */}
-                  <div style={usingCustom ? { visibility: "hidden" } : undefined} aria-hidden={usingCustom || undefined}>
+                  {/* Only the built-in themes have two versions. */}
+                  <div>
                     <Segmented<Version>
                       label="Version of the theme"
                       value={version}
@@ -1035,7 +1033,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     {thunderNote && theme && <p className="export-note">{thunderNote}</p>}
                   </div>
                   <StepSlider
-                    label="Volume"
+                    label="Music volume"
                     stops={101}
                     value={options.volume}
                     onChange={(v) => { setOption("volume", v); setPreviewVolume(v / 100); }}
@@ -1044,12 +1042,13 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     slim
                     after={<span className="export-value">{options.volume}%</span>}
                   />
+                  {custom && <StepSlider label="Uploaded audio volume" stops={101} value={options.customVolume} onChange={(v) => setOption("customVolume", v)} valueText={`${options.customVolume}%`} variant="timeline" slim after={<span className="export-value">{options.customVolume}%</span>} />}
                 </fieldset>
               ),
             }}
           </ExportTabs>
           <ExportActions
-            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), ...(pages.start.length + pages.end.length ? [`${pages.start.length + pages.end.length} team page${pages.start.length + pages.end.length === 1 ? "" : "s"}`] : []), ...(rulesAt ? ["Ruleset page"] : []), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}` : usingCustom ? "Your audio" : "No music"]}
+            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), ...(pages.start.length + pages.end.length ? [`${pages.start.length + pages.end.length} team page${pages.start.length + pages.end.length === 1 ? "" : "s"}`] : []), ...(rulesAt ? ["Ruleset page"] : []), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}${custom ? " + your audio" : ""}` : usingCustom ? "Your audio" : "No music"]}
             status={status}
             action="Export MP4…"
             onExport={() => void exportVideo()}

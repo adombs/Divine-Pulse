@@ -4,6 +4,8 @@
 
 ## 1.4.6 (2026-11-13)
 
+- Condensed replay log lines fade by age; the corner selector has four connected sections.
+- Export Video can mix uploaded audio with a battle theme, with separate volume controls.
 - Each run can have a ruleset: your self-imposed rules, added from common challenge rules (Maddening, No Divine Pulse, No DLC, House only and more) or written yourself, edited and reordered on the Runs page, and shared as an image or as a page before or after the replay in Export Video.
 - Export Video's Team tab lets you set how long the ruleset page stays on screen (Auto: longer the more rules), and how long each team overview page does (1 second by default).
 - Replays show a condensed log in the map's bottom-right corner instead of labels over the units: the latest actions, one line each, as who did it, an oval with the action's icon (in that unit's army colour) and its damage or healing, and whom. Combat arts (with their weapon), spells, Rallies and gambits also show their name.
