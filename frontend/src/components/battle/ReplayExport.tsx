@@ -11,7 +11,7 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import "./replay-export.css";
-import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, memo, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Battle, RunRoute, Unit } from "../../api";
 import { clock } from "../../format";
@@ -19,7 +19,7 @@ import { Icon, IconButton } from "../Icon";
 import { Modal } from "../Modal";
 import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
-import { CardBanner, RunIcon, Segmented } from "../ui";
+import { CardBanner, RunIcon, Segmented, Switch } from "../ui";
 import { StepSlider } from "../Slider";
 import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, OVERLAY_SIZES, placeOverlay, type Corner, type Overlay, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
 import { CondensedLog } from "./CondensedLog";
@@ -72,8 +72,8 @@ const ORIENTATION_KEY = "divine-pulse-export-orientation";
 const OPTIONS_KEY = "divine-pulse-export-video";
 
 /** The groups of options, as tabs across the top of the options panel. */
-type ExportTab = "format" | "replay" | "team" | "music";
-const TABS: [ExportTab, string][] = [["format", "Format"], ["replay", "Replay"], ["team", "Team"], ["music", "Music"]];
+type ExportTab = "format" | "layout" | "replay" | "team" | "music";
+const TABS: [ExportTab, string][] = [["format", "Format"], ["layout", "Layout"], ["replay", "Replay"], ["team", "Team"], ["music", "Music"]];
 
 /** The video's own options, remembered between exports. */
 interface VideoOptions {
@@ -214,19 +214,74 @@ function viewAround([cx, cy]: [number, number], [w, h]: [number, number], board:
   return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
 }
 
-const CORNER_OPTIONS = [["top-left", "Top left"], ["top-right", "Top right"], ["bottom-left", "Bottom left"], ["bottom-right", "Bottom right"]] as const;
+const CORNER_NAME: Record<Corner, string> = { "top-left": "Top left", "top-right": "Top right", "bottom-left": "Bottom left", "bottom-right": "Bottom right" };
+const OVERLAY_NAME: Record<Overlay, string> = { condensed: "Condensed log", counter: "Turn counter", counts: "Unit counts" };
 
-/** Which of the map's corners something over it sits in. */
-function CornerPicker({ label, value, onChange }: { label: string; value: Corner; onChange: (corner: Corner) => void }) {
-  return <Segmented<Corner> label={label} size="mini" value={value} onChange={onChange} options={CORNER_OPTIONS} />;
+/** One thing the frame can show: its name and what it is, a switch, and its settings while it's on. */
+function LayoutSection({ title, note, on, onToggle, children }: { title: string; note: string; on: boolean; onToggle: (on: boolean) => void; children: ReactNode }) {
+  return (
+    <section className={`layout-item${on ? " on" : ""}`}>
+      <div className="layout-item-head">
+        <div className="layout-item-text">
+          <h4>{title}</h4>
+          <p>{note}</p>
+        </div>
+        <Switch checked={on} onChange={onToggle} label={`Show the ${title.toLowerCase()}`} />
+      </div>
+      {on && <div className="layout-item-body">{children}</div>}
+    </section>
+  );
 }
 
-/** A size for something over the map (OVERLAY_SIZES), as a percentage. */
-function SizeSlider({ label, value, onChange }: { label: string; value: number; onChange: (size: number) => void }) {
+/** Which of the map's corners something over it sits in: a small map whose corners are clicked. Corners holding
+ * something else show a faint mark, so sharing one (and stacking) is clear before it's chosen. */
+function CornerPicker({ label, which, log, onChange }: { label: string; which: Overlay; log: VideoLogOptions; onChange: (corner: Corner) => void }) {
+  const value = log.place[which];
+  const stacks = cornerStacks(log);
+  const refs = useRef<Partial<Record<Corner, HTMLButtonElement | null>>>({});
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const [v, h] = value.split("-") as ["top" | "bottom", "left" | "right"];
+    const next: Corner | null =
+      e.key === "ArrowUp" ? `top-${h}` : e.key === "ArrowDown" ? `bottom-${h}` : e.key === "ArrowLeft" ? `${v}-left` : e.key === "ArrowRight" ? `${v}-right` : null;
+    if (!next) return;
+    e.preventDefault();
+    onChange(next);
+    refs.current[next]?.focus();
+  };
+  return (
+    <div className="corner-field">
+      <span className="field-label">Corner</span>
+      <div className="corner-box" role="radiogroup" aria-label={label} onKeyDown={onKey}>
+        {CORNERS.map((corner) => {
+          const others = stacks[corner].filter((o) => o !== which);
+          const picked = corner === value;
+          return (
+            <button
+              key={corner}
+              ref={(el) => { refs.current[corner] = el; }}
+              type="button"
+              role="radio"
+              aria-checked={picked}
+              tabIndex={picked ? 0 : -1}
+              className={`corner-spot ${corner}${picked ? " on" : ""}${others.length ? " shared" : ""}`}
+              title={`${CORNER_NAME[corner]}${others.length ? ` (with the ${others.map((o) => OVERLAY_NAME[o].toLowerCase()).join(" and ")})` : ""}`}
+              aria-label={CORNER_NAME[corner]}
+              onClick={() => onChange(corner)}
+            />
+          );
+        })}
+      </div>
+      <span className="corner-name">{CORNER_NAME[value]}</span>
+    </div>
+  );
+}
+
+/** How big something over the map is (OVERLAY_SIZES), as a percentage. */
+function SizeSlider({ value, onChange }: { value: number; onChange: (size: number) => void }) {
   const pct = `${Math.round(value * 100)}%`;
   return (
     <StepSlider
-      label={label}
+      label="UI Size"
       stops={OVERLAY_SIZES.length}
       value={Math.max(0, OVERLAY_SIZES.indexOf(value as (typeof OVERLAY_SIZES)[number]))}
       onChange={(i) => onChange(OVERLAY_SIZES[i])}
@@ -801,60 +856,6 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     />
                   </fieldset>
                   <fieldset className="export-group" disabled={working}>
-                    <legend>Log</legend>
-                    <label className="export-check">
-                      <input type="checkbox" checked={options.log.show} onChange={(e) => updateLog({ show: e.target.checked })} />
-                      Log <small>beside or under the map</small>
-                    </label>
-                    {options.log.show && (<>
-                    <StepSlider
-                      label="Lines"
-                      stops={MAX_LOG_LINES + 1}
-                      value={options.log.lines ?? 0}
-                      onChange={(i) => updateLog({ lines: i === 0 ? null : i })}
-                      valueText={options.log.lines === null ? "As many as fit" : `${options.log.lines} at most`}
-                      after={<span className="team-pages-axis-value">{options.log.lines ?? "Auto"}</span>}
-                      variant="timeline"
-                      slim
-                    />
-                    <p className="export-note">{options.log.lines === null ? "Auto: as many lines as fit." : `The newest ${options.log.lines} ${options.log.lines === 1 ? "line" : "lines"} at a time.`}</p>
-                    </>)}
-                    <label className="export-check">
-                      <input type="checkbox" checked={options.log.condensed} onChange={(e) => turnOn("condensed", e.target.checked)} />
-                      Condensed log <small>the latest actions, over the map</small>
-                    </label>
-                    {options.log.condensed && (<>
-                      <CornerPicker label="Condensed log corner" value={options.log.place.condensed} onChange={(c) => placeIn("condensed", c)} />
-                      <StepSlider
-                        label="Condensed lines"
-                        stops={MAX_CONDENSED_LINES}
-                        value={options.log.condensedLines - 1}
-                        onChange={(i) => updateLog({ condensedLines: i + 1 })}
-                        valueText={`${options.log.condensedLines} at most`}
-                        after={<span className="team-pages-axis-value">{options.log.condensedLines}</span>}
-                        variant="timeline"
-                        slim
-                      />
-                      <SizeSlider label="Condensed size" value={options.log.condensedSize} onChange={(condensedSize) => updateLog({ condensedSize })} />
-                    </>)}
-                    <label className="export-check">
-                      <input type="checkbox" checked={options.log.counter} onChange={(e) => turnOn("counter", e.target.checked)} />
-                      Turn counter <small>turn, phase and step</small>
-                    </label>
-                    {options.log.counter && (<>
-                      <CornerPicker label="Turn counter corner" value={options.log.place.counter} onChange={(c) => placeIn("counter", c)} />
-                      <SizeSlider label="Turn counter size" value={options.log.counterSize} onChange={(counterSize) => updateLog({ counterSize })} />
-                    </>)}
-                    <label className="export-check">
-                      <input type="checkbox" checked={options.log.counts} onChange={(e) => turnOn("counts", e.target.checked)} />
-                      Unit counts <small>each army's units on the map, and the killed</small>
-                    </label>
-                    {options.log.counts && (<>
-                      <CornerPicker label="Unit counts corner" value={options.log.place.counts} onChange={(c) => placeIn("counts", c)} />
-                      <SizeSlider label="Unit counts size" value={options.log.countsSize} onChange={(countsSize) => updateLog({ countsSize })} />
-                    </>)}
-                  </fieldset>
-                  <fieldset className="export-group" disabled={working}>
                     <legend>Video</legend>
                     <div className="export-pairs">
                       <label className="wide">
@@ -879,6 +880,44 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     </div>
                   </fieldset>
                 </>
+              ),
+              layout: (
+                <fieldset className="export-group export-layout" disabled={working} aria-label="What the frame shows">
+                  <LayoutSection title="Log" note="The battle's log, beside or under the map" on={options.log.show} onToggle={(show) => updateLog({ show })}>
+                    <StepSlider
+                      label="# of Lines"
+                      stops={MAX_LOG_LINES + 1}
+                      value={options.log.lines ?? 0}
+                      onChange={(i) => updateLog({ lines: i === 0 ? null : i })}
+                      valueText={options.log.lines === null ? "As many as fit" : `${options.log.lines} at most`}
+                      after={<span className="team-pages-axis-value">{options.log.lines ?? "Auto"}</span>}
+                      variant="timeline"
+                      slim
+                    />
+                  </LayoutSection>
+                  <LayoutSection title="Condensed log" note="The latest actions, over the map" on={options.log.condensed} onToggle={(on) => turnOn("condensed", on)}>
+                    <CornerPicker label="Condensed log corner" which="condensed" log={options.log} onChange={(c) => placeIn("condensed", c)} />
+                    <StepSlider
+                      label="# of Lines"
+                      stops={MAX_CONDENSED_LINES}
+                      value={options.log.condensedLines - 1}
+                      onChange={(i) => updateLog({ condensedLines: i + 1 })}
+                      valueText={`${options.log.condensedLines} at most`}
+                      after={<span className="team-pages-axis-value">{options.log.condensedLines}</span>}
+                      variant="timeline"
+                      slim
+                    />
+                    <SizeSlider value={options.log.condensedSize} onChange={(condensedSize) => updateLog({ condensedSize })} />
+                  </LayoutSection>
+                  <LayoutSection title="Turn counter" note="Turn, phase and step, over the map" on={options.log.counter} onToggle={(on) => turnOn("counter", on)}>
+                    <CornerPicker label="Turn counter corner" which="counter" log={options.log} onChange={(c) => placeIn("counter", c)} />
+                    <SizeSlider value={options.log.counterSize} onChange={(counterSize) => updateLog({ counterSize })} />
+                  </LayoutSection>
+                  <LayoutSection title="Unit counts" note="Each army's units on the map, and the killed" on={options.log.counts} onToggle={(on) => turnOn("counts", on)}>
+                    <CornerPicker label="Unit counts corner" which="counts" log={options.log} onChange={(c) => placeIn("counts", c)} />
+                    <SizeSlider value={options.log.countsSize} onChange={(countsSize) => updateLog({ countsSize })} />
+                  </LayoutSection>
+                </fieldset>
               ),
               replay: (
                 <>
