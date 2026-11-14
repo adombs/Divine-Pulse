@@ -1297,24 +1297,25 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 /* The condensed log (CondensedLog.tsx): the replay's newest actions in the map's bottom-right corner, one line each:
    who, the action as an oval (icon, name and number), and whom. Text the log's size. */
 .condensed-log {
-  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem;
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.3em;
   pointer-events: none; font: inherit; line-height: 1.35;
 }
 .condensed-row {
-  display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.22rem 0.55rem 0.22rem 0.3rem;
+  display: inline-flex; align-items: center; gap: 0.45em; padding: 0.22em 0.55em 0.22em 0.3em;
   border-radius: 99px; background: color-mix(in srgb, var(--paper-2) 92%, transparent);
   border: 1px solid var(--row-border); box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
 }
-.condensed-row .unit-face { width: 1.9rem; height: 1.9rem; flex: none; }
+.condensed-row .unit-face, .condensed-row .unit-face.sm { width: 1.9em; height: 1.9em; flex: none; }
+.condensed-row .unit-face.initial { font-size: 0.85em; }
 /* The action, as an oval like the log's number chips (.num-chip): its icon, in the doer's army colour, then its name (an
    art, spell or Rally) and number. */
 .condensed-action {
-  display: inline-flex; align-items: center; gap: 0.35rem; flex: none; white-space: nowrap; padding: 0.06rem 0.6rem 0.06rem 0.35rem;
+  display: inline-flex; align-items: center; gap: 0.35em; flex: none; white-space: nowrap; padding: 0.06em 0.6em 0.06em 0.35em;
   border-radius: 99px; color: var(--ink);
   background: color-mix(in srgb, var(--ink) 9%, transparent); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
 }
 /* Every action icon at one size (the star's and the gambit's, which set it). */
-.condensed-icon { display: inline-grid; place-items: center; width: 1.02rem; height: 1.02rem; flex: none; color: var(--ink-soft); font-size: 1rem; }
+.condensed-icon { display: inline-grid; place-items: center; width: 1.02em; height: 1.02em; flex: none; color: var(--ink-soft); font-size: 1em; }
 .condensed-icon .game-icon { width: 100%; height: 100%; vertical-align: 0; cursor: inherit; }
 .condensed-icon img, .condensed-icon svg { width: 100%; height: 100%; object-fit: contain; }
 /* The game's square icons (a gambit's tile, an item's) with their corners rounded off. */
@@ -1355,21 +1356,30 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-key.act.heal { --tone: var(--green); }
 .map-counts { list-style: none; padding-left: 0; }
 
-/* Replay: the step shown in a dark pill over the map's bottom left corner, edged in its phase's army colour (blue
-   player, red enemy, green other, purple now). */
+/* Replay: the turn counter over the map's bottom left corner, a pill like the condensed log's rows: "Turn 3/12 · Player
+   Phase · Step 45/69", its numbers in the numbers' face and its phase mark in the phase's army colour (blue player, red
+   enemy, green other, purple now). */
 .replay-banner {
-  position: absolute; z-index: 2; left: 0.4rem; bottom: 0.4rem;
-  max-width: calc(100% - 0.8rem);
-  display: flex; align-items: baseline; gap: 0.55rem; margin: 0; padding: 0.15rem 0.7rem; min-width: 0;
-  background: rgb(10 9 14 / 0.72); backdrop-filter: blur(4px); color: #fbf6e8; border-radius: 999px;
-  border-left: 3px solid var(--accent-2); box-shadow: 0 2px 8px rgb(0 0 0 / 0.35);
-  font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; pointer-events: none;
+  --mark: var(--accent-2);
+  position: absolute; z-index: 2; left: 0.6rem; bottom: 0.6rem; max-width: calc(100% - 1.2rem);
+  display: inline-flex; align-items: center; gap: 0.5em; margin: 0; padding: 0.22em 0.75em 0.22em 0.35em; min-width: 0;
+  font-size: 0.92rem; line-height: 1.35; color: var(--ink); white-space: nowrap; pointer-events: none;
+  border-radius: 99px; background: color-mix(in srgb, var(--paper-2) 92%, transparent);
+  border: 1px solid var(--row-border); box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
 }
-.replay-banner.player { border-left-color: #4f8ff0; }
-.replay-banner.enemy { border-left-color: #e0554a; }
-.replay-banner.other { border-left-color: #5fbf73; }
-.replay-banner b { font: 600 0.95rem var(--display); letter-spacing: 0.02em; }
-.replay-banner span { font-size: 0.8rem; opacity: 0.8; overflow: hidden; text-overflow: ellipsis; }
+.replay-banner.player { --mark: var(--team-player); }
+.replay-banner.enemy { --mark: var(--team-enemy); }
+.replay-banner.other { --mark: var(--team-ally); }
+.replay-banner-mark {
+  display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; flex: none; border-radius: 50%; color: var(--mark);
+  background: color-mix(in srgb, var(--ink) 9%, transparent); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
+}
+.replay-banner-mark .icon { width: 1em; height: 1em; }
+.replay-banner-part { display: inline-flex; align-items: baseline; gap: 0.3em; }
+.replay-banner-part + .replay-banner-part::before { content: "·"; margin-right: 0.2em; color: var(--ink-soft); }
+.replay-banner-key { color: var(--ink-soft); }
+.replay-banner-part b { font: 700 1em var(--nums); font-variant-numeric: tabular-nums lining-nums; }
+.replay-banner-phase { font-weight: 600; color: var(--mark); }
 /* The replay under the map: buttons, then a timeline with a notch per step. */
 .replay-bar { display: flex; align-items: center; gap: 0.6rem; min-width: 0; }
 .replay-buttons { display: flex; gap: 0.2rem; flex: none; }

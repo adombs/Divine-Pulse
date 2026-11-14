@@ -61,7 +61,27 @@
 /* No log (Export Video > Format > Log off): the map has the frame to itself under the title. The condensed log
    (CondensedLog.tsx) sits in the map's bottom-right corner, over it, in either layout. */
 .replay-stage.no-log .replay-stage-map { grid-area: map; }
-.replay-stage-condensed { grid-area: map; align-self: end; justify-self: end; z-index: 1; margin: 0 14px 14px 0; }
+/* What sits over the video's map (the condensed log, the turn counter, the unit counts), each in the corner it was put
+   in: a top corner stacks down from it, a bottom one up, the first put there nearest the corner. The layer is the map's
+   cell, inset as the condensed log always was. */
+.replay-stage-overlays { grid-area: map; position: relative; pointer-events: none; z-index: 1; min-width: 0; min-height: 0; }
+.replay-stage-corner { position: absolute; display: flex; gap: 10px; max-width: calc(100% - 28px); }
+.replay-stage-corner.top-left, .replay-stage-corner.top-right { top: 14px; flex-direction: column; }
+.replay-stage-corner.bottom-left, .replay-stage-corner.bottom-right { bottom: 14px; flex-direction: column-reverse; }
+.replay-stage-corner.top-left, .replay-stage-corner.bottom-left { left: 14px; align-items: flex-start; }
+.replay-stage-corner.top-right, .replay-stage-corner.bottom-right { right: 14px; align-items: flex-end; }
+.replay-stage-corner .replay-banner.in-corner { position: static; max-width: none; }
+.replay-stage-corner.top-left .condensed-log, .replay-stage-corner.bottom-left .condensed-log { align-items: flex-start; }
+/* The legend's counts: as on the battle page's legend, without its buttons (and without its blur, which the frame's
+   picture can't draw). */
+.replay-stage-counts {
+  display: inline-flex; align-items: center; gap: 0.65em;
+  padding: 0.32em 0.75em; font-family: var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink);
+  background: color-mix(in srgb, var(--paper) 92%, transparent); border: 1px solid var(--row-border); border-radius: 8px;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
+}
+.replay-stage-counts .map-count { gap: 0.32em; }
+.replay-stage-counts .map-count::before { width: 0.75em; height: 0.7em; border-radius: 0.19em; }
 
 /* The box the video's picture is taken of: exactly the frame's size. */
 .replay-stage-theme { width: 100%; height: 100%; isolation: isolate; }
@@ -157,3 +177,29 @@
 .vcard.fallen { filter: saturate(0.35); }
 .vcard.fallen .vcard-name, .vcard.fallen .vcard-class, .vcard.fallen .vcard-stats dd, .vcard.fallen .vcard-stats dt { color: var(--ink-soft); }
 .vcard.fallen .vcard-list li, .vcard.fallen .vcard-abilities { opacity: 0.7; }
+
+/* Export Video > Layout: one section per thing the frame can show, each a heading, what it is, and a switch; its
+   settings below while it's on. Sections are divided by a hairline, not boxed. */
+.export-layout { gap: 0; }
+.layout-item { display: grid; gap: 0.7rem; padding: 0.85rem 0; border-top: 1px solid var(--line); }
+.layout-item:first-of-type { border-top: 0; padding-top: 0.2rem; }
+.layout-item-head { display: flex; align-items: center; gap: 0.8rem; }
+.layout-item-text { flex: 1 1 auto; min-width: 0; }
+.layout-item-text h4 { margin: 0; font: 600 0.98rem var(--display); color: var(--ink-soft); transition: color 0.15s; }
+.layout-item.on .layout-item-text h4 { color: var(--ink); }
+.layout-item-text p { margin: 0.1rem 0 0; font-size: 0.82rem; color: var(--ink-soft); text-wrap: pretty; }
+.layout-item-head .switch-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.layout-item-body { display: grid; gap: 0.55rem; animation: layout-open 0.22s cubic-bezier(0.2, 0.8, 0.3, 1) both; }
+@keyframes layout-open { from { opacity: 0; transform: translateY(-3px); } }
+@media (prefers-reduced-motion: reduce) { .layout-item-body { animation: none; } }
+
+/* The corner box: a small outline of the map whose four corners are the choices; the chosen one fills in the accent. */
+.corner-field { display: grid; grid-template-columns: var(--export-label) auto minmax(0, 1fr); align-items: center; gap: 0 0.5rem; }
+.corner-field > .field-label { margin: 0; font: 0.88rem var(--ui); color: var(--ink-soft); }
+.corner-box { display: grid; grid-template-columns: repeat(2, 1fr); grid-template-rows: repeat(2, 1fr); width: 3.2rem; height: 2rem; border-radius: 4px; border: 1px solid var(--row-border); overflow: hidden; gap: 1px; background: var(--row-border); }
+.corner-spot { min-width: 0; padding: 0; cursor: pointer; border: 0; border-radius: 0; background: var(--row); transition: background 0.12s; }
+.corner-spot:hover { background: color-mix(in srgb, var(--accent) 55%, var(--row-border)); }
+.corner-spot.on { background: var(--accent); }
+.corner-spot:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.corner-spot:disabled { cursor: not-allowed; opacity: 0.5; }
+.corner-name { font-size: 0.85rem; color: var(--ink-soft); }

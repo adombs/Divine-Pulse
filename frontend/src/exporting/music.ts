@@ -6,7 +6,7 @@
  * at the end.
  */
 import { gameAssetUrl, loadGameJson } from "../gameAssets";
-import { customPlan, mixPiece, soundPlan, type SoundPlan } from "./soundtrack";
+import { addTrack, customPlan, mixPiece, soundPlan, type SoundPlan } from "./soundtrack";
 
 /** One recording of a theme: its audio file and the loop the game plays. */
 export interface Track {
@@ -152,6 +152,40 @@ export const CUSTOM_ID = "custom";
 /** The soundtrack of a video `seconds` long from the player's audio: looped if shorter, cut if longer, faded out over the last second. */
 export async function* customSoundtrack(audio: CustomAudio, seconds: number, volume: number): AsyncGenerator<AudioBuffer> {
   yield* pieces(audio.buffer, customPlan(audio.buffer, seconds, volume));
+}
+
+/** Mix both sources at a common rate, keeping the export bounded to one second at a time. */
+export async function* mixedSoundtrack(theme: Track, custom: CustomAudio, seconds: number, musicVolume: number, customVolume: number): AsyncGenerator<AudioBuffer> {
+  try {
+    const source = await themeAudio(theme);
+    const rate = 48000;
+    const resample = async (audio: AudioBuffer) => {
+      if (audio.sampleRate === rate) return audio;
+      const context = new OfflineAudioContext(audio.numberOfChannels, Math.ceil(audio.duration * rate), rate);
+      const node = context.createBufferSource();
+      node.buffer = audio;
+      node.connect(context.destination);
+      node.start();
+      return context.startRendering();
+    };
+    const [music, own] = await Promise.all([resample(source), resample(custom.buffer)]);
+    const channels = Math.max(music.numberOfChannels, own.numberOfChannels);
+    const inputs = (audio: AudioBuffer) => Array.from({ length: channels }, (_, c) => audio.getChannelData(Math.min(c, audio.numberOfChannels - 1)));
+    const musicInput = inputs(music), ownInput = inputs(own);
+    const musicPlan = soundPlan(theme, music, seconds, musicVolume);
+    const ownPlan = customPlan(own, seconds, customVolume);
+    for (let from = 0; from < musicPlan.total; from += rate) {
+      const piece = new AudioBuffer({ length: Math.min(rate, musicPlan.total - from), numberOfChannels: channels, sampleRate: rate });
+      const out = Array.from({ length: channels }, (_, c) => piece.getChannelData(c));
+      const extra = Array.from({ length: channels }, () => new Float32Array(piece.length));
+      mixPiece(musicInput, out, from, musicPlan);
+      mixPiece(ownInput, extra, from, ownPlan);
+      addTrack(out, extra);
+      yield piece;
+    }
+  } finally {
+    decoded.delete(theme.id);
+  }
 }
 
 let previewing: { audio: HTMLAudioElement; id: string } | null = null;

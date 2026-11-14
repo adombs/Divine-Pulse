@@ -7,6 +7,9 @@ from pathlib import Path
 from .settings import SettingsStore
 
 YES, NO = 6, 7
+# The WebView2 profile's caches (in DATA_DIR/webview/EBWebView/Default): cleared on a new installation, unlike its
+# Local Storage.
+WINDOW_CACHES = ("Cache", "Code Cache", "GPUCache", "Service Worker")
 
 
 def _remove(path: Path) -> None:
@@ -53,8 +56,12 @@ def prepare_installation(settings: SettingsStore, assets: Path, version: str, as
             _remove(path)
     if delete_import:
         _remove(assets)
-    for name in ("webview", "battle-recordings", "pairing-checks", "game-assets-import.log", "tracker.log", "tracker.log.1", "tracker.log.2",
+    for name in ("battle-recordings", "pairing-checks", "game-assets-import.log", "tracker.log", "tracker.log.1", "tracker.log.2",
                  "game-assets.importing"):
         _remove(data / name)
+    # The window's caches go, so the new version's page loads fresh; its storage (Appearance, Export Video's options,
+    # filters: the page's own settings) stays.
+    for cache in WINDOW_CACHES:
+        _remove(data / "webview" / "EBWebView" / "Default" / cache)
     settings.reset_installation(version, replace_import, saved.active_run_id if retain_records else None)
     return True

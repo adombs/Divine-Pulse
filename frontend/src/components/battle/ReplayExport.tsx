@@ -11,7 +11,7 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import "./replay-export.css";
-import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
+import { type KeyboardEvent, memo, type ReactNode, useEffect, useId, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Battle, RunRoute, Unit } from "../../api";
 import { clock } from "../../format";
@@ -19,19 +19,19 @@ import { Icon, IconButton } from "../Icon";
 import { Modal } from "../Modal";
 import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
-import { CardBanner, RunIcon, Segmented } from "../ui";
+import { CardBanner, RunIcon, Segmented, Switch } from "../ui";
 import { StepSlider } from "../Slider";
-import { CONDENSED_SIZES, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, OVERLAY_SIZES, placeOverlay, type Corner, type Overlay, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
 import { CondensedLog } from "./CondensedLog";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
 import { sceneAt, type Segment } from "../../exporting/teamPages";
-import { CUSTOM_ID, customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, previewTheme, recording, releaseCustomAudio, setPreviewVolume, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
+import { customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, mixedSoundtrack, previewTheme, recording, releaseCustomAudio, setPreviewVolume, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap } from "./map";
-import { Minimap, type Zoom } from "./Minimap";
+import { MapCounts, Minimap, type Zoom } from "./Minimap";
 import { ItemList, useBattleNav } from "./parts";
 import { beatDurations, beatFocus, beatOf, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
 import { battleName, KIND_LABEL } from "./scenarios";
@@ -72,8 +72,8 @@ const ORIENTATION_KEY = "divine-pulse-export-orientation";
 const OPTIONS_KEY = "divine-pulse-export-video";
 
 /** The groups of options, as tabs across the top of the options panel. */
-type ExportTab = "format" | "replay" | "team" | "music";
-const TABS: [ExportTab, string][] = [["format", "Format"], ["replay", "Replay"], ["team", "Team"], ["music", "Music"]];
+type ExportTab = "format" | "layout" | "replay" | "team" | "music";
+const TABS: [ExportTab, string][] = [["format", "Format"], ["layout", "Layout"], ["replay", "Replay"], ["team", "Team"], ["music", "Music"]];
 
 /** The video's own options, remembered between exports. */
 interface VideoOptions {
@@ -86,6 +86,7 @@ interface VideoOptions {
   version: Version;
   /** The music's volume: a whole number of percent, 0 to 100. */
   volume: number;
+  customVolume: number;
   /** The team's overview shown before and after the replay (TeamPages.tsx). */
   team: TeamPagesOptions;
   /** The run's ruleset shown before or after the replay (RulesetPage.tsx). */
@@ -93,7 +94,7 @@ interface VideoOptions {
   /** Whether the frame has the log and how many rows it shows, and whether the map has the condensed log (videoLog.ts). */
   log: VideoLogOptions;
 }
-const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, team: DEFAULT_TEAM_PAGES, rules: DEFAULT_RULESET_PAGE, log: DEFAULT_VIDEO_LOG };
+const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, customVolume: 75, team: DEFAULT_TEAM_PAGES, rules: DEFAULT_RULESET_PAGE, log: DEFAULT_VIDEO_LOG };
 
 function loadOptions(): VideoOptions {
   try {
@@ -105,6 +106,7 @@ function loadOptions(): VideoOptions {
       quality: QUALITIES.some(([q]) => q === saved.quality) ? saved.quality! : DEFAULT_OPTIONS.quality,
       version: saved.version === "thunder" ? "thunder" : "rain",
       volume: Number.isInteger(saved.volume) && saved.volume! >= 0 && saved.volume! <= 100 ? saved.volume! : DEFAULT_OPTIONS.volume,
+      customVolume: Number.isInteger(saved.customVolume) && saved.customVolume! >= 0 && saved.customVolume! <= 100 ? saved.customVolume! : DEFAULT_OPTIONS.customVolume,
       team: sanitizeTeamPages(saved.team),
       rules: sanitizeRulesetPage(saved.rules),
       log: sanitizeVideoLog(saved.log),
@@ -115,15 +117,16 @@ function loadOptions(): VideoOptions {
 }
 
 /** A video frame's two layers (snapshot.ts `Layer`). The chrome: the title, the log and the map's frame, without the
- * map or anything over it. The map: the map with its turn banner and rewind badge, over a see-through frame. */
-const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap", ".replay-stage-condensed"], remove: [".replay-banner", ".rewind-badge"] };
+ * map or anything over it. The map: the map with its rewind badge, over a see-through frame. */
+const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap", ".replay-stage-overlays"], remove: [".rewind-badge"] };
 const MAP_LAYER: Layer = {
-  hide: [".replay-stage-title", ".replay-stage-log", ".replay-stage-condensed"],
+  hide: [".replay-stage-title", ".replay-stage-log", ".replay-stage-overlays"],
   styles: "map",
   css: ".replay-stage { background: none !important; box-shadow: none !important; }",
 };
-/** The condensed log, over the map: a third layer that changes once a step, like the chrome. */
-const CONDENSED_LAYER: Layer = {
+/** What sits in the map's corners (the condensed log, the turn counter, the unit counts): a third layer that changes
+ * once a step, like the chrome. */
+const OVERLAY_LAYER: Layer = {
   hide: [".replay-stage-title", ".replay-stage-map", ".replay-stage-log"],
   css: ".replay-stage { background: none !important; box-shadow: none !important; }",
 };
@@ -213,6 +216,85 @@ function viewAround([cx, cy]: [number, number], [w, h]: [number, number], board:
   return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
 }
 
+const CORNER_NAME: Record<Corner, string> = { "top-left": "Top left", "top-right": "Top right", "bottom-left": "Bottom left", "bottom-right": "Bottom right" };
+const OVERLAY_NAME: Record<Overlay, string> = { condensed: "Condensed log", counter: "Turn counter", counts: "Unit counts" };
+
+/** One thing the frame can show: its name and what it is, a switch, and its settings while it's on. */
+function LayoutSection({ title, note, on, onToggle, children }: { title: string; note: string; on: boolean; onToggle: (on: boolean) => void; children: ReactNode }) {
+  return (
+    <section className={`layout-item${on ? " on" : ""}`}>
+      <div className="layout-item-head">
+        <div className="layout-item-text">
+          <h4>{title}</h4>
+          <p>{note}</p>
+        </div>
+        <Switch checked={on} onChange={onToggle} label={`Show the ${title.toLowerCase()}`} />
+      </div>
+      {on && <div className="layout-item-body">{children}</div>}
+    </section>
+  );
+}
+
+/** Which of the map's corners something over it sits in: a small outline of the map whose corners are clicked (arrow
+ * keys move between them). A corner's hover text names what else is already there. */
+function CornerPicker({ label, which, log, onChange }: { label: string; which: Overlay; log: VideoLogOptions; onChange: (corner: Corner) => void }) {
+  const value = log.place[which];
+  const stacks = cornerStacks(log);
+  const refs = useRef<Partial<Record<Corner, HTMLButtonElement | null>>>({});
+  const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
+    const [v, h] = value.split("-") as ["top" | "bottom", "left" | "right"];
+    const next: Corner | null =
+      e.key === "ArrowUp" ? `top-${h}` : e.key === "ArrowDown" ? `bottom-${h}` : e.key === "ArrowLeft" ? `${v}-left` : e.key === "ArrowRight" ? `${v}-right` : null;
+    if (!next) return;
+    e.preventDefault();
+    onChange(next);
+    refs.current[next]?.focus();
+  };
+  return (
+    <div className="corner-field">
+      <span className="field-label">Corner</span>
+      <div className="corner-box" role="radiogroup" aria-label={label} onKeyDown={onKey}>
+        {CORNERS.map((corner) => {
+          const others = stacks[corner].filter((o) => o !== which);
+          const picked = corner === value;
+          return (
+            <button
+              key={corner}
+              ref={(el) => { refs.current[corner] = el; }}
+              type="button"
+              role="radio"
+              aria-checked={picked}
+              tabIndex={picked ? 0 : -1}
+              className={`corner-spot ${corner}${picked ? " on" : ""}`}
+              title={`${CORNER_NAME[corner]}${others.length ? ` (with the ${others.map((o) => OVERLAY_NAME[o].toLowerCase()).join(" and ")})` : ""}`}
+              aria-label={CORNER_NAME[corner]}
+              onClick={() => onChange(corner)}
+            />
+          );
+        })}
+      </div>
+      <span className="corner-name">{CORNER_NAME[value]}</span>
+    </div>
+  );
+}
+
+/** How big something over the map is (OVERLAY_SIZES), as a percentage. */
+function SizeSlider({ value, onChange }: { value: number; onChange: (size: number) => void }) {
+  const pct = `${Math.round(value * 100)}%`;
+  return (
+    <StepSlider
+      label="UI Size"
+      stops={OVERLAY_SIZES.length}
+      value={Math.max(0, OVERLAY_SIZES.indexOf(value as (typeof OVERLAY_SIZES)[number]))}
+      onChange={(i) => onChange(OVERLAY_SIZES[i])}
+      valueText={pct}
+      after={<span className="team-pages-axis-value">{pct}</span>}
+      variant="timeline"
+      slim
+    />
+  );
+}
+
 /** A frame's grid (set inline): its tracks, and with no log, its own areas and no gaps. */
 interface StageLayout {
   columns: string;
@@ -291,6 +373,10 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const setOption = <K extends keyof VideoOptions>(key: K, value: VideoOptions[K]) => setOptionsState((o) => keep({ ...o, [key]: value }));
   const updateTeam = (patch: Partial<TeamPagesOptions>) => setOptionsState((o) => keep({ ...o, team: { ...o.team, ...patch } }));
   const updateLog = (patch: Partial<VideoLogOptions>) => setOptionsState((o) => keep({ ...o, log: { ...o.log, ...patch } }));
+  // Putting something in a corner, or turning it on, puts it last in that corner's stack.
+  const placeIn = (which: Overlay, corner: Corner) => setOptionsState((o) => keep({ ...o, log: placeOverlay(o.log, which, corner) }));
+  const turnOn = (which: Overlay, on: boolean) =>
+    setOptionsState((o) => keep({ ...o, log: on ? { ...placeOverlay(o.log, which, o.log.place[which]), [which]: true } : { ...o.log, [which]: false } }));
   const updateRules = (patch: Partial<RulesetPageOptions>) => setOptionsState((o) => keep({ ...o, rules: { ...o.rules, ...patch } }));
   // The run's ruleset, for its page.
   const [rules, setRules] = useState<Rule[] | null>(null);
@@ -335,8 +421,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const version: Version = theme ? versionOf(theme) : "rain";
   const track = theme ? recording(theme, version) : null;
   const volume = options.volume / 100;
-  const usingCustom = themeId === CUSTOM_ID && !!custom;
-  const listening = usingCustom ? { id: CUSTOM_ID, url: custom.url } : track;
+  const usingCustom = !!custom;
+  const listening = track;
   /** Takes a chosen file: decoded once; if it can't be, the choice before it stays and the reason is shown. */
   const chooseFile = async (file: File) => {
     setReading(true);
@@ -347,7 +433,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
       previewTheme(null);
       setPreviewing(false);
       setCustom(next);
-      setThemeId(CUSTOM_ID);
+
     } catch (error) {
       setCustomError((error as Error).message || "That file couldn't be read as audio.");
     } finally {
@@ -361,7 +447,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     setPreviewing(false);
     setCustom(null);
     setCustomError(null);
-    if (themeId === CUSTOM_ID) setThemeId(music ? defaultTheme(music, battle.scenario).id : "");
+
   };
   const [orientation, setOrientationState] = useState<Orientation>(loadOrientation);
   const setOrientation = (o: Orientation) => {
@@ -554,7 +640,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     const chromeImg = new Image();
     const mapImg = new Image();
     const condensedImg = new Image();
-    const condensed = options.log.condensed;
+    const overlays = options.log.condensed || options.log.counter || options.log.counts;
     // Team pages: each is drawn to a picture once (kept as its document while the video is made), and decoded while it is on screen.
     const docs = new Map<string, string>();
     const pageImages = new Map<number, HTMLImageElement>();
@@ -578,7 +664,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     };
     let shown = "";
     try {
-      const audio = options.volume <= 0 ? null : usingCustom ? customSoundtrack(custom, frames / fps, volume) : track ? await soundtrack(track, frames / fps, volume) : null;
+      const audio = track && custom && volume > 0 && options.customVolume > 0 ? mixedSoundtrack(track, custom, frames / fps, volume, options.customVolume / 100) : track && volume > 0 ? soundtrack(track, frames / fps, volume) : custom && options.customVolume > 0 ? customSoundtrack(custom, frames / fps, options.customVolume / 100) : null;
       snap = await snapshotter();
       // A frame in two layers: the title and the log (with the map's frame) change once a step, so they're drawn once a
       // step; the map (with its turn banner) is drawn each frame on its own, with only the styles it needs.
@@ -614,7 +700,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
             const newChrome = chrome?.beat !== beat;
             if (newChrome) {
               chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
-              over = condensed ? await snap.image(await snap.svg(el, width, height, scale, CONDENSED_LAYER), condensedImg) : null;
+              over = overlays ? await snap.image(await snap.svg(el, width, height, scale, OVERLAY_LAYER), condensedImg) : null;
             }
             const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
             const newMap = map?.doc !== doc;
@@ -772,52 +858,6 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     />
                   </fieldset>
                   <fieldset className="export-group" disabled={working}>
-                    <legend>Log</legend>
-                    <label className="export-check">
-                      <input type="checkbox" checked={options.log.show} onChange={(e) => updateLog({ show: e.target.checked })} />
-                      Log <small>beside or under the map</small>
-                    </label>
-                    {options.log.show && (<>
-                    <StepSlider
-                      label="Lines"
-                      stops={MAX_LOG_LINES + 1}
-                      value={options.log.lines ?? 0}
-                      onChange={(i) => updateLog({ lines: i === 0 ? null : i })}
-                      valueText={options.log.lines === null ? "As many as fit" : `${options.log.lines} at most`}
-                      after={<span className="team-pages-axis-value">{options.log.lines ?? "Auto"}</span>}
-                      variant="timeline"
-                      slim
-                    />
-                    <p className="export-note">{options.log.lines === null ? "Auto: as many lines as fit." : `The newest ${options.log.lines} ${options.log.lines === 1 ? "line" : "lines"} at a time.`}</p>
-                    </>)}
-                    <label className="export-check">
-                      <input type="checkbox" checked={options.log.condensed} onChange={(e) => updateLog({ condensed: e.target.checked })} />
-                      Condensed log <small>the latest actions in the map's corner</small>
-                    </label>
-                    {options.log.condensed && (<>
-                      <StepSlider
-                        label="Condensed lines"
-                        stops={MAX_CONDENSED_LINES}
-                        value={options.log.condensedLines - 1}
-                        onChange={(i) => updateLog({ condensedLines: i + 1 })}
-                        valueText={`${options.log.condensedLines} at most`}
-                        after={<span className="team-pages-axis-value">{options.log.condensedLines}</span>}
-                        variant="timeline"
-                        slim
-                      />
-                      <StepSlider
-                        label="Condensed size"
-                        stops={CONDENSED_SIZES.length}
-                        value={Math.max(0, CONDENSED_SIZES.indexOf(options.log.condensedSize as (typeof CONDENSED_SIZES)[number]))}
-                        onChange={(i) => updateLog({ condensedSize: CONDENSED_SIZES[i] })}
-                        valueText={`${Math.round(options.log.condensedSize * 100)}%`}
-                        after={<span className="team-pages-axis-value">{Math.round(options.log.condensedSize * 100)}%</span>}
-                        variant="timeline"
-                        slim
-                      />
-                    </>)}
-                  </fieldset>
-                  <fieldset className="export-group" disabled={working}>
                     <legend>Video</legend>
                     <div className="export-pairs">
                       <label className="wide">
@@ -842,6 +882,44 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     </div>
                   </fieldset>
                 </>
+              ),
+              layout: (
+                <fieldset className="export-group export-layout" disabled={working} aria-label="What the frame shows">
+                  <LayoutSection title="Log" note="The battle's log, beside or under the map" on={options.log.show} onToggle={(show) => updateLog({ show })}>
+                    <StepSlider
+                      label="# of Lines"
+                      stops={MAX_LOG_LINES + 1}
+                      value={options.log.lines ?? 0}
+                      onChange={(i) => updateLog({ lines: i === 0 ? null : i })}
+                      valueText={options.log.lines === null ? "As many as fit" : `${options.log.lines} at most`}
+                      after={<span className="team-pages-axis-value">{options.log.lines ?? "Auto"}</span>}
+                      variant="timeline"
+                      slim
+                    />
+                  </LayoutSection>
+                  <LayoutSection title="Condensed log" note="The latest actions, over the map" on={options.log.condensed} onToggle={(on) => turnOn("condensed", on)}>
+                    <CornerPicker label="Condensed log corner" which="condensed" log={options.log} onChange={(c) => placeIn("condensed", c)} />
+                    <StepSlider
+                      label="# of Lines"
+                      stops={MAX_CONDENSED_LINES}
+                      value={options.log.condensedLines - 1}
+                      onChange={(i) => updateLog({ condensedLines: i + 1 })}
+                      valueText={`${options.log.condensedLines} at most`}
+                      after={<span className="team-pages-axis-value">{options.log.condensedLines}</span>}
+                      variant="timeline"
+                      slim
+                    />
+                    <SizeSlider value={options.log.condensedSize} onChange={(condensedSize) => updateLog({ condensedSize })} />
+                  </LayoutSection>
+                  <LayoutSection title="Turn counter" note="Turn, phase and step, over the map" on={options.log.counter} onToggle={(on) => turnOn("counter", on)}>
+                    <CornerPicker label="Turn counter corner" which="counter" log={options.log} onChange={(c) => placeIn("counter", c)} />
+                    <SizeSlider value={options.log.counterSize} onChange={(counterSize) => updateLog({ counterSize })} />
+                  </LayoutSection>
+                  <LayoutSection title="Unit counts" note="Each army's units on the map, and the killed" on={options.log.counts} onToggle={(on) => turnOn("counts", on)}>
+                    <CornerPicker label="Unit counts corner" which="counts" log={options.log} onChange={(c) => placeIn("counts", c)} />
+                    <SizeSlider value={options.log.countsSize} onChange={(countsSize) => updateLog({ countsSize })} />
+                  </LayoutSection>
+                </fieldset>
               ),
               replay: (
                 <>
@@ -887,19 +965,14 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                   <div className="export-music">
                     <select aria-label="Soundtrack" value={themeId} disabled={music === undefined} onChange={(e) => {
                       const id = e.target.value;
-                      if (id === CUSTOM_ID && !custom) {
-                        picker.current?.click(); // the choice itself waits for a file that can be read
-                        return;
-                      }
                       setThemeId(id);
                       if (previewing) {
                         const found = music?.themes.find((m) => m.id === id);
-                        const next = id === CUSTOM_ID && custom ? { id: CUSTOM_ID, url: custom.url } : found ? recording(found, versionOf(found)) : null;
+                        const next = found ? recording(found, versionOf(found)) : null;
                         setPreviewing(previewTheme(next, volume));
                       }
                     }}>
                       <option value="">No music</option>
-                      <option value={CUSTOM_ID}>{custom ? "Your own audio" : "Your own audio…"}</option>
                       {THEME_GROUPS.map((group) => {
                         const themes = music?.themes.filter((m) => m.group === group) ?? [];
                         return themes.length ? (
@@ -917,6 +990,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                       onClick={() => setPreviewing(previewTheme(listening, volume))}
                     />
                   </div>
+                  <button type="button" onClick={() => picker.current?.click()} disabled={reading}>Upload audio file�</button>
                   <input
                     ref={picker}
                     type="file"
@@ -940,8 +1014,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     </div>
                   )}
                   {usingCustom && <p className="export-note">{custom.duration * 1000 < total ? "Shorter than the video, so it plays again from the start." : "Longer than the video, so it stops at the end with a fade-out."}</p>}
-                  {/* Only the built-in themes have two versions; hidden (not removed) for your own audio so the layout stays put. */}
-                  <div style={usingCustom ? { visibility: "hidden" } : undefined} aria-hidden={usingCustom || undefined}>
+                  {/* Only the built-in themes have two versions. */}
+                  <div>
                     <Segmented<Version>
                       label="Version of the theme"
                       value={version}
@@ -959,7 +1033,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     {thunderNote && theme && <p className="export-note">{thunderNote}</p>}
                   </div>
                   <StepSlider
-                    label="Volume"
+                    label="Music volume"
                     stops={101}
                     value={options.volume}
                     onChange={(v) => { setOption("volume", v); setPreviewVolume(v / 100); }}
@@ -968,12 +1042,13 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     slim
                     after={<span className="export-value">{options.volume}%</span>}
                   />
+                  {custom && <StepSlider label="Uploaded audio volume" stops={101} value={options.customVolume} onChange={(v) => setOption("customVolume", v)} valueText={`${options.customVolume}%`} variant="timeline" slim after={<span className="export-value">{options.customVolume}%</span>} />}
                 </fieldset>
               ),
             }}
           </ExportTabs>
           <ExportActions
-            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), ...(pages.start.length + pages.end.length ? [`${pages.start.length + pages.end.length} team page${pages.start.length + pages.end.length === 1 ? "" : "s"}`] : []), ...(rulesAt ? ["Ruleset page"] : []), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}` : usingCustom ? "Your audio" : "No music"]}
+            facts={[`${Math.round(width * scale)} × ${Math.round(height * scale)}`, `${fps} fps`, clock(total / 1000), ...(pages.start.length + pages.end.length ? [`${pages.start.length + pages.end.length} team page${pages.start.length + pages.end.length === 1 ? "" : "s"}`] : []), ...(rulesAt ? ["Ruleset page"] : []), theme ? `${theme.title}${version === "thunder" ? " (Thunder)" : ""}${custom ? " + your audio" : ""}` : usingCustom ? "Your audio" : "No music"]}
             status={status}
             action="Export MP4…"
             onExport={() => void exportVideo()}
@@ -1093,6 +1168,7 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
     return out;
   }, [chron.log, moment.beat]);
   const shown = useMemo(() => newestRows(rows, log.lines), [rows, log.lines]);
+  const stacks = cornerStacks(log);
   const date = new Date(battle.started_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   return (
     // The picture is taken of the outer box, exactly the frame's size.
@@ -1127,9 +1203,24 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
             <Icon name={CONCEPT_ICON.pulse} />
           </div>
         )}
-        <ReplayBanner replay={replay} />
       </div>
-      {log.condensed && <CondensedLog entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} className="replay-stage-condensed" />}
+      <div className="replay-stage-overlays">
+        {CORNERS.map((corner) => (
+          <div key={corner} className={`replay-stage-corner ${corner}`}>
+            {stacks[corner].map((o) =>
+              o === "condensed" ? (
+                <CondensedLog key={o} entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} />
+              ) : o === "counter" ? (
+                <ReplayBanner key={o} replay={replay} size={log.counterSize} className="in-corner" />
+              ) : (
+                <div key={o} className="replay-stage-counts" style={log.countsSize !== 1 ? { fontSize: `${log.countsSize}em` } : undefined} aria-label="Units on the map">
+                  <MapCounts board={replay.board} />
+                </div>
+              ),
+            )}
+          </div>
+        ))}
+      </div>
       {log.show && (
         <section className="replay-stage-log" aria-label="Log">
           <h3 className="replay-stage-log-title">

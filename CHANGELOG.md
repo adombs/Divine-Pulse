@@ -4,11 +4,16 @@
 
 ## 1.4.6 (2026-11-13)
 
+- Condensed replay log lines fade by age; the corner selector has four connected sections.
+- Export Video can mix uploaded audio with a battle theme, with separate volume controls.
 - Each run can have a ruleset: your self-imposed rules, added from common challenge rules (Maddening, No Divine Pulse, No DLC, House only and more) or written yourself, edited and reordered on the Runs page, and shared as an image or as a page before or after the replay in Export Video.
 - Export Video's Team tab lets you set how long the ruleset page stays on screen (Auto: longer the more rules), and how long each team overview page does (1 second by default).
 - Replays show a condensed log in the map's bottom-right corner instead of labels over the units: the latest actions, one line each, as who did it, an oval with the action's icon (in that unit's army colour) and its damage or healing, and whom. Combat arts (with their weapon), spells, Rallies and gambits also show their name.
 - The battle log names the spell behind every magic attack and heal ("Lysithea used Miasma on Bandit 2"), and so does the condensed log.
 - Export Video's Format tab can turn the log off (the map then fills the frame) or limit it to the newest few lines, and turn the condensed log on or off and set how many lines it shows and how big it is.
+- The replay's turn counter reads "Turn 3/12 · Player Phase · Step 45/69" in a pill like the rest of the map's labels.
+- Export Video has a Layout tab: the log, condensed log, turn counter and unit counts each in their own section, switched on or off, with their number of lines and size, and a corner picked on a small map; several in one corner stack in the order you put them there.
+- Your settings (Settings page, appearance, Export Video's options) are kept when you install a new version.
 - On the replay map, the frame around the unit attacked matches the one around the unit acting: the same corners, in red.
 - A unit's run score is now its damage dealt plus healing done, averaged over the completed battles it was deployed in. Battles where it was only an adjutant don't count, and battle MVPs no longer add points. The Character Stats total for Score is left blank, since averages don't add up.
 

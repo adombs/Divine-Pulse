@@ -71,3 +71,8 @@ export function mixPiece(input: ArrayLike<number>[], out: Float32Array[], from: 
     }
   }
 }
+
+/** Add an independently rendered track to a mix. */
+export function addTrack(out: Float32Array[], track: Float32Array[]): void {
+  for (let c = 0; c < out.length; c++) for (let i = 0; i < out[c].length; i++) out[c][i] += track[c][i];
+}

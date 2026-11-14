@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { customPlan, mixPiece, soundPlan } from "../src/exporting/soundtrack.ts";
+import { addTrack, customPlan, mixPiece, soundPlan } from "../src/exporting/soundtrack.ts";
 
 // A theme of 10 samples at 1 Hz, looping samples 4 to 8 (4 long): the audio is its own index.
 const audio = { sampleRate: 1, length: 10, duration: 10 };
@@ -74,4 +74,13 @@ test("the fade-out takes the last second to reach silence", () => {
   assert.equal(out[0][29], 1);
   assert.ok(out[0][35] < 0.6 && out[0][35] > 0.4);
   assert.ok(out[0][39] < 0.2);
+});
+
+test("music and uploaded audio mix with independent volume and looping", () => {
+  const music = [new Float32Array(6)];
+  const own = [new Float32Array(6)];
+  mixPiece([[1, 1, 1, 1]], music, 0, customPlan({ sampleRate: 1, length: 4 }, 6, 0.25));
+  mixPiece([[1, 0]], own, 0, customPlan({ sampleRate: 1, length: 2 }, 6, 0.5));
+  addTrack(music, own);
+  assert.deepEqual(Array.from(music[0].slice(0, 4)), [0.75, 0.25, 0.75, 0.25]);
 });
