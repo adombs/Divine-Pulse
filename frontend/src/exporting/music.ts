@@ -60,7 +60,7 @@ export function defaultTheme(music: Music, scenario: number | null | undefined):
 
 /** A recording's audio, fetched and decoded once. */
 const decoded = new Map<string, Promise<AudioBuffer>>();
-function themeAudio(theme: Track): Promise<AudioBuffer> {
+export function themeAudio(theme: Track): Promise<AudioBuffer> {
   let found = decoded.get(theme.id);
   if (!found) {
     found = (async () => {
@@ -142,12 +142,8 @@ export async function loadCustomAudio(file: File): Promise<CustomAudio> {
 /** Lets go of a chosen file's listening copy. */
 export function releaseCustomAudio(audio: CustomAudio | null): void {
   if (!audio) return;
-  if (previewing?.id === CUSTOM_ID) previewTheme(null);
   URL.revokeObjectURL(audio.url);
 }
-
-/** The id the player's own audio goes by in the picker and the preview. */
-export const CUSTOM_ID = "custom";
 
 /** The soundtrack of a video `seconds` long from the player's audio: looped if shorter, cut if longer, faded out over the last second. */
 export async function* customSoundtrack(audio: CustomAudio, seconds: number, volume: number): AsyncGenerator<AudioBuffer> {
@@ -186,27 +182,4 @@ export async function* mixedSoundtrack(theme: Track, custom: CustomAudio, second
   } finally {
     decoded.delete(theme.id);
   }
-}
-
-let previewing: { audio: HTMLAudioElement; id: string } | null = null;
-
-/** Sets the volume (0 to 1) of the theme being listened to, so the listener hears what the video will have. */
-export function setPreviewVolume(volume: number): void {
-  if (previewing) previewing.audio.volume = Math.min(1, Math.max(0, volume));
-}
-
-/** Plays a theme (or the player's own audio) from its start (or stops it, if it's the one playing). Returns whether it's playing now. */
-export function previewTheme(theme: Pick<Track, "id" | "file"> | { id: string; url: string } | null, volume = 0.8): boolean {
-  const same = previewing?.id === theme?.id;
-  previewing?.audio.pause();
-  previewing = null;
-  if (!theme || same) return false;
-  const audio = new Audio("url" in theme ? theme.url : gameAssetUrl(theme.file));
-  audio.volume = volume;
-  audio.addEventListener("ended", () => {
-    if (previewing?.audio === audio) previewing = null;
-  });
-  void audio.play().catch(() => undefined);
-  previewing = { audio, id: theme.id };
-  return true;
 }
