@@ -1313,15 +1313,14 @@ code.path { word-break: break-all; font-size: 0.9rem; }
   border-radius: 99px; color: var(--ink);
   background: color-mix(in srgb, var(--ink) 9%, transparent); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
 }
-.condensed-icon { display: inline-grid; place-items: center; width: 1.3rem; height: 1.3rem; color: var(--ink-soft); font-size: 1rem; }
+/* Every action icon at one size (the star's and the gambit's, which set it). */
+.condensed-icon { display: inline-grid; place-items: center; width: 1.02rem; height: 1.02rem; flex: none; color: var(--ink-soft); font-size: 1rem; }
 .condensed-icon .game-icon { width: 100%; height: 100%; vertical-align: 0; cursor: inherit; }
 .condensed-icon img, .condensed-icon svg { width: 100%; height: 100%; object-fit: contain; }
 /* The game's square icons (a gambit's tile, an item's) with their corners rounded off. */
 .condensed-icon img { border-radius: 28%; }
-/* The star of an art used with no weapon, a little smaller so it weighs the same as the weapon glyphs. */
-.condensed-icon svg.condensed-star { width: 78%; height: 78%; }
-/* A gambit's icon fills its square to the edge: a little smaller, to sit level with the rest. */
-.condensed-icon .game-icon.condensed-gambit { width: 80%; height: 80%; }
+/* Item and ability icons (a Rally) are cut to circles. */
+.condensed-icon .game-icon.condensed-round img { border-radius: 50%; }
 /* Always the whole name, never cut short: the row grows to fit it. */
 .condensed-name { font-weight: 600; }
 .condensed-value { font: 700 1em var(--nums); font-variant-numeric: tabular-nums lining-nums; }

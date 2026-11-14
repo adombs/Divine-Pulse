@@ -58,14 +58,14 @@ function ActionIcon({ item }: { item: Item }) {
   }
   switch (item.kind) {
     case "attack":
-      if (d && itemIconUrl(d)) return <Own src={itemIconUrl(d)} concept="attack" title={d} />;
+      if (d && itemIconUrl(d)) return <Own src={itemIconUrl(d)} concept="attack" title={d} className="condensed-round" />;
       return <WeaponIcon kind={who?.unit?.weapon ?? who?.enemy?.weapon} label="Attack" />;
     case "heal":
       return <Icon name={CONCEPT_ICON.heal} title={title} />;
     case "item":
-      return <Own src={d ? itemIconUrl(d) : null} concept="item" title={title} />;
+      return <Own src={d ? itemIconUrl(d) : null} concept="item" title={title} className="condensed-round" />;
     case "rally":
-      return <Own src={d ? abilityIconUrl(d) : null} concept="rally" title={title} />;
+      return <Own src={d ? abilityIconUrl(d) : null} concept="rally" title={title} className="condensed-round" />;
     case "gambit":
       return <Own src={d ? gambitIconUrl(d) : null} concept="battalion" title={title} className="condensed-gambit" />;
     default:
