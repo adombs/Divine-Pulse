@@ -1303,7 +1303,7 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .map-label.team-ally { --tone: var(--team-ally); }
 .map-label.team-third { --tone: var(--team-third); }
 .map-label rect { fill: color-mix(in srgb, var(--tone) 12%, var(--paper)); stroke: var(--tone); stroke-width: 1px; }
-.map-label text { fill: var(--ink); font: 700 12px var(--nums); font-variant-numeric: tabular-nums lining-nums; dominant-baseline: central; }
+.map-label text { fill: var(--ink); font: 700 14.5px var(--nums); font-variant-numeric: tabular-nums lining-nums; dominant-baseline: central; }
 .map-label text .value { fill: var(--tone); }
 .map-caption { margin-top: 0.3rem; }
 

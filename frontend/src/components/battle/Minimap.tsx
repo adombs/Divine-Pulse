@@ -7,10 +7,10 @@
  * When the map's terrain is known it's drawn as the game's minimap draws it: the game's own minimap of the map when
  * there is one (map.gameMinimap); an unavailable native image stays explicit, with the game's icons for
  * chests, doors, levers and seals, Crest Stones, traps, breakable walls and warp tiles; hovering a tile names it. A unit's HP shows as a thin bar just under its tile (not a breakable wall's). A replay step being
- * animated (`animation`, replay.tsx) plays in stages: the move, then the attack (the attacker lunges, the attack's
- * badge pops in between the two) or heal (a green pulse on whoever is healed), then the fades. A step shown sums up as
- * a trail in the mover's colour from where it set out, a line to whoever it attacked or healed and that badge, with the
- * log's icons (model.ICON); the fallen carry the log's badge too. Hovering a unit says who it is and what it stands on,
+ * animated (`animation`, replay.tsx) plays in stages: the move, then the attack (the attacker lunges and a ring spreads
+ * where the blow lands; its labels say what it did) or heal (its badge pops in and a green pulse on whoever is healed),
+ * then the fades. A step shown sums up as a trail in the mover's colour from where it set out, a line to whoever it
+ * attacked or healed (a heal with its badge), with the log's icons (model.ICON); the fallen carry the log's badge too. Hovering a unit says who it is and what it stands on,
  * and picking one (click, or Enter when focused) calls `onPick`; the picked one is framed. `cursor` draws the game's
  * tile cursor where it is in the game.
  */
@@ -399,7 +399,7 @@ export function Minimap({ board, selected, focus, action, animation, labels, lab
           <Trail key={`${actor.id} ${target.id}`} id={`${uid}-aim`} from={[actor.x + actor.span / 2, actor.y + actor.span / 2]} to={[target.x + target.span / 2, target.y + target.span / 2]} gap={[0.36 * actor.span, 0.36 * target.span]} />
         </g>
       )}
-      {acted && aimed && actor && (aimed === "heal" || target) && (
+      {acted && aimed === "heal" && actor && (
         <g transform={`translate(${badgeSpot(actor, target).join(" ")})`}>
           <ActionBadge kind={aimed} team={side} cx={0} cy={0} />
         </g>
@@ -419,9 +419,11 @@ export function Minimap({ board, selected, focus, action, animation, labels, lab
                   return t > 0 && t < 1 ? <circle key={delay} className="map-effect-ring" cx={e.x} cy={e.y} r={0.25 + 0.45 * t} style={{ opacity: 0.8 * (1 - t) }} /> : null;
                 })}
             {e.kind === "heal" && <circle className="map-effect-glow" cx={e.x} cy={e.y} r={0.42} style={{ opacity: 0.4 * Math.sin(Math.PI * e.t) }} />}
-            <g transform={`translate(${e.bx} ${e.by}) scale(${scale})`} style={{ opacity: clamp01(e.t / 0.15) }}>
-              <ActionBadge kind={e.kind} team={side} cx={0} cy={0} />
-            </g>
+            {e.kind === "heal" && (
+              <g transform={`translate(${e.bx} ${e.by}) scale(${scale})`} style={{ opacity: clamp01(e.t / 0.15) }}>
+                <ActionBadge kind="heal" team={side} cx={0} cy={0} />
+              </g>
+            )}
           </g>
         );
       })}
@@ -445,7 +447,7 @@ export function Minimap({ board, selected, focus, action, animation, labels, lab
 }
 
 // A label's size in screen pixels: its height, side padding, icon, gaps, text size and an average glyph's width.
-const PILL = { h: 20, pad: 6, icon: 14, gap: 4, font: 12, glyph: 0.6, stack: 3, lift: 4 };
+const PILL = { h: 24, pad: 7, icon: 17, gap: 5, font: 14.5, glyph: 0.6, stack: 3, lift: 4 };
 
 /** A label's icon: the game's own when it is known and loads, else the concept's (the log's icon for the kind). */
 function LabelIcon({ label, x, y }: { label: MapLabel; x: number; y: number }) {
@@ -828,7 +830,6 @@ function MapLegend({ replay, board }: { replay?: boolean; board?: Board }) {
             {(
               [
                 ["move", "Moved"],
-                ["attack", "Attacked"],
                 ["heal", "Healed"],
               ] as const
             ).map(([kind, text]) => (
