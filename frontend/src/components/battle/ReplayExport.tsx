@@ -11,7 +11,7 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import "./replay-export.css";
-import { memo, useEffect, useId, useMemo, useRef, useState } from "react";
+import { memo, useLayoutEffect, useEffect, useId, useMemo, useRef, useState } from "react";
 import { flushSync } from "react-dom";
 import type { Battle, RunRoute, Unit } from "../../api";
 import { clock } from "../../format";
@@ -23,6 +23,7 @@ import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
 import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
 import { CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
+import { fitReplayFrame } from "../../exporting/replayFrameFit";
 import { CondensedLog } from "./CondensedLog";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
@@ -128,8 +129,8 @@ const MAP_LAYER: Layer = {
 /** What sits in the map's corners (the condensed log, the turn counter, the unit counts): a third layer that changes
  * once a step, like the chrome. */
 const OVERLAY_LAYER: Layer = {
-  hide: [".replay-stage-title", ".replay-stage-map", ".replay-stage-log"],
-  css: ".replay-stage { background: none !important; box-shadow: none !important; }",
+  hide: [".replay-stage-title", ".replay-stage-map .minimap", ".replay-stage-log", ".rewind-badge"],
+  css: ".replay-stage { background: none !important; box-shadow: none !important; } .replay-stage-map { background: none !important; border-color: transparent !important; }",
 };
 
 function loadOrientation(): Orientation {
@@ -1092,11 +1093,22 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
   }, [chron.log, moment.beat]);
   const shown = useMemo(() => newestRows(rows, log.lines), [rows, log.lines]);
   const stacks = cornerStacks(log);
+  const frameRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const root = frameRef.current;
+    if (!root) return;
+    const fit = () => fitReplayFrame(root, log.lines !== null);
+    fit();
+    const observer = new ResizeObserver(fit);
+    observer.observe(root);
+    return () => observer.disconnect();
+  }, [shown, layout, log]);
   const date = new Date(battle.started_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   return (
     // The picture is taken of the outer box, exactly the frame's size.
     <div ref={ref} className="replay-stage-theme">
     <div
+      ref={frameRef}
       className={`replay-stage ${logBeside(orientation) ? "landscape" : "portrait"} ${orientation}${log.show ? "" : " no-log"}`}
       style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows, gridTemplateAreas: layout.areas, gap: layout.gap }}
     >
@@ -1126,7 +1138,6 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
             <Icon name={CONCEPT_ICON.pulse} />
           </div>
         )}
-      </div>
       <div className="replay-stage-overlays">
         {CORNERS.map((corner) => (
           <div key={corner} className={`replay-stage-corner ${corner}`}>
@@ -1143,6 +1154,7 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
             )}
           </div>
         ))}
+      </div>
       </div>
       {log.show && (
         <section className="replay-stage-log" aria-label="Log">
