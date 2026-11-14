@@ -65,10 +65,8 @@
    in: a top corner stacks down from it, a bottom one up, the first put there nearest the corner. The layer is the map's
    cell, inset as the condensed log always was. */
 .replay-stage-overlays { position: absolute; inset: 7px; pointer-events: none; z-index: 1; min-width: 0; min-height: 0; }
-.replay-stage-overlays .replay-stage-corner { width: max-content; transform-origin: top left; }
-.replay-stage-overlays .top-right { transform-origin: top right; }
-.replay-stage-overlays .bottom-left { transform-origin: bottom left; }
-.replay-stage-overlays .bottom-right { transform-origin: bottom right; }
+/* A corner is kept to its room (replayFrameFit.ts) and never scaled: anything past it is cut off, its shadows aside. */
+.replay-stage-overlays .replay-stage-corner { width: max-content; overflow: clip; overflow-clip-margin: 24px; }
 .replay-stage-corner { position: absolute; display: flex; gap: 10px; max-width: calc(100% - 28px); }
 .replay-stage-corner.top-left, .replay-stage-corner.top-right { top: 14px; flex-direction: column; }
 .replay-stage-corner.bottom-left, .replay-stage-corner.bottom-right { bottom: 14px; flex-direction: column-reverse; }
@@ -80,7 +78,7 @@
    picture can't draw). */
 .replay-stage-counts {
   display: inline-flex; align-items: center; gap: 0.65em;
-  padding: 0.32em 0.75em; font-family: var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink);
+  padding: 0.32em 0.75em; font-family: var(--nums); font-size: calc(1.06rem * var(--overlay-size, 1)); font-variant-numeric: tabular-nums lining-nums; color: var(--ink);
   background: color-mix(in srgb, var(--paper) 92%, transparent); border: 1px solid var(--row-border); border-radius: 8px;
   box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
 }
@@ -210,8 +208,21 @@
 
 /* The battle map uses the same corner stacks, while keeping its legend interactive. */
 .map-overlay-corner { z-index: 2; gap: 0.6rem; pointer-events: none; }
-.map-overlay-key { width: max-content; max-width: 100%; min-width: 0; pointer-events: auto; }
-.map-overlay-key .map-key-panel { position: static; width: max-content; max-width: min(23rem, 100%); font-size: inherit; }
+/* The battle page's legend over the map: its own size (1.06rem) times its UI Size setting, everything in it in em so
+   the whole panel grows and shrinks with it (the page's own legend rules are in rem). */
+.map-overlay-key { width: max-content; max-width: 100%; min-width: 0; pointer-events: auto; font-size: calc(1.06rem * var(--overlay-size, 1)); }
+.map-overlay-key .map-key-panel { position: static; width: max-content; max-width: min(21.7em, 100%); font-size: inherit; border-radius: 0.47em; }
+.map-overlay-key .map-key-panel .map-key-toggle { padding: 0.3em 0.38em 0.3em 0.66em; border-radius: 0.47em 0 0 0.47em; }
+.map-overlay-key .map-key-panel .map-key-caret { font-size: 0.8em; }
+.map-overlay-key .map-key-panel .map-key-hide, .map-overlay-key .map-key-panel .map-key-show { width: 1.9em; height: 1.9em; font-size: 0.99em; }
+.map-overlay-key .map-key-panel .map-legends { gap: 0.23em; padding: 0 0.85em 0.68em; font-size: 0.83em; }
+.map-overlay-key .map-key-panel .map-legend { gap: 0.28em 1.02em; margin: 0.4em 0 0; }
+.map-overlay-key .map-key-panel .sub-title { margin: 0.81em 0 0.29em; font-size: 0.77em; }
+.map-overlay-key .map-key-panel .map-key { gap: 0.34em; }
+.map-overlay-key .map-key-panel .map-key::before { width: 0.8em; height: 0.8em; }
+.map-overlay-key .map-key-panel .map-key:is(.ally, .foe, .down, .wall, .team-ally, .team-third)::before { width: 0.97em; height: 0.91em; border-radius: 0.2em; }
+.map-overlay-key .map-key-panel .map-key.act .icon { padding: 0.23em; font-size: 0.89em; }
+.map-overlay-key .map-key-panel .map-key.mkey svg { width: 1.08em; height: 1.08em; }
 /* The wrapper can be wider than the capped panel. Anchor the panel itself to the right edge. */
 .map-overlay-corner.top-right .map-key-panel,
 .map-overlay-corner.bottom-right .map-key-panel { margin-left: auto; }
@@ -229,7 +240,7 @@
 .map-overlay-corner.top-right .map-key-caret,
 .map-overlay-corner.bottom-right .map-key-caret { margin-left: 0; }
 .map-overlay-key .map-count { gap: 0.32em; }
-.map-overlay-key .map-count::before { width: 0.75em; height: 0.7em; }
+.map-overlay-key .map-count::before { width: 0.75em; height: 0.7em; border-radius: 0.19em; }
 .map-overlay-settings { --export-label: 8rem; }
 
 .overlay-counter-fields { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }

@@ -1299,18 +1299,20 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .condensed-log {
   list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0;
   pointer-events: none; font: inherit; line-height: 1.35;
+  /* Its own size (the log's text, 1.06rem) times its UI Size setting (videoLog.ts overlaySizeStyle). */
+  font-size: calc(1.06rem * var(--overlay-size, 1));
 }
 .condensed-row {
   display: inline-flex; align-items: center; gap: 0.45em; padding: 0.22em 0.55em 0.22em 0.3em;
   border-radius: 99px; background: color-mix(in srgb, var(--paper-2) 92%, transparent);
-  border: 1px solid var(--row-border); box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
+  border: 1px solid var(--row-border); box-shadow: 0 4px 12px rgb(0 0 0 / 0.35); max-width: 100%;
 }
 .condensed-row .unit-face, .condensed-row .unit-face.sm { width: 1.9em; height: 1.9em; flex: none; }
 .condensed-row .unit-face.initial { font-size: 0.85em; }
 /* The action, as an oval like the log's number chips (.num-chip): its icon, in the doer's army colour, then its name (an
    art, spell or Rally) and number. */
 .condensed-action {
-  display: inline-flex; align-items: center; gap: 0.35em; flex: none; white-space: nowrap; padding: 0.06em 0.6em 0.06em 0.35em;
+  display: inline-flex; align-items: center; gap: 0.35em; flex: 0 1 auto; min-width: 0; white-space: nowrap; padding: 0.06em 0.6em 0.06em 0.35em;
   border-radius: 99px; color: var(--ink);
   background: color-mix(in srgb, var(--ink) 9%, transparent); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
 }
@@ -1322,8 +1324,8 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .condensed-icon img { border-radius: 28%; }
 /* Item and ability icons (a Rally) are cut to circles. */
 .condensed-icon .game-icon.condensed-round img { border-radius: 50%; }
-/* Always the whole name, never cut short: the row grows to fit it. */
-.condensed-name { font-weight: 600; }
+/* The whole name; the row grows to fit it, and only a row wider than its corner's room cuts it short. */
+.condensed-name { font-weight: 600; min-width: 0; overflow: hidden; text-overflow: ellipsis; }
 .condensed-value { font: 700 1em var(--nums); font-variant-numeric: tabular-nums lining-nums; }
 /* The icon in the colour of the army of the unit that did it (unit 1), as in the log's chips; the game's own coloured
    icons (an item, a Rally, a gambit) keep theirs. */
@@ -1363,7 +1365,7 @@ code.path { word-break: break-all; font-size: 0.9rem; }
   --mark: var(--accent-2);
   position: absolute; z-index: 2; left: 0.6rem; bottom: 0.6rem; max-width: calc(100% - 1.2rem);
   display: inline-flex; align-items: center; gap: 0.5em; margin: 0; padding: 0.22em 0.75em 0.22em 0.35em; min-width: 0;
-  font-size: 0.92rem; line-height: 1.35; color: var(--ink); white-space: nowrap; pointer-events: none;
+  font-size: calc(0.92rem * var(--overlay-size, 1)); line-height: 1.35; color: var(--ink); white-space: nowrap; pointer-events: none;
   border-radius: 99px; background: color-mix(in srgb, var(--paper-2) 92%, transparent);
   border: 1px solid var(--row-border); box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
 }
@@ -2096,7 +2098,7 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .duplicate-num { text-align: right; font-variant-numeric: tabular-nums; }
 .duplicate-actions { display: flex; align-items: center; justify-content: flex-end; gap: 0.6rem; margin-top: 0.4rem; }
 
-.condensed-slot { display: grid; flex: none; min-height: 0; }
+.condensed-slot { display: grid; flex: none; min-height: 0; max-width: 100%; }
 .condensed-slot:first-child { margin-top: 0 !important; }
 .condensed-slot-clip { min-height: 0; overflow: hidden; }
 @media (prefers-reduced-motion: reduce) { .condensed-row { transform: none !important; } }

@@ -8,6 +8,7 @@
  * replayLabels.ts `condensedEntries`; its text is the log's size.
  */
 import { useEffect, useState } from "react";
+import { overlaySizeStyle } from "../../exporting/videoLog";
 import { LOG_MOTION_MS, sampleLogMotion, startLogMotion, type LogMotion } from "./condensedMotion";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { abilityIconUrl, artWeaponKind, gambitIconUrl, isCombatArt, itemIconUrl, RefIcon, spellIconUrl, spellMagic } from "../../reference/icons";
@@ -112,7 +113,7 @@ export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX
   const moving = sampleLogMotion(motion, window.matchMedia("(prefers-reduced-motion: reduce)").matches ? motion.start + LOG_MOTION_MS : now);
   const nameOf = (id: string) => nav.people.get(id)?.name ?? "A unit";
   return (
-    <ol className={`condensed-log${className ? ` ${className}` : ""}`} aria-label="Recent actions" style={size !== 1 ? { fontSize: `${size}em` } : undefined}>
+    <ol className={`condensed-log${className ? ` ${className}` : ""}`} aria-label="Recent actions" style={overlaySizeStyle(size)}>
       {moving.map(({ entry, presence, opacity: ageOpacity }) => {
         const e = shown.find((row) => row.key === entry.key) ?? entry;
         const { actor, target } = e.item;

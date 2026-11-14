@@ -21,7 +21,7 @@ import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
-import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, sanitizeVideoLog, overlaySizeStyle, type VideoLogOptions } from "../../exporting/videoLog";
 import { CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
 import { isPostTimeskip } from "../../portraits";
 import { useReplayAudio } from "../../exporting/useReplayAudio";
@@ -1077,7 +1077,7 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
               ) : o === "counter" ? (
                 <ReplayBanner key={o} replay={replay} size={log.counterSize} showTurn={log.counterTurn} showPhase={log.counterPhase} showStep={log.counterStep} className="in-corner" />
               ) : (
-                <div key={o} className="replay-stage-counts" style={log.countsSize !== 1 ? { fontSize: `${log.countsSize}em` } : undefined} aria-label="Units on the map">
+                <div key={o} className="replay-stage-counts" style={overlaySizeStyle(log.countsSize)} aria-label="Units on the map">
                   <MapCounts board={replay.board} includeZero={log.countsZero} />
                 </div>
               ),

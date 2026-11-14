@@ -9,6 +9,7 @@
 - Export Video’s Music tab separates battle music and uploaded audio. Both follow the video’s playback controls and timeline. The preview is view-only; camera and zoom are controlled in the Replay tab.
 - Video overlays stay inside the map at every zoom level and fit within their selected corners. The dedicated log automatically follows the latest complete rows, and turning it off gives the map the full frame below the title.
 - The unit-count legend opens and closes away from its selected map corner, with the counts anchored to that corner.
+- Each map overlay's UI Size scales it evenly and on its own, and it keeps that size for the whole replay instead of shrinking to fit its corner.
 - Settings has a Battle Replay tab for the condensed log, turn counter and unit counts on the battle map, including their corner and size. On the map and in videos, choose the turn counter fields and whether to show zero counts.
 - Condensed replay log lines fade by age; the corner selector has four connected sections.
 - Export Video can mix uploaded audio with a battle theme, with separate volume controls.

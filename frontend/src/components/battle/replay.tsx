@@ -9,6 +9,7 @@
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { overlaySizeStyle } from "../../exporting/videoLog";
 import { Icon, IconButton } from "../Icon";
 import { NotchedRange, StepSlider } from "../Slider";
 import type { Battle } from "../../api";
@@ -478,7 +479,7 @@ export function ReplayBanner({ replay: r, size = 1, className, showTurn = true, 
   const of = (n: number | null, total: number | null) => (n === null ? null : total ? `${n}/${total}` : String(n));
   const turn = of(c.turn, c.turns);
   return (
-    <p className={`replay-banner ${r.army}${className ? ` ${className}` : ""}`} aria-live="polite" style={size !== 1 ? { fontSize: `${size}em` } : undefined}>
+    <p className={`replay-banner ${r.army}${className ? ` ${className}` : ""}`} aria-live="polite" style={overlaySizeStyle(size)}>
       <span className="replay-banner-mark" aria-hidden>
         <Icon name={c.pulse !== null ? CONCEPT_ICON.pulse : CONCEPT_ICON.phase} />
       </span>
