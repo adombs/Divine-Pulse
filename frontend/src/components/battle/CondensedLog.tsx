@@ -1,10 +1,11 @@
 /**
  * The condensed log: the replay's newest actions in the map's bottom-right corner (the Overview's map, and a video's
- * frame), one line each: who did it (their face), the action as an oval, and whom it was done to (their face). The oval holds the action's icon, its name for a combat art, a spell or an
- * active ability (a Rally), and its number, in a border and number of the doer's army colour. A combat art shows the
- * weapon it is used with (a star for one used with none) and a spell its magic's plain glyph; an attack shows the
- * attacker's weapon, and a heal, item, Rally or gambit the game's own icon. Older lines fade a little; the newest is at
- * the bottom. Its rows come from replayLabels.ts `condensedEntries`; its text is the log's size.
+ * frame), one line each: who did it (their face), the action as an oval, and whom it was done to (their face). The
+ * oval, styled like the log's number chips, holds the action's icon in the doer's army colour, its name for a combat
+ * art, a spell, an active ability (a Rally) or a gambit, and its number. A combat art shows the weapon it is used with
+ * (a star for one used with none) and a spell its magic's plain glyph; an attack shows the attacker's weapon, and a
+ * heal, item, Rally or gambit its own icon. Older lines fade a little; the newest is at the bottom. Its rows come from
+ * replayLabels.ts `condensedEntries`; its text is the log's size.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { abilityIconUrl, artWeaponKind, gambitIconUrl, isCombatArt, itemIconUrl, RefIcon, spellIconUrl, spellMagic } from "../../reference/icons";
@@ -33,8 +34,8 @@ function spellOf(item: Item): string | null {
   return (item.kind === "attack" || item.kind === "heal") && isSpell(d) ? d : null;
 }
 
-/** The name an oval says: a combat art's, a spell's or a Rally's; none for the rest. */
-const shownName = (item: Item): string | null => artOf(item) ?? spellOf(item) ?? (item.kind === "rally" ? item.detail || null : null);
+/** The name an oval says: a combat art's, a spell's, a Rally's or a gambit's; none for the rest. */
+const shownName = (item: Item): string | null => artOf(item) ?? spellOf(item) ?? (item.kind === "rally" || item.kind === "gambit" ? item.detail || null : null);
 
 /** The game's icon of a name, or the concept's when the game has none. */
 function Own({ src, concept, title, className }: { src: string | null; concept: keyof typeof CONCEPT_ICON; title: string; className?: string }) {
