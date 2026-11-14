@@ -11,7 +11,7 @@ import { abilityIconUrl, gambitIconUrl, isCombatArt, itemIconUrl, RefIcon, spell
 import { Icon } from "../Icon";
 import { GearIcon, WeaponIcon } from "./gameIcons";
 import { ICON, type Item } from "./model";
-import { UnitFace, useBattleNav } from "./parts";
+import { sideOf, UnitFace, useBattleNav } from "./parts";
 import { actionName, CONDENSED_MAX, type CondensedEntry } from "./replayLabels";
 
 /** The combat art an action used, if it was one: an art, or an attack made with one (not with a spell). */
@@ -93,7 +93,7 @@ export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX
           </span>
         );
         return (
-          <li key={e.key} className={`condensed-row tone-${e.tone}`} style={{ opacity }} title={actionName(e.item)}>
+          <li key={e.key} className={`condensed-row tone-${e.tone}${actor ? ` by-${sideOf(nav, actor)}` : ""}`} style={{ opacity }} title={actionName(e.item)}>
             {actor && <UnitFace id={actor} name={nameOf(actor)} size="sm" />}
             <span className="condensed-action">
               {art ? (

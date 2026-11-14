@@ -1330,6 +1330,11 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .condensed-value { font: 700 1em var(--nums); font-variant-numeric: tabular-nums lining-nums; }
 .condensed-row.tone-attack .condensed-value { color: var(--red); }
 .condensed-row.tone-heal .condensed-value { color: var(--green); }
+/* The number is in the colour of the army of the unit that did it (unit 1). */
+.condensed-row.by-player .condensed-value { color: var(--team-player); }
+.condensed-row.by-ally .condensed-value { color: var(--team-ally); }
+.condensed-row.by-enemy .condensed-value { color: var(--team-enemy); }
+.condensed-row.by-third .condensed-value { color: var(--team-third); }
 .condensed-defeat { display: inline-grid; place-items: center; color: var(--red); font-size: 1.05rem; }
 /* On the battle page's map: in its corner, clear of the turn banner. */
 .map-condensed { position: absolute; right: 0.6rem; bottom: 0.6rem; z-index: 2; font-size: 0.92rem; }

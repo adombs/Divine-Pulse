@@ -117,7 +117,12 @@ const Verb = ({ children }: { children: ReactNode }) => <span className="log-ver
 
 /** Which army a unit in the log is in, as on the map: "player", or another unit's side ("enemy", "ally", "third"). */
 function useSide(id: string | null): string {
-  const who = useBattleNav().people.get(id ?? "");
+  return sideOf(useBattleNav(), id);
+}
+
+/** `useSide` for a list (a hook can't be called per row): the army of a unit, from the battle's people. */
+export function sideOf(nav: ReturnType<typeof useBattleNav>, id: string | null): string {
+  const who = nav.people.get(id ?? "");
   if (!who) return id?.startsWith("a:") ? "player" : "enemy";
   return who.army ? "player" : (who.enemy?.side ?? "enemy");
 }
