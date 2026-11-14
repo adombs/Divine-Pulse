@@ -4,7 +4,10 @@
 
 ## 1.4.6 (2026-11-13)
 
-- Video overlays stay inside the map at every zoom level and fit within their selected corners. The dedicated log shows complete rows.
+- New battle recordings capture their starting roster after the battle begins for team-overview cards; later roster changes no longer change those cards. Older recordings without a snapshot omit the team overview.
+- Condensed replay log entries fade and slide smoothly as actions enter and leave, including in exported videos.
+- Export Video’s Music tab separates battle music and uploaded audio. Both follow the video’s playback controls and timeline. The preview is view-only; camera and zoom are controlled in the Replay tab.
+- Video overlays stay inside the map at every zoom level and fit within their selected corners. The dedicated log automatically follows the latest complete rows, and turning it off gives the map the full frame below the title.
 - The unit-count legend opens and closes away from its selected map corner, with the counts anchored to that corner.
 - Settings has a Battle Replay tab for the condensed log, turn counter and unit counts on the battle map, including their corner and size. On the map and in videos, choose the turn counter fields and whether to show zero counts.
 - Condensed replay log lines fade by age; the corner selector has four connected sections.
@@ -13,7 +16,7 @@
 - Export Video's Team tab lets you set how long the ruleset page stays on screen (Auto: longer the more rules), and how long each team overview page does (1 second by default).
 - Replays show a condensed log in the map's bottom-right corner instead of labels over the units: the latest actions, one line each, as who did it, an oval with the action's icon (in that unit's army colour) and its damage or healing, and whom. Combat arts (with their weapon), spells, Rallies and gambits also show their name.
 - The battle log names the spell behind every magic attack and heal ("Lysithea used Miasma on Bandit 2"), and so does the condensed log.
-- Export Video's Format tab can turn the log off (the map then fills the frame) or limit it to the newest few lines, and turn the condensed log on or off and set how many lines it shows and how big it is.
+- Export Video's Format tab can turn the log off (the map then fills the frame) and turn the condensed log on or off and set how many lines it shows and how big it is.
 - The replay's turn counter reads "Turn 3/12 · Player Phase · Step 45/69" in a pill like the rest of the map's labels.
 - Export Video has a Layout tab: the log, condensed log, turn counter and unit counts each in their own section, switched on or off, with their number of lines and size, and a corner picked on a small map; several in one corner stack in the order you put them there.
 - Your settings (Settings page, appearance, Export Video's options) are kept when you install a new version.

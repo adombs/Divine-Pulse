@@ -472,6 +472,8 @@ export interface Battle {
   scenario?: number | null;
   map_name?: string;
   units: BattleUnit[];
+  /** Roster as captured before this battle; absent on older recordings. */
+  roster_snapshot?: Record<string, Unit> | null;
   /** Other units on the map (enemies, as far as the game data tells). */
   enemies_start: number;
   enemies_now: number;

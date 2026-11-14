@@ -230,7 +230,7 @@ class BattleTracker:
             for a in sample.army
         ]
         self.battle = battle = Battle(
-            id=at.strftime("%Y%m%d-%H%M%S"), run_id=run_id, key=sample.key, started_at=at, units=units
+            id=at.strftime("%Y%m%d-%H%M%S"), run_id=run_id, key=sample.key, started_at=at, units=units, roster_snapshot_pending=True
         )
         self._set_enemies(sample)
         self.battle.enemies_start = self.battle.enemies_now

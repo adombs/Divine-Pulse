@@ -26,44 +26,6 @@ class BattleUnitOut(BattleUnitStats):
     stat_gains: dict[str, int] = Field(alias="gains")
 
 
-class BattleOut(Battle):
-    """Stored battle facts plus the dashboard's explicitly declared derived values."""
-
-    units: list[BattleUnitOut]
-    route: str | None
-    active: bool
-    duration_seconds: float = Field(alias="seconds")
-    level_up_count: int = Field(alias="level_ups")
-    gained_stat_points: int = Field(alias="stat_points")
-    weapon_use_count: int = Field(alias="weapon_uses")
-    spell_cast_count: int = Field(alias="spells_cast")
-    item_use_count: int = Field(alias="item_uses")
-    remaining_spell_uses: int | None = Field(alias="spell_uses_left")
-    full_spell_uses: int | None = Field(alias="spell_uses_full")
-    outlook: dict | None
-
-
-def battle_out(battle: Battle, active: bool, route: str | None = None) -> dict:
-    """A battle for the Battle page, with the numbers worked out from it."""
-    out = battle.model_dump(mode="json")
-    out.update(
-        route=route,
-        active=active,
-        seconds=round(battle.seconds(), 1),
-        level_ups=battle.level_ups,
-        stat_points=battle.stat_points,
-        weapon_uses=battle.weapon_uses,
-        spells_cast=battle.spells_cast,
-        item_uses=battle.item_uses,
-        spell_uses_left=battle.spell_uses_left,
-        spell_uses_full=battle.spell_uses_full,
-        outlook=outlook(battle) if active else None,
-    )
-    for unit, data in zip(battle.units, out["units"]):
-        data.update(level_ups=unit.level_ups, gains=unit.gains())
-    return BattleOut.model_validate(out).model_dump(mode="json", by_alias=True)
-
-
 class UnitOut(Unit):
     key: str
     base_values: dict[str, int]
@@ -94,3 +56,45 @@ class UnitOut(Unit):
             on_roster=on_roster(unit),
             score=score,
         )
+
+
+class BattleOut(Battle):
+    """Stored battle facts plus the dashboard's explicitly declared derived values."""
+
+    units: list[BattleUnitOut]
+    roster_snapshot: dict[str, UnitOut] | None = None
+    route: str | None
+    active: bool
+    duration_seconds: float = Field(alias="seconds")
+    level_up_count: int = Field(alias="level_ups")
+    gained_stat_points: int = Field(alias="stat_points")
+    weapon_use_count: int = Field(alias="weapon_uses")
+    spell_cast_count: int = Field(alias="spells_cast")
+    item_use_count: int = Field(alias="item_uses")
+    remaining_spell_uses: int | None = Field(alias="spell_uses_left")
+    full_spell_uses: int | None = Field(alias="spell_uses_full")
+    outlook: dict | None
+
+
+def battle_out(battle: Battle, active: bool, route: str | None = None) -> dict:
+    """A battle for the Battle page, with the numbers worked out from it."""
+    out = battle.model_dump(mode="json")
+    out["roster_snapshot"] = None if battle.roster_snapshot is None else {
+        key: UnitOut.from_unit(key, unit).model_dump(mode="json") for key, unit in battle.roster_snapshot.items()
+    }
+    out.update(
+        route=route,
+        active=active,
+        seconds=round(battle.seconds(), 1),
+        level_ups=battle.level_ups,
+        stat_points=battle.stat_points,
+        weapon_uses=battle.weapon_uses,
+        spells_cast=battle.spells_cast,
+        item_uses=battle.item_uses,
+        spell_uses_left=battle.spell_uses_left,
+        spell_uses_full=battle.spell_uses_full,
+        outlook=outlook(battle) if active else None,
+    )
+    for unit, data in zip(battle.units, out["units"]):
+        data.update(level_ups=unit.level_ups, gains=unit.gains())
+    return BattleOut.model_validate(out).model_dump(mode="json", by_alias=True)

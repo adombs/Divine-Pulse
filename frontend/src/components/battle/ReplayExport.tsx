@@ -21,15 +21,17 @@ import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
-import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
 import { CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
+import { isPostTimeskip } from "../../portraits";
+import { useReplayAudio } from "../../exporting/useReplayAudio";
 import { fitReplayFrame } from "../../exporting/replayFrameFit";
 import { CondensedLog } from "./CondensedLog";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
 import { sceneAt, type Segment } from "../../exporting/teamPages";
-import { customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, mixedSoundtrack, previewTheme, recording, releaseCustomAudio, setPreviewVolume, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
+import { customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, mixedSoundtrack, recording, releaseCustomAudio, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap } from "./map";
@@ -150,7 +152,7 @@ export function replayExportBlocker(battle: Battle, chron: Chronicle): string | 
 }
 
 /** The header button: opens the export window. */
-export function ReplayExportButton({ battle, route, runName, units, part2, history }: {
+export function ReplayExportButton({ battle, route, runName, part2, history }: {
   battle: Battle;
   route?: RunRoute | null;
   /** The run's name, its roster and battles, for the team pages. */
@@ -173,7 +175,7 @@ export function ReplayExportButton({ battle, route, runName, units, part2, histo
       >
         <Icon name={CONCEPT_ICON.share} /> Export Video
       </button>
-      {open && <ReplayExportDialog battle={battle} chron={chron} route={route ?? null} runName={runName ?? "Divine Pulse"} units={units} part2={part2} history={history} onClose={() => setOpen(false)} />}
+      {open && <ReplayExportDialog battle={battle} chron={chron} route={route ?? null} runName={runName ?? "Divine Pulse"} units={Object.values(battle.roster_snapshot ?? {}).filter((u) => u.on_roster !== false)} part2={battle.roster_snapshot ? isPostTimeskip(Object.values(battle.roster_snapshot)) : part2} history={history} onClose={() => setOpen(false)} />}
     </>
   );
 }
@@ -235,14 +237,7 @@ interface StageLayout {
 function stageLayout(orientation: Orientation, logShown: boolean, aspect: number): StageLayout {
   const [w, h] = mapRoom(orientation, logShown);
   if (!logShown) {
-    const mapW = Math.min(h * aspect, w);
-    const mapH = mapW / aspect;
-    return {
-      columns: `minmax(0, 1fr) ${Math.round(mapW + MAP_FRAME)}px minmax(0, 1fr)`,
-      rows: `${TITLE_H[orientation]}px ${GAP}px minmax(0, 1fr) ${Math.round(mapH + MAP_FRAME)}px minmax(0, 1fr)`,
-      areas: '"title title title" ". . ." ". . ." ". map ." ". . ."',
-      gap: 0,
-    };
+    return { columns: "minmax(0, 1fr)", rows: `${TITLE_H[orientation]}px minmax(0, 1fr)`, areas: '"title" "map"' };
   }
   if (logBeside(orientation)) {
     const mapW = Math.round(Math.min(h * aspect, w) + MAP_FRAME);
@@ -313,7 +308,6 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   // The battle themes (imported with the game files), and the one to play: the battle's own to begin with.
   const [music, setMusic] = useState<Music | null | undefined>(undefined);
   const [themeId, setThemeId] = useState<string>("");
-  const [previewing, setPreviewing] = useState(false);
   // The player's own audio, if they chose a file: decoded once, held for the previews and the export, never kept between sessions.
   const [custom, setCustom] = useState<CustomAudio | null>(null);
   const [customError, setCustomError] = useState<string | null>(null);
@@ -331,7 +325,6 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     });
     return () => {
       live = false;
-      previewTheme(null);
     };
   }, [battle.scenario]);
   const theme = music?.themes.find((m) => m.id === themeId) ?? null;
@@ -345,7 +338,6 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const track = theme ? recording(theme, version) : null;
   const volume = options.volume / 100;
   const usingCustom = !!custom;
-  const listening = track;
   /** Takes a chosen file: decoded once; if it can't be, the choice before it stays and the reason is shown. */
   const chooseFile = async (file: File) => {
     setReading(true);
@@ -353,8 +345,6 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     try {
       const next = await loadCustomAudio(file);
       releaseCustomAudio(customRef.current);
-      previewTheme(null);
-      setPreviewing(false);
       setCustom(next);
 
     } catch (error) {
@@ -366,8 +356,6 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   /** Lets go of the chosen file and goes back to the battle's own theme. */
   const removeCustom = () => {
     releaseCustomAudio(custom);
-    previewTheme(null);
-    setPreviewing(false);
     setCustom(null);
     setCustomError(null);
 
@@ -456,6 +444,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const [playing, setPlaying] = useState(true);
   const [status, setStatus] = useState<ExportStatus>({ kind: "idle" });
   const working = status.kind === "working";
+  const { error: audioError, enableAudio } = useReplayAudio(track, custom, t, playing && !working, total, volume, options.customVolume / 100);
   const seekTo = (ms: number) => {
     const m = momentAt(replayTime(Math.max(0, Math.min(total, ms))));
     setT(Math.max(0, Math.min(total, ms)));
@@ -515,27 +504,6 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     if (m === "static") setStill(zoom ? [zoom.x0 + zoom.w / 2, zoom.y0 + zoom.h / 2] : [board.w / 2, board.h / 2]);
     setModeState(m);
   };
-  /** The wheel steps the zoom around the tile under the pointer (a static camera keeps that tile where it is). */
-  const onWheelAt = (x: number, y: number, deltaY: number) => {
-    if (working) return;
-    const next = Math.max(0, Math.min(ZOOM_TILES.length - 1, level + (deltaY < 0 ? 1 : -1)));
-    if (next === level) return;
-    if (mode === "static") {
-      const fromView = zoom ?? { x0: 0, y0: 0, w: board.w, h: board.h };
-      const toView = viewAround(looking, viewSize(orientation, options.log.show, ZOOM_TILES[next], board), board) ?? { x0: 0, y0: 0, w: board.w, h: board.h };
-      const nx0 = x - ((x - fromView.x0) * toView.w) / fromView.w;
-      const ny0 = y - ((y - fromView.y0) * toView.h) / fromView.h;
-      setStill([nx0 + toView.w / 2, ny0 + toView.h / 2]);
-    }
-    setLevel(next);
-  };
-  /** Dragging places the camera, which then stays there. */
-  const onDrag = (dx: number, dy: number) => {
-    if (working || !zoom) return;
-    setStill([zoom.x0 + zoom.w / 2 + dx, zoom.y0 + zoom.h / 2 + dy]);
-    if (mode !== "static") setModeState("static");
-  };
-
   // The camera's view keeps one shape at a zoom level (the whole map's, zoomed out), so the frame is laid out for it.
   const layout = stageLayout(orientation, options.log.show, size[0] / size[1]);
   const stage = useRef<HTMLDivElement>(null);
@@ -552,8 +520,6 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
       setStatus({ kind: "error", message: `This window can't encode MP4 video at ${out[0]} × ${out[1]}${fps === 60 ? " and 60 frames a second" : ""}. Try a lower resolution, or update Microsoft Edge WebView2.` });
       return;
     }
-    previewTheme(null);
-    setPreviewing(false);
     const controller = new AbortController();
     abort.current = controller;
     setPlaying(false);
@@ -586,6 +552,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
       return img;
     };
     let shown = "";
+    let overlayDoc = "";
     try {
       const audio = track && custom && volume > 0 && options.customVolume > 0 ? mixedSoundtrack(track, custom, frames / fps, volume, options.customVolume / 100) : track && volume > 0 ? soundtrack(track, frames / fps, volume) : custom && options.customVolume > 0 ? customSoundtrack(custom, frames / fps, options.customVolume / 100) : null;
       snap = await snapshotter();
@@ -623,12 +590,18 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
             const newChrome = chrome?.beat !== beat;
             if (newChrome) {
               chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
-              over = overlays ? await snap.image(await snap.svg(el, width, height, scale, OVERLAY_LAYER), condensedImg) : null;
+
+            }
+            const nextOverlay = overlays ? await snap.svg(el, width, height, scale, OVERLAY_LAYER) : "";
+            const newOverlay = nextOverlay !== overlayDoc;
+            if (newOverlay) {
+              overlayDoc = nextOverlay;
+              over = nextOverlay ? await snap.image(nextOverlay, condensedImg) : null;
             }
             const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
             const newMap = map?.doc !== doc;
             if (newMap) map = { doc, img: await snap.image(doc, mapImg) };
-            changed ||= newChrome || newMap;
+            changed ||= newChrome || newMap || newOverlay;
           }
           if (!changed) return; // a held frame: the canvas still has it
           if (withReplay) {
@@ -711,7 +684,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
           footer={
               <div className="replay-bar replay-export-transport">
                 <div className="replay-buttons">
-                  <IconButton icon={playing ? CONCEPT_ICON.pause : CONCEPT_ICON.play} primary pressed={playing} label={playing ? "Pause the preview" : "Play the preview"} onClick={() => setPlaying((p) => !p)} disabled={working} className="replay-btn" />
+                  <IconButton icon={playing ? CONCEPT_ICON.pause : CONCEPT_ICON.play} primary pressed={playing} label={playing ? "Pause the preview" : "Play the preview"} onClick={() => { enableAudio(); setPlaying((p) => !p); }} disabled={working} className="replay-btn" />
                 </div>
                 <NotchedRange
                   className="replay-timeline"
@@ -747,8 +720,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
               log={options.log}
               route={route}
               zoom={zoom}
-              onWheelAt={working ? undefined : onWheelAt}
-              onDrag={working ? undefined : onDrag}
+              time={t}
             />
             {layers.map(({ index, alpha }) => {
               const part = parts[index];
@@ -808,17 +780,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
               ),
               layout: (
                 <fieldset className="export-group export-layout" disabled={working} aria-label="What the frame shows">
-                  <LayoutSection title="Log" note="The battle's log, beside or under the map" on={options.log.show} onToggle={(show) => updateLog({ show })}>
-                    <StepSlider
-                      label="# of Lines"
-                      stops={MAX_LOG_LINES + 1}
-                      value={options.log.lines ?? 0}
-                      onChange={(i) => updateLog({ lines: i === 0 ? null : i })}
-                      valueText={options.log.lines === null ? "As many as fit" : `${options.log.lines} at most`}
-                      after={<span className="team-pages-axis-value">{options.log.lines ?? "Auto"}</span>}
-                      variant="timeline"
-                      slim
-                    />
+                  <LayoutSection title="Log" note="Automatically follows the latest actions beside or under the map" on={options.log.show} onToggle={(show) => updateLog({ show })}>
+                    <p className="export-note">Shows as many complete rows as fit.</p>
                   </LayoutSection>
                   <LayoutSection title="Condensed log" note="The latest actions, over the map" on={options.log.condensed} onToggle={(on) => turnOn("condensed", on)}>
                     <CornerPicker label="Condensed log corner" which="condensed" log={options.log} onChange={(c) => placeIn("condensed", c)} />
@@ -878,25 +841,22 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                       <TeamPagesSection team={team} update={updateTeam} pages={pages} units={units} part2={part2} />
                     </fieldset>
                   ) : (
-                    <p className="export-note">This run has no units to show yet.</p>
+                    <p className="export-note">This recording has no pre-battle roster snapshot. Team pages are available for battles recorded with roster snapshots.</p>
                   )}
                 </>
               ),
               music: (
                 <fieldset className="export-group" disabled={working}>
                   <legend>Music</legend>
+                  <p className="export-note">Audio follows the video. Use the controls below the preview to play, pause or seek.</p>
+                  {audioError && <p className="export-error" role="alert">{audioError}</p>}
+                  <section className="music-source">
+                  <h4>Battle music</h4>
                   {music === null && <p className="export-note">The battle themes need your game files reprocessed (Settings &gt; Game files). You can still use your own audio.</p>}
                   <div className="export-music">
-                    <select aria-label="Soundtrack" value={themeId} disabled={music === undefined} onChange={(e) => {
-                      const id = e.target.value;
-                      setThemeId(id);
-                      if (previewing) {
-                        const found = music?.themes.find((m) => m.id === id);
-                        const next = found ? recording(found, versionOf(found)) : null;
-                        setPreviewing(previewTheme(next, volume));
-                      }
-                    }}>
-                      <option value="">No music</option>
+                    <label className="music-field">Battle theme
+                    <select aria-label="Battle theme" value={themeId} disabled={music === undefined} onChange={(e) => { enableAudio(); setThemeId(e.target.value); }}>
+                      <option value="">{music === undefined ? "Loading battle themes…" : "No music"}</option>
                       {THEME_GROUPS.map((group) => {
                         const themes = music?.themes.filter((m) => m.group === group) ?? [];
                         return themes.length ? (
@@ -906,15 +866,15 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                         ) : null;
                       })}
                     </select>
-                    <IconButton
-                      icon={previewing ? CONCEPT_ICON.pause : CONCEPT_ICON.play}
-                      label={previewing ? "Stop listening" : "Listen to it"}
-                      pressed={previewing}
-                      disabled={!listening}
-                      onClick={() => setPreviewing(previewTheme(listening, volume))}
-                    />
+                    </label>
                   </div>
-                  <button type="button" onClick={() => picker.current?.click()} disabled={reading}>Upload audio file…</button>
+                  <Segmented<Version> label="Version of the theme" value={version} disabled={!theme || !!thunderNote} onChange={(v) => setOption("version", v)} options={[["rain", "Rain", "The calm version"], ["thunder", "Thunder", "The intense version"]]} />
+                  {thunderNote && theme && <p className="export-note">{thunderNote}</p>}
+                  <StepSlider label="Music volume" stops={101} value={options.volume} onChange={(v) => setOption("volume", v)} valueText={`${options.volume}%`} variant="timeline" slim after={<span className="export-value">{options.volume}%</span>} />
+                  </section>
+                  <section className="music-source">
+                  <div className="music-source-head"><h4>Your audio</h4><button type="button" className="btn small" onClick={() => { enableAudio(); picker.current?.click(); }} disabled={reading}>{custom ? "Replace audio…" : "Upload audio…"}</button></div>
+                  <p className="export-note">Add an MP3 or other audio file. It plays together with the battle music.</p>
                   <input
                     ref={picker}
                     type="file"
@@ -933,40 +893,12 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     <div className={`export-file${usingCustom ? " on" : ""}`}>
                       <span className="export-file-name" title={custom.name}>{custom.name}</span>
                       <span className="export-file-length">{clock(custom.duration)}</span>
-                      <button type="button" className="checklist-clear" onClick={() => picker.current?.click()}>Replace</button>
                       <button type="button" className="checklist-clear" onClick={removeCustom}>Remove</button>
                     </div>
                   )}
                   {usingCustom && <p className="export-note">{custom.duration * 1000 < total ? "Shorter than the video, so it plays again from the start." : "Longer than the video, so it stops at the end with a fade-out."}</p>}
-                  {/* Only the built-in themes have two versions. */}
-                  <div>
-                    <Segmented<Version>
-                      label="Version of the theme"
-                      value={version}
-                      disabled={!theme || !!thunderNote}
-                      onChange={(v) => {
-                        setOption("version", v);
-                        // The listening follows the toggle.
-                        if (previewing && theme) setPreviewing(previewTheme(recording(theme, v), volume));
-                      }}
-                      options={[
-                        ["rain", "Rain", "The calm version"],
-                        ["thunder", "Thunder", "The intense version"],
-                      ]}
-                    />
-                    {thunderNote && theme && <p className="export-note">{thunderNote}</p>}
-                  </div>
-                  <StepSlider
-                    label="Music volume"
-                    stops={101}
-                    value={options.volume}
-                    onChange={(v) => { setOption("volume", v); setPreviewVolume(v / 100); }}
-                    valueText={`${options.volume}%`}
-                    variant="timeline"
-                    slim
-                    after={<span className="export-value">{options.volume}%</span>}
-                  />
-                  {custom && <StepSlider label="Uploaded audio volume" stops={101} value={options.customVolume} onChange={(v) => setOption("customVolume", v)} valueText={`${options.customVolume}%`} variant="timeline" slim after={<span className="export-value">{options.customVolume}%</span>} />}
+                  {custom && <StepSlider label="Audio volume" stops={101} value={options.customVolume} onChange={(v) => setOption("customVolume", v)} valueText={`${options.customVolume}%`} variant="timeline" slim after={<span className="export-value">{options.customVolume}%</span>} />}
+                  </section>
                 </fieldset>
               ),
             }}
@@ -1073,13 +1005,12 @@ interface StageProps {
   log: VideoLogOptions;
   route: RunRoute | null;
   zoom: Zoom | null;
-  onWheelAt?: (x: number, y: number, deltaY: number) => void;
-  onDrag?: (dx: number, dy: number) => void;
+  time: number;
   ref?: React.Ref<HTMLDivElement>;
 }
 
 /** One frame of the video: the title strip, the map and the log. */
-function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, route, zoom, onWheelAt, onDrag, ref }: StageProps) {
+function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, route, zoom, time, ref }: StageProps) {
   const name = battleName(battle);
   // The log up to the step on the map: rows of later steps aren't shown yet (the newest is at the bottom).
   const rows = useMemo(() => {
@@ -1091,22 +1022,23 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
     }
     return out;
   }, [chron.log, moment.beat]);
-  const shown = useMemo(() => newestRows(rows, log.lines), [rows, log.lines]);
+  const shown = rows;
   const stacks = cornerStacks(log);
   const frameRef = useRef<HTMLDivElement>(null);
   useLayoutEffect(() => {
     const root = frameRef.current;
     if (!root) return;
-    const fit = () => fitReplayFrame(root, log.lines !== null);
+    const fit = () => fitReplayFrame(root);
     fit();
     const observer = new ResizeObserver(fit);
     observer.observe(root);
+    for (const node of root.querySelectorAll(".replay-stage-rows, .log-list")) observer.observe(node);
     return () => observer.disconnect();
   }, [shown, layout, log]);
   const date = new Date(battle.started_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   return (
     // The picture is taken of the outer box, exactly the frame's size.
-    <div ref={ref} className="replay-stage-theme">
+    <div ref={ref} className="replay-stage-theme" inert>
     <div
       ref={frameRef}
       className={`replay-stage ${logBeside(orientation) ? "landscape" : "portrait"} ${orientation}${log.show ? "" : " no-log"}`}
@@ -1130,8 +1062,6 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
           animation={replay.animation}
           label={`The battle map at ${replay.label}`}
           zoom={zoom}
-          onWheelAt={onWheelAt}
-          onDrag={onDrag}
         />
         {replay.rewind && (
           <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.6 + 0.4 * replay.rewind.badge})` }} aria-hidden>
@@ -1143,7 +1073,7 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
           <div key={corner} className={`replay-stage-corner ${corner}`}>
             {stacks[corner].map((o) =>
               o === "condensed" ? (
-                <CondensedLog key={o} entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} />
+                <CondensedLog key={o} entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} time={time} />
               ) : o === "counter" ? (
                 <ReplayBanner key={o} replay={replay} size={log.counterSize} showTurn={log.counterTurn} showPhase={log.counterPhase} showStep={log.counterStep} className="in-corner" />
               ) : (

@@ -1,5 +1,5 @@
 /** Keep overlays inside the map viewport and show complete dedicated-log rows in a fixed video frame. */
-export function fitReplayFrame(root: HTMLElement, fixedLines: boolean): void {
+export function fitReplayFrame(root: HTMLElement): void {
   const layer = root.querySelector<HTMLElement>(".replay-stage-overlays");
   const map = root.querySelector<HTMLElement>(".replay-stage-map");
   const svg = map?.querySelector<SVGSVGElement>("svg.minimap");
@@ -28,18 +28,14 @@ export function fitReplayFrame(root: HTMLElement, fixedLines: boolean): void {
   const box = root.querySelector<HTMLElement>(".replay-stage-rows");
   const list = box?.querySelector<HTMLElement>(".log-list");
   if (!box || !list) return;
-  list.style.transform = "";
+  // Keep the full list in normal chronological order. Anchor its bottom to the viewport,
+  // then clip at a row boundary instead of hiding rows or scaling the log's layout.
   const rows = Array.from(list.children) as HTMLElement[];
-  for (const row of rows) row.style.display = "";
   const available = Math.max(1, box.clientHeight - 4);
-  if (!fixedLines) {
-    let height = 0;
-    for (let i = rows.length - 1; i >= 0; i--) {
-      const next = rows[i].offsetHeight;
-      if (height + next <= available || i === rows.length - 1) height += next;
-      else rows[i].style.display = "none";
-    }
+  let cutoff = rows.at(-1)?.offsetTop ?? 0;
+  for (let i = rows.length - 1; i >= 0; i--) {
+    if (list.offsetHeight - rows[i].offsetTop > available) break;
+    cutoff = rows[i].offsetTop;
   }
-  const scale = Math.min(1, available / Math.max(1, list.scrollHeight), box.clientWidth / Math.max(1, list.scrollWidth));
-  list.style.transform = `scale(${scale})`;
+  list.style.clipPath = `inset(${Math.max(0, cutoff)}px 0 0)`;
 }

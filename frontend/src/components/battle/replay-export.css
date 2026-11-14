@@ -53,10 +53,10 @@
 .replay-stage-log-title .icon { color: var(--accent); }
 /* The newest row at the bottom; older ones go up and fade out at the top (no scrolling in a picture). */
 .replay-stage-rows {
-  flex: 1 1 auto; display: flex; flex-direction: column; justify-content: flex-end; min-height: 0; overflow: hidden; padding-top: 4px;
+  position: relative; flex: 1 1 0; min-height: 0; overflow: hidden; padding-top: 4px;
   mask-image: none;
 }
-.replay-stage-rows .log-list { flex: none; }
+.replay-stage-rows .log-list { position: absolute; bottom: 0; left: 0; right: 0; width: 100%; }
 
 /* No log (Export Video > Format > Log off): the map has the frame to itself under the title. The condensed log
    (CondensedLog.tsx) sits in the map's bottom-right corner, over it, in either layout. */
@@ -69,7 +69,6 @@
 .replay-stage-overlays .top-right { transform-origin: top right; }
 .replay-stage-overlays .bottom-left { transform-origin: bottom left; }
 .replay-stage-overlays .bottom-right { transform-origin: bottom right; }
-.replay-stage-rows .log-list { transform-origin: bottom left; width: 100%; }
 .replay-stage-corner { position: absolute; display: flex; gap: 10px; max-width: calc(100% - 28px); }
 .replay-stage-corner.top-left, .replay-stage-corner.top-right { top: 14px; flex-direction: column; }
 .replay-stage-corner.bottom-left, .replay-stage-corner.bottom-right { bottom: 14px; flex-direction: column-reverse; }

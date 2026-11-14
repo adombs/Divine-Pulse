@@ -141,29 +141,28 @@ def changelog_notes(version: str) -> str:
     return found.group(1).strip() if found and found.group(1).strip() else "See CHANGELOG.md."
 
 
-def hotfix_notes(version: str, previous_notes: str, own: str) -> str:
-    """A hotfix's notes: the previous release's published notes (x.y.0's, with every earlier hotfix of x.y already
-    appended) and this hotfix's bullets after them."""
-    return f"{previous_notes.rstrip()}\n\n## Hotfix {version}\n\n{own.strip()}"
+def version_notes(version: str, previous_notes: str, own: str) -> str:
+    """Cumulative notes use neutral version headings, regardless of whether a patch adds features or fixes."""
+    return f"{previous_notes.rstrip()}\n\n## Version {version}\n\n{own.strip()}"
 
 
 def previous_release(version: str) -> str | None:
-    """The release a hotfix x.y.z builds its notes on (x.y.(z-1)); None for an x.y.0 release."""
+    """The release version x.y.z builds its notes on (x.y.(z-1)); None for an x.y.0 release."""
     major, minor, patch = (int(part) for part in version.split("."))
     return f"{major}.{minor}.{patch - 1}" if patch else None
 
 
 def release_notes(version: str) -> str:
-    """An x.y.0 release's notes are its CHANGELOG.md section (rewritten by hand on GitHub as needed). A hotfix x.y.z
-    carries x.y.0's notes as published, with each hotfix's bullets appended in order up to this one."""
+    """An x.y.0 release's notes are its CHANGELOG.md section (rewritten by hand on GitHub as needed). A patch version x.y.z
+    carries x.y.0's notes as published, with each version's bullets appended in order up to this one."""
     own = changelog_notes(version)
     previous = previous_release(version)
     if previous is None:
         return own
     notes = published_notes(previous)
     if not notes:
-        fail(f"couldn't read the published notes of v{previous}, which hotfix {version}'s notes build on")
-    return hotfix_notes(version, notes, own)
+        fail(f"couldn't read the published notes of v{previous}, which version {version}'s notes build on")
+    return version_notes(version, notes, own)
 
 
 def published_notes(version: str) -> str | None:
@@ -262,7 +261,7 @@ def finalize(version: str) -> None:
     if git("tag", "--list", tag):
         fail(f"{tag} already exists locally")
     preflight_push(tag)
-    notes = release_notes(version)  # before the build and tag: a hotfix's notes need the previous release's
+    notes = release_notes(version)  # before the build and tag: a patch version's notes need the previous release's
     try:
         files = build_and_check(version)
     except (subprocess.CalledProcessError, RuntimeError) as error:

@@ -130,3 +130,40 @@ def test_a_unit_the_game_marks_dead_is_marked_dead(reader, tmp_path):
     units = reader.store.get(run_id).units
     assert units[dead_key].death is not None and (units[dead_key].death.battle_id, units[dead_key].death.step) == ("forest", 7)
     assert units[back_key].death is None  # in the army with no dead flag: alive after all
+
+
+def test_battle_roster_snapshot_is_immutable_and_survives_resume(reader, tmp_path):
+    from app.battle import ArmySample, BattleSample
+    from app.interface.responses import battle_out
+    from app.storage import BattleStore
+
+    reader._tick()
+    reader._tick()
+    run_id = reader.settings.get().active_run_id
+    roster = reader.store.get(run_id).units
+    key, unit = next(iter(roster.items()))
+    reader.battle_store = BattleStore(tmp_path / "battles")
+    sample = BattleSample((ArmySample(key, unit.name, unit.class_name, 1, dict(unit.displayed)),))
+    from dataclasses import replace
+    reader.feed_battle(replace(sample, turn=0), run_id)
+    assert reader._battles.battle.roster_snapshot is None
+    assert reader._battles.battle.roster_snapshot_pending
+    reader.feed_battle(replace(sample, turn=1), run_id)
+    battle = reader._battles.battle
+    assert battle.roster_snapshot[key].displayed == unit.displayed
+    original = battle.roster_snapshot[key].model_dump()
+    changed = unit.model_copy(deep=True)
+    changed.displayed["str"] += 20
+    changed.abilities.append("Later ability")
+    reader.store.apply_units(run_id, {key: changed})
+    reader.feed_battle(sample, run_id)
+    assert battle.roster_snapshot[key].model_dump() == original
+    saved = reader.battle_store.load_active(run_id)
+    assert saved.roster_snapshot[key].model_dump() == original
+    reader._battles.resume(saved)
+    reader.feed_battle(sample, run_id)
+    assert reader._battles.battle.roster_snapshot[key].model_dump() == original
+    out = battle_out(saved, True)
+    assert out["roster_snapshot"][key]["key"] == key
+    assert out["roster_snapshot"][key]["displayed"] == original["displayed"]
+    assert "base_values" in out["roster_snapshot"][key]

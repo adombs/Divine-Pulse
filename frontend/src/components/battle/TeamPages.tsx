@@ -168,9 +168,9 @@ export function useTeamPages({ team, update, units, history, battle, part2, fram
       const b = battle.units.find((x) => x.key === u.key);
       out.set(u.key, {
         used: usageList(b?.usage, battle.log, u.key),
-        accessory: equippedAccessory(b?.inventory, b?.accessory, u.accessory),
-        battalion: gearName(b?.battalion, u.battalion),
-        battalionId: b?.battalion ? b.battalion_id : u.battalion_id,
+        accessory: battle.roster_snapshot ? u.accessory : equippedAccessory(b?.inventory, b?.accessory, u.accessory),
+        battalion: battle.roster_snapshot ? u.battalion ?? null : gearName(b?.battalion, u.battalion),
+        battalionId: battle.roster_snapshot ? u.battalion_id : b?.battalion ? b.battalion_id : u.battalion_id,
         gambits: gambitUses(b?.usage),
       });
     }

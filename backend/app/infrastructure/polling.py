@@ -335,8 +335,12 @@ class Scanner:
             self._battle_sample = sample
             self._record_battle()
             return
-        if sample.army and not self._battles.active:
-            self._resume_battle(sample, run_id)
+        pending = self._battles.battle is not None and self._battles.battle.roster_snapshot_pending
+        if sample.army and (not self._battles.active or pending) and sample.turn != 0:
+            if self._mem_pending == snapshot:
+                self._apply_memory(snapshot)  # stable roster slots still contain the pre-battle units
+            if not self._battles.active:
+                self._resume_battle(sample, run_id)
         self.feed_battle(sample, run_id)
         self._record_battle()
 
@@ -345,6 +349,15 @@ class Scanner:
         (tools/demo_battle.py also feeds a scripted battle through it)."""
         with self._battle_lock:
             changed, finished = self._battles.update(sample, run_id)
+            battle = self._battles.battle
+            if battle is not None and battle.roster_snapshot_pending and sample.turn != 0:
+                try:
+                    roster = self.store.get(run_id).units
+                    battle.roster_snapshot = {key: unit.model_copy(deep=True) for key, unit in roster.items()}
+                except NotFound:
+                    battle.roster_snapshot = {}
+                battle.roster_snapshot_pending = False
+                changed = True
         if finished and self.recorder is not None:
             self.recorder.stop()
         self._save_battle(finished)

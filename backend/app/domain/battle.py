@@ -439,6 +439,10 @@ class Battle(BaseModel):
     # Seconds the game was away from the battle (quit with a bookmark, then resumed): not counted in its time.
     away_s: float = 0
     units: list[BattleUnitStats] = Field(default_factory=list)
+    # Immutable roster at battle start; None means this recording predates snapshots.
+    roster_snapshot: dict[str, Unit] | None = None
+    # New recordings wait for the first active turn; persisted so a restart during preparations is safe.
+    roster_snapshot_pending: bool = False
     # Enemies and third-army units on the map (not your side's units outside the roster, allies or objects).
     enemies_start: int = 0
     enemies_now: int = 0
