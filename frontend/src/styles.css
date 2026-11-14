@@ -1317,6 +1317,16 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .condensed-row.tone-heal .condensed-icon > svg { color: var(--green); }
 /* Always the whole name, never cut short: the row grows to fit it. */
 .condensed-name { font-weight: 600; }
+/* A combat art: its round badge (the game's dark red disc with an orange rim) drawn out into an oval around its name. */
+.condensed-art {
+  display: inline-flex; align-items: center; gap: 0.3rem; padding: 0 0.7rem 0 0; border-radius: 99px;
+  background: radial-gradient(120% 140% at 0.75rem 50%, rgb(150 46 20), rgb(92 14 6) 55%, rgb(64 6 3));
+  border: 1.5px solid rgb(196 84 38); box-shadow: inset 0 0 0.35rem rgb(255 150 70 / 0.35);
+  color: rgb(255 244 214);
+}
+.condensed-art .condensed-icon { margin: -1.5px 0 -1.5px -1.5px; width: 1.6rem; height: 1.6rem; }
+.condensed-art .condensed-icon img { border-radius: 50%; }
+.condensed-art .condensed-name { text-shadow: 0 1px 2px rgb(0 0 0 / 0.6); }
 .condensed-value { font: 700 1em var(--nums); font-variant-numeric: tabular-nums lining-nums; }
 .condensed-row.tone-attack .condensed-value { color: var(--red); }
 .condensed-row.tone-heal .condensed-value { color: var(--green); }

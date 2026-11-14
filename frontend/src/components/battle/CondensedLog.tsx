@@ -85,14 +85,28 @@ export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX
         const age = shown.length - 1 - n;
         const opacity = (e.beat === current ? fade : 1) * Math.max(0.55, 1 - 0.12 * age);
         const named = shownName(e.item);
+        // A combat art's round badge stretches into an oval that holds its name, as the game's art badge would.
+        const art = !!artOf(e.item);
+        const icon = (
+          <span className="condensed-icon">
+            <ActionIcon item={e.item} />
+          </span>
+        );
         return (
           <li key={e.key} className={`condensed-row tone-${e.tone}`} style={{ opacity }} title={actionName(e.item)}>
             {actor && <UnitFace id={actor} name={nameOf(actor)} size="sm" />}
             <span className="condensed-action">
-              <span className="condensed-icon">
-                <ActionIcon item={e.item} />
-              </span>
-              {named && <span className="condensed-name">{named}</span>}
+              {art ? (
+                <span className="condensed-art">
+                  {icon}
+                  <span className="condensed-name">{named}</span>
+                </span>
+              ) : (
+                <>
+                  {icon}
+                  {named && <span className="condensed-name">{named}</span>}
+                </>
+              )}
               {e.value && <span className="condensed-value">{e.value}</span>}
             </span>
             {target && target !== actor && <UnitFace id={target} name={nameOf(target)} size="sm" />}
