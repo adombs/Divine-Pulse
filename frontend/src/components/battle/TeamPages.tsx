@@ -10,7 +10,7 @@ import { useEffect, useLayoutEffect, useMemo, useRef, useState, type ReactNode }
 import type { Battle, RunRoute, Unit } from "../../api";
 import { plural } from "../../format";
 import { equippedAccessory, gambitUses, gearName, usageList, type CardGear } from "../../exporting/usageList";
-import { chunk, MAX_COLUMNS, MAX_ROWS, PLACEMENTS, planGrid, sidesOf, type Axis, type GridPlan, type Placement } from "../../exporting/teamPages";
+import { chunk, fmtSeconds, MAX_COLUMNS, MAX_ROWS, PAGE_MS, PAGE_SECONDS, PLACEMENTS, planGrid, sanitizeSeconds, sidesOf, type Axis, type GridPlan, type Placement } from "../../exporting/teamPages";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
 import { FACES, layoutSlots, ORDER_BY, orderFor, pickRows, UnitSlots, type ExportFace, type OrderBy } from "../TeamExport";
@@ -31,6 +31,8 @@ export interface TeamPagesOptions {
   /** Cards across and down a page; null is Auto (as many as keep the text legible). */
   columns: Axis;
   rows: Axis;
+  /** How long each page stays on screen (one of `PAGE_SECONDS`). */
+  seconds: number;
   /** Keys of units unticked. */
   left: string[];
   /** The units in their slots (see TeamExport.tsx `layoutSlots`). */
@@ -46,11 +48,12 @@ export const DEFAULT_TEAM_PAGES: TeamPagesOptions = {
   face: "portrait",
   columns: null,
   rows: null,
+  seconds: PAGE_MS / 1000,
   left: [],
   placed: [],
 };
 
-/** Team pages as saved, made safe to use (anything unknown falls back to its default; options this version no longer has, such as run statistics and the seconds a page stays, are dropped). */
+/** Team pages as saved, made safe to use (anything unknown falls back to its default; options this version no longer has, such as run statistics, are dropped). */
 export function sanitizeTeamPages(saved: unknown): TeamPagesOptions {
   const s = (saved && typeof saved === "object" ? saved : {}) as Partial<Record<keyof TeamPagesOptions, unknown>>;
   // "both" was once a choice: it is now Start.
@@ -66,6 +69,7 @@ export function sanitizeTeamPages(saved: unknown): TeamPagesOptions {
     face: FACES.some(([f]) => f === s.face) ? (s.face as ExportFace) : DEFAULT_TEAM_PAGES.face,
     columns: axis(s.columns, MAX_COLUMNS),
     rows: axis(s.rows, MAX_ROWS),
+    seconds: sanitizeSeconds(s.seconds, DEFAULT_TEAM_PAGES.seconds),
     left: strings(s.left),
     placed: Array.isArray(s.placed) ? s.placed.slice(0, 500).map((k) => (typeof k === "string" ? k : null)) : [],
   };
@@ -286,12 +290,13 @@ export function TeamPagesSection({ team, update, pages, units, part2 }: {
           Team overview
         </label>
         {team.overview && <Segmented<Placement> size="mini" label="Team overview placement" value={team.overviewAt} onChange={(overviewAt) => update({ overviewAt })} options={PLACEMENTS} />}
-        {team.overview && pages.overview.length > 0 && <small className="team-pages-count" aria-live="polite">{plural(pages.overview.length, "page")}, a second each</small>}
+        {team.overview && pages.overview.length > 0 && <small className="team-pages-count" aria-live="polite">{plural(pages.overview.length, "page")}, {fmtSeconds(team.seconds)} each</small>}
       </div>
       {team.overview && (
         <div className="team-pages-grid">
           <AxisSlider label="Columns" max={MAX_COLUMNS} value={team.columns} onChange={(columns) => update({ columns })} />
           <AxisSlider label="Rows" max={MAX_ROWS} value={team.rows} onChange={(rows) => update({ rows })} />
+          <SecondsSlider label="Each page" value={team.seconds} onChange={(seconds) => update({ seconds: seconds ?? DEFAULT_TEAM_PAGES.seconds })} />
           {small && <p className="team-pages-note" role="status">Text will be small at {small.columns} × {small.rows}</p>}
         </div>
       )}
@@ -338,6 +343,25 @@ export function TeamPagesSection({ team, update, pages, units, part2 }: {
         </div>
       )}
     </div>
+  );
+}
+
+/** How long a page of the video stays on screen, as a slider over `PAGE_SECONDS`; with `auto`, an Auto stop (null) comes first. */
+export function SecondsSlider({ label, value, onChange, auto }: { label: string; value: number | null; onChange: (v: number | null) => void; auto?: string }) {
+  const offset = auto ? 1 : 0;
+  const index = value === null ? 0 : Math.max(0, PAGE_SECONDS.indexOf(value)) + offset;
+  const text = value === null ? `Auto${auto ? ` (${auto})` : ""}` : fmtSeconds(value);
+  return (
+    <StepSlider
+      label={label}
+      stops={PAGE_SECONDS.length + offset}
+      value={index}
+      onChange={(i) => onChange(auto && i === 0 ? null : PAGE_SECONDS[i - offset])}
+      valueText={text}
+      after={<span className="team-pages-axis-value">{value === null ? "Auto" : fmtSeconds(value)}</span>}
+      variant="timeline"
+      slim
+    />
   );
 }
 

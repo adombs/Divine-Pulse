@@ -14,8 +14,15 @@ export const PLACEMENTS: [Placement, string, string][] = [
 /** The sides of the replay a placement puts a picture on. */
 export const sidesOf = (placement: Placement): ("start" | "end")[] => ([placement]);
 
-/** How long each team page stays on screen (ms). */
+/** How long each team page stays on screen by default (ms). */
 export const PAGE_MS = 1000;
+/** The lengths (seconds) a page of the video can be set to stay on screen; the shortest leaves room for the crossfade. */
+export const PAGE_SECONDS: readonly number[] = [0.5, 1, 1.5, 2, 2.5, 3, 4, 5, 6, 8, 10, 12, 15];
+/** A saved page length: one of `PAGE_SECONDS`, or `fallback`. */
+export const sanitizeSeconds = <T extends number | null>(v: unknown, fallback: T): number | T =>
+  typeof v === "number" && PAGE_SECONDS.includes(v) ? v : fallback;
+/** Seconds as the Team tab writes them: "1 s", "1.5 s". */
+export const fmtSeconds = (s: number): string => `${s.toLocaleString(undefined, { maximumFractionDigits: 1 })} s`;
 /** How long the crossfade between two scenes lasts (ms), half either side of the cut; well inside a page's second. */
 export const FADE_MS = 200;
 /** The smallest text is drawn at least this share of the frame's short side (about 22 px in a 1080p frame, either way up). */

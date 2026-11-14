@@ -5,6 +5,7 @@
 ## 1.4.6 (2026-11-13)
 
 - Each run can have a ruleset: your self-imposed rules, added from common challenge rules (Maddening, No Divine Pulse, No DLC, House only and more) or written yourself, edited and reordered on the Runs page, and shared as an image or as a page before or after the replay in Export Video.
+- Export Video's Team tab lets you set how long the ruleset page stays on screen (Auto: longer the more rules), and how long each team overview page does (1 second by default).
 - A unit's run score is now its damage dealt plus healing done, averaged over the completed battles it was deployed in. Battles where it was only an adjutant don't count, and battle MVPs no longer add points. The Character Stats total for Score is left blank, since averages don't add up.
 
 ## 1.4.5 (2026-11-13)

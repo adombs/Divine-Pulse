@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { chunk, FADE_MS, LEGIBLE_FRACTION, legibleScale, MAX_COLUMNS, MAX_ROWS, PAGE_MS, PLACEMENTS, planGrid, sceneAt, sidesOf } from "../src/exporting/teamPages.ts";
+import { chunk, FADE_MS, fmtSeconds, LEGIBLE_FRACTION, legibleScale, MAX_COLUMNS, MAX_ROWS, PAGE_MS, PAGE_SECONDS, PLACEMENTS, planGrid, sanitizeSeconds, sceneAt, sidesOf } from "../src/exporting/teamPages.ts";
 import { cardSlots, equippedAccessory, gambitUses, gearName, LIST_SLOTS, usageList } from "../src/exporting/usageList.ts";
 
 test("the smallest text is 2.0% of the frame's short side", () => {
@@ -250,4 +250,18 @@ test("card slots: more than eight turns the eighth into '+N more' (counting the 
   assert.deepEqual(s.slice(2, 9).map((x) => x.item.name), ["W0", "W1", "W2", "W3", "W4", "W5", "W6"]);
   assert.deepEqual(cardSlots(gearOf(9))[9], { type: "more", count: 2 });
   assert.deepEqual(cardSlots(gearOf(9, "Ring"))[0], { type: "accessory", name: "Ring" });
+});
+
+test("a page's length is one of the offered seconds, each long enough for its crossfade", () => {
+  assert.ok(PAGE_SECONDS.includes(PAGE_MS / 1000));
+  assert.ok(PAGE_SECONDS.every((s, i) => s * 1000 > FADE_MS && (i === 0 || s > PAGE_SECONDS[i - 1])));
+  assert.equal(sanitizeSeconds(2.5, 1), 2.5);
+  assert.equal(sanitizeSeconds(2.7, 1), 1);
+  assert.equal(sanitizeSeconds("3", 1), 1);
+  assert.equal(sanitizeSeconds(undefined, null), null);
+  assert.equal(fmtSeconds(1.5), (1.5).toLocaleString() + " s");
+  // Longer pages push the replay back: the scene at a moment follows the lengths given.
+  const long = [{ id: "p1", ms: 3000 }, { id: "replay", ms: 4000 }];
+  assert.equal(sceneAt(long, 2000).a.index, 0);
+  assert.equal(sceneAt(long, 3500).a.index, 1);
 });

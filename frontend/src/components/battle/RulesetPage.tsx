@@ -8,23 +8,26 @@ import "./replay-export.css";
 import { useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import type { RunRoute } from "../../api";
 import { plural } from "../../format";
-import { PLACEMENTS, type Placement } from "../../exporting/teamPages";
+import { fmtSeconds, PLACEMENTS, sanitizeSeconds, type Placement } from "../../exporting/teamPages";
 import { fitScale, rulesetColumns, rulesetPageMs, type Rule } from "../../ruleset";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { RULE_COLUMN_GAP, RULE_COLUMN_W, RulesetList } from "../Ruleset";
-import type { PageFrame } from "./TeamPages";
+import { SecondsSlider, type PageFrame } from "./TeamPages";
 
 export interface RulesetPageOptions {
   show: boolean;
   at: Placement;
+  /** How long the page stays on screen (one of `PAGE_SECONDS`), or null for Auto: longer the more rules (`rulesetPageMs`). */
+  seconds: number | null;
 }
-export const DEFAULT_RULESET_PAGE: RulesetPageOptions = { show: false, at: "start" };
+export const DEFAULT_RULESET_PAGE: RulesetPageOptions = { show: false, at: "start", seconds: null };
 
 export function sanitizeRulesetPage(saved: unknown): RulesetPageOptions {
   const s = (saved && typeof saved === "object" ? saved : {}) as Partial<Record<keyof RulesetPageOptions, unknown>>;
   return {
     show: s.show === true,
     at: PLACEMENTS.find(([p]) => p === s.at)?.[0] ?? DEFAULT_RULESET_PAGE.at,
+    seconds: sanitizeSeconds(s.seconds, null),
   };
 }
 
@@ -76,7 +79,7 @@ export function useRulesetPage({ options, rules, frame }: { options: RulesetPage
       <div ref={host}><RulesetList rules={rules} columns={columns} /></div>
     </div>
   ) : null;
-  return { measure, enabled, columns, scale, width, ms: rulesetPageMs(rules.length) };
+  return { measure, enabled, columns, scale, width, ms: options.seconds === null ? rulesetPageMs(rules.length) : options.seconds * 1000 };
 }
 
 /** The page at the frame's exact size: the title strip over the rules. */
@@ -107,7 +110,7 @@ export function RulesetPageView({ rules, frame, run, page, ref }: {
   );
 }
 
-/** The option in the video's Team tab: whether the ruleset page is in, and where. */
+/** The option in the video's Team tab: whether the ruleset page is in, where, and for how long. */
 export function RulesetPageSection({ options, update, rules, page }: {
   options: RulesetPageOptions;
   update: (patch: Partial<RulesetPageOptions>) => void;
@@ -116,14 +119,24 @@ export function RulesetPageSection({ options, update, rules, page }: {
 }) {
   if (rules === null) return <p className="export-note">Reading the run's ruleset…</p>;
   if (!rules.length) return <p className="export-note">This run has no rules yet. Add them under Ruleset on the Runs page.</p>;
-  return (
+  const choice = (
     <div className="team-pages-choice">
       <label>
         <input type="checkbox" checked={options.show} onChange={(e) => update({ show: e.target.checked })} />
         Ruleset page
       </label>
       {options.show && <Segmented<Placement> size="mini" label="Ruleset page placement" value={options.at} onChange={(at) => update({ at })} options={PLACEMENTS} />}
-      {options.show && <small className="team-pages-count" aria-live="polite">{plural(rules.length, "rule")}, {(page.ms / 1000).toLocaleString(undefined, { maximumFractionDigits: 1 })} seconds</small>}
+      {options.show && <small className="team-pages-count" aria-live="polite">{plural(rules.length, "rule")}, {fmtSeconds(page.ms / 1000)}</small>}
     </div>
+  );
+  return (
+    <>
+      {choice}
+      {options.show && (
+        <div className="team-pages-grid">
+          <SecondsSlider label="On screen" value={options.seconds} auto={fmtSeconds(rulesetPageMs(rules.length) / 1000)} onChange={(seconds) => update({ seconds })} />
+        </div>
+      )}
+    </>
   );
 }

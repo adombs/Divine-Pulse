@@ -24,7 +24,7 @@ import { StepSlider } from "../Slider";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
-import { PAGE_MS, sceneAt, type Segment } from "../../exporting/teamPages";
+import { sceneAt, type Segment } from "../../exporting/teamPages";
 import { CUSTOM_ID, customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, previewTheme, recording, releaseCustomAudio, setPreviewVolume, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
@@ -376,7 +376,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   }, [durations, first, last]);
   // The video: the pages before the replay (the ruleset first), the replay, the pages after it (the ruleset last), with
   // a crossfade at each cut (sceneAt).
-  const pageMs = PAGE_MS;
+  const pageMs = options.team.seconds * 1000;
   const rulesAt = rulesPage.enabled ? options.rules.at : null;
   const parts = useMemo<Part[]>(() => [
     ...(rulesAt === "start" ? [{ kind: "rules" } as Part] : []),
