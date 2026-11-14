@@ -17,7 +17,7 @@ import type { Battle } from "../../api";
 import { plural } from "../../format";
 import { clock } from "../../format";
 import { hpShare, Item } from "./model";
-import { Action, Board, boardAt, boardNow, Frame, stepAction, stepLabel, type StepKinds, turnStarts } from "./map";
+import { Action, Board, boardAt, boardNow, Frame, PHASE, phaseArmy, stepAction, stepLabel, type StepKinds, turnStarts } from "./map";
 import { actionKinds, type Beat, type Chronicle } from "./chronicle";
 import { actingBeats, CONDENSED_KEEP, condensedEntries, type CondensedEntry } from "./replayLabels";
 import { BattleNavContext, KeyNumber, keyNumbers, teamNumber } from "./parts";
@@ -328,7 +328,7 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const lastPhase = [...battle.log].reverse().find((entry) => entry.turn === battle.turn && entry.phase !== null && entry.phase !== undefined)?.phase;
   const finalPhase = lastPhase ?? final?.phase;
   const finalLabel = battle.turn !== null
-    ? `Turn ${battle.turn}${finalPhase === undefined ? "" : ` · ${finalPhase === 0 ? "Player" : finalPhase === 1 ? "Enemy" : "Other"} Phase`}`
+    ? `Turn ${battle.turn}${finalPhase === undefined ? "" : ` · ${PHASE[finalPhase] ?? "Other Phase"}`}`
     : final ? stepLabel(final) : "At the end";
   const label = at === null ? (battle.active ? "Now" : finalLabel) : current && current.pulse !== null ? `Divine Pulse ${current.pulse + 1} · Turn ${steps[at].turn}` : stepLabel(steps[at]);
   const detail = at === null ? `${plural(steps.length, "step")} to replay` : `step ${at + 1} of ${steps.length}`;
@@ -340,7 +340,7 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
     pulse: at !== null && current?.pulse != null ? current.pulse + 1 : null,
     turn: at !== null ? steps[at].turn : (battle.turn ?? final?.turn ?? null),
     turns: turnCount || null,
-    phase: at !== null ? (PHASE_NAME[steps[at].phase] ?? "Other Phase") : finalPhase === undefined ? null : (PHASE_NAME[finalPhase] ?? "Other Phase"),
+    phase: at !== null ? (PHASE[steps[at].phase] ?? "Other Phase") : finalPhase === undefined ? null : (PHASE[finalPhase] ?? "Other Phase"),
     step: at !== null ? at + 1 : steps.length,
     steps: steps.length,
   };
@@ -421,7 +421,6 @@ export function followed({ cursor, action, board }: { cursor: [number, number] |
   return [];
 }
 
-const PHASE_NAME: Record<number, string> = { 0: "Player Phase", 1: "Enemy Phase" };
 
 /** What the turn counter says: the turn of how many, the phase, and the step of how many (or a Divine Pulse's number). */
 export interface TurnCounter {
@@ -437,7 +436,6 @@ export interface TurnCounter {
 }
 
 /** The army whose phase a step fell in, for the colour of its banner. */
-const phaseArmy = (phase: number) => (phase === 0 ? "player" : phase === 1 ? "enemy" : "other");
 
 /** The replay under the map: the buttons, and a timeline from the start (left) to now (right) with a notch per beat
  * (taller at each new turn, coloured by the phase's army). */
@@ -505,7 +503,7 @@ export function ReplayBar({ replay: r }: { replay: Replay }) {
 }
 
 /** The turn counter: the step shown as "Turn 3/12 · Player Phase · Step 45/69", in a pill like the log's number chips,
- * its phase mark in the army's colour (blue player, red enemy, green other, purple now). `size` scales it (1: as is). */
+ * its phase mark in the army's colour (blue player, red enemy, green ally, yellow third army, purple now). `size` scales it (1: as is). */
 export function ReplayBanner({ replay: r, size = 1, className, showTurn = true, showPhase = true, showStep = true }: { replay: Replay; size?: number; className?: string; showTurn?: boolean; showPhase?: boolean; showStep?: boolean }) {
   if (!r.steps.length) return null;
   const c = r.counter;

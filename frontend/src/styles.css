@@ -1360,7 +1360,7 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 
 /* Replay: the turn counter over the map's bottom left corner, a pill like the condensed log's rows: "Turn 3/12 · Player
    Phase · Step 45/69", its numbers in the numbers' face and its phase mark in the phase's army colour (blue player, red
-   enemy, green other, purple now). */
+   enemy, green ally, yellow third army, purple now). */
 .replay-banner {
   --mark: var(--accent-2);
   position: absolute; z-index: 2; left: 0.6rem; bottom: 0.6rem; max-width: calc(100% - 1.2rem);
@@ -1371,7 +1371,8 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 }
 .replay-banner.player { --mark: var(--team-player); }
 .replay-banner.enemy { --mark: var(--team-enemy); }
-.replay-banner.other { --mark: var(--team-ally); }
+.replay-banner.ally { --mark: var(--team-ally); }
+.replay-banner.third { --mark: var(--team-third); }
 .replay-banner-mark {
   display: inline-grid; place-items: center; width: 1.6em; height: 1.6em; flex: none; border-radius: 50%; color: var(--mark);
   background: color-mix(in srgb, var(--ink) 9%, transparent); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
@@ -1398,7 +1399,8 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .notch.major { top: 0; bottom: 0; width: 2px; transform: translateX(-1px); opacity: 1; }
 .notch.player { background: #4f8ff0; }
 .notch.enemy { background: #e0554a; }
-.notch.other { background: #5fbf73; }
+.notch.ally { background: #5fbf73; }
+.notch.third { background: var(--team-third); }
 .notched input { position: relative; width: 100%; height: var(--thumb); margin: 0; background: transparent; appearance: none; -webkit-appearance: none; cursor: pointer; }
 .notched input::-webkit-slider-runnable-track { height: var(--thumb); background: transparent; }
 .notched input::-moz-range-track { height: var(--thumb); background: transparent; }
@@ -1785,7 +1787,8 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .log-row.heading { padding-top: 0.18rem; padding-bottom: 0.18rem; background: var(--paper-2); box-shadow: inset 3px 0 0 var(--line); }
 .log-row.heading.player { box-shadow: inset 3px 0 0 #4f8ff0; }
 .log-row.heading.enemy { box-shadow: inset 3px 0 0 #e0554a; }
-.log-row.heading.other { box-shadow: inset 3px 0 0 #5fbf73; }
+.log-row.heading.ally { box-shadow: inset 3px 0 0 #5fbf73; }
+.log-row.heading.third { box-shadow: inset 3px 0 0 var(--team-third); }
 .log-row.heading .log-icon { background: none; }
 .log-heading-text { font: 700 0.74rem var(--ui); letter-spacing: 0.06em; text-transform: uppercase; color: var(--ink-soft); }
 .log-row.kind-pulse, .log-row.kind-divine_pulse { background: color-mix(in srgb, var(--accent) 9%, transparent); font-style: italic; }
