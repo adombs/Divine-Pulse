@@ -21,6 +21,7 @@ import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
+import { DEFAULT_VIDEO_LOG, LOG_PLACEMENTS, logLimit, MAX_LOG_LINES, newestRows, OVERLAY_AUTO_LINES, sanitizeVideoLog, type LogPlacement, type VideoLogOptions } from "../../exporting/videoLog";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
@@ -88,8 +89,10 @@ interface VideoOptions {
   team: TeamPagesOptions;
   /** The run's ruleset shown before or after the replay (RulesetPage.tsx). */
   rules: RulesetPageOptions;
+  /** Where the log goes (a panel of its own, or over the map) and how many rows it shows (videoLog.ts). */
+  log: VideoLogOptions;
 }
-const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, team: DEFAULT_TEAM_PAGES, rules: DEFAULT_RULESET_PAGE };
+const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, team: DEFAULT_TEAM_PAGES, rules: DEFAULT_RULESET_PAGE, log: DEFAULT_VIDEO_LOG };
 
 function loadOptions(): VideoOptions {
   try {
@@ -103,6 +106,7 @@ function loadOptions(): VideoOptions {
       volume: Number.isInteger(saved.volume) && saved.volume! >= 0 && saved.volume! <= 100 ? saved.volume! : DEFAULT_OPTIONS.volume,
       team: sanitizeTeamPages(saved.team),
       rules: sanitizeRulesetPage(saved.rules),
+      log: sanitizeVideoLog(saved.log),
     };
   } catch {
     return DEFAULT_OPTIONS;
@@ -115,6 +119,13 @@ const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap"], remove: [".r
 const MAP_LAYER: Layer = {
   hide: [".replay-stage-title", ".replay-stage-log"],
   styles: "map",
+  css: ".replay-stage { background: none !important; box-shadow: none !important; }",
+};
+/** With the log over the map, the chrome leaves the log out, and the log is a third layer drawn over the map: it changes
+ * once a step, like the chrome. */
+const CHROME_UNDER_LOG: Layer = { ...CHROME_LAYER, hide: [...CHROME_LAYER.hide!, ".replay-stage-log"] };
+const LOG_LAYER: Layer = {
+  hide: [".replay-stage-title", ".replay-stage-map"],
   css: ".replay-stage { background: none !important; box-shadow: none !important; }",
 };
 
@@ -171,11 +182,13 @@ const TITLE_H: Record<Orientation, number> = { landscape: 46, wide: 46, portrait
 const MAP_FRAME = 14;
 const LOG_MIN: Record<Orientation, number> = { landscape: 380, wide: 380, portrait: 360, feed: 240 };
 
-/** The most room the map can have: the whole height (log beside) or width (log under) and all but the log's least. */
-function mapRoom(orientation: Orientation): [number, number] {
+/** The most room the map can have: the whole height (log beside) or width (log under) and all but the log's least; with
+ * the log over the map, everything under the title. */
+function mapRoom(orientation: Orientation, place: LogPlacement): [number, number] {
   const [width, height] = STAGE[orientation];
   const innerW = width - 2 * PAD;
   const innerH = height - 2 * PAD - TITLE_H[orientation] - GAP;
+  if (place === "overlay") return [innerW - MAP_FRAME, innerH - MAP_FRAME];
   return logBeside(orientation)
     ? [innerW - GAP - LOG_MIN[orientation] - MAP_FRAME, innerH - MAP_FRAME]
     : [innerW - MAP_FRAME, innerH - GAP - LOG_MIN[orientation] - MAP_FRAME];
@@ -185,11 +198,12 @@ function mapRoom(orientation: Orientation): [number, number] {
  * The camera's view in tiles at a zoom level: the whole map zoomed out; zoomed in, `tiles` along the map's short side
  * of the frame and as many along the long side as the room there holds, so the map fills all the room it can.
  */
-function viewSize(orientation: Orientation, tiles: number, board: { w: number; h: number }): [number, number] {
+function viewSize(orientation: Orientation, place: LogPlacement, tiles: number, board: { w: number; h: number }): [number, number] {
   if (!tiles) return [board.w + 0.3, board.h + 0.3];
-  const [w, h] = mapRoom(orientation);
-  const across = logBeside(orientation) ? tiles * (w / h) : tiles;
-  const down = logBeside(orientation) ? tiles : tiles * (h / w);
+  const [w, h] = mapRoom(orientation, place);
+  const wide = place === "overlay" ? w >= h : logBeside(orientation);
+  const across = wide ? tiles * (w / h) : tiles;
+  const down = wide ? tiles : tiles * (h / w);
   return [Math.min(across, board.w), Math.min(down, board.h)];
 }
 
@@ -200,13 +214,32 @@ function viewAround([cx, cy]: [number, number], [w, h]: [number, number], board:
   return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
 }
 
+/** A frame's grid (set inline): its tracks, and with the log over the map, its own areas and no gaps. */
+interface StageLayout {
+  columns: string;
+  rows: string;
+  areas?: string;
+  gap?: number;
+}
+
 /**
  * The rows and columns of a frame: the title strip across the top, then the map on the left and the log beside it
  * (16:9, 1.91:1), or the map and the log under it (9:16, 4:5). The map gets what its view's shape needs (`aspect`, its
- * width over its height) of the room `mapRoom` allows; the log, the rest.
+ * width over its height) of the room `mapRoom` allows; the log, the rest. With the log over the map, the map is centred
+ * under the title at exactly its size, so the log's corner is the map's.
  */
-function stageLayout(orientation: Orientation, aspect: number): { columns: string; rows: string } {
-  const [w, h] = mapRoom(orientation);
+function stageLayout(orientation: Orientation, place: LogPlacement, aspect: number): StageLayout {
+  const [w, h] = mapRoom(orientation, place);
+  if (place === "overlay") {
+    const mapW = Math.min(h * aspect, w);
+    const mapH = mapW / aspect;
+    return {
+      columns: `minmax(0, 1fr) ${Math.round(mapW + MAP_FRAME)}px minmax(0, 1fr)`,
+      rows: `${TITLE_H[orientation]}px ${GAP}px minmax(0, 1fr) ${Math.round(mapH + MAP_FRAME)}px minmax(0, 1fr)`,
+      areas: '"title title title" ". . ." ". . ." ". map ." ". . ."',
+      gap: 0,
+    };
+  }
   if (logBeside(orientation)) {
     const mapW = Math.round(Math.min(h * aspect, w) + MAP_FRAME);
     return { columns: `${mapW}px minmax(0, 1fr)`, rows: `${TITLE_H[orientation]}px minmax(0, 1fr)` };
@@ -258,6 +291,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   };
   const setOption = <K extends keyof VideoOptions>(key: K, value: VideoOptions[K]) => setOptionsState((o) => keep({ ...o, [key]: value }));
   const updateTeam = (patch: Partial<TeamPagesOptions>) => setOptionsState((o) => keep({ ...o, team: { ...o.team, ...patch } }));
+  const updateLog = (patch: Partial<VideoLogOptions>) => setOptionsState((o) => keep({ ...o, log: { ...o.log, ...patch } }));
+  const autoLines = options.log.place === "overlay" ? `the newest ${OVERLAY_AUTO_LINES} lines` : "as many lines as fit";
   const updateRules = (patch: Partial<RulesetPageOptions>) => setOptionsState((o) => keep({ ...o, rules: { ...o.rules, ...patch } }));
   // The run's ruleset, for its page.
   const [rules, setRules] = useState<Rule[] | null>(null);
@@ -447,7 +482,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
 
   // The camera, from the moment alone: a dynamic one glides from the last step's action to this one's.
   const { board } = replay;
-  const size = viewSize(orientation, ZOOM_TILES[level], board);
+  const size = viewSize(orientation, options.log.place, ZOOM_TILES[level], board);
   const viewOf = (c: [number, number]): Zoom => viewAround(c, size, board) ?? { x0: 0, y0: 0, w: board.w, h: board.h };
   const dynamicCentre = (m: Moment): [number, number] => {
     const to = viewOf(centre(focus[m.beat] ?? [], board.w, board.h));
@@ -480,7 +515,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     if (next === level) return;
     if (mode === "static") {
       const fromView = zoom ?? { x0: 0, y0: 0, w: board.w, h: board.h };
-      const toView = viewAround(looking, viewSize(orientation, ZOOM_TILES[next], board), board) ?? { x0: 0, y0: 0, w: board.w, h: board.h };
+      const toView = viewAround(looking, viewSize(orientation, options.log.place, ZOOM_TILES[next], board), board) ?? { x0: 0, y0: 0, w: board.w, h: board.h };
       const nx0 = x - ((x - fromView.x0) * toView.w) / fromView.w;
       const ny0 = y - ((y - fromView.y0) * toView.h) / fromView.h;
       setStill([nx0 + toView.w / 2, ny0 + toView.h / 2]);
@@ -495,7 +530,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   };
 
   // The camera's view keeps one shape at a zoom level (the whole map's, zoomed out), so the frame is laid out for it.
-  const layout = stageLayout(orientation, size[0] / size[1]);
+  const layout = stageLayout(orientation, options.log.place, size[0] / size[1]);
   const stage = useRef<HTMLDivElement>(null);
   // The page being drawn for the video, in a hidden copy of the frame.
   const [raster, setRaster] = useState<Part | null>(null);
@@ -520,6 +555,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     // Each layer is loaded into one image element over and over (snapshot.ts `image`), so no decoded frame is left behind.
     const chromeImg = new Image();
     const mapImg = new Image();
+    const logImg = new Image();
+    const overlay = options.log.place === "overlay";
     // Team pages: each is drawn to a picture once (kept as its document while the video is made), and decoded while it is on screen.
     const docs = new Map<string, string>();
     const pageImages = new Map<number, HTMLImageElement>();
@@ -549,6 +586,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
       // step; the map (with its turn banner) is drawn each frame on its own, with only the styles it needs.
       let chrome: { beat: number; img: HTMLImageElement } | null = null;
       let map: { doc: string; img: HTMLImageElement } | null = null;
+      let logOver: HTMLImageElement | null = null;
       const video = await encodeVideo({
         width: out[0],
         height: out[1],
@@ -576,7 +614,10 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
           if (withReplay) {
             const beat = momentAt(replayTime(ms)).beat;
             const newChrome = chrome?.beat !== beat;
-            if (newChrome) chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
+            if (newChrome) {
+              chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, overlay ? CHROME_UNDER_LOG : CHROME_LAYER), chromeImg) };
+              logOver = overlay ? await snap.image(await snap.svg(el, width, height, scale, LOG_LAYER), logImg) : null;
+            }
             const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
             const newMap = map?.doc !== doc;
             if (newMap) map = { doc, img: await snap.image(doc, mapImg) };
@@ -586,6 +627,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
           if (withReplay) {
             g.drawImage(chrome!.img, 0, 0, out[0], out[1]);
             g.drawImage(map!.img, 0, 0, out[0], out[1]);
+            if (logOver) g.drawImage(logOver, 0, 0, out[0], out[1]);
           }
           // Pages go over the replay (fading out as the replay fades in beneath, in as it fades out), or over each other.
           if (a.kind !== "replay") {
@@ -618,6 +660,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
       abort.current = null;
       chromeImg.removeAttribute("src");
       mapImg.removeAttribute("src");
+      logImg.removeAttribute("src");
       for (const img of pageImages.values()) img.removeAttribute("src");
       setRaster(null);
     }
@@ -694,6 +737,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
               moment={moment}
               orientation={orientation}
               layout={layout}
+              log={options.log}
               route={route}
               zoom={zoom}
               onWheelAt={working ? undefined : onWheelAt}
@@ -722,12 +766,27 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                       value={orientation}
                       onChange={setOrientation}
                       options={[
-                        ["landscape", "16:9", "1920 × 1080, the log beside the map"],
-                        ["wide", "1.91:1", "2064 × 1080, the log beside the map"],
-                        ["portrait", "9:16", "1080 × 1920, the log under the map"],
-                        ["feed", "4:5", "1080 × 1350, the log under the map"],
+                        ["landscape", "16:9", `1920 × 1080, the log ${options.log.place === "overlay" ? "on" : "beside"} the map`],
+                        ["wide", "1.91:1", `2064 × 1080, the log ${options.log.place === "overlay" ? "on" : "beside"} the map`],
+                        ["portrait", "9:16", `1080 × 1920, the log ${options.log.place === "overlay" ? "on" : "under"} the map`],
+                        ["feed", "4:5", `1080 × 1350, the log ${options.log.place === "overlay" ? "on" : "under"} the map`],
                       ]}
                     />
+                  </fieldset>
+                  <fieldset className="export-group" disabled={working}>
+                    <legend>Log</legend>
+                    <Segmented<LogPlacement> label="Log placement" value={options.log.place} onChange={(place) => updateLog({ place })} options={LOG_PLACEMENTS} />
+                    <StepSlider
+                      label="Lines"
+                      stops={MAX_LOG_LINES + 1}
+                      value={options.log.lines ?? 0}
+                      onChange={(i) => updateLog({ lines: i === 0 ? null : i })}
+                      valueText={options.log.lines === null ? autoLines : `${options.log.lines} at most`}
+                      after={<span className="team-pages-axis-value">{options.log.lines ?? "Auto"}</span>}
+                      variant="timeline"
+                      slim
+                    />
+                    <p className="export-note">{options.log.lines === null ? `Auto: ${autoLines}.` : `The newest ${options.log.lines} ${options.log.lines === 1 ? "line" : "lines"} at a time.`}</p>
                   </fieldset>
                   <fieldset className="export-group" disabled={working}>
                     <legend>Video</legend>
@@ -982,7 +1041,8 @@ interface StageProps {
   replay: ReturnType<typeof useReplay>;
   moment: Moment;
   orientation: Orientation;
-  layout: { columns: string; rows: string };
+  layout: StageLayout;
+  log: VideoLogOptions;
   route: RunRoute | null;
   zoom: Zoom | null;
   onWheelAt?: (x: number, y: number, deltaY: number) => void;
@@ -991,7 +1051,7 @@ interface StageProps {
 }
 
 /** One frame of the video: the title strip, the map and the log. */
-function ReplayStage({ battle, chron, replay, moment, orientation, layout, route, zoom, onWheelAt, onDrag, ref }: StageProps) {
+function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, route, zoom, onWheelAt, onDrag, ref }: StageProps) {
   const name = battleName(battle);
   // The log up to the step on the map: rows of later steps aren't shown yet (the newest is at the bottom).
   const rows = useMemo(() => {
@@ -1003,11 +1063,17 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, route
     }
     return out;
   }, [chron.log, moment.beat]);
+  const limit = logLimit(log);
+  const shown = useMemo(() => newestRows(rows, limit), [rows, limit]);
+  const overlay = log.place === "overlay";
   const date = new Date(battle.started_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   return (
     // The picture is taken of the outer box, exactly the frame's size.
     <div ref={ref} className="replay-stage-theme">
-    <div className={`replay-stage ${logBeside(orientation) ? "landscape" : "portrait"} ${orientation}`} style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows }}>
+    <div
+      className={`replay-stage ${logBeside(orientation) ? "landscape" : "portrait"} ${orientation}${overlay ? " log-overlay" : ""}`}
+      style={{ gridTemplateColumns: layout.columns, gridTemplateRows: layout.rows, gridTemplateAreas: layout.areas, gap: layout.gap }}
+    >
       <header className="replay-stage-title">
         <CardBanner title={name.title} icon={<RunIcon route={route} />} />
         <div className="replay-stage-meta">
@@ -1038,12 +1104,12 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, route
         )}
         <ReplayBanner replay={replay} />
       </div>
-      <section className="replay-stage-log" aria-label="Log">
+      <section className={`replay-stage-log${overlay ? " overlay" : ""}${limit !== null ? " limited" : ""}`} aria-label="Log">
         <h3 className="replay-stage-log-title">
           <Icon name={CONCEPT_ICON.log} /> Log
         </h3>
         <div className="replay-stage-rows">
-          <ItemList items={rows} current={replay.at} empty="The battle begins." />
+          <ItemList items={shown as typeof rows} current={replay.at} empty="The battle begins." />
         </div>
       </section>
     </div>

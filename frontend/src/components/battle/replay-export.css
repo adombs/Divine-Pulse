@@ -58,6 +58,19 @@
 }
 .replay-stage-rows .log-list { flex: none; }
 
+/* The log over the map (Export Video > Format > Log: Overlay): the map has the frame to itself under the title, and the
+   log sits in its bottom-right corner, its text the size of the panel's. It is as tall as its rows, up to half the map. */
+.replay-stage.log-overlay .replay-stage-map { grid-area: map; }
+.replay-stage-log.overlay {
+  grid-area: map; align-self: end; justify-self: end; z-index: 1;
+  width: min(380px, 62%); max-height: 50%; margin: 0 12px 12px 0;
+  background: color-mix(in srgb, var(--paper-2) 90%, transparent);
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.35);
+}
+.replay-stage.portrait .replay-stage-log.overlay { width: min(360px, 62%); }
+/* On the map the log is only as tall as its few rows, so nothing fades at its top. */
+.replay-stage-log.overlay.limited .replay-stage-rows { mask-image: none; }
+
 /* The box the video's picture is taken of: exactly the frame's size. */
 .replay-stage-theme { width: 100%; height: 100%; isolation: isolate; }
 
