@@ -1297,24 +1297,25 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 /* The condensed log (CondensedLog.tsx): the replay's newest actions in the map's bottom-right corner, one line each:
    who, the action as an oval (icon, name and number), and whom. Text the log's size. */
 .condensed-log {
-  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.3rem;
+  list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; align-items: flex-end; gap: 0.3em;
   pointer-events: none; font: inherit; line-height: 1.35;
 }
 .condensed-row {
-  display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.22rem 0.55rem 0.22rem 0.3rem;
+  display: inline-flex; align-items: center; gap: 0.45em; padding: 0.22em 0.55em 0.22em 0.3em;
   border-radius: 99px; background: color-mix(in srgb, var(--paper-2) 92%, transparent);
   border: 1px solid var(--row-border); box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
 }
-.condensed-row .unit-face { width: 1.9rem; height: 1.9rem; flex: none; }
+.condensed-row .unit-face, .condensed-row .unit-face.sm { width: 1.9em; height: 1.9em; flex: none; }
+.condensed-row .unit-face.initial { font-size: 0.85em; }
 /* The action, as an oval like the log's number chips (.num-chip): its icon, in the doer's army colour, then its name (an
    art, spell or Rally) and number. */
 .condensed-action {
-  display: inline-flex; align-items: center; gap: 0.35rem; flex: none; white-space: nowrap; padding: 0.06rem 0.6rem 0.06rem 0.35rem;
+  display: inline-flex; align-items: center; gap: 0.35em; flex: none; white-space: nowrap; padding: 0.06em 0.6em 0.06em 0.35em;
   border-radius: 99px; color: var(--ink);
   background: color-mix(in srgb, var(--ink) 9%, transparent); border: 1px solid color-mix(in srgb, var(--ink) 22%, transparent);
 }
 /* Every action icon at one size (the star's and the gambit's, which set it). */
-.condensed-icon { display: inline-grid; place-items: center; width: 1.02rem; height: 1.02rem; flex: none; color: var(--ink-soft); font-size: 1rem; }
+.condensed-icon { display: inline-grid; place-items: center; width: 1.02em; height: 1.02em; flex: none; color: var(--ink-soft); font-size: 1em; }
 .condensed-icon .game-icon { width: 100%; height: 100%; vertical-align: 0; cursor: inherit; }
 .condensed-icon img, .condensed-icon svg { width: 100%; height: 100%; object-fit: contain; }
 /* The game's square icons (a gambit's tile, an item's) with their corners rounded off. */
@@ -1361,7 +1362,7 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .replay-banner {
   --mark: var(--accent-2);
   position: absolute; z-index: 2; left: 0.6rem; bottom: 0.6rem; max-width: calc(100% - 1.2rem);
-  display: inline-flex; align-items: center; gap: 0.5rem; margin: 0; padding: 0.22rem 0.75rem 0.22rem 0.35rem; min-width: 0;
+  display: inline-flex; align-items: center; gap: 0.5em; margin: 0; padding: 0.22em 0.75em 0.22em 0.35em; min-width: 0;
   font-size: 0.92rem; line-height: 1.35; color: var(--ink); white-space: nowrap; pointer-events: none;
   border-radius: 99px; background: color-mix(in srgb, var(--paper-2) 92%, transparent);
   border: 1px solid var(--row-border); box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);

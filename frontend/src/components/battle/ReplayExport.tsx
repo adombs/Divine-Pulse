@@ -233,8 +233,8 @@ function LayoutSection({ title, note, on, onToggle, children }: { title: string;
   );
 }
 
-/** Which of the map's corners something over it sits in: a small map whose corners are clicked. Corners holding
- * something else show a faint mark, so sharing one (and stacking) is clear before it's chosen. */
+/** Which of the map's corners something over it sits in: a small outline of the map whose corners are clicked (arrow
+ * keys move between them). A corner's hover text names what else is already there. */
 function CornerPicker({ label, which, log, onChange }: { label: string; which: Overlay; log: VideoLogOptions; onChange: (corner: Corner) => void }) {
   const value = log.place[which];
   const stacks = cornerStacks(log);
@@ -263,7 +263,7 @@ function CornerPicker({ label, which, log, onChange }: { label: string; which: O
               role="radio"
               aria-checked={picked}
               tabIndex={picked ? 0 : -1}
-              className={`corner-spot ${corner}${picked ? " on" : ""}${others.length ? " shared" : ""}`}
+              className={`corner-spot ${corner}${picked ? " on" : ""}`}
               title={`${CORNER_NAME[corner]}${others.length ? ` (with the ${others.map((o) => OVERLAY_NAME[o].toLowerCase()).join(" and ")})` : ""}`}
               aria-label={CORNER_NAME[corner]}
               onClick={() => onChange(corner)}
