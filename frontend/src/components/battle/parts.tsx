@@ -10,7 +10,7 @@ import { AffiliationIcon } from "../AffiliationIcon";
 import { Icon } from "../Icon";
 import { GameImage, MissingGameAsset, PortraitImage } from "../GameImage";
 import { GearIcon, WeaponIcon } from "./gameIcons";
-import { ArtIcon } from "../../reference/icons";
+import { ArtIcon, isCombatArt, SpellIcon, spellIconUrl } from "../../reference/icons";
 import { AbilityLink, ArtLink, GambitLink, ItemLink, SpellLink } from "../Links";
 import { nameParts } from "../../reference/links";
 import { isLost, TEAM_LABEL, TeamCount, teamCounts, TeamTag } from "./marks";
@@ -104,9 +104,13 @@ export function ItemRow({ item, current, future, undone = item.branch > 0, onSel
 }
 
 /** A log row's icon: the game's own for a combat art, a spell or the weapon an attack was made with, else the kit's. */
+/** Whether an attack's named means is a spell ("Lysithea's Miasma") rather than a combat art. */
+const isSpellAttack = (name: string) => !isCombatArt(name) && !!spellIconUrl(name);
+
 export function LogIcon({ item }: { item: Item }) {
   const who = useBattleNav().people.get(item.actor ?? "");
   const weapon = who?.unit?.weapon ?? who?.enemy?.weapon;
+  if (item.detail && item.kind === "attack" && isSpellAttack(item.detail)) return <GearIcon kind="spell" name={item.detail} />;
   if (item.detail && (item.kind === "attack" || item.kind === "art")) return <GearIcon kind="art" name={item.detail} />;
   if (item.detail && item.kind === "spell") return <GearIcon kind="spell" name={item.detail} />;
   if (item.kind === "attack") return <WeaponIcon kind={weapon} />;
@@ -154,11 +158,20 @@ function ItemText({ item }: { item: Item }) {
         <WhoLink id={item.actor} />
         {item.detail ? (
           <>
-            {/* A combat art: "Ignatz used Break Shot on Bandit 2" */}
+            {/* A combat art or a spell: "Ignatz used Break Shot on Bandit 2", "Lysithea used Miasma on Bandit 2" */}
             <Verb>used</Verb>
             <span className="log-detail">
-              <ArtIcon name={item.detail} weapon={false} />
-              <ArtLink name={item.detail} />
+              {isSpellAttack(item.detail) ? (
+                <>
+                  <SpellIcon name={item.detail} />
+                  <SpellLink name={item.detail} />
+                </>
+              ) : (
+                <>
+                  <ArtIcon name={item.detail} weapon={false} />
+                  <ArtLink name={item.detail} />
+                </>
+              )}
             </span>
             <Verb>on</Verb>
           </>
