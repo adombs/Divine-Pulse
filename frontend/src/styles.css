@@ -1302,12 +1302,12 @@ code.path { word-break: break-all; font-size: 0.9rem; }
   pointer-events: none; font: inherit; line-height: 1.35;
 }
 .condensed-row {
-  display: inline-flex; align-items: center; gap: 0.45rem; max-width: 100%; padding: 0.22rem 0.55rem 0.22rem 0.3rem;
+  display: inline-flex; align-items: center; gap: 0.45rem; padding: 0.22rem 0.55rem 0.22rem 0.3rem;
   border-radius: 99px; background: color-mix(in srgb, var(--paper-2) 92%, transparent);
   border: 1px solid var(--row-border); box-shadow: 0 4px 12px rgb(0 0 0 / 0.35);
 }
-.condensed-row .unit-face { width: 1.9rem; height: 1.9rem; }
-.condensed-action { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; white-space: nowrap; }
+.condensed-row .unit-face { width: 1.9rem; height: 1.9rem; flex: none; }
+.condensed-action { display: inline-flex; align-items: center; gap: 0.35rem; flex: none; white-space: nowrap; }
 .condensed-icon { display: inline-grid; place-items: center; width: 1.45rem; height: 1.45rem; color: var(--ink); font-size: 1.1rem; }
 .condensed-icon .game-icon { width: 100%; height: 100%; vertical-align: 0; cursor: inherit; }
 .condensed-icon img, .condensed-icon svg { width: 100%; height: 100%; object-fit: contain; }
@@ -1315,13 +1315,14 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .condensed-icon img { border-radius: 28%; }
 .condensed-row.tone-attack .condensed-icon > svg { color: var(--red); }
 .condensed-row.tone-heal .condensed-icon > svg { color: var(--green); }
-.condensed-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
+/* Always the whole name, never cut short: the row grows to fit it. */
+.condensed-name { font-weight: 600; }
 .condensed-value { font: 700 1em var(--nums); font-variant-numeric: tabular-nums lining-nums; }
 .condensed-row.tone-attack .condensed-value { color: var(--red); }
 .condensed-row.tone-heal .condensed-value { color: var(--green); }
 .condensed-defeat { display: inline-grid; place-items: center; color: var(--red); font-size: 1.05rem; }
 /* On the battle page's map: in its corner, clear of the turn banner. */
-.map-condensed { position: absolute; right: 0.6rem; bottom: 0.6rem; z-index: 2; max-width: calc(100% - 1.2rem); font-size: 0.92rem; }
+.map-condensed { position: absolute; right: 0.6rem; bottom: 0.6rem; z-index: 2; font-size: 0.92rem; }
 .map-caption { margin-top: 0.3rem; }
 
 .map-legend { display: flex; flex-wrap: wrap; gap: 0.25rem 0.9rem; margin: 0.35rem 0 0; }

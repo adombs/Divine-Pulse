@@ -61,7 +61,7 @@
 /* No log (Export Video > Format > Log off): the map has the frame to itself under the title. The condensed log
    (CondensedLog.tsx) sits in the map's bottom-right corner, over it, in either layout. */
 .replay-stage.no-log .replay-stage-map { grid-area: map; }
-.replay-stage-condensed { grid-area: map; align-self: end; justify-self: end; z-index: 1; margin: 0 14px 14px 0; max-width: calc(100% - 28px); }
+.replay-stage-condensed { grid-area: map; align-self: end; justify-self: end; z-index: 1; margin: 0 14px 14px 0; }
 
 /* The box the video's picture is taken of: exactly the frame's size. */
 .replay-stage-theme { width: 100%; height: 100%; isolation: isolate; }
