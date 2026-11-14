@@ -300,7 +300,10 @@ export function describe(p: Piece, tile?: TerrainTile | null): string {
   return [p.name, p.class_name, state, `tile ${p.x}, ${p.y}`, tile ? describeTile(tile) : null].filter(Boolean).join(" · ");
 }
 
-const PHASE: Record<number, string> = { 0: "Player Phase", 1: "Enemy Phase" };
+/** Each phase by the army that acts in it: 2 allies (green), 3 a third army (yellow), the game's "Other Phase". */
+export const PHASE: Record<number, string> = { 0: "Player Phase", 1: "Enemy Phase", 2: "Ally Phase", 3: "Other Phase" };
+/** The army whose colour a phase is drawn in. */
+export const phaseArmy = (phase: number) => (phase === 0 ? "player" : phase === 1 ? "enemy" : phase === 2 ? "ally" : "third");
 
 /** "Turn 3 · Enemy Phase": when a step happened. */
 export function stepLabel(step: MapStep): string {

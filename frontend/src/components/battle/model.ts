@@ -275,7 +275,8 @@ export function build(battle: Battle, entries: LogEntry[], tracked: BattleEvent[
       phase: e.phase ?? null,
       kind,
       category: LOG_CATEGORY[kind],
-      text: e.kind === "pulse" ? pulseText(battle, e) : e.text,
+      // Recordings made before allies had their own phase name logged it as the "other" phase.
+      text: e.kind === "pulse" ? pulseText(battle, e) : e.kind === "phase" && e.phase === 2 ? e.text.replace("other phase", "ally phase") : e.text,
       heading: e.kind === "phase",
       actor,
       target,

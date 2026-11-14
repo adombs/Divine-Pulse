@@ -12,6 +12,7 @@
 - Each map overlay's UI Size scales it evenly and on its own, and it keeps that size for the whole replay instead of shrinking to fit its corner.
 - Consecutive moves in one phase replay together, everyone moving at once, with the camera widening to keep every move in view. Settings → Battle Replay has a Group moves switch, and Export Video's Replay tab can change it for one video.
 - The log shows again in 9:16 and 4:5 videos.
+- Allies' turns read Ally Phase in green, and a third army's read Other Phase in yellow, on the turn counter, the timeline and the log.
 - Portraits and faces, how units look on the battle map, and the replay speed moved from Appearance to Settings → Battle Replay.
 - Settings has a Battle Replay tab for the condensed log, turn counter and unit counts on the battle map, including their corner and size. On the map and in videos, choose the turn counter fields and whether to show zero counts.
 - Condensed replay log lines fade by age; the corner selector has four connected sections.

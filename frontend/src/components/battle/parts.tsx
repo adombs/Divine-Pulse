@@ -68,7 +68,7 @@ export function WhoLink({ id, fallback = "A unit" }: { id: string | null; fallba
 }
 
 /** Which army's phase a heading row starts (for its colour). */
-const PHASE_CLASS = ["player", "enemy", "other", "other"];
+const PHASE_CLASS = ["player", "enemy", "ally", "third"];
 
 /** One line of the log: time, the icon of what happened (tinted by its kind), and what happened, with names that open
  * the unit's card and the numbers as chips. Phase starts are thin banners in their army's colour. */

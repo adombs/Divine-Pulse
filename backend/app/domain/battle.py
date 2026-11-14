@@ -643,7 +643,7 @@ STEP_SPELL = STEP_DEFEAT
 SUPPORT_SPELLS = frozenset((24, 25, 26, 27, 32, 33, 34, 35, 36, 37))
 
 
-PHASES = {0: "player", 1: "enemy"}
+PHASES = {0: "player", 1: "enemy", 2: "ally", 3: "other"}  # the army that acts: 2 allies (green), 3 a third army (yellow)
 
 
 @dataclass(frozen=True)

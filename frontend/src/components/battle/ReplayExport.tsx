@@ -34,7 +34,7 @@ import { sceneAt, type Segment } from "../../exporting/teamPages";
 import { customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, mixedSoundtrack, recording, releaseCustomAudio, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
 import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
-import { hasMap } from "./map";
+import { hasMap, phaseArmy } from "./map";
 import { MapCounts, Minimap, type Zoom } from "./Minimap";
 import { ItemList, useBattleNav } from "./parts";
 import { beatDurations, beatFocus, beatOf, beatRuns, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
@@ -671,7 +671,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     let turn: number | null = null;
     for (let i = first; i <= last; i++) {
       const step = chron.beats[i].step;
-      if (step.turn !== turn) out.push({ at: lead + starts[i - first], className: `${step.phase === 0 ? "player" : step.phase === 1 ? "enemy" : "other"} major` });
+      if (step.turn !== turn) out.push({ at: lead + starts[i - first], className: `${phaseArmy(step.phase)} major` });
       turn = step.turn;
     }
     return out;
