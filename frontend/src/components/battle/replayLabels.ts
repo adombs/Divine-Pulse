@@ -102,8 +102,9 @@ export function beatLabels(items: Item[], beat: number, icons: LabelIcons): MapL
   return out;
 }
 
-/** How many rows the condensed log shows at most (the newest). */
+/** How many rows the condensed log shows unless told otherwise (the newest), and the most it keeps to choose from. */
 export const CONDENSED_MAX = 4;
+export const CONDENSED_KEEP = 8;
 
 /** A row of the condensed log: who did what to whom, as one line. */
 export interface CondensedEntry {

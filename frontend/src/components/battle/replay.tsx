@@ -17,7 +17,7 @@ import { clock } from "../../format";
 import { hpShare, Item } from "./model";
 import { Action, Board, boardAt, boardNow, Frame, stepAction, stepLabel, turnStarts } from "./map";
 import { actionKinds, type Chronicle } from "./chronicle";
-import { actingBeats, condensedEntries, type CondensedEntry } from "./replayLabels";
+import { actingBeats, CONDENSED_KEEP, condensedEntries, type CondensedEntry } from "./replayLabels";
 import { BattleNavContext, KeyNumber, keyNumbers, teamNumber } from "./parts";
 import type { Team, TeamCount } from "./marks";
 
@@ -311,7 +311,7 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const animation: StepAnimation | null = rewinding ? rewinding.animation : anim ? { ...anim, elapsed } : null;
   const rewind: Rewind | null = rewinding ? { badge: rewinding.badge } : null;
   // The condensed log: the newest actions up to the beat shown (none before the first step, or while a Divine Pulse plays).
-  const condensed = useMemo<CondensedEntry[]>(() => (at === null || beats[at]?.pulse != null ? [] : condensedEntries(chron.log, at)), [chron, beats, at]);
+  const condensed = useMemo<CondensedEntry[]>(() => (at === null || beats[at]?.pulse != null ? [] : condensedEntries(chron.log, at, CONDENSED_KEEP)), [chron, beats, at]);
   const condensedShown = labelOpacity(animation);
   return { steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, condensed, condensedShown, cursor, go, seek, seeks, next, play, pose, label, detail, army };
 }

@@ -21,7 +21,7 @@ import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
-import { DEFAULT_VIDEO_LOG, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { CONDENSED_SIZES, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
 import { CondensedLog } from "./CondensedLog";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
@@ -794,6 +794,28 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                       <input type="checkbox" checked={options.log.condensed} onChange={(e) => updateLog({ condensed: e.target.checked })} />
                       Condensed log <small>the latest actions in the map's corner</small>
                     </label>
+                    {options.log.condensed && (<>
+                      <StepSlider
+                        label="Condensed lines"
+                        stops={MAX_CONDENSED_LINES}
+                        value={options.log.condensedLines - 1}
+                        onChange={(i) => updateLog({ condensedLines: i + 1 })}
+                        valueText={`${options.log.condensedLines} at most`}
+                        after={<span className="team-pages-axis-value">{options.log.condensedLines}</span>}
+                        variant="timeline"
+                        slim
+                      />
+                      <StepSlider
+                        label="Condensed size"
+                        stops={CONDENSED_SIZES.length}
+                        value={Math.max(0, CONDENSED_SIZES.indexOf(options.log.condensedSize as (typeof CONDENSED_SIZES)[number]))}
+                        onChange={(i) => updateLog({ condensedSize: CONDENSED_SIZES[i] })}
+                        valueText={`${Math.round(options.log.condensedSize * 100)}%`}
+                        after={<span className="team-pages-axis-value">{Math.round(options.log.condensedSize * 100)}%</span>}
+                        variant="timeline"
+                        slim
+                      />
+                    </>)}
                   </fieldset>
                   <fieldset className="export-group" disabled={working}>
                     <legend>Video</legend>
@@ -1107,7 +1129,7 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
         )}
         <ReplayBanner replay={replay} />
       </div>
-      {log.condensed && <CondensedLog entries={replay.condensed} current={replay.at} className="replay-stage-condensed" />}
+      {log.condensed && <CondensedLog entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} className="replay-stage-condensed" />}
       {log.show && (
         <section className="replay-stage-log" aria-label="Log">
           <h3 className="replay-stage-log-title">

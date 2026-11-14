@@ -33,14 +33,17 @@ let SPELLS = index(DATA.spells);
 let ITEMS = index(DATA.items);
 let NATIVE_ITEMS = index(DATA.native_items);
 let NATIVE_SPELLS = index(DATA.native_spells);
+let GAMBITS = new Map<string, string>();
 
 export async function loadReferenceIcons(): Promise<void> {
-  const kinds = ["abilities", "combat-arts", "spells", "weapons", "equipment", "items", "crests-by-person"];
+  const kinds = ["abilities", "combat-arts", "spells", "weapons", "equipment", "items", "crests-by-person", "battalions"];
   const files = await Promise.all(kinds.map((kind) => loadGameJson<Record<string, any>>(`data/${kind}.json`)));
   const native = await loadGameJson<Record<string, Record<string, number>>>("data/exe/item-icons.json");
   const categories = ["ability", "combat_art", "spell", "weapon", "equipment", "item", "crest_major", "crest_minor"];
   const texts = await Promise.all(categories.map((category) => loadGameText(category, gameLanguage())));
-  const [abilities, arts, spells, weapons, equipment, items, crests] = files;
+  const [abilities, arts, spells, weapons, equipment, items, crests, battalions] = files;
+  GAMBITS = new Map();
+  for (const row of battalions?.battalions ?? []) if (row.gambit?.name && row.gambit.icon) GAMBITS.set(norm(row.gambit.name), row.gambit.icon);
   ABILITIES = new Map(); CRESTS = new Map(); ARTS = new Map(); SPELLS = new Map(); ITEMS = new Map(); NATIVE_ITEMS = new Map(); NATIVE_SPELLS = new Map();
   const add = (map: Map<string, string>, rows: any[], names: Record<string, string>, path: (row: any) => string) => {
     for (const row of rows ?? []) for (const name of [row.name, names[String(row.id)]]) if (name) map.set(norm(name), path(row));
@@ -108,6 +111,14 @@ export function itemIconUrl(name: string): string | null {
   const file = NATIVE_ITEMS.get(key) ?? ITEMS.get(key);
   return file ? url(file) : null;
 }
+
+/** A gambit's icon by its name ("Onslaught"), from the battalions that have it. */
+export function gambitIconUrl(name: string): string | null {
+  return GAMBITS.get(norm(name)) ?? null;
+}
+
+/** Whether a name is a combat art's (known once the game's data is imported). */
+export const isCombatArt = (name: string) => ARTS.has(norm(name));
 
 /** The weapon a combat art is used with, as its battle-map weapon icon. */
 export function artWeaponIconUrl(name: string): string | null {

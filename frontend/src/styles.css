@@ -1308,8 +1308,13 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 }
 .condensed-row .unit-face { width: 1.9rem; height: 1.9rem; }
 .condensed-action { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; white-space: nowrap; }
-.condensed-icon { display: inline-grid; place-items: center; width: 1.3rem; height: 1.3rem; color: var(--accent); font-size: 1rem; }
+.condensed-icon { display: inline-grid; place-items: center; width: 1.45rem; height: 1.45rem; color: var(--ink); font-size: 1.1rem; }
+.condensed-icon .game-icon { width: 100%; height: 100%; vertical-align: 0; cursor: inherit; }
 .condensed-icon img, .condensed-icon svg { width: 100%; height: 100%; object-fit: contain; }
+/* The game's square icons (a gambit's tile, an item's) with their corners rounded off. */
+.condensed-icon img { border-radius: 28%; }
+.condensed-row.tone-attack .condensed-icon > svg { color: var(--red); }
+.condensed-row.tone-heal .condensed-icon > svg { color: var(--green); }
 .condensed-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; }
 .condensed-value { font: 700 1em var(--nums); font-variant-numeric: tabular-nums lining-nums; }
 .condensed-row.tone-attack .condensed-value { color: var(--red); }
