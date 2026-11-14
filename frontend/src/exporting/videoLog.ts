@@ -27,14 +27,42 @@ export interface VideoLogOptions {
   condensedLines: number;
   /** How big the condensed log is (one of CONDENSED_SIZES; 1 is the log's text size). */
   condensedSize: number;
-  /** Whether the map has the turn counter (Turn 3/12 · Player Phase · Step 45/69) in its bottom-left corner, and how big. */
+  /** Whether the map has the turn counter (Turn 3/12 · Player Phase · Step 45/69), and how big. */
   counter: boolean;
   counterSize: number;
-  /** Whether the map has the legend's counts (units standing in each army, and the killed) in its top-right corner, and how big. */
+  /** Whether the map has the legend's counts (units standing in each army, and the killed), and how big. */
   counts: boolean;
   countsSize: number;
+  /** The map's corner each of those is in. */
+  place: Record<Overlay, Corner>;
+  /** The order they were put in their corners (oldest first): in a corner, the first is nearest the corner, the rest
+   * stacked down from a top corner or up from a bottom one. */
+  order: Overlay[];
 }
-export const DEFAULT_VIDEO_LOG: VideoLogOptions = { show: true, lines: null, condensed: true, condensedLines: DEFAULT_CONDENSED_LINES, condensedSize: 1, counter: true, counterSize: 1, counts: true, countsSize: 1 };
+
+/** What can sit over the video's map, and where. */
+export type Overlay = "condensed" | "counter" | "counts";
+export type Corner = "top-left" | "top-right" | "bottom-left" | "bottom-right";
+export const OVERLAYS: readonly Overlay[] = ["condensed", "counter", "counts"];
+export const CORNERS: readonly Corner[] = ["top-left", "top-right", "bottom-left", "bottom-right"];
+const DEFAULT_PLACE: Record<Overlay, Corner> = { condensed: "bottom-right", counter: "bottom-left", counts: "top-right" };
+const DEFAULT_ORDER: Overlay[] = ["counts", "counter", "condensed"];
+
+/** Put `which` in `corner`: it goes last in that corner's stack (furthest from the corner). */
+export function placeOverlay(log: VideoLogOptions, which: Overlay, corner: Corner): VideoLogOptions {
+  return { ...log, place: { ...log.place, [which]: corner }, order: [...log.order.filter((o) => o !== which), which] };
+}
+
+/** What each corner holds, of the ones shown, nearest the corner first. */
+export function cornerStacks(log: VideoLogOptions): Record<Corner, Overlay[]> {
+  const shown: Record<Overlay, boolean> = { condensed: log.condensed, counter: log.counter, counts: log.counts };
+  const out = Object.fromEntries(CORNERS.map((c) => [c, [] as Overlay[]])) as Record<Corner, Overlay[]>;
+  for (const o of log.order) if (shown[o]) out[log.place[o]].push(o);
+  return out;
+}
+export const DEFAULT_VIDEO_LOG: VideoLogOptions = { show: true, lines: null, condensed: true, condensedLines: DEFAULT_CONDENSED_LINES, condensedSize: 1, counter: true, counterSize: 1, counts: true, countsSize: 1,
+  place: DEFAULT_PLACE, order: DEFAULT_ORDER,
+};
 
 const size = (saved: unknown) => ((OVERLAY_SIZES as readonly unknown[]).includes(saved) ? (saved as number) : 1);
 
@@ -51,6 +79,12 @@ export function sanitizeVideoLog(saved: unknown): VideoLogOptions {
     counterSize: size(s.counterSize),
     counts: s.counts !== false,
     countsSize: size(s.countsSize),
+    place: Object.fromEntries(OVERLAYS.map((o) => {
+      const saved = (s.place && typeof s.place === "object" ? s.place : {}) as Record<string, unknown>;
+      return [o, (CORNERS as readonly unknown[]).includes(saved[o]) ? saved[o] : DEFAULT_PLACE[o]];
+    })) as Record<Overlay, Corner>,
+    // Every overlay once, in the saved order, any missing after.
+    order: [...new Set([...(Array.isArray(s.order) ? s.order : []).filter((o): o is Overlay => (OVERLAYS as readonly unknown[]).includes(o)), ...DEFAULT_ORDER])],
   };
 }
 

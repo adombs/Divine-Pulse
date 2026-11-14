@@ -472,13 +472,13 @@ export function ReplayBar({ replay: r }: { replay: Replay }) {
 
 /** The turn counter: the step shown as "Turn 3/12 · Player Phase · Step 45/69", in a pill like the log's number chips,
  * its phase mark in the army's colour (blue player, red enemy, green other, purple now). `size` scales it (1: as is). */
-export function ReplayBanner({ replay: r, size = 1 }: { replay: Replay; size?: number }) {
+export function ReplayBanner({ replay: r, size = 1, className }: { replay: Replay; size?: number; className?: string }) {
   if (!r.steps.length) return null;
   const c = r.counter;
   const of = (n: number | null, total: number | null) => (n === null ? null : total ? `${n}/${total}` : String(n));
   const turn = of(c.turn, c.turns);
   return (
-    <p className={`replay-banner ${r.army}`} aria-live="polite" aria-label={`${r.label}, ${r.detail}`} style={size !== 1 ? { fontSize: `${size}em` } : undefined}>
+    <p className={`replay-banner ${r.army}${className ? ` ${className}` : ""}`} aria-live="polite" aria-label={`${r.label}, ${r.detail}`} style={size !== 1 ? { fontSize: `${size}em` } : undefined}>
       <span className="replay-banner-mark" aria-hidden>
         <Icon name={c.pulse !== null ? CONCEPT_ICON.pulse : CONCEPT_ICON.phase} />
       </span>

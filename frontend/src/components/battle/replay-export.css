@@ -61,17 +61,27 @@
 /* No log (Export Video > Format > Log off): the map has the frame to itself under the title. The condensed log
    (CondensedLog.tsx) sits in the map's bottom-right corner, over it, in either layout. */
 .replay-stage.no-log .replay-stage-map { grid-area: map; }
-/* The legend's counts over the video's map, top right: as on the battle page's legend, without its buttons (and
-   without its blur, which the frame's picture can't draw). */
+/* What sits over the video's map (the condensed log, the turn counter, the unit counts), each in the corner it was put
+   in: a top corner stacks down from it, a bottom one up, the first put there nearest the corner. The layer is the map's
+   cell, inset as the condensed log always was. */
+.replay-stage-overlays { grid-area: map; position: relative; pointer-events: none; z-index: 1; min-width: 0; min-height: 0; }
+.replay-stage-corner { position: absolute; display: flex; gap: 10px; max-width: calc(100% - 28px); }
+.replay-stage-corner.top-left, .replay-stage-corner.top-right { top: 14px; flex-direction: column; }
+.replay-stage-corner.bottom-left, .replay-stage-corner.bottom-right { bottom: 14px; flex-direction: column-reverse; }
+.replay-stage-corner.top-left, .replay-stage-corner.bottom-left { left: 14px; align-items: flex-start; }
+.replay-stage-corner.top-right, .replay-stage-corner.bottom-right { right: 14px; align-items: flex-end; }
+.replay-stage-corner .replay-banner.in-corner { position: static; max-width: none; }
+.replay-stage-corner.top-left .condensed-log, .replay-stage-corner.bottom-left .condensed-log { align-items: flex-start; }
+/* The legend's counts: as on the battle page's legend, without its buttons (and without its blur, which the frame's
+   picture can't draw). */
 .replay-stage-counts {
-  position: absolute; z-index: 3; top: 14px; right: 14px; display: inline-flex; align-items: center; gap: 0.65rem;
+  display: inline-flex; align-items: center; gap: 0.65rem;
   padding: 0.32rem 0.75rem; font: 1rem var(--nums); font-variant-numeric: tabular-nums lining-nums; color: var(--ink);
   background: color-mix(in srgb, var(--paper) 92%, transparent); border: 1px solid var(--row-border); border-radius: 8px;
-  box-shadow: 0 6px 18px rgb(0 0 0 / 0.28); pointer-events: none;
+  box-shadow: 0 6px 18px rgb(0 0 0 / 0.28);
 }
 .replay-stage-counts .map-count { gap: 0.32em; }
 .replay-stage-counts .map-count::before { width: 0.75em; height: 0.7em; border-radius: 0.19em; }
-.replay-stage-condensed { grid-area: map; align-self: end; justify-self: end; z-index: 1; margin: 0 14px 14px 0; }
 
 /* The box the video's picture is taken of: exactly the frame's size. */
 .replay-stage-theme { width: 100%; height: 100%; isolation: isolate; }

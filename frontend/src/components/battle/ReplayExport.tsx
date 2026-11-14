@@ -21,7 +21,7 @@ import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
-import { CONDENSED_SIZES, DEFAULT_VIDEO_LOG, OVERLAY_SIZES, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, OVERLAY_SIZES, placeOverlay, type Corner, type Overlay, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
 import { CondensedLog } from "./CondensedLog";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
@@ -115,15 +115,16 @@ function loadOptions(): VideoOptions {
 }
 
 /** A video frame's two layers (snapshot.ts `Layer`). The chrome: the title, the log and the map's frame, without the
- * map or anything over it. The map: the map with its turn banner and rewind badge, over a see-through frame. */
-const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap", ".replay-stage-condensed"], remove: [".replay-banner", ".replay-stage-counts", ".rewind-badge"] };
+ * map or anything over it. The map: the map with its rewind badge, over a see-through frame. */
+const CHROME_LAYER: Layer = { hide: [".replay-stage-map .minimap", ".replay-stage-overlays"], remove: [".rewind-badge"] };
 const MAP_LAYER: Layer = {
-  hide: [".replay-stage-title", ".replay-stage-log", ".replay-stage-condensed"],
+  hide: [".replay-stage-title", ".replay-stage-log", ".replay-stage-overlays"],
   styles: "map",
   css: ".replay-stage { background: none !important; box-shadow: none !important; }",
 };
-/** The condensed log, over the map: a third layer that changes once a step, like the chrome. */
-const CONDENSED_LAYER: Layer = {
+/** What sits in the map's corners (the condensed log, the turn counter, the unit counts): a third layer that changes
+ * once a step, like the chrome. */
+const OVERLAY_LAYER: Layer = {
   hide: [".replay-stage-title", ".replay-stage-map", ".replay-stage-log"],
   css: ".replay-stage { background: none !important; box-shadow: none !important; }",
 };
@@ -211,6 +212,13 @@ function viewAround([cx, cy]: [number, number], [w, h]: [number, number], board:
   if (w >= board.w && h >= board.h) return null;
   const clamp = (v: number, hi: number) => Math.max(0, Math.min(hi, v));
   return { w, h, x0: clamp(cx - w / 2, board.w - w), y0: clamp(cy - h / 2, board.h - h) };
+}
+
+const CORNER_OPTIONS = [["top-left", "Top left"], ["top-right", "Top right"], ["bottom-left", "Bottom left"], ["bottom-right", "Bottom right"]] as const;
+
+/** Which of the map's corners something over it sits in. */
+function CornerPicker({ label, value, onChange }: { label: string; value: Corner; onChange: (corner: Corner) => void }) {
+  return <Segmented<Corner> label={label} size="mini" value={value} onChange={onChange} options={CORNER_OPTIONS} />;
 }
 
 /** A size for something over the map (OVERLAY_SIZES), as a percentage. */
@@ -308,6 +316,10 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const setOption = <K extends keyof VideoOptions>(key: K, value: VideoOptions[K]) => setOptionsState((o) => keep({ ...o, [key]: value }));
   const updateTeam = (patch: Partial<TeamPagesOptions>) => setOptionsState((o) => keep({ ...o, team: { ...o.team, ...patch } }));
   const updateLog = (patch: Partial<VideoLogOptions>) => setOptionsState((o) => keep({ ...o, log: { ...o.log, ...patch } }));
+  // Putting something in a corner, or turning it on, puts it last in that corner's stack.
+  const placeIn = (which: Overlay, corner: Corner) => setOptionsState((o) => keep({ ...o, log: placeOverlay(o.log, which, corner) }));
+  const turnOn = (which: Overlay, on: boolean) =>
+    setOptionsState((o) => keep({ ...o, log: on ? { ...placeOverlay(o.log, which, o.log.place[which]), [which]: true } : { ...o.log, [which]: false } }));
   const updateRules = (patch: Partial<RulesetPageOptions>) => setOptionsState((o) => keep({ ...o, rules: { ...o.rules, ...patch } }));
   // The run's ruleset, for its page.
   const [rules, setRules] = useState<Rule[] | null>(null);
@@ -571,7 +583,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     const chromeImg = new Image();
     const mapImg = new Image();
     const condensedImg = new Image();
-    const condensed = options.log.condensed;
+    const overlays = options.log.condensed || options.log.counter || options.log.counts;
     // Team pages: each is drawn to a picture once (kept as its document while the video is made), and decoded while it is on screen.
     const docs = new Map<string, string>();
     const pageImages = new Map<number, HTMLImageElement>();
@@ -631,7 +643,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
             const newChrome = chrome?.beat !== beat;
             if (newChrome) {
               chrome = { beat, img: await snap.image(await snap.svg(el, width, height, scale, CHROME_LAYER), chromeImg) };
-              over = condensed ? await snap.image(await snap.svg(el, width, height, scale, CONDENSED_LAYER), condensedImg) : null;
+              over = overlays ? await snap.image(await snap.svg(el, width, height, scale, OVERLAY_LAYER), condensedImg) : null;
             }
             const doc = await snap.svg(el, width, height, scale, MAP_LAYER);
             const newMap = map?.doc !== doc;
@@ -808,10 +820,11 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     <p className="export-note">{options.log.lines === null ? "Auto: as many lines as fit." : `The newest ${options.log.lines} ${options.log.lines === 1 ? "line" : "lines"} at a time.`}</p>
                     </>)}
                     <label className="export-check">
-                      <input type="checkbox" checked={options.log.condensed} onChange={(e) => updateLog({ condensed: e.target.checked })} />
-                      Condensed log <small>the latest actions in the map's corner</small>
+                      <input type="checkbox" checked={options.log.condensed} onChange={(e) => turnOn("condensed", e.target.checked)} />
+                      Condensed log <small>the latest actions, over the map</small>
                     </label>
                     {options.log.condensed && (<>
+                      <CornerPicker label="Condensed log corner" value={options.log.place.condensed} onChange={(c) => placeIn("condensed", c)} />
                       <StepSlider
                         label="Condensed lines"
                         stops={MAX_CONDENSED_LINES}
@@ -822,27 +835,24 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                         variant="timeline"
                         slim
                       />
-                      <StepSlider
-                        label="Condensed size"
-                        stops={CONDENSED_SIZES.length}
-                        value={Math.max(0, CONDENSED_SIZES.indexOf(options.log.condensedSize as (typeof CONDENSED_SIZES)[number]))}
-                        onChange={(i) => updateLog({ condensedSize: CONDENSED_SIZES[i] })}
-                        valueText={`${Math.round(options.log.condensedSize * 100)}%`}
-                        after={<span className="team-pages-axis-value">{Math.round(options.log.condensedSize * 100)}%</span>}
-                        variant="timeline"
-                        slim
-                      />
+                      <SizeSlider label="Condensed size" value={options.log.condensedSize} onChange={(condensedSize) => updateLog({ condensedSize })} />
                     </>)}
                     <label className="export-check">
-                      <input type="checkbox" checked={options.log.counter} onChange={(e) => updateLog({ counter: e.target.checked })} />
-                      Turn counter <small>turn, phase and step in the map's corner</small>
+                      <input type="checkbox" checked={options.log.counter} onChange={(e) => turnOn("counter", e.target.checked)} />
+                      Turn counter <small>turn, phase and step</small>
                     </label>
-                    {options.log.counter && <SizeSlider label="Turn counter size" value={options.log.counterSize} onChange={(counterSize) => updateLog({ counterSize })} />}
+                    {options.log.counter && (<>
+                      <CornerPicker label="Turn counter corner" value={options.log.place.counter} onChange={(c) => placeIn("counter", c)} />
+                      <SizeSlider label="Turn counter size" value={options.log.counterSize} onChange={(counterSize) => updateLog({ counterSize })} />
+                    </>)}
                     <label className="export-check">
-                      <input type="checkbox" checked={options.log.counts} onChange={(e) => updateLog({ counts: e.target.checked })} />
+                      <input type="checkbox" checked={options.log.counts} onChange={(e) => turnOn("counts", e.target.checked)} />
                       Unit counts <small>each army's units on the map, and the killed</small>
                     </label>
-                    {options.log.counts && <SizeSlider label="Unit counts size" value={options.log.countsSize} onChange={(countsSize) => updateLog({ countsSize })} />}
+                    {options.log.counts && (<>
+                      <CornerPicker label="Unit counts corner" value={options.log.place.counts} onChange={(c) => placeIn("counts", c)} />
+                      <SizeSlider label="Unit counts size" value={options.log.countsSize} onChange={(countsSize) => updateLog({ countsSize })} />
+                    </>)}
                   </fieldset>
                   <fieldset className="export-group" disabled={working}>
                     <legend>Video</legend>
@@ -1120,6 +1130,7 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
     return out;
   }, [chron.log, moment.beat]);
   const shown = useMemo(() => newestRows(rows, log.lines), [rows, log.lines]);
+  const stacks = cornerStacks(log);
   const date = new Date(battle.started_at).toLocaleDateString(undefined, { year: "numeric", month: "short", day: "numeric" });
   return (
     // The picture is taken of the outer box, exactly the frame's size.
@@ -1154,14 +1165,24 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
             <Icon name={CONCEPT_ICON.pulse} />
           </div>
         )}
-        {log.counter && <ReplayBanner replay={replay} size={log.counterSize} />}
-        {log.counts && (
-          <div className="replay-stage-counts" style={log.countsSize !== 1 ? { fontSize: `${log.countsSize}em` } : undefined} aria-label="Units on the map">
-            <MapCounts board={replay.board} />
-          </div>
-        )}
       </div>
-      {log.condensed && <CondensedLog entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} className="replay-stage-condensed" />}
+      <div className="replay-stage-overlays">
+        {CORNERS.map((corner) => (
+          <div key={corner} className={`replay-stage-corner ${corner}`}>
+            {stacks[corner].map((o) =>
+              o === "condensed" ? (
+                <CondensedLog key={o} entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} />
+              ) : o === "counter" ? (
+                <ReplayBanner key={o} replay={replay} size={log.counterSize} className="in-corner" />
+              ) : (
+                <div key={o} className="replay-stage-counts" style={log.countsSize !== 1 ? { fontSize: `${log.countsSize}em` } : undefined} aria-label="Units on the map">
+                  <MapCounts board={replay.board} />
+                </div>
+              ),
+            )}
+          </div>
+        ))}
+      </div>
       {log.show && (
         <section className="replay-stage-log" aria-label="Log">
           <h3 className="replay-stage-log-title">
