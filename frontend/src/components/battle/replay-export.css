@@ -210,3 +210,6 @@
 .map-overlay-key .map-key-panel { position: static; max-width: min(23rem, 100%); font-size: inherit; }
 .map-overlay-key .map-key-toggle { font-size: 1em; }
 .map-overlay-settings { --export-label: 8rem; }
+
+.overlay-counter-fields { display: flex; flex-wrap: wrap; gap: 0.4rem 1rem; }
+.overlay-counter-fields label, .overlay-zero-counts { display: inline-flex; align-items: center; gap: 0.35rem; font-size: 0.88rem; }

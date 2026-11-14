@@ -1,13 +1,13 @@
 import { type KeyboardEvent, type ReactNode, useRef } from "react";
 import { Switch } from "../ui";
 import { StepSlider } from "../Slider";
-import { cornerStacks, CORNERS, OVERLAY_SIZES, type Corner, type Overlay, type VideoLogOptions } from "../../exporting/videoLog";
+import { cornerStacks, CORNERS, OVERLAY_SIZES, type Corner, type Overlay, type VideoLogOptions, setCounterField } from "../../exporting/videoLog";
 import "./replay-export.css";
 const CORNER_NAME: Record<Corner, string> = { "top-left": "Top left", "top-right": "Top right", "bottom-left": "Bottom left", "bottom-right": "Bottom right" };
 const OVERLAY_NAME: Record<Overlay, string> = { condensed: "Condensed log", counter: "Turn counter", counts: "Unit counts" };
 
 /** One thing the frame can show: its name and what it is, a switch, and its settings while it's on. */
-export function LayoutSection({ title, note, on, onToggle, children }: { title: string; note: string; on: boolean; onToggle: (on: boolean) => void; children: ReactNode }) {
+export function LayoutSection({ title, note, on, onToggle, children, always }: { always?: ReactNode; title: string; note: string; on: boolean; onToggle: (on: boolean) => void; children: ReactNode }) {
   return (
     <section className={`layout-item${on ? " on" : ""}`}>
       <div className="layout-item-head">
@@ -17,6 +17,7 @@ export function LayoutSection({ title, note, on, onToggle, children }: { title: 
         </div>
         <Switch checked={on} onChange={onToggle} label={`Show the ${title.toLowerCase()}`} />
       </div>
+      {always}
       {on && <div className="layout-item-body">{children}</div>}
     </section>
   );
@@ -80,4 +81,14 @@ export function SizeSlider({ value, onChange }: { value: number; onChange: (size
       slim
     />
   );
+}
+
+export function CounterFields({ log, onChange }: { log: VideoLogOptions; onChange: (next: VideoLogOptions) => void }) {
+  return <div className="overlay-counter-fields" role="group" aria-label="Turn counter contents">
+    {([ ["counterTurn", "Turn count"], ["counterPhase", "Phase"], ["counterStep", "Step count"] ] as const).map(([field, label]) =>
+      <label key={field}><input type="checkbox" checked={log[field]} onChange={(e) => onChange(setCounterField(log, field, e.target.checked))} /> {label}</label>)}
+  </div>;
+}
+export function ZeroCounts({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
+  return <label className="overlay-zero-counts"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /> Include zero counts</label>;
 }

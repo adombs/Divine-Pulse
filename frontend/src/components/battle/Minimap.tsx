@@ -33,8 +33,8 @@ import { TEAM_LABEL } from "./marks";
 import { Icon, IconButton } from "../Icon";
 import { Modal } from "../Modal";
 import { StepSlider } from "../Slider";
-import { CornerPicker, LayoutSection, SizeSlider } from "./OverlaySettings";
-import { CORNERS, cornerStacks, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, placeOverlay, sanitizeVideoLog, type Overlay, type VideoLogOptions } from "../../exporting/videoLog";
+import { CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
+import { CORNERS, cornerStacks, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, placeOverlay, sanitizeVideoLog, setCounterEnabled, type Overlay, type VideoLogOptions } from "../../exporting/videoLog";
 import { NotchedRange } from "../Slider";
 import { BattleNavContext, useBattleNav } from "./parts";
 import { CameraTools, DEFAULT_ZOOM, view, ZOOM_TILES, zoomText, useMapCamera } from "./camera";
@@ -608,7 +608,7 @@ function Cursor({ kind }: { kind: "picked" | "acting" | "target" }) {
 /** What's on the map and what its shapes mean, in one panel floating over the map's top right corner: the counts
  * (your units, the others, defeated) always, the legend for the units, the replay's marks and terrain when it's
  * opened, and hidden to a small button. Remembered per map (`place`). */
-export function MapKey({ board, replay, place }: { board: Board; replay?: boolean; place: string }) {
+export function MapKey({ board, replay, place, includeZero = true }: { board: Board; replay?: boolean; place: string; includeZero?: boolean }) {
   const [mode, setModeState] = useState<KeyMode>(() => loadKeyMode(place));
   // Whether the panel is as narrow as its counts: closing, the legend drops away first, then the panel narrows.
   const [narrow, setNarrow] = useState(mode !== "open");
@@ -662,7 +662,7 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
     <div ref={panel} className={`map-key-panel${open ? " open" : ""}${narrow ? " narrow" : ""}`} role="group" aria-label="Map Legend">
       <div className="map-key-head">
         <button type="button" className="map-key-toggle" aria-expanded={open} onClick={() => setMode(open ? "closed" : "open")} title={open ? "Close the legend" : "Open the legend"}>
-          <MapCounts board={board} />
+          <MapCounts board={board} includeZero={includeZero} />
           <Icon name={CONCEPT_ICON.down} className="map-key-caret" />
         </button>
         <button type="button" className="map-key-hide" onClick={() => setMode("hidden")} title="Hide the legend" aria-label="Hide the legend">
@@ -678,7 +678,7 @@ export function MapKey({ board, replay, place }: { board: Board; replay?: boolea
 
 /** The legend's counts: units standing in each army (your army with your units outside the roster, allies, enemies, a
  * third army), 0 included, in the legend's order, then the killed. Also on its own over a video's map. */
-export function MapCounts({ board }: { board: Board }) {
+export function MapCounts({ board, includeZero = true }: { board: Board; includeZero?: boolean }) {
   const { pieces } = board;
   const standing = (side: string) => pieces.filter((p) => !p.object && !p.down && (p.army ? "player" : p.sprite.side) === side).length;
   const down = pieces.filter((p) => p.down && !p.object).length;
@@ -686,15 +686,16 @@ export function MapCounts({ board }: { board: Board }) {
     <>
       {(["player", "enemy", "ally", "third"] as const).map((side) => {
         const n = standing(side);
+        if (!includeZero && !n) return null;
         return (
           <span key={side} className={`map-count team-${side}${n ? "" : " zero"}`} title={COUNT_TITLE[side]}>
             {n}
           </span>
         );
       })}
-      <span className={`map-count down${down ? "" : " zero"}`} title="Killed">
+      {(includeZero || down > 0) && <span className={`map-count down${down ? "" : " zero"}`} title="Killed">
         {down}
-      </span>
+      </span>}
     </>
   );
 }
@@ -885,8 +886,8 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
           <div key={corner} className={`replay-stage-corner map-overlay-corner ${corner}`}>
             {stacks[corner].map((item) => item === "condensed" ?
               <CondensedLog key={item} entries={replay.condensed} current={replay.at} fade={replay.condensedShown} lines={layout.condensedLines} size={layout.condensedSize} /> :
-              item === "counter" ? <ReplayBanner key={item} replay={replay} size={layout.counterSize} className="in-corner" /> :
-              <div key={item} className="map-overlay-key" style={{ fontSize: `${layout.countsSize}em` }}><MapKey board={board} replay={replay.steps.length > 0} place="overview" /></div>)}
+              item === "counter" ? <ReplayBanner key={item} replay={replay} size={layout.counterSize} showTurn={layout.counterTurn} showPhase={layout.counterPhase} showStep={layout.counterStep} className="in-corner" /> :
+              <div key={item} className="map-overlay-key" style={{ fontSize: `${layout.countsSize}em` }}><MapKey board={board} replay={replay.steps.length > 0} place="overview" includeZero={layout.countsZero} /></div>)}
           </div>
         ))}
       </div>
@@ -896,9 +897,10 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
           {(["condensed", "counter", "counts"] as Overlay[]).map((item) => {
             const title = item === "condensed" ? "Condensed log" : item === "counter" ? "Turn counter" : "Unit counts";
             const sizeKey = item === "condensed" ? "condensedSize" : item === "counter" ? "counterSize" : "countsSize";
-            return <LayoutSection key={item} title={title} note={item === "condensed" ? "The latest actions, over the map" : item === "counter" ? "Turn, phase and step, over the map" : "Each army's units on the map, and the killed"} on={layout[item]} onToggle={(on) => patch({ [item]: on })}>
+            return <LayoutSection key={item} title={title} note={item === "condensed" ? "The latest actions, over the map" : item === "counter" ? "Turn, phase and step, over the map" : "Each army's units on the map, and the killed"} on={layout[item]} onToggle={(on) => item === "counter" ? updateLayout(setCounterEnabled(layout, on)) : patch({ [item]: on })} always={item === "counter" ? <CounterFields log={layout} onChange={updateLayout} /> : undefined}>
               <CornerPicker label={`${title} corner`} which={item} log={layout} onChange={(corner) => updateLayout(placeOverlay(layout, item, corner))} />
               {item === "condensed" && <StepSlider label="# of Lines" stops={MAX_CONDENSED_LINES} value={layout.condensedLines - 1} onChange={(i) => patch({ condensedLines: i + 1 })} valueText={`${layout.condensedLines} at most`} after={<span className="team-pages-axis-value">{layout.condensedLines}</span>} variant="timeline" slim />}
+              {item === "counts" && <ZeroCounts checked={layout.countsZero} onChange={(countsZero) => patch({ countsZero })} />}
               <SizeSlider value={layout[sizeKey]} onChange={(size) => patch({ [sizeKey]: size })} />
             </LayoutSection>;
           })}

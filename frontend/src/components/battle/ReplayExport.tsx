@@ -21,8 +21,8 @@ import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
-import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, type Corner, type Overlay, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
-import { CornerPicker, LayoutSection, SizeSlider } from "./OverlaySettings";
+import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, MAX_LOG_LINES, newestRows, sanitizeVideoLog, type VideoLogOptions } from "../../exporting/videoLog";
+import { CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
 import { CondensedLog } from "./CondensedLog";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
@@ -833,12 +833,13 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     />
                     <SizeSlider value={options.log.condensedSize} onChange={(condensedSize) => updateLog({ condensedSize })} />
                   </LayoutSection>
-                  <LayoutSection title="Turn counter" note="Turn, phase and step, over the map" on={options.log.counter} onToggle={(on) => turnOn("counter", on)}>
+                  <LayoutSection title="Turn counter" note="Turn, phase and step, over the map" on={options.log.counter} onToggle={(on) => setOptionsState((o) => keep({ ...o, log: setCounterEnabled(o.log, on) }))} always={<CounterFields log={options.log} onChange={(log) => setOptionsState((o) => keep({ ...o, log }))} />}>
                     <CornerPicker label="Turn counter corner" which="counter" log={options.log} onChange={(c) => placeIn("counter", c)} />
                     <SizeSlider value={options.log.counterSize} onChange={(counterSize) => updateLog({ counterSize })} />
                   </LayoutSection>
                   <LayoutSection title="Unit counts" note="Each army's units on the map, and the killed" on={options.log.counts} onToggle={(on) => turnOn("counts", on)}>
                     <CornerPicker label="Unit counts corner" which="counts" log={options.log} onChange={(c) => placeIn("counts", c)} />
+                    <ZeroCounts checked={options.log.countsZero} onChange={(countsZero) => updateLog({ countsZero })} />
                     <SizeSlider value={options.log.countsSize} onChange={(countsSize) => updateLog({ countsSize })} />
                   </LayoutSection>
                 </fieldset>
@@ -1133,10 +1134,10 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
               o === "condensed" ? (
                 <CondensedLog key={o} entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} />
               ) : o === "counter" ? (
-                <ReplayBanner key={o} replay={replay} size={log.counterSize} className="in-corner" />
+                <ReplayBanner key={o} replay={replay} size={log.counterSize} showTurn={log.counterTurn} showPhase={log.counterPhase} showStep={log.counterStep} className="in-corner" />
               ) : (
                 <div key={o} className="replay-stage-counts" style={log.countsSize !== 1 ? { fontSize: `${log.countsSize}em` } : undefined} aria-label="Units on the map">
-                  <MapCounts board={replay.board} />
+                  <MapCounts board={replay.board} includeZero={log.countsZero} />
                 </div>
               ),
             )}
