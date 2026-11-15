@@ -4,18 +4,16 @@
  * the same way, over a faint copy that keeps its shape in view; under it "Rewinding N Steps" and a thin bar, both
  * following how much of the spiral shows (N counts up to the steps being undone as it fills).
  *
- * It is one SVG, so it scales evenly with the map and draws the same in a video's frames. Its clock is the rewind's own
- * (`elapsed`), not the screen's, so a video shows exactly what the preview did.
+ * The cycle (fill, hold, empty, hold) loops once a second for as long as the rewind lasts. It is one SVG, so it scales evenly with the map and draws the same in a video's frames.
+ * Its clock is the rewind's own (`elapsed`), not the screen's, so a video shows exactly what the preview did.
  */
 import { useId, useMemo } from "react";
-import "@fontsource/cinzel/latin-600.css";
-import "@fontsource/cinzel/latin-700.css";
 
 /** The spiral's centreline, outer tip to centre curl, in the glyph's 200 × 308 frame (public/brand/glyph-cream.png). */
 const TRACE = "M118,18 C92,50 48,92 34,142 C24,182 30,228 58,256 C84,282 128,288 156,262 C180,240 184,208 164,184 C147,164 120,162 109,180 C100,196 107,212 124,214";
 const GLYPH = "/brand/glyph-cream.png";
 
-/** One cycle (ms): fill, hold full, empty, hold empty. */
+/** One cycle's proportions (ms, as designed): fill, hold full, empty, hold empty. A rewind plays it in LOOP_MS (rewindTrace). */
 const FILL = 1900;
 const HOLD_FULL = 400;
 const EMPTY = 1900;
@@ -53,10 +51,18 @@ function lengthOfTrace(): number {
 
 const reducedMotion = () => (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) ?? false;
 
+/** How long one loop of the cycle takes in a rewind (ms). */
+export const LOOP_MS = 1000;
+
+/** The part of the spiral showing `elapsed` ms into a rewind: the cycle, played in LOOP_MS, over and over. */
+export function rewindTrace(elapsed: number, reduced = false): { start: number; shown: number } {
+  return traceWindow((Math.max(0, elapsed) * CYCLE) / LOOP_MS, reduced);
+}
+
 export function RewindIndicator({ steps, elapsed }: { steps: number; elapsed: number }) {
   const uid = useId().replace(/:/g, "");
   const length = useMemo(lengthOfTrace, []);
-  const { start, shown } = traceWindow(elapsed, reducedMotion());
+  const { start, shown } = rewindTrace(elapsed, reducedMotion());
   const n = Math.round(shown * steps);
   // One dash `shown` long, moved to begin `start` along the path: only that stretch of the spiral is unmasked.
   const dash = shown <= 0.0001 ? `0 ${length}` : `${shown * length} ${length}`;

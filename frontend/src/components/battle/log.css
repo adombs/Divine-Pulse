@@ -32,13 +32,13 @@
 .log-list .log-row.undone .undone-badge { margin-left: 0.4rem; font-size: 0.68em; font-style: normal; text-transform: uppercase; letter-spacing: 0.04em; padding: 0 0.3rem; border: 1px solid var(--line); border-radius: 3px; color: var(--ink-soft); }
 .log-defeat { margin-left: 0.35rem; color: var(--red); }
 /* The rewind indicator (RewindIndicator.tsx) in the middle of the map while a Divine Pulse is played back: the spiral
-   tracing itself, "Rewinding N Steps" and a bar, on the brand's violet. Its colours are the brand pack's. */
+   tracing itself, "Rewinding N Steps" (in the font set in Settings → Appearance) and a bar, on the brand's violet. */
 .rewind-badge { position: absolute; left: 50%; top: 50%; z-index: 3; pointer-events: none; width: clamp(8rem, 26%, 14rem); }
-.rewind-indicator { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 6px 22px rgba(0, 0, 0, 0.45)); }
-.rewind-panel { fill: #2c2440; fill-opacity: 0.94; stroke: #4a3f6e; stroke-width: 1.5; }
+.rewind-indicator { display: block; width: 100%; height: auto; overflow: visible; filter: drop-shadow(0 4px 14px rgba(0, 0, 0, 0.35)); }
+.rewind-panel { fill: #2c2440; fill-opacity: 0.55; stroke: #4a3f6e; stroke-opacity: 0.7; stroke-width: 1.5; }
 .rewind-glyph-ghost { opacity: 0.14; }
 .rewind-glyph { filter: drop-shadow(0 0 10px rgba(200, 166, 92, 0.25)); }
-.rewind-label { fill: #f1ede5; font-family: "Cinzel", var(--display); font-weight: 600; font-size: 21px; letter-spacing: 0.1em; text-transform: uppercase; }
-.rewind-label-num { fill: #c8a65c; font-weight: 700; }
+.rewind-label { fill: #f1ede5; font-family: var(--display); font-weight: 600; font-size: 21px; letter-spacing: 0.1em; text-transform: uppercase; }
+.rewind-label-num { fill: #c8a65c; font-family: var(--nums); font-weight: 700; }
 .rewind-track { fill: #4a3f6e; }
 .rewind-track-fill { fill: #c8a65c; }

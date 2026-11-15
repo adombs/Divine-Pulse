@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- A Divine Pulse plays a new rewind indicator in the middle of the map, on the battle page and in videos: the Divine Pulse spiral traces itself in and out, over "Rewinding N Steps" and a bar that fill with it.
+- A Divine Pulse plays a new rewind indicator in the middle of the map, on the battle page and in videos: on a translucent panel, the Divine Pulse spiral traces itself in and out once a second for as long as the rewind lasts, over "Rewinding N Steps" (in your chosen font) and a bar that fill with it.
 - Export Video's Layout tab is now called UI.
 - Terrain marks are always drawn; the Map marks list no longer has a switch for them.
 

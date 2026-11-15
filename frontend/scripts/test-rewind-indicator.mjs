@@ -4,7 +4,7 @@ import { createServer } from "vite";
 
 const vite = await createServer({ configFile: false, optimizeDeps: { noDiscovery: true, entries: [] }, server: { middlewareMode: true }, appType: "custom" });
 after(() => vite.close());
-const { traceWindow } = await vite.ssrLoadModule("/src/components/battle/RewindIndicator.tsx");
+const { rewindTrace, traceWindow } = await vite.ssrLoadModule("/src/components/battle/RewindIndicator.tsx");
 
 test("the spiral fills outer to inner, holds, empties outer to inner, holds empty, and loops", () => {
   assert.deepEqual(traceWindow(0), { start: 0, shown: 0 });
@@ -16,4 +16,13 @@ test("the spiral fills outer to inner, holds, empties outer to inner, holds empt
   assert.deepEqual(traceWindow(4400), { start: 1, shown: 0 }, "held empty");
   assert.deepEqual(traceWindow(4700 + 950), traceWindow(950), "it loops every 4.7 s");
   assert.deepEqual(traceWindow(1234, true), { start: 0, shown: 1 }, "reduced motion: held full");
+});
+
+test("in a rewind the cycle loops once a second, for as long as the rewind lasts", () => {
+  assert.deepEqual(rewindTrace(0), { start: 0, shown: 0 });
+  assert.equal(rewindTrace(450).shown, 1, "full just under halfway through the second");
+  assert.deepEqual(rewindTrace(950), { start: 1, shown: 0 }, "empty at its end");
+  assert.deepEqual(rewindTrace(3200), rewindTrace(200), "and again every second");
+  assert.deepEqual(rewindTrace(200), traceWindow(200 * 4.7), "the designed cycle, in one second");
+  assert.deepEqual(rewindTrace(500, true), { start: 0, shown: 1 }, "reduced motion: held full");
 });
