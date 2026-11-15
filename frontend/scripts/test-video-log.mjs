@@ -18,7 +18,7 @@ test("a video has the log (as many lines as fit) and the condensed log, unless t
 });
 
 test("every map mark is drawn unless switched off, and a switched-off one stays off", () => {
-  assert.deepEqual(Object.values(DEFAULT_VIDEO_LOG.annotations), Array(8).fill(true));
+  assert.deepEqual(Object.values(DEFAULT_VIDEO_LOG.annotations), Array(7).fill(true));
   const saved = sanitizeVideoLog({ annotations: { moves: false, hp: false, nonsense: false } });
   assert.equal(saved.annotations.moves, false);
   assert.equal(saved.annotations.hp, false);

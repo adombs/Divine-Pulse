@@ -392,7 +392,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
           })}
         </g>
       )}
-      {annotations.terrain && marks.length > 0 && (
+      {marks.length > 0 && (
         <g className="map-marks">
           {marks
             .filter((m) => !broken.has(`${m.x},${m.y}`))

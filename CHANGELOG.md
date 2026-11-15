@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- Export Video's Layout tab is now called UI.
+- Terrain marks are always drawn; the Map marks list no longer has a switch for them.
+
 ## 1.4.8 (2026-11-15)
 
 - Settings → Battle Replay and Export Video each have a Map marks list to switch off any of the map's marks: move arrows, target lines, action badges, hit effects, unit highlights, HP bars, terrain marks and the Divine Pulse badge.

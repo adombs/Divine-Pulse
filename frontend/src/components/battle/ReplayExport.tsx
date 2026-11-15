@@ -76,7 +76,7 @@ const OPTIONS_KEY = "divine-pulse-export-video";
 
 /** The groups of options, as tabs across the top of the options panel. */
 type ExportTab = "format" | "layout" | "replay" | "team" | "music";
-const TABS: [ExportTab, string][] = [["format", "Format"], ["layout", "Layout"], ["replay", "Replay"], ["team", "Team"], ["music", "Music"]];
+const TABS: [ExportTab, string][] = [["format", "Format"], ["layout", "UI"], ["replay", "Replay"], ["team", "Team"], ["music", "Music"]];
 
 /** The video's own options, remembered between exports. */
 interface VideoOptions {
