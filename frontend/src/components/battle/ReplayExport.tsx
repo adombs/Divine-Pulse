@@ -27,6 +27,7 @@ import { isPostTimeskip } from "../../portraits";
 import { useReplayAudio } from "../../exporting/useReplayAudio";
 import { fitReplayFrame } from "../../exporting/replayFrameFit";
 import { CondensedLog } from "./CondensedLog";
+import { RewindIndicator } from "./RewindIndicator";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
@@ -1189,8 +1190,8 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
           annotations={log.annotations}
         />
         {replay.rewind && log.annotations.rewind && (
-          <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.6 + 0.4 * replay.rewind.badge})` }} aria-hidden>
-            <Icon name={CONCEPT_ICON.pulse} />
+          <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.85 + 0.15 * replay.rewind.badge})` }}>
+            <RewindIndicator steps={replay.rewind.steps} elapsed={replay.rewind.elapsed} />
           </div>
         )}
       <div className="replay-stage-overlays">

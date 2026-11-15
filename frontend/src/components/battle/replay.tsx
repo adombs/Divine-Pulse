@@ -6,7 +6,7 @@
  * the unit acting moves first, then acts (an attack, a heal), then whoever fell or left the map fades away and
  * whoever arrived fades in. Consecutive actions of one phase aimed at the same unit, or each unit at itself (moves),
  * play together (moveRuns.ts), each starting a share of the one before's time after it (the stagger: 0 all at once,
- * 1 one after another), the camera keeping all of them in view. A Divine Pulse plays as a rewind: a badge in the middle of the map, and the steps it
+ * 1 one after another), the camera keeping all of them in view. A Divine Pulse plays as a rewind: the rewind indicator in the middle of the map (RewindIndicator.tsx), and the steps it
  * undid played backwards, while the timeline and the log stay on the Divine Pulse. Any other jump shows the beat at once.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
@@ -196,9 +196,12 @@ function rewindAt(plan: RewindPlan, elapsed: number, speed: number): { board: Bo
   return { board: plan.boards[t < 0 ? 0 : plan.boards.length - 1], animation: null, badge };
 }
 
-/** A Divine Pulse being played: how visible the rewind badge in the middle of the map is (0-1). */
+/** A Divine Pulse being played: how visible the rewind indicator in the middle of the map is (0-1), how far into the
+ * rewind it is (ms), and how many steps it undoes. */
 export interface Rewind {
   badge: number;
+  elapsed: number;
+  steps: number;
 }
 
 /** The game's icons for the names on the map's labels. */
@@ -427,7 +430,7 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   // A Divine Pulse being played shows the map as it is undone, and the badge; any other beat, its own animation.
   const rewinding = plan ? rewindAt(plan, elapsed, speed) : null;
   const animation: StepAnimation | null = rewinding ? rewinding.animation : anim ? { ...anim, elapsed } : null;
-  const rewind: Rewind | null = rewinding ? { badge: rewinding.badge } : null;
+  const rewind: Rewind | null = rewinding && plan ? { badge: rewinding.badge, elapsed, steps: plan.timings.length } : null;
   // The logs show a run played together beat by beat, as each one's part plays: up to the last part begun, each beat's
   // rows fading in as its own action does (a single beat: as its action plays).
   const fades = new Map<number, number>();

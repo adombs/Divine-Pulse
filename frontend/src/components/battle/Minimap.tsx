@@ -37,6 +37,7 @@ import { BattleNavContext, useBattleNav } from "./parts";
 import { CameraTools, DEFAULT_ZOOM, view, ZOOM_TILES, zoomText, useMapCamera } from "./camera";
 import { Replay, ReplayBanner, ReplayBar, StepAnimation } from "./replay";
 import { CondensedLog } from "./CondensedLog";
+import { RewindIndicator } from "./RewindIndicator";
 
 interface Props {
   board: Board;
@@ -926,8 +927,8 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
           <p className="muted small">No positions were read for this battle.</p>
         )}
         {replay.rewind && layout.annotations.rewind && (
-          <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.6 + 0.4 * replay.rewind.badge})` }} aria-hidden>
-            <Icon name={CONCEPT_ICON.pulse} />
+          <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.85 + 0.15 * replay.rewind.badge})` }}>
+            <RewindIndicator steps={replay.rewind.steps} elapsed={replay.rewind.elapsed} />
           </div>
         )}
         {hasMap(battle) && CORNERS.map((corner) => (
