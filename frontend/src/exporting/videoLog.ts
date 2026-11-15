@@ -57,7 +57,7 @@ export const ANNOTATIONS: readonly [Annotation, string, string][] = [
   ["effects", "Hit effects", "The ring where a blow lands, the pulse on a unit healed, and the badge popping in"],
   ["frames", "Unit highlights", "The corner frames around the unit acting and the one it acts on"],
   ["hp", "HP bars", "The bar under each unit"],
-  ["rewind", "Divine Pulse badge", "The badge in the middle of the map while a Divine Pulse turns time back"],
+  ["rewind", "Rewind indicator", "The spiral and \"Rewinding N Steps\" in the middle of the map while a Divine Pulse turns time back"],
 ];
 export const ALL_ANNOTATIONS = Object.fromEntries(ANNOTATIONS.map(([a]) => [a, true])) as Record<Annotation, boolean>;
 

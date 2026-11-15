@@ -2,15 +2,13 @@
 
 ## Unreleased
 
-- A Divine Pulse plays a new rewind indicator in the middle of the map, on the battle page and in videos: on a translucent panel, the Divine Pulse spiral traces itself in and out every two seconds for as long as the rewind lasts, over "Rewinding N Steps" (in your chosen font) and a bar that fill with it.
-- Export Video's Layout tab is now called UI.
-- Terrain marks are always drawn; the Map marks list no longer has a switch for them.
-
 ## 1.4.8 (2026-11-15)
 
-- Settings → Battle Replay and Export Video each have a Map marks list to switch off any of the map's marks: move arrows, target lines, action badges, hit effects, unit highlights, HP bars, terrain marks and the Divine Pulse badge.
+- Settings → Battle Replay and Export Video each have a Map marks list to switch off any of the map's marks: move arrows, target lines, action badges, hit effects, unit highlights, HP bars and the rewind indicator.
 - Export Video keeps its own replay options (speed, grouped actions and stagger, camera pan speed and sensitivity) and its own unit looks on the map, saved between exports and set apart from the battle page.
 - Settings → Battle Replay is only for the battle page. The replay speed is set on the battle page itself, no longer also in Settings.
+- A Divine Pulse plays a new rewind indicator in the middle of the map, on the battle page and in videos: on a translucent panel, the Divine Pulse spiral traces itself in and out every two seconds for as long as the rewind lasts, over "Rewinding N Steps" (in your chosen font) and a bar that fill with it.
+- Export Video's Layout tab is now called UI.
 
 ## 1.4.7 (2026-11-15)
 
