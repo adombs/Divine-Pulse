@@ -26,7 +26,7 @@ import { Collapse } from "../disclosure";
 import type { Battle } from "../../api";
 import { Section } from "../layout";
 import type { TerrainTile } from "../../api";
-import { Action, Board, boardNow, EMPTY_MINIMAP_INDEX, describe, describeTile, gameMinimap, hasMap, MINIMAP_TILES, minimapTile, type MinimapIndex, Piece, TILE_MARKS, tileAt, tileMark, tileMarks, terrainRuns } from "./map";
+import { Action, allActions, Board, boardNow, EMPTY_MINIMAP_INDEX, describe, describeTile, gameMinimap, hasMap, MINIMAP_TILES, minimapTile, type MinimapIndex, Piece, TILE_MARKS, tileAt, tileMark, tileMarks, terrainRuns } from "./map";
 import { ActionBadge, MapLook, miniBadge, miniImage, objectIcon, SpriteIndex, spriteLayers, TileMarkGlyph, UnitSprite, useSprites, WEAPON_LABEL, WeaponGlyph } from "./mapIcons";
 import { ICON, LOW_HP } from "./model";
 import { TEAM_LABEL } from "./marks";
@@ -61,6 +61,8 @@ interface Props {
   onWheelAt?: (x: number, y: number, deltaY: number) => void;
   /** The map dragged by (dx, dy) tiles (to pan a zoomed view). */
   onDrag?: (dx: number, dy: number) => void;
+  /** How long the view takes to pan to a new place (ms; the stylesheet's own when not given). */
+  panMs?: number;
 }
 
 function useMinimapIndex(): MinimapIndex {
@@ -107,6 +109,8 @@ interface Effect {
   by: number;
   /** How far along it is (0-1). */
   t: number;
+  /** The acting unit's army, for its colour. */
+  side: string;
 }
 
 /** Where a step's attack or heal badge goes: between the two units, or on the unit's corner when it heals itself. */
@@ -130,55 +134,95 @@ function stage(board: Board, animation: StepAnimation | null | undefined, keep: 
       effects: [],
     };
   }
-  const { before, action, timing, elapsed } = animation;
-  const move = ease(progress(elapsed, 0, timing.move));
-  const act = progress(elapsed, timing.move, timing.act);
-  const fade = progress(elapsed, timing.act, timing.fade);
-  const landed = act >= IMPACT;
-  const was = new Map(before.pieces.map((p) => [p.id, p]));
-  const now = new Map(board.pieces.map((p) => [p.id, p]));
+  const { elapsed } = animation;
+  // Each beat played (several when a group plays together), on its own clock: from its map before to its map after.
+  const parts = animation.parts ?? [{ before: animation.before, after: board, action: animation.action, timing: animation.timing, offset: 0 }];
+  const clocks = parts.map((part) => {
+    const e = elapsed - part.offset;
+    const t = part.timing;
+    return {
+      part,
+      started: e > 0,
+      move: ease(progress(e, 0, t.move)),
+      act: progress(e, t.move, t.act),
+      fade: progress(e, t.act, t.fade),
+      was: new Map(part.before.pieces.map((q) => [q.id, q])),
+      now: new Map(part.after.pieces.map((q) => [q.id, q])),
+    };
+  });
+  // Everyone on the map at any point, as last seen.
+  const pieces = new Map<string, Piece>();
+  for (const q of parts[0].before.pieces) pieces.set(q.id, q);
+  for (const c of clocks) for (const q of c.part.after.pieces) pieces.set(q.id, q);
+  for (const q of board.pieces) pieces.set(q.id, q);
+  const first = clocks[0].was;
   const drawn: Drawn[] = [];
   const effects: Effect[] = [];
-  const actor = action ? now.get(action.actor) : undefined;
-  const target = action?.target ? now.get(action.target) : undefined;
-  for (const p of board.pieces) {
-    const q = was.get(p.id);
-    if (q?.down && p.down) continue; // gone before this step
-    if (!q) {
-      if (!p.down) drawn.push({ piece: p, x: p.x, y: p.y, opacity: fade, hp: p.hp }); // arrived: fades in
-      continue;
+  for (const [id, piece] of pieces) {
+    const q = first.get(id);
+    let x = q ? q.x : piece.x;
+    let y = q ? q.y : piece.y;
+    let hp = q ? q.hp : piece.hp;
+    let opacity = q && !q.down ? 1 : 0;
+    let lunge: { to: Piece; t: number } | null = null;
+    for (const c of clocks) {
+      if (!c.started) continue;
+      const b = c.was.get(id);
+      const a = c.now.get(id);
+      if (b && a) {
+        if (b.x !== a.x || b.y !== a.y) {
+          x = b.x + (a.x - b.x) * c.move;
+          y = b.y + (a.y - b.y) * c.move;
+        }
+        // HP changes once the blow lands (or the heal is given).
+        if (b.hp !== a.hp && c.act >= IMPACT) hp = a.hp;
+        // Fell: fades away; played backwards, got up again: fades in.
+        if (b.down !== a.down) opacity = a.down ? 1 - c.fade : c.fade;
+      } else if (a) {
+        // Arrived: fades in.
+        x = a.x;
+        y = a.y;
+        hp = a.hp;
+        opacity = a.down ? 0 : c.fade;
+      } else if (b) {
+        // Left the map: fades away.
+        opacity = b.down ? 0 : 1 - c.fade;
+      }
+      const act = c.part.action;
+      const to = act?.kind === "attack" && act.actor === id && act.target ? c.now.get(act.target) : undefined;
+      if (to && c.act > 0 && c.act < 1) lunge = { to, t: c.act };
     }
-    let x = q.x + (p.x - q.x) * move;
-    let y = q.y + (p.y - q.y) * move;
-    if (action?.kind === "attack" && actor && target && p.id === actor.id && act > 0 && act < 1) {
+    if (lunge) {
       // The attacker lunges at its target and back: the blow lands at the peak.
-      const dx = target.x - actor.x;
-      const dy = target.y - actor.y;
+      const dx = lunge.to.x - x;
+      const dy = lunge.to.y - y;
       const length = Math.hypot(dx, dy) || 1;
-      const reach = Math.sin(Math.PI * act) * Math.min(LUNGE, Math.max(0, length - 0.55));
+      const reach = Math.sin(Math.PI * lunge.t) * Math.min(LUNGE, Math.max(0, length - 0.55));
       x += (dx / length) * reach;
       y += (dy / length) * reach;
     }
-    const fell = p.down && !q.down;
-    const revived = q.down && !p.down; // played backwards, a unit that fell gets up again
-    drawn.push({ piece: p, x, y, opacity: fell ? 1 - fade : revived ? fade : 1, hp: landed ? p.hp : q.hp });
+    if (opacity > 0) drawn.push({ piece, x, y, opacity, hp });
   }
-  for (const q of before.pieces) {
-    if (!q.down && !now.has(q.id)) drawn.push({ piece: q, x: q.x, y: q.y, opacity: 1 - fade, hp: q.hp }); // left the map
-  }
-  if (action && actor && act > 0 && act < 1) {
+  // Each attack's or heal's badge and ring, in the acting unit's army colour.
+  for (const c of clocks) {
+    const a = c.part.action;
+    if (!a || c.act <= 0 || c.act >= 1) continue;
+    const actor = c.now.get(a.actor);
+    if (!actor) continue;
+    const target = a.target ? c.now.get(a.target) : undefined;
     const [bx, by] = badgeSpot(actor, target);
-    if (action.kind === "attack" && target) {
-      effects.push({ kind: "attack", x: bx, y: by, bx, by, t: act });
-    } else if (action.kind === "heal") {
+    const side = actor.army ? "player" : actor.sprite.side;
+    if (a.kind === "attack" && target) {
+      effects.push({ kind: "attack", x: bx, y: by, bx, by, t: c.act, side });
+    } else if (a.kind === "heal") {
       const healed = target ?? actor;
-      effects.push({ kind: "heal", x: healed.x + healed.span / 2, y: healed.y + healed.span / 2, bx, by, t: act });
+      effects.push({ kind: "heal", x: healed.x + healed.span / 2, y: healed.y + healed.span / 2, bx, by, t: c.act, side });
     }
   }
   return { drawn, effects };
 }
 
-export function Minimap({ board, selected, focus, action, animation, onPick, size = "full", part2 = false, label, zoom, cursor, onWheelAt, onDrag }: Props) {
+export function Minimap({ board, selected, focus, action, animation, onPick, size = "full", part2 = false, label, zoom, cursor, onWheelAt, onDrag, panMs }: Props) {
   const automatic = useContext(PortraitPhaseContext) === "auto";
   const uid = useId().replace(/:/g, "");
   const svg = useRef<SVGSVGElement>(null);
@@ -258,16 +302,21 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
   const look = nav?.mapLook ?? DEFAULT_LOOK;
   const sprites = useSprites();
   const byId = new Map(pieces.map((p) => [p.id, p]));
-  const actor = action ? byId.get(action.actor) : undefined;
-  const target = action?.target ? byId.get(action.target) : undefined;
+  // The step's actions (several attacks on one target when played together), each with its units and army colour.
+  const shownActs = allActions(action).flatMap((a) => {
+    const actor = byId.get(a.actor);
+    if (!actor) return [];
+    const target = a.target ? byId.get(a.target) : undefined;
+    const aimed = a.kind === "attack" || a.kind === "heal" ? a.kind : null;
+    return [{ a, actor, target, aimed, side: actor.army ? "player" : actor.sprite.side }];
+  });
+  const actingIds = new Set(shownActs.flatMap(({ actor, target }) => (target ? [actor.id, target.id] : [actor.id])));
+  const targetedIds = new Set(shownActs.flatMap(({ a, target }) => (a.kind === "attack" && target ? [target.id] : [])));
   const { drawn, effects } = stage(board, animation, focus ? (selected ?? null) : null);
   // The trail of a step's move once its unit got there, the line to whoever it attacked or healed from then on, and
   // that badge once the action's own pops in is over.
   const moved = !animation || animation.elapsed >= animation.timing.move;
   const acted = !animation || animation.elapsed >= animation.timing.act;
-  // The acting unit's army: its arrows, badges and impact rings take that army's colour (as the replay labels do).
-  const side = actor ? (actor.army ? "player" : actor.sprite.side) : "player";
-  const aimed = action?.kind === "attack" || action?.kind === "heal" ? action.kind : null;
   const mid = (n: number) => n + 0.5;
   const pick = (id: string) => onPick?.(id);
   const onKey = (e: KeyboardEvent, id: string) => {
@@ -309,7 +358,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
           <MapImage href={miniImage("grid")} width={1} height={1} preserveAspectRatio="none" />
         </pattern>
       </defs>
-      <g className="map-zoom" style={zoom ? { transform: `translate(${-zoom.x0}px, ${-zoom.y0}px)` } : undefined}>
+      <g className="map-zoom" style={zoom ? { transform: `translate(${-zoom.x0}px, ${-zoom.y0}px)`, transitionDuration: panMs === undefined ? undefined : `${panMs}ms` } : undefined}>
       <rect className="map-ground" x={0} y={0} width={w} height={h} />
       {own && terrain ? (
         // Its grid line runs round it: a pixel past the map on each side. own.href is the imported file's URL,
@@ -349,12 +398,13 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
             ))}
         </g>
       )}
-      {moved && actor && action?.from && (
-        <g className={`map-tone ${side}`}>
-          <Trail key={`${action.actor} ${action.from}`} id={`${uid}-move`} from={[action.from[0] + actor.span / 2, action.from[1] + actor.span / 2]} to={[actor.x + actor.span / 2, actor.y + actor.span / 2]} gap={[0.2, 0.36 * actor.span]} />
-          <ActionBadge kind="move" cx={mid(action.from[0])} cy={mid(action.from[1])} r={0.17} />
+      {/* Each acting unit's army colours its arrows, badges and impact rings (as the replay labels do). */}
+      {moved && shownActs.map(({ a, actor, side }, i) => a.from && (
+        <g key={`move ${i}`} className={`map-tone ${side}`}>
+          <Trail key={`${a.actor} ${a.from}`} id={`${uid}-move`} from={[a.from[0] + actor.span / 2, a.from[1] + actor.span / 2]} to={[actor.x + actor.span / 2, actor.y + actor.span / 2]} gap={[0.2, 0.36 * actor.span]} />
+          <ActionBadge kind="move" cx={mid(a.from[0])} cy={mid(a.from[1])} r={0.17} />
         </g>
-      )}
+      ))}
       {drawn.map((d) => (
         <Token
           key={d.piece.id}
@@ -372,22 +422,22 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
           full={size === "full"}
           selected={d.piece.id === selected}
           faded={!!focus && !!selected && d.piece.id !== selected}
-          acting={d.piece.id === action?.actor || d.piece.id === action?.target}
-          targeted={action?.kind === "attack" && d.piece.id === action.target}
+          acting={actingIds.has(d.piece.id)}
+          targeted={targetedIds.has(d.piece.id)}
           onPick={onPick ? pick : undefined}
           onKey={onPick ? onKey : undefined}
         />
       ))}
-      {moved && actor && target && (
-        <g className={`map-tone ${aimed ? side : "aim"}`}>
+      {moved && shownActs.map(({ actor, target, aimed, side }, i) => target && (
+        <g key={`aim ${i}`} className={`map-tone ${aimed ? side : "aim"}`}>
           <Trail key={`${actor.id} ${target.id}`} id={`${uid}-aim`} from={[actor.x + actor.span / 2, actor.y + actor.span / 2]} to={[target.x + target.span / 2, target.y + target.span / 2]} gap={[0.36 * actor.span, 0.36 * target.span]} />
         </g>
-      )}
-      {acted && aimed && actor && (aimed === "heal" || target) && (
-        <g transform={`translate(${badgeSpot(actor, target).join(" ")})`}>
+      ))}
+      {acted && shownActs.map(({ actor, target, aimed, side }, i) => aimed && (aimed === "heal" || target) && (
+        <g key={`badge ${i}`} transform={`translate(${badgeSpot(actor, target).join(" ")})`}>
           <ActionBadge kind={aimed} team={side} cx={0} cy={0} />
         </g>
-      )}
+      ))}
       {effects.map((e, i) => {
         // The badge grows in toward the moment the blow lands (or the heal is given), a little past full size, and
         // settles; a ring spreads from where it lands, or rings pulse on whoever is healed.
@@ -395,7 +445,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
         const after = clamp01((e.t - IMPACT) / (1 - IMPACT));
         const scale = 0.55 + 0.45 * ease(grow) + 0.14 * Math.sin(Math.PI * after);
         return (
-          <g key={i} className={`map-effect map-tone ${side}`}>
+          <g key={i} className={`map-effect map-tone ${e.side}`}>
             {e.kind === "attack"
               ? after > 0 && <circle className="map-effect-ring" cx={e.x} cy={e.y} r={0.22 + 0.36 * after} style={{ opacity: 0.8 * (1 - after) }} />
               : [0, 0.35].map((delay) => {
@@ -404,7 +454,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
                 })}
             {e.kind === "heal" && <circle className="map-effect-glow" cx={e.x} cy={e.y} r={0.42} style={{ opacity: 0.4 * Math.sin(Math.PI * e.t) }} />}
             <g transform={`translate(${e.bx} ${e.by}) scale(${scale})`} style={{ opacity: clamp01(e.t / 0.15) }}>
-              <ActionBadge kind={e.kind} team={side} cx={0} cy={0} />
+              <ActionBadge kind={e.kind} team={e.side} cx={0} cy={0} />
             </g>
           </g>
         );
@@ -840,7 +890,7 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
   const { board, at, cursor } = replay;
   const [layout] = useState(loadBattleOverlaySettings);
   const stacks = cornerStacks(layout);
-  const camera = useMapCamera("overview", board, replay.follow, at === null ? `now ${cursor ?? ""}` : `step ${at}`);
+  const camera = useMapCamera("overview", board, replay.follow, at === null ? `now ${cursor ?? ""}` : `step ${at}`, nav.cameraPan, replay.waitForPan);
   return (
     <div className="map-pane">
       {hasMap(battle) && (
@@ -860,6 +910,7 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
             cursor={cursor}
             onWheelAt={camera.onWheelAt}
             onDrag={camera.onDrag}
+            panMs={camera.panMs}
           />
         ) : (
           <p className="muted small">No positions were read for this battle.</p>

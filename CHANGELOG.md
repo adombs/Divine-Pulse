@@ -2,6 +2,15 @@
 
 ## Unreleased
 
+## 1.4.7 (2026-11-15)
+
+- The replay camera pans much less: it stays put while the units acting are comfortably in view, and otherwise moves only as far as it needs to.
+- Each replay step waits for the camera to finish panning before it plays.
+- Settings → Battle Replay and Export Video’s Replay tab have Camera pan speed and Camera pan sensitivity sliders.
+- The replay speed and camera pan speed sliders have every half step from 1× to 4×.
+- Group moves is now Group actions: consecutive actions in one phase aimed at the same unit (several attacks on one enemy, heals on one ally) replay together, as do actions units take on themselves (moves, waits, self-heals).
+- Grouped actions can be staggered so their order still shows. A Stagger slider sets how far into one action the next starts, from 0% (all at once) to 100% (one after another). Both are in Settings → Battle Replay, and Export Video’s Replay tab can change them for one video.
+
 ## 1.4.6 (2026-11-13)
 
 - New battle recordings capture their starting roster after the battle begins for team-overview cards; later roster changes no longer change those cards. Older recordings without a snapshot omit the team overview.

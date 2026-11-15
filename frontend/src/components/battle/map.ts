@@ -317,7 +317,12 @@ export interface Action {
   from: [number, number] | null;
   target: string | null;
   kind: "attack" | "heal" | "none";
+  /** The actions of the beats just before it played together with it (moveRuns.ts `actionRuns`), first first. */
+  with?: Action[];
 }
+
+/** A step's action and every action played together with it, first first. */
+export const allActions = (action: Action | null | undefined): Action[] => (action ? [...(action.with ?? []), action] : []);
 
 export type StepKinds = Map<number, "attack" | "heal">;
 

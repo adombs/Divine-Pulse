@@ -32,12 +32,12 @@ import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
 import { sceneAt, type Segment } from "../../exporting/teamPages";
 import { customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, mixedSoundtrack, recording, releaseCustomAudio, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
-import { CameraMode, CameraModeSwitch, DEFAULT_ZOOM, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
+import { CameraMode, CameraModeSwitch, DEFAULT_PAN, DEFAULT_ZOOM, framed, PanSensitivitySlider, panMs, PanSpeedSlider, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap, phaseArmy } from "./map";
 import { MapCounts, Minimap, type Zoom } from "./Minimap";
 import { ItemList, useBattleNav } from "./parts";
-import { beatDurations, beatFocus, beatOf, beatRuns, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
+import { beatDurations, beatFocus, beatOf, DEFAULT_STAGGER, ReplayBanner, ReplaySpeedSlider, StaggerSlider, useReplay } from "./replay";
 import { battleName, KIND_LABEL } from "./scenarios";
 import { api } from "../../api";
 import { sanitizeRules, type Rule } from "../../ruleset";
@@ -69,8 +69,6 @@ const RESOLUTIONS: [number, string, number][] = [
 const QUALITIES: [VideoQuality, string][] = [["standard", "Standard (smaller file)"], ["high", "High"], ["best", "Best (bigger file)"]];
 /** The last step stays on screen this long at the end of the video (ms). */
 const END_HOLD_MS = 2000;
-/** How long a dynamic camera takes to glide to the next step's action (ms), as on the battle map. */
-const CAMERA_MS = 280;
 
 const ORIENTATION_KEY = "divine-pulse-export-orientation";
 const OPTIONS_KEY = "divine-pulse-export-video";
@@ -279,7 +277,7 @@ function centre(follow: [number, number][], w: number, h: number): [number, numb
   return [(Math.min(...xs) + Math.max(...xs)) / 2, (Math.min(...ys) + Math.max(...ys)) / 2];
 }
 
-const easeOut = (k: number) => 1 - (1 - Math.max(0, Math.min(1, k))) ** 3;
+const easeInOut = (k: number) => (1 - Math.cos(Math.PI * Math.max(0, Math.min(1, k)))) / 2;
 
 function ReplayExportDialog({ battle, chron, route, runName, units, part2, history, onClose }: {
   battle: Battle;
@@ -392,7 +390,14 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const rulesView = useMemo(() => ({ columns: rulesPage.columns, scale: rulesPage.scale, width: rulesPage.width }), [rulesPage.columns, rulesPage.scale, rulesPage.width]);
   const [speed, setSpeed] = useState(() => nav.replaySpeed ?? 1);
   // Whether consecutive moves play together: Settings' choice, changed for this video only.
-  const [group, setGroup] = useState(() => nav.groupMoves !== false);
+  const [group, setGroup] = useState(() => nav.groupActions !== false);
+  const settingsStagger = nav.actionStagger ?? DEFAULT_STAGGER;
+  const [staggered, setStaggered] = useState(() => settingsStagger > 0);
+  const [staggerShare, setStaggerShare] = useState(() => (settingsStagger > 0 ? settingsStagger : DEFAULT_STAGGER));
+  const stagger = staggered ? staggerShare : 0;
+  // How the camera pans: Settings' choice, changed for this video only.
+  const [panSpeed, setPanSpeed] = useState(() => nav.cameraPan?.speed ?? DEFAULT_PAN.speed);
+  const [panMargin, setPanMargin] = useState(() => nav.cameraPan?.margin ?? DEFAULT_PAN.margin);
   const [mode, setModeState] = useState<CameraMode>("dynamic");
   const [level, setLevel] = useState(DEFAULT_ZOOM);
   // Where a static camera looks (the middle of its view, in tiles).
@@ -406,10 +411,47 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const lastIndex = chron.beats.length - 1 - [...chron.beats].reverse().findIndex((b) => b.step.turn <= to);
   const last = Math.max(first, Math.min(chron.beats.length - 1, lastIndex));
 
-  const replay = useReplay(battle, chron, { speed, group, manual: true });
-  const durations = useMemo(() => beatDurations(battle, chron, speed, group), [battle, chron, speed, group]);
+  const replay = useReplay(battle, chron, { speed, group, stagger, manual: true });
+  const played = useMemo(() => beatDurations(battle, chron, speed, group, stagger), [battle, chron, speed, group, stagger]);
   const focus = useMemo(() => beatFocus(battle, chron, group), [battle, chron, group]);
-  const runs = useMemo(() => beatRuns(chron, group), [chron, group]);
+
+  // The camera. Dynamic, it pans to each beat (only as far as it takes to have the units acting in frame, as on the
+  // map), and the beat plays once it's there; static, it stays where it was put.
+  const { board } = replay;
+  const size = viewSize(orientation, options.log.show, ZOOM_TILES[level], board);
+  const whole: Zoom = { x0: -0.15, y0: -0.15, w: board.w + 0.3, h: board.h + 0.3 };
+  const { views, pans } = useMemo(() => {
+    const views: { from: Zoom; to: Zoom }[] = [];
+    const pans: number[] = [];
+    const tiles = ZOOM_TILES[level];
+    let prev: Zoom | null = null;
+    for (let i = first; i <= last; i++) {
+      // Played with the last move of its run: never on screen.
+      if (!played[i] && i !== last && prev) {
+        views[i] = { from: prev, to: prev };
+        pans[i] = 0;
+        continue;
+      }
+      const follow = focus[i] ?? [];
+      const fit = fitView(follow, size, board);
+      let to: Zoom;
+      if (!tiles) to = whole;
+      else if (!follow.length || fit[0] !== size[0] || fit[1] !== size[1]) to = viewAround(centre(follow, board.w, board.h), fit, board) ?? whole;
+      else {
+        const [w, h] = size;
+        const start: [number, number] | null = prev ? [prev.x0 + prev.w / 2 - w / 2, prev.y0 + prev.h / 2 - h / 2] : null;
+        const [x0, y0] = framed(start, follow, size, tiles, panMargin, [board.w - w, board.h - h]);
+        to = { x0, y0, w, h };
+      }
+      const moved = !!prev && mode === "dynamic" && (Math.abs(prev.x0 - to.x0) > 0.01 || Math.abs(prev.y0 - to.y0) > 0.01 || Math.abs(prev.w - to.w) > 0.01);
+      views[i] = { from: prev ?? to, to };
+      pans[i] = moved ? panMs(panSpeed) : 0;
+      prev = to;
+    }
+    return { views, pans };
+  }, [first, last, played, focus, size[0], size[1], board.w, board.h, level, mode, panSpeed, panMargin]); // eslint-disable-line react-hooks/exhaustive-deps
+  // How long each beat takes in the video: the camera's pan to it, then the beat.
+  const durations = useMemo(() => played.map((ms, i) => ms + (pans[i] ?? 0)), [played, pans]);
   // When each beat in the range starts (ms into the video), and how long the video is.
   const { starts, total: replayTotal } = useMemo(() => {
     const out: number[] = [];
@@ -465,15 +507,16 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     const m = momentAt(replayTime(Math.max(0, Math.min(total, ms))));
     setT(Math.max(0, Math.min(total, ms)));
     setMoment(m);
-    replay.pose(m.beat, m.elapsed);
+    // The beat plays once the camera has panned to it.
+    replay.pose(m.beat, Math.max(0, m.elapsed - (pans[m.beat] ?? 0)));
   };
   const seekRef = useRef(seekTo);
   seekRef.current = seekTo;
 
-  // A new range or speed starts the preview over.
+  // A new range, speed or pan starts the preview over.
   useEffect(() => {
     seekRef.current(0);
-  }, [first, last, speed, group]);
+  }, [first, last, speed, group, stagger, panSpeed, panMargin]);
 
   useEffect(() => {
     if (!playing || working) return;
@@ -492,20 +535,14 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
     // Restarted only when playing starts or stops, or the video's length changes; `t` is where it starts from.
   }, [playing, working, total]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // The camera, from the moment alone: a dynamic one glides from the last step's action to this one's.
-  const { board } = replay;
-  const size = viewSize(orientation, options.log.show, ZOOM_TILES[level], board);
-  const whole: Zoom = { x0: -0.15, y0: -0.15, w: board.w + 0.3, h: board.h + 0.3 };
-  // A beat's view: around what it follows, widened while several moves played together wouldn't fit.
-  const viewOf = (follow: [number, number][]): Zoom => viewAround(centre(follow, board.w, board.h), fitView(follow, size, board), board) ?? whole;
-  // Dynamic, the camera glides from the view of the beat this one plays from (before a run of moves) to its own.
+  // The camera, from the moment alone: a dynamic one pans from the view before this beat to its own, then holds.
   const dynamicView = (m: Moment): Zoom => {
-    const to = viewOf(focus[m.beat] ?? []);
-    if (m.beat <= first) return to;
-    const from = viewOf(focus[Math.max(first, runs.from[m.beat])] ?? []);
-    const k = easeOut(m.elapsed / Math.min(CAMERA_MS, durations[m.beat] || CAMERA_MS));
+    const v = views[m.beat];
+    if (!v) return whole;
+    const pan = pans[m.beat] ?? 0;
+    const k = pan ? easeInOut(m.elapsed / pan) : 1;
     const mix = (a: number, b: number) => a + (b - a) * k;
-    return { x0: mix(from.x0, to.x0), y0: mix(from.y0, to.y0), w: mix(from.w, to.w), h: mix(from.h, to.h) };
+    return { x0: mix(v.from.x0, v.to.x0), y0: mix(v.from.y0, v.to.y0), w: mix(v.from.w, v.to.w), h: mix(v.from.h, v.to.h) };
   };
   // The team pages over the replay in the preview: a page, or two while they crossfade (the replay beneath).
   const scene = sceneAt(segments, t);
@@ -844,11 +881,23 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                   <fieldset className="export-group" disabled={working}>
                     <legend>Replay</legend>
                     <ReplaySpeedSlider value={speed} onChange={setSpeed} labelled />
-                    <label className="export-check" title="Consecutive moves in one phase, with nothing else between them, play at once">
-                      <input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} /> Group consecutive moves
+                    <label className="export-check" title="Consecutive actions in one phase aimed at the same unit, or each unit at itself (moves, waits), play together">
+                      <input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} /> Group actions
                     </label>
+                    {group && (
+                      <label className="export-check" title="Grouped actions start one after another, so their order shows; off, they play at the same time">
+                        <input type="checkbox" checked={staggered} onChange={(e) => setStaggered(e.target.checked)} /> Stagger grouped actions
+                      </label>
+                    )}
+                    {group && staggered && <StaggerSlider value={staggerShare} onChange={setStaggerShare} labelled />}
                     <CameraModeSwitch value={mode} onChange={setMode} labelled />
                     <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} after={<ZoomValue level={level} />} />
+                    {mode === "dynamic" && (
+                      <>
+                        <PanSpeedSlider value={panSpeed} onChange={setPanSpeed} labelled />
+                        <PanSensitivitySlider value={panMargin} onChange={setPanMargin} labelled />
+                      </>
+                    )}
                   </fieldset>
                 </>
               ),

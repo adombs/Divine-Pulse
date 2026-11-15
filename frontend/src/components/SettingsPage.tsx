@@ -17,7 +17,8 @@ import { useNav } from "../nav";
 import { PageHeader } from "./layout";
 import { Icon, IconName } from "./Icon";
 import { MemoryCheck } from "./MemoryCheck";
-import { ReplaySpeedSlider } from "./battle/replay";
+import { ReplaySpeedSlider, StaggerSlider } from "./battle/replay";
+import { PanSensitivitySlider, PanSpeedSlider } from "./battle/camera";
 import { BattleReplaySettings } from "./battle/OverlaySettings";
 import { FACE_LOOKS, UNIT_LOOKS } from "./battle/mapIcons";
 import { StepSlider } from "./Slider";
@@ -176,8 +177,26 @@ function BattleReplaySection({ state }: { state: AppearanceState }) {
         <Row label="Replay speed" hint="How fast a battle replays on the map.">
           <ReplaySpeedSlider value={appearance.replaySpeed} onChange={(replaySpeed) => update({ replaySpeed })} />
         </Row>
-        <Row label="Group moves" hint="Consecutive moves in one phase, with nothing else between them, replay at once, on the map and in videos (Export Video can change it for one video).">
-          <Switch checked={appearance.groupMoves} label="Replay consecutive moves together" onChange={(groupMoves) => update({ groupMoves })} />
+        <Row label="Group actions" hint="Consecutive actions in one phase aimed at the same unit (attacks on one enemy, heals on one ally), or each unit at itself (moves, waits), replay together, on the map and in videos (Export Video can change it for one video).">
+          <Switch checked={appearance.groupActions} label="Replay grouped actions together" onChange={(groupActions) => update({ groupActions })} />
+        </Row>
+        {appearance.groupActions && (
+          <>
+            <Row label="Stagger grouped actions" hint="Start grouped actions one after another, so their order shows. Off, they play at the same time.">
+              <Switch checked={appearance.staggerActions} label="Stagger grouped actions" onChange={(staggerActions) => update({ staggerActions })} />
+            </Row>
+            {appearance.staggerActions && (
+              <Row label="Stagger" hint="How far into one grouped action the next starts: 0% at the same time, 100% once it's done (as if not grouped).">
+                <StaggerSlider value={appearance.actionStagger} onChange={(actionStagger) => update({ actionStagger })} />
+              </Row>
+            )}
+          </>
+        )}
+        <Row label="Camera pan speed" hint="How fast the camera pans to the next action. A step plays once the camera is there.">
+          <PanSpeedSlider value={appearance.panSpeed} onChange={(panSpeed) => update({ panSpeed })} />
+        </Row>
+        <Row label="Camera pan sensitivity" hint="How near the edge of the view the action may come before the camera pans. Lower pans less; Centre always centres the action.">
+          <PanSensitivitySlider value={appearance.panMargin} onChange={(panMargin) => update({ panMargin })} />
         </Row>
       </Group>
       <p className="set-group-note">These settings apply to the battle map and are saved as you change them. Video export has its own layout settings.</p>
