@@ -9,6 +9,7 @@
 - Settings → Battle Replay is only for the battle page. The replay speed is set on the battle page itself, no longer also in Settings.
 - A Divine Pulse plays a new rewind indicator in the middle of the map, on the battle page and in videos: on a translucent panel, the Divine Pulse spiral traces itself in and out every two seconds for as long as the rewind lasts, over "Rewinding N Steps" (in your chosen font) and a bar that fill with it.
 - Export Video's Layout tab is now called UI.
+- Export Video's Replay tab can leave out Divine Pulse: switch off Include Divine Pulse rewinds to replay only the steps that finally stand.
 
 ## 1.4.7 (2026-11-15)
 

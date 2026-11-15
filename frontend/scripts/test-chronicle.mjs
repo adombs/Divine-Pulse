@@ -153,3 +153,14 @@ test("a death put in words never mentions how the unit was marked", async () => 
   assert.equal(deathText({ name: "Lorenz", death: { battle_id: "b1", battle_name: "Battle in the Forest", turn: 2, by: "Bandit", manual: true } }), "Fell in Battle in the Forest, turn 2, to Bandit");
   assert.equal(deathText({ name: "Lorenz", death: { battle_id: null, manual: false } }), "Lorenz is dead (no recorded battle has the fall)");
 });
+
+test("the final timeline: only the steps that stand, without the uses of Divine Pulse or what they undid", async () => {
+  const { finalChronicle } = await vite.ssrLoadModule("/src/components/battle/chronicle.ts");
+  const { beats, items, pulses } = finalChronicle(battle());
+  assert.deepEqual(pulses, []);
+  assert.ok(beats.every((b) => b.pulse === null && b.segment === 0), "no Divine Pulse beat, one segment");
+  assert.deepEqual(beats.map((b) => b.frame.get("a:alpha")[0]), standing.map((s) => s.units["a:alpha"][0]).slice(-beats.length), "the standing map history");
+  assert.ok(!items.some((i) => i.kind === "pulse"), "no Divine Pulse row");
+  assert.ok(items.every((i) => i.undoneBy == null), "nothing undone");
+  assert.deepEqual(items.map((i) => i.text).filter((t) => t !== "Battle started"), ["first", "second", "after the second pulse", "and again"]);
+});
