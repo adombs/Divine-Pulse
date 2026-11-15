@@ -18,6 +18,7 @@ import { PageHeader } from "./layout";
 import { Icon, IconName } from "./Icon";
 import { MemoryCheck } from "./MemoryCheck";
 import { ReplaySpeedSlider } from "./battle/replay";
+import { PanSensitivitySlider, PanSpeedSlider } from "./battle/camera";
 import { BattleReplaySettings } from "./battle/OverlaySettings";
 import { FACE_LOOKS, UNIT_LOOKS } from "./battle/mapIcons";
 import { StepSlider } from "./Slider";
@@ -178,6 +179,15 @@ function BattleReplaySection({ state }: { state: AppearanceState }) {
         </Row>
         <Row label="Group moves" hint="Consecutive moves in one phase, with nothing else between them, replay at once, on the map and in videos (Export Video can change it for one video).">
           <Switch checked={appearance.groupMoves} label="Replay consecutive moves together" onChange={(groupMoves) => update({ groupMoves })} />
+        </Row>
+        <Row label="Group attacks" hint="Consecutive attacks in one phase on the same target replay together, each attacker striking just after the one before, on the map and in videos (Export Video can change it for one video).">
+          <Switch checked={appearance.groupAttacks} label="Replay consecutive attacks on one target together" onChange={(groupAttacks) => update({ groupAttacks })} />
+        </Row>
+        <Row label="Camera pan speed" hint="How fast the camera pans to the next action. A step plays once the camera is there.">
+          <PanSpeedSlider value={appearance.panSpeed} onChange={(panSpeed) => update({ panSpeed })} />
+        </Row>
+        <Row label="Camera pan sensitivity" hint="How near the edge of the view the action may come before the camera pans. Lower pans less; Centre always centres the action.">
+          <PanSensitivitySlider value={appearance.panMargin} onChange={(panMargin) => update({ panMargin })} />
         </Row>
       </Group>
       <p className="set-group-note">These settings apply to the battle map and are saved as you change them. Video export has its own layout settings.</p>

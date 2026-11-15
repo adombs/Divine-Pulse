@@ -57,3 +57,17 @@ test("a lone move stays a beat of its own", () => {
   assert.deepEqual(end, [0, 1, 2]);
   assert.deepEqual(from, [0, 0, 1]);
 });
+
+test("attacks on one target in a row play together; another target or a phase change ends the run", async () => {
+  const { attackRuns, mergeRuns, moveRuns: runs } = await vite.ssrLoadModule("/src/components/battle/moveRuns.ts");
+  const hit = (actor, target, opts) => ({ ...beat(actor, f0, opts), step: { ...beat(actor, f0, opts).step, target } });
+  const beats = [beat(null, f0), hit(A, E), hit(B, E), hit(A, E), hit(B, F), hit(A, F, { phase: 1, turn: 2 }), hit(B, F, { phase: 1, turn: 2 })];
+  const kinds = new Map(beats.map((_, i) => [i, "attack"]).slice(1));
+  const { end, from } = attackRuns(beats, kinds);
+  assert.deepEqual(end, [0, 3, 3, 3, 4, 6, 6]);
+  assert.equal(from[3], 0, "the run plays from the map before its first attack");
+  assert.equal(from[6], 4);
+  assert.deepEqual(attackRuns(beats, new Map([[1, "attack"], [2, "heal"], [3, "attack"]])).end, [0, 1, 2, 3, 4, 5, 6], "a heal between");
+  const merged = mergeRuns(runs(beats, []), attackRuns(beats, kinds));
+  assert.deepEqual(merged.end, end, "merged with no move runs: the attack runs");
+});

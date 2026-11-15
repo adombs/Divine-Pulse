@@ -3,6 +3,7 @@ import { CONCEPT_ICON } from "../../icons/concepts";
 import { createContext, Fragment, ReactNode, useContext, useEffect, useRef, useState } from "react";
 import type { Battle, BattleEvent, BattleUnit, Outlook, TrendPoint, Usage, ValueKey } from "../../api";
 import type { EbstConfig } from "../../ebst";
+import type { CameraPan } from "./camera";
 import { type FaceLook, type MapLook, spriteLayers, UnitSprite, useSprites } from "./mapIcons";
 import { armySprite, isObject, spriteOf } from "./map";
 import { clock, plural } from "../../format";
@@ -29,6 +30,10 @@ export interface BattleNav {
   replaySpeed?: number;
   /** Whether consecutive moves of one phase replay together (moveRuns.ts); on unless set off. */
   groupMoves?: boolean;
+  /** Whether consecutive attacks on one target replay together (moveRuns.ts `attackRuns`); on unless set off. */
+  groupAttacks?: boolean;
+  /** How the map's dynamic camera pans: its speed and sensitivity (Settings > Battle map). */
+  cameraPan?: CameraPan;
   /** Changes the replay speed from the battle view (it is the Settings value, so it sticks). */
   setReplaySpeed?: (speed: number) => void;
   /** How a unit's eBST is worked out (its roster settings; null when it isn't in the roster). */

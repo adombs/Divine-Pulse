@@ -53,12 +53,46 @@ export function moveRuns(beats: RunCandidate[], items: Item[], kinds?: StepKinds
     const b = beats[i];
     return plain[i - 1] && plain[i] && a.step.turn === b.step.turn && a.step.phase === b.step.phase && a.segment === b.segment;
   };
-  const end = beats.map((_, i) => i);
-  const from = beats.map((_, i) => Math.max(0, i - 1));
-  for (let s = 1; s < beats.length; s++) {
-    if (!plain[s]) continue;
+  return collect(beats.length, (i) => plain[i], together);
+}
+
+/**
+ * Attacks played together: consecutive beats of one phase in which different units (or the same one again) attack the
+ * same target replay as one animation, the attackers moving at once and then striking one shortly after another, so
+ * their order still shows. A phase or turn changing, a Divine Pulse, or another target ends a run.
+ */
+export function attackRuns(beats: (RunCandidate & { step: { target?: string | null } })[], kinds?: StepKinds): MoveRuns {
+  const target = (i: number) => {
+    const b = beats[i];
+    const t = b.step.target;
+    return i > 0 && b.pulse === null && b.step.actor != null && kinds?.get(i) === "attack" && t && t !== b.step.actor ? t : null;
+  };
+  const together = (i: number) => {
+    const a = beats[i - 1];
+    const b = beats[i];
+    const t = target(i);
+    return t !== null && target(i - 1) === t && a.step.turn === b.step.turn && a.step.phase === b.step.phase && a.segment === b.segment;
+  };
+  return collect(beats.length, (i) => target(i) !== null, together);
+}
+
+/** Both kinds of run in one (they never overlap: a beat of moves has no attack in it). */
+export function mergeRuns(a: MoveRuns, b: MoveRuns): MoveRuns {
+  const inRun = (r: MoveRuns, i: number) => r.end[i] !== i || r.from[i] !== Math.max(0, i - 1);
+  return {
+    end: a.end.map((e, i) => (inRun(a, i) ? e : b.end[i])),
+    from: a.from.map((f, i) => (inRun(a, i) ? f : b.from[i])),
+  };
+}
+
+/** The runs of `n` beats: from each beat that can start one, on through every next beat `together` with the one before. */
+function collect(n: number, member: (i: number) => boolean, together: (i: number) => boolean): MoveRuns {
+  const end = Array.from({ length: n }, (_, i) => i);
+  const from = Array.from({ length: n }, (_, i) => Math.max(0, i - 1));
+  for (let s = 1; s < n; s++) {
+    if (!member(s)) continue;
     let e = s;
-    while (e + 1 < beats.length && together(e + 1)) e++;
+    while (e + 1 < n && together(e + 1)) e++;
     if (e > s) {
       for (let k = s; k <= e; k++) end[k] = e;
       from[e] = s - 1;

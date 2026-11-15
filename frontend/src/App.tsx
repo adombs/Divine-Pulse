@@ -435,6 +435,8 @@ export default function App() {
                 replaySpeed={appearance.appearance.replaySpeed}
                 onReplaySpeed={(replaySpeed) => appearance.update({ replaySpeed })}
                 groupMoves={appearance.appearance.groupMoves}
+                groupAttacks={appearance.appearance.groupAttacks}
+                cameraPan={{ speed: appearance.appearance.panSpeed, margin: appearance.appearance.panMargin }}
                 at={recording?.id === nav.route.id ? nav.route.q : null}
                 fell={recording?.id === nav.route.id ? nav.route.fell : null}
                 onDeleteRecording={deleteRecording}

@@ -117,6 +117,12 @@ export interface Appearance {
   replaySpeed: number;
   /** Whether consecutive moves of one phase replay together, everyone moving at once. */
   groupMoves: boolean;
+  /** Whether consecutive attacks on one target replay together, each attacker striking just after the one before. */
+  groupAttacks: boolean;
+  /** How fast the map's dynamic camera pans to the next action (1 normal). */
+  panSpeed: number;
+  /** How near the view's edge the action may come before the camera pans (a share of the zoom's tiles across). */
+  panMargin: number;
 }
 
 const KEY = "divine-pulse-appearance";
@@ -134,6 +140,9 @@ export function loadAppearance(): Appearance {
     otherUnitFaces: "portraits",
     replaySpeed: 1,
     groupMoves: true,
+    groupAttacks: true,
+    panSpeed: 1,
+    panMargin: 0.1,
   };
   try {
     const saved = JSON.parse(localStorage.getItem(KEY) ?? "null");
@@ -143,6 +152,9 @@ export function loadAppearance(): Appearance {
       delete (current as Record<string, unknown>).theme;
       const out: Appearance = { ...fallback, ...current };
       out.groupMoves = out.groupMoves !== false;
+      out.groupAttacks = out.groupAttacks !== false;
+      if (!(Number(out.panSpeed) > 0)) out.panSpeed = fallback.panSpeed;
+      if (!(Number(out.panMargin) >= 0)) out.panMargin = fallback.panMargin;
       out.mapMine = isUnitLook(out.mapMine) ? out.mapMine : fallback.mapMine;
       out.mapOthers = isUnitLook(out.mapOthers) ? out.mapOthers : fallback.mapOthers;
       if (!("mapMine" in current) && isUnitLook(mapNamed)) out.mapMine = mapNamed;

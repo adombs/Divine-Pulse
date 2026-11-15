@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.4.7 (2026-11-15)
+
+- The replay camera pans much less: it stays put while the units acting are comfortably in view, and otherwise moves only as far as it needs to.
+- Each replay step waits for the camera to finish panning before it plays.
+- Settings → Battle Replay and Export Video’s Replay tab have Camera pan speed and Camera pan sensitivity sliders.
+- Consecutive attacks on the same target replay together, each attacker striking just after the one before. Settings → Battle Replay has a Group attacks switch, and Export Video’s Replay tab can change it for one video.
+
 ## 1.4.6 (2026-11-13)
 
 - New battle recordings capture their starting roster after the battle begins for team-overview cards; later roster changes no longer change those cards. Older recordings without a snapshot omit the team overview.
