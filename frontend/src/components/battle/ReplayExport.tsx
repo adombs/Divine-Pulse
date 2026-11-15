@@ -22,7 +22,7 @@ import { NotchedRange, RangeSlider } from "../Slider";
 import { CardBanner, RunIcon, Segmented } from "../ui";
 import { StepSlider } from "../Slider";
 import { cornerStacks, CORNERS, DEFAULT_VIDEO_LOG, placeOverlay, setCounterEnabled, type Corner, type Overlay, MAX_CONDENSED_LINES, sanitizeVideoLog, overlaySizeStyle, type VideoLogOptions } from "../../exporting/videoLog";
-import { CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
+import { AnnotationToggles, CornerPicker, CounterFields, LayoutSection, SizeSlider, ZeroCounts } from "./OverlaySettings";
 import { isPostTimeskip } from "../../portraits";
 import { useReplayAudio } from "../../exporting/useReplayAudio";
 import { fitReplayFrame } from "../../exporting/replayFrameFit";
@@ -32,12 +32,13 @@ import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
 import { sceneAt, type Segment } from "../../exporting/teamPages";
 import { customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, mixedSoundtrack, recording, releaseCustomAudio, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
-import { CameraMode, CameraModeSwitch, DEFAULT_PAN, DEFAULT_ZOOM, framed, PanSensitivitySlider, panMs, PanSpeedSlider, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
+import { CameraMode, CameraModeSwitch, DEFAULT_PAN, DEFAULT_ZOOM, framed, PAN_MARGINS, PAN_SPEEDS, PanSensitivitySlider, panMs, PanSpeedSlider, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
 import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap, phaseArmy } from "./map";
 import { MapCounts, Minimap, type Zoom } from "./Minimap";
-import { ItemList, useBattleNav } from "./parts";
-import { beatDurations, beatFocus, beatOf, DEFAULT_STAGGER, ReplayBanner, ReplaySpeedSlider, StaggerSlider, useReplay } from "./replay";
+import { BattleNavContext, ItemList, useBattleNav } from "./parts";
+import { type MapLook, UNIT_LOOKS, type UnitLook } from "./mapIcons";
+import { beatDurations, beatFocus, beatOf, DEFAULT_STAGGER, REPLAY_SPEEDS, ReplayBanner, ReplaySpeedSlider, STAGGER_STOPS, StaggerSlider, useReplay } from "./replay";
 import { battleName, KIND_LABEL } from "./scenarios";
 import { api } from "../../api";
 import { sanitizeRules, type Rule } from "../../ruleset";
@@ -95,8 +96,42 @@ interface VideoOptions {
   rules: RulesetPageOptions;
   /** Whether the frame has the log and how many rows it shows, and whether the map has the condensed log (videoLog.ts). */
   log: VideoLogOptions;
+  /** How the replay plays in the video: its own, apart from the battle page's (Settings → Battle Replay). */
+  replay: VideoReplayOptions;
 }
-const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, customVolume: 75, team: DEFAULT_TEAM_PAGES, rules: DEFAULT_RULESET_PAGE, log: DEFAULT_VIDEO_LOG };
+
+/** How a video's replay plays and its camera pans. */
+interface VideoReplayOptions {
+  speed: number;
+  /** Grouped actions play together, staggered by `stagger` (0-1) when `staggered`. */
+  group: boolean;
+  staggered: boolean;
+  stagger: number;
+  panSpeed: number;
+  panMargin: number;
+  /** How units are drawn on the video's map: your units, and everyone else. */
+  mine: UnitLook;
+  others: UnitLook;
+}
+const DEFAULT_REPLAY: VideoReplayOptions = { speed: 1, group: true, staggered: true, stagger: DEFAULT_STAGGER, panSpeed: DEFAULT_PAN.speed, panMargin: DEFAULT_PAN.margin, mine: "portraits", others: "sprites" };
+const isUnitLook = (v: unknown): v is UnitLook => UNIT_LOOKS.some(([look]) => look === v);
+
+function sanitizeReplay(saved: unknown): VideoReplayOptions {
+  const s = (saved && typeof saved === "object" ? saved : {}) as Partial<Record<keyof VideoReplayOptions, unknown>>;
+  const among = (value: unknown, stops: readonly number[], fallback: number) => (stops.includes(value as number) ? (value as number) : fallback);
+  return {
+    speed: among(s.speed, REPLAY_SPEEDS, DEFAULT_REPLAY.speed),
+    group: s.group !== false,
+    staggered: s.staggered !== false,
+    stagger: among(s.stagger, STAGGER_STOPS, DEFAULT_REPLAY.stagger),
+    panSpeed: among(s.panSpeed, PAN_SPEEDS, DEFAULT_REPLAY.panSpeed),
+    panMargin: among(s.panMargin, PAN_MARGINS, DEFAULT_REPLAY.panMargin),
+    mine: isUnitLook(s.mine) ? s.mine : DEFAULT_REPLAY.mine,
+    others: isUnitLook(s.others) ? s.others : DEFAULT_REPLAY.others,
+  };
+}
+
+const DEFAULT_OPTIONS: VideoOptions = { tab: "format", resolution: 1080, fps: 30, quality: "high", version: "rain", volume: 75, customVolume: 75, team: DEFAULT_TEAM_PAGES, rules: DEFAULT_RULESET_PAGE, log: DEFAULT_VIDEO_LOG, replay: DEFAULT_REPLAY };
 
 function loadOptions(): VideoOptions {
   try {
@@ -112,6 +147,7 @@ function loadOptions(): VideoOptions {
       team: sanitizeTeamPages(saved.team),
       rules: sanitizeRulesetPage(saved.rules),
       log: sanitizeVideoLog(saved.log),
+      replay: sanitizeReplay(saved.replay),
     };
   } catch {
     return DEFAULT_OPTIONS;
@@ -289,7 +325,6 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   history: Battle[];
   onClose: () => void;
 }) {
-  const nav = useBattleNav();
   const [options, setOptionsState] = useState<VideoOptions>(loadOptions);
   const keep = (next: VideoOptions) => {
     try {
@@ -388,16 +423,22 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const pageRun = useMemo(() => ({ name: runName, route }), [runName, route]);
   const rulesPage = useRulesetPage({ options: options.rules, rules: rules ?? NO_RULES, frame });
   const rulesView = useMemo(() => ({ columns: rulesPage.columns, scale: rulesPage.scale, width: rulesPage.width }), [rulesPage.columns, rulesPage.scale, rulesPage.width]);
-  const [speed, setSpeed] = useState(() => nav.replaySpeed ?? 1);
-  // Whether consecutive moves play together: Settings' choice, changed for this video only.
-  const [group, setGroup] = useState(() => nav.groupActions !== false);
-  const settingsStagger = nav.actionStagger ?? DEFAULT_STAGGER;
-  const [staggered, setStaggered] = useState(() => settingsStagger > 0);
-  const [staggerShare, setStaggerShare] = useState(() => (settingsStagger > 0 ? settingsStagger : DEFAULT_STAGGER));
+  // How the replay plays and the camera pans: the video's own options, kept between exports (not the battle page's).
+  const { speed, group, staggered, stagger: staggerShare, panSpeed, panMargin } = options.replay;
+  const updateReplay = (patch: Partial<VideoReplayOptions>) => setOptionsState((o) => keep({ ...o, replay: { ...o.replay, ...patch } }));
+  // The video's map draws units as the video's options say, not as the battle page does.
+  const nav = useBattleNav();
+  const videoNav = useMemo(
+    () => ({ ...nav, mapLook: { ...(nav.mapLook ?? { myFaces: "portraits", otherFaces: "portraits" }), mine: options.replay.mine, others: options.replay.others } as MapLook }),
+    [nav, options.replay.mine, options.replay.others],
+  );
+  const setSpeed = (value: number) => updateReplay({ speed: value });
+  const setGroup = (value: boolean) => updateReplay({ group: value });
+  const setStaggered = (value: boolean) => updateReplay({ staggered: value });
+  const setStaggerShare = (value: number) => updateReplay({ stagger: value });
+  const setPanSpeed = (value: number) => updateReplay({ panSpeed: value });
+  const setPanMargin = (value: number) => updateReplay({ panMargin: value });
   const stagger = staggered ? staggerShare : 0;
-  // How the camera pans: Settings' choice, changed for this video only.
-  const [panSpeed, setPanSpeed] = useState(() => nav.cameraPan?.speed ?? DEFAULT_PAN.speed);
-  const [panMargin, setPanMargin] = useState(() => nav.cameraPan?.margin ?? DEFAULT_PAN.margin);
   const [mode, setModeState] = useState<CameraMode>("dynamic");
   const [level, setLevel] = useState(DEFAULT_ZOOM);
   // Where a static camera looks (the middle of its view, in tiles).
@@ -766,6 +807,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
               </div>
           }
         >
+            <BattleNavContext.Provider value={videoNav}>
             <ReplayStage
               ref={stage}
               battle={battle}
@@ -779,6 +821,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
               zoom={zoom}
               time={t}
             />
+            </BattleNavContext.Provider>
             {layers.map(({ index, alpha }) => {
               const part = parts[index];
               return (
@@ -863,6 +906,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                     <ZeroCounts checked={options.log.countsZero} onChange={(countsZero) => updateLog({ countsZero })} />
                     <SizeSlider value={options.log.countsSize} onChange={(countsSize) => updateLog({ countsSize })} />
                   </LayoutSection>
+                  <AnnotationToggles value={options.log.annotations} onChange={(annotations) => updateLog({ annotations })} />
                 </fieldset>
               ),
               replay: (
@@ -890,6 +934,12 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                       </label>
                     )}
                     {group && staggered && <StaggerSlider value={staggerShare} onChange={setStaggerShare} labelled />}
+                    <div className="export-unit-looks">
+                      <span className="field-label">My units</span>
+                      <Segmented size="mini" label="Your units on the video's map" value={options.replay.mine} onChange={(mine) => updateReplay({ mine })} options={UNIT_LOOKS} />
+                      <span className="field-label">Other units</span>
+                      <Segmented size="mini" label="Other units on the video's map" value={options.replay.others} onChange={(others) => updateReplay({ others })} options={UNIT_LOOKS} />
+                    </div>
                     <CameraModeSwitch value={mode} onChange={setMode} labelled />
                     <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} after={<ZoomValue level={level} />} />
                     {mode === "dynamic" && (
@@ -1136,8 +1186,9 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
           animation={replay.animation}
           label={`The battle map at ${replay.label}`}
           zoom={zoom}
+          annotations={log.annotations}
         />
-        {replay.rewind && (
+        {replay.rewind && log.annotations.rewind && (
           <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.6 + 0.4 * replay.rewind.badge})` }} aria-hidden>
             <Icon name={CONCEPT_ICON.pulse} />
           </div>

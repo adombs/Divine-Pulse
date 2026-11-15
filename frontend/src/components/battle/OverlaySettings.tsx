@@ -1,7 +1,7 @@
 import { type KeyboardEvent, type ReactNode, useRef, useState } from "react";
 import { Switch } from "../ui";
 import { StepSlider } from "../Slider";
-import { cornerStacks, CORNERS, MAX_CONDENSED_LINES, OVERLAY_SIZES, type Corner, type Overlay, type VideoLogOptions, setCounterField, setCounterEnabled, placeOverlay, loadBattleOverlaySettings, saveBattleOverlaySettings } from "../../exporting/videoLog";
+import { ANNOTATIONS, type Annotation, cornerStacks, CORNERS, MAX_CONDENSED_LINES, OVERLAY_SIZES, type Corner, type Overlay, type VideoLogOptions, setCounterField, setCounterEnabled, placeOverlay, loadBattleOverlaySettings, saveBattleOverlaySettings } from "../../exporting/videoLog";
 import "../export.css";
 import "./replay-export.css";
 const CORNER_NAME: Record<Corner, string> = { "top-left": "Top left", "top-right": "Top right", "bottom-left": "Bottom left", "bottom-right": "Bottom right" };
@@ -94,6 +94,28 @@ export function ZeroCounts({ checked, onChange }: { checked: boolean; onChange: 
   return <label className="overlay-zero-counts"><input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} /> Include zero counts</label>;
 }
 
+/** Which of the map's own marks are drawn (videoLog.ts ANNOTATIONS): a switch each. */
+export function AnnotationToggles({ value, onChange }: { value: Record<Annotation, boolean>; onChange: (next: Record<Annotation, boolean>) => void }) {
+  return (
+    <section className="layout-item on map-annotations">
+      <div className="layout-item-head">
+        <div className="layout-item-text">
+          <h4>Map marks</h4>
+          <p>What the map draws for each action. Switch off any you don't want.</p>
+        </div>
+      </div>
+      <div className="layout-item-body annotation-toggles">
+        {ANNOTATIONS.map(([key, name, note]) => (
+          <div key={key} className="annotation-toggle" title={note}>
+            <span className="annotation-name">{name}</span>
+            <Switch checked={value[key]} onChange={(on) => onChange({ ...value, [key]: on })} label={`Show ${name.toLowerCase()}`} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
 /** The battle page's overlay choices, saved independently of the export settings. */
 export function BattleReplaySettings() {
   const [layout, setLayout] = useState(loadBattleOverlaySettings);
@@ -113,5 +135,6 @@ export function BattleReplaySettings() {
         <SizeSlider value={layout[sizeKey]} onChange={(size) => patch({ [sizeKey]: size })} />
       </LayoutSection>;
     })}
+    <AnnotationToggles value={layout.annotations} onChange={(annotations) => patch({ annotations })} />
   </div>;
 }

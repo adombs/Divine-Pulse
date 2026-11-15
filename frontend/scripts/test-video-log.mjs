@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { cornerStacks, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, placeOverlay, sanitizeVideoLog, setCounterField, setCounterEnabled, loadBattleOverlaySettings, saveBattleOverlaySettings } from "../src/exporting/videoLog.ts";
+import { ALL_ANNOTATIONS, cornerStacks, DEFAULT_VIDEO_LOG, MAX_CONDENSED_LINES, placeOverlay, sanitizeVideoLog, setCounterField, setCounterEnabled, loadBattleOverlaySettings, saveBattleOverlaySettings } from "../src/exporting/videoLog.ts";
 
-const PLACED = { place: { condensed: "bottom-right", counter: "bottom-left", counts: "top-right" }, order: ["counts", "counter", "condensed"] };
+const PLACED = { place: { condensed: "bottom-right", counter: "bottom-left", counts: "top-right" }, order: ["counts", "counter", "condensed"], annotations: ALL_ANNOTATIONS };
 
 test("a video has the log (as many lines as fit) and the condensed log, unless turned off", () => {
   assert.deepEqual(DEFAULT_VIDEO_LOG, { show: true, condensed: true, condensedLines: 4, condensedSize: 1, counter: true, counterSize: 1, counterTurn: true, counterPhase: true, counterStep: true, counts: true, countsSize: 1, countsZero: true, ...PLACED });
@@ -15,6 +15,15 @@ test("a video has the log (as many lines as fit) and the condensed log, unless t
   assert.equal(sanitizeVideoLog({ condensedLines: 0 }).condensedLines, 4);
   assert.equal(sanitizeVideoLog({ condensedSize: 1.33 }).condensedSize, 1);
   assert.equal(sanitizeVideoLog({ counterSize: 3 }).counterSize, 1);
+});
+
+test("every map mark is drawn unless switched off, and a switched-off one stays off", () => {
+  assert.deepEqual(Object.values(DEFAULT_VIDEO_LOG.annotations), Array(8).fill(true));
+  const saved = sanitizeVideoLog({ annotations: { moves: false, hp: false, nonsense: false } });
+  assert.equal(saved.annotations.moves, false);
+  assert.equal(saved.annotations.hp, false);
+  assert.equal(saved.annotations.badges, true);
+  assert.equal("nonsense" in saved.annotations, false);
 });
 
 test("things over the map stack in their corner in the order they were put there", () => {
