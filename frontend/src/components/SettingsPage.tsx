@@ -17,7 +17,7 @@ import { useNav } from "../nav";
 import { PageHeader } from "./layout";
 import { Icon, IconName } from "./Icon";
 import { MemoryCheck } from "./MemoryCheck";
-import { ReplaySpeedSlider, StaggerSlider } from "./battle/replay";
+import { StaggerSlider } from "./battle/replay";
 import { PanSensitivitySlider, PanSpeedSlider } from "./battle/camera";
 import { BattleReplaySettings } from "./battle/OverlaySettings";
 import { FACE_LOOKS, UNIT_LOOKS } from "./battle/mapIcons";
@@ -174,10 +174,7 @@ function BattleReplaySection({ state }: { state: AppearanceState }) {
         <Row label="Other units">
           <Segmented label="Other units on the battle map" value={appearance.mapOthers} onChange={(mapOthers) => update({ mapOthers })} options={UNIT_LOOKS} />
         </Row>
-        <Row label="Replay speed" hint="How fast a battle replays on the map.">
-          <ReplaySpeedSlider value={appearance.replaySpeed} onChange={(replaySpeed) => update({ replaySpeed })} />
-        </Row>
-        <Row label="Group actions" hint="Consecutive actions in one phase aimed at the same unit (attacks on one enemy, heals on one ally), or each unit at itself (moves, waits), replay together, on the map and in videos (Export Video can change it for one video).">
+        <Row label="Group actions" hint="Consecutive actions in one phase aimed at the same unit (attacks on one enemy, heals on one ally), or each unit at itself (moves, waits), replay together.">
           <Switch checked={appearance.groupActions} label="Replay grouped actions together" onChange={(groupActions) => update({ groupActions })} />
         </Row>
         {appearance.groupActions && (
@@ -199,7 +196,7 @@ function BattleReplaySection({ state }: { state: AppearanceState }) {
           <PanSensitivitySlider value={appearance.panMargin} onChange={(panMargin) => update({ panMargin })} />
         </Row>
       </Group>
-      <p className="set-group-note">These settings apply to the battle map and are saved as you change them. Video export has its own layout settings.</p>
+      <p className="set-group-note">These settings are for the battle page and are saved as you change them. The replay speed, camera and zoom are on the battle page itself. Export Video keeps its own settings.</p>
       <BattleReplaySettings />
     </>
   );

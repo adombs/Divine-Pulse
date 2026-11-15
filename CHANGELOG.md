@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+## 1.4.8 (2026-11-15)
+
+- Settings → Battle Replay and Export Video each have a Map marks list to switch off any of the map's marks: move arrows, target lines, action badges, hit effects, unit highlights, HP bars, terrain marks and the Divine Pulse badge.
+- Export Video keeps its own replay options (speed, grouped actions and stagger, camera pan speed and sensitivity) and its own unit looks on the map, saved between exports and set apart from the battle page.
+- Settings → Battle Replay is only for the battle page. The replay speed is set on the battle page itself, no longer also in Settings.
+
 ## 1.4.7 (2026-11-15)
 
 - The replay camera pans much less: it stays put while the units acting are comfortably in view, and otherwise moves only as far as it needs to.

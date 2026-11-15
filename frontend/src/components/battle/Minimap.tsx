@@ -31,7 +31,7 @@ import { ActionBadge, MapLook, miniBadge, miniImage, objectIcon, SpriteIndex, sp
 import { ICON, LOW_HP } from "./model";
 import { TEAM_LABEL } from "./marks";
 import { Icon } from "../Icon";
-import { CORNERS, cornerStacks, loadBattleOverlaySettings, overlaySizeStyle } from "../../exporting/videoLog";
+import { ALL_ANNOTATIONS, type Annotation, CORNERS, cornerStacks, loadBattleOverlaySettings, overlaySizeStyle } from "../../exporting/videoLog";
 import { NotchedRange } from "../Slider";
 import { BattleNavContext, useBattleNav } from "./parts";
 import { CameraTools, DEFAULT_ZOOM, view, ZOOM_TILES, zoomText, useMapCamera } from "./camera";
@@ -63,6 +63,8 @@ interface Props {
   onDrag?: (dx: number, dy: number) => void;
   /** How long the view takes to pan to a new place (ms; the stylesheet's own when not given). */
   panMs?: number;
+  /** Which of the map's marks to draw (videoLog.ts ANNOTATIONS); all when not given. */
+  annotations?: Record<Annotation, boolean>;
 }
 
 function useMinimapIndex(): MinimapIndex {
@@ -222,7 +224,7 @@ function stage(board: Board, animation: StepAnimation | null | undefined, keep: 
   return { drawn, effects };
 }
 
-export function Minimap({ board, selected, focus, action, animation, onPick, size = "full", part2 = false, label, zoom, cursor, onWheelAt, onDrag, panMs }: Props) {
+export function Minimap({ board, selected, focus, action, animation, onPick, size = "full", part2 = false, label, zoom, cursor, onWheelAt, onDrag, panMs, annotations = ALL_ANNOTATIONS }: Props) {
   const automatic = useContext(PortraitPhaseContext) === "auto";
   const uid = useId().replace(/:/g, "");
   const svg = useRef<SVGSVGElement>(null);
@@ -390,7 +392,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
           })}
         </g>
       )}
-      {marks.length > 0 && (
+      {annotations.terrain && marks.length > 0 && (
         <g className="map-marks">
           {marks
             .filter((m) => !broken.has(`${m.x},${m.y}`))
@@ -402,7 +404,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
         </g>
       )}
       {/* Each acting unit's army colours its arrows, badges and impact rings (as the replay labels do). */}
-      {shownActs.map(({ a, actor, side, moved }, i) => moved && a.from && (
+      {annotations.moves && shownActs.map(({ a, actor, side, moved }, i) => moved && a.from && (
         <g key={`move ${i}`} className={`map-tone ${side}`}>
           <Trail key={`${a.actor} ${a.from}`} id={`${uid}-move`} from={[a.from[0] + actor.span / 2, a.from[1] + actor.span / 2]} to={[actor.x + actor.span / 2, actor.y + actor.span / 2]} gap={[0.2, 0.36 * actor.span]} />
           <ActionBadge kind="move" cx={mid(a.from[0])} cy={mid(a.from[1])} r={0.17} />
@@ -425,23 +427,24 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
           full={size === "full"}
           selected={d.piece.id === selected}
           faded={!!focus && !!selected && d.piece.id !== selected}
-          acting={actingIds.has(d.piece.id)}
-          targeted={targetedIds.has(d.piece.id)}
+          acting={annotations.frames && actingIds.has(d.piece.id)}
+          targeted={annotations.frames && targetedIds.has(d.piece.id)}
+          hpBar={annotations.hp}
           onPick={onPick ? pick : undefined}
           onKey={onPick ? onKey : undefined}
         />
       ))}
-      {shownActs.map(({ actor, target, aimed, side, moved }, i) => moved && target && (
+      {annotations.aims && shownActs.map(({ actor, target, aimed, side, moved }, i) => moved && target && (
         <g key={`aim ${i}`} className={`map-tone ${aimed ? side : "aim"}`}>
           <Trail key={`${actor.id} ${target.id}`} id={`${uid}-aim`} from={[actor.x + actor.span / 2, actor.y + actor.span / 2]} to={[target.x + target.span / 2, target.y + target.span / 2]} gap={[0.36 * actor.span, 0.36 * target.span]} />
         </g>
       ))}
-      {shownActs.map(({ actor, target, aimed, side, acted }, i) => acted && aimed && (aimed === "heal" || target) && (
+      {annotations.badges && shownActs.map(({ actor, target, aimed, side, acted }, i) => acted && aimed && (aimed === "heal" || target) && (
         <g key={`badge ${i}`} transform={`translate(${badgeSpot(actor, target).join(" ")})`}>
           <ActionBadge kind={aimed} team={side} cx={0} cy={0} />
         </g>
       ))}
-      {effects.map((e, i) => {
+      {annotations.effects && effects.map((e, i) => {
         // The badge grows in toward the moment the blow lands (or the heal is given), a little past full size, and
         // settles; a ring spreads from where it lands, or rings pulse on whoever is healed.
         const grow = clamp01(e.t / IMPACT);
@@ -523,6 +526,7 @@ const Token = memo(function Token({
   faded,
   acting,
   targeted,
+  hpBar = true,
   onPick,
   onKey,
 }: {
@@ -543,6 +547,8 @@ const Token = memo(function Token({
   acting: boolean;
   /** Attacked in the replay step: framed with the game's attack-target cursor. */
   targeted?: boolean;
+  /** Draw its HP bar (in the full map). */
+  hpBar?: boolean;
   onPick?: (id: string) => void;
   onKey?: (e: KeyboardEvent, id: string) => void;
 }) {
@@ -614,7 +620,7 @@ const Token = memo(function Token({
         </g>
       )}
       {down && !p.object && <ActionBadge kind={p.army ? "fell" : "defeat"} cx={0.8} cy={0.2} r={0.17} />}
-      {full && hp !== null && !down && !p.object && (
+      {full && hpBar && hp !== null && !down && !p.object && (
         <g className={`map-hp ${army} ${tone}`}>
           <rect className="map-hp-bg" x={bar.x} y={HP_Y} width={bar.w} height={HP_H} />
           <rect className="map-hp-fill" x={bar.x + HP_IN} y={HP_Y + HP_IN} width={Math.max(0.02, (bar.w - 2 * HP_IN) * hp)} height={HP_H - 2 * HP_IN} />
@@ -914,11 +920,12 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
             onWheelAt={camera.onWheelAt}
             onDrag={camera.onDrag}
             panMs={camera.panMs}
+            annotations={layout.annotations}
           />
         ) : (
           <p className="muted small">No positions were read for this battle.</p>
         )}
-        {replay.rewind && (
+        {replay.rewind && layout.annotations.rewind && (
           <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.6 + 0.4 * replay.rewind.badge})` }} aria-hidden>
             <Icon name={CONCEPT_ICON.pulse} />
           </div>

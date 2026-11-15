@@ -43,7 +43,24 @@ export interface VideoLogOptions {
   /** The order they were put in their corners (oldest first): in a corner, the first is nearest the corner, the rest
    * stacked down from a top corner or up from a bottom one. */
   order: Overlay[];
+  /** Which of the map's own marks are drawn (ANNOTATIONS); all of them unless switched off. */
+  annotations: Record<Annotation, boolean>;
 }
+
+/** The marks the map draws for what happens on it, each of which can be switched off. */
+export type Annotation = "moves" | "aims" | "badges" | "effects" | "frames" | "hp" | "terrain" | "rewind";
+/** Each mark, its name and what it is, in the order the settings list them. */
+export const ANNOTATIONS: readonly [Annotation, string, string][] = [
+  ["moves", "Move arrows", "The arrow from where a unit started its move, with the move badge on that tile"],
+  ["aims", "Target lines", "The line from a unit to whoever it attacks or heals"],
+  ["badges", "Action badges", "The attack or heal icon between the two units once the action is done"],
+  ["effects", "Hit effects", "The ring where a blow lands, the pulse on a unit healed, and the badge popping in"],
+  ["frames", "Unit highlights", "The corner frames around the unit acting and the one it acts on"],
+  ["hp", "HP bars", "The bar under each unit"],
+  ["terrain", "Terrain marks", "The icons on chests, doors, levers, Crest Stones, traps, breakable walls and warp tiles"],
+  ["rewind", "Divine Pulse badge", "The badge in the middle of the map while a Divine Pulse turns time back"],
+];
+export const ALL_ANNOTATIONS = Object.fromEntries(ANNOTATIONS.map(([a]) => [a, true])) as Record<Annotation, boolean>;
 
 /** What can sit over the video's map, and where. */
 export type Overlay = "condensed" | "counter" | "counts";
@@ -66,7 +83,7 @@ export function cornerStacks(log: VideoLogOptions): Record<Corner, Overlay[]> {
   return out;
 }
 export const DEFAULT_VIDEO_LOG: VideoLogOptions = { show: true, condensed: true, condensedLines: DEFAULT_CONDENSED_LINES, condensedSize: 1, counter: true, counterSize: 1, counterTurn: true, counterPhase: true, counterStep: true, counts: true, countsSize: 1, countsZero: true,
-  place: DEFAULT_PLACE, order: DEFAULT_ORDER,
+  place: DEFAULT_PLACE, order: DEFAULT_ORDER, annotations: ALL_ANNOTATIONS,
 };
 
 const size = (saved: unknown) => ((OVERLAY_SIZES as readonly unknown[]).includes(saved) ? (saved as number) : 1);
@@ -93,6 +110,10 @@ export function sanitizeVideoLog(saved: unknown): VideoLogOptions {
     })) as Record<Overlay, Corner>,
     // Every overlay once, in the saved order, any missing after.
     order: [...new Set([...(Array.isArray(s.order) ? s.order : []).filter((o): o is Overlay => (OVERLAYS as readonly unknown[]).includes(o)), ...DEFAULT_ORDER])],
+    annotations: Object.fromEntries(ANNOTATIONS.map(([a]) => {
+      const saved = (s.annotations && typeof s.annotations === "object" ? s.annotations : {}) as Record<string, unknown>;
+      return [a, saved[a] !== false];
+    })) as Record<Annotation, boolean>,
   };
 }
 
