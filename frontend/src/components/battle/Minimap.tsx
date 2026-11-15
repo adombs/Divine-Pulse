@@ -302,21 +302,24 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
   const look = nav?.mapLook ?? DEFAULT_LOOK;
   const sprites = useSprites();
   const byId = new Map(pieces.map((p) => [p.id, p]));
-  // The step's actions (several attacks on one target when played together), each with its units and army colour.
-  const shownActs = allActions(action).flatMap((a) => {
+  // The step's actions (several when a group plays together), each with its units, army colour, and whether its own
+  // move and act are done: the trail shows once its unit got there, the badge once its blow landed or heal was given.
+  const timed = animation?.parts
+    ? animation.parts.map((part) => ({ a: part.action, elapsed: animation.elapsed - part.offset, timing: part.timing }))
+    : allActions(action).map((a) => ({ a, elapsed: animation?.elapsed, timing: animation?.timing }));
+  const shownActs = timed.flatMap(({ a, elapsed, timing }) => {
+    if (!a) return [];
     const actor = byId.get(a.actor);
     if (!actor) return [];
     const target = a.target ? byId.get(a.target) : undefined;
     const aimed = a.kind === "attack" || a.kind === "heal" ? a.kind : null;
-    return [{ a, actor, target, aimed, side: actor.army ? "player" : actor.sprite.side }];
+    const moved = elapsed === undefined || !timing || elapsed >= timing.move;
+    const acted = elapsed === undefined || !timing || elapsed >= timing.act;
+    return [{ a, actor, target, aimed, side: actor.army ? "player" : actor.sprite.side, moved, acted }];
   });
   const actingIds = new Set(shownActs.flatMap(({ actor, target }) => (target ? [actor.id, target.id] : [actor.id])));
   const targetedIds = new Set(shownActs.flatMap(({ a, target }) => (a.kind === "attack" && target ? [target.id] : [])));
   const { drawn, effects } = stage(board, animation, focus ? (selected ?? null) : null);
-  // The trail of a step's move once its unit got there, the line to whoever it attacked or healed from then on, and
-  // that badge once the action's own pops in is over.
-  const moved = !animation || animation.elapsed >= animation.timing.move;
-  const acted = !animation || animation.elapsed >= animation.timing.act;
   const mid = (n: number) => n + 0.5;
   const pick = (id: string) => onPick?.(id);
   const onKey = (e: KeyboardEvent, id: string) => {
@@ -399,7 +402,7 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
         </g>
       )}
       {/* Each acting unit's army colours its arrows, badges and impact rings (as the replay labels do). */}
-      {moved && shownActs.map(({ a, actor, side }, i) => a.from && (
+      {shownActs.map(({ a, actor, side, moved }, i) => moved && a.from && (
         <g key={`move ${i}`} className={`map-tone ${side}`}>
           <Trail key={`${a.actor} ${a.from}`} id={`${uid}-move`} from={[a.from[0] + actor.span / 2, a.from[1] + actor.span / 2]} to={[actor.x + actor.span / 2, actor.y + actor.span / 2]} gap={[0.2, 0.36 * actor.span]} />
           <ActionBadge kind="move" cx={mid(a.from[0])} cy={mid(a.from[1])} r={0.17} />
@@ -428,12 +431,12 @@ export function Minimap({ board, selected, focus, action, animation, onPick, siz
           onKey={onPick ? onKey : undefined}
         />
       ))}
-      {moved && shownActs.map(({ actor, target, aimed, side }, i) => target && (
+      {shownActs.map(({ actor, target, aimed, side, moved }, i) => moved && target && (
         <g key={`aim ${i}`} className={`map-tone ${aimed ? side : "aim"}`}>
           <Trail key={`${actor.id} ${target.id}`} id={`${uid}-aim`} from={[actor.x + actor.span / 2, actor.y + actor.span / 2]} to={[target.x + target.span / 2, target.y + target.span / 2]} gap={[0.36 * actor.span, 0.36 * target.span]} />
         </g>
       ))}
-      {acted && shownActs.map(({ actor, target, aimed, side }, i) => aimed && (aimed === "heal" || target) && (
+      {shownActs.map(({ actor, target, aimed, side, acted }, i) => acted && aimed && (aimed === "heal" || target) && (
         <g key={`badge ${i}`} transform={`translate(${badgeSpot(actor, target).join(" ")})`}>
           <ActionBadge kind={aimed} team={side} cx={0} cy={0} />
         </g>
@@ -923,7 +926,7 @@ export function OverviewMap({ battle, replay }: { battle: Battle; replay: Replay
         {hasMap(battle) && CORNERS.map((corner) => (
           <div key={corner} className={`replay-stage-corner map-overlay-corner ${corner}`}>
             {stacks[corner].map((item) => item === "condensed" ?
-              <CondensedLog key={item} entries={replay.condensed} current={replay.at} fade={replay.condensedShown} lines={layout.condensedLines} size={layout.condensedSize} /> :
+              <CondensedLog key={item} entries={replay.condensed} fade={replay.condensedFade} lines={layout.condensedLines} size={layout.condensedSize} /> :
               item === "counter" ? <ReplayBanner key={item} replay={replay} size={layout.counterSize} showTurn={layout.counterTurn} showPhase={layout.counterPhase} showStep={layout.counterStep} className="in-corner" /> :
               <div key={item} className="map-overlay-key" style={overlaySizeStyle(layout.countsSize)}><MapKey board={board} replay={replay.steps.length > 0} place="overview" includeZero={layout.countsZero} /></div>)}
           </div>

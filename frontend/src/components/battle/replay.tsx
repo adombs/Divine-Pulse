@@ -428,9 +428,25 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const rewinding = plan ? rewindAt(plan, elapsed, speed) : null;
   const animation: StepAnimation | null = rewinding ? rewinding.animation : anim ? { ...anim, elapsed } : null;
   const rewind: Rewind | null = rewinding ? { badge: rewinding.badge } : null;
+  // The logs show a run played together beat by beat, as each one's part plays: up to the last part begun, each beat's
+  // rows fading in as its own action does (a single beat: as its action plays).
+  const fades = new Map<number, number>();
+  let logged = at;
+  if (at !== null && animation?.parts) {
+    const from = animating?.from ?? at - 1;
+    logged = from;
+    animation.parts.forEach((part, i) => {
+      const elapsedThere = animation.elapsed - part.offset;
+      if (elapsedThere >= 0) logged = from + 1 + i;
+      fades.set(from + 1 + i, labelOpacity({ ...animation, timing: part.timing, elapsed: elapsedThere }));
+    });
+  } else if (at !== null) fades.set(at, labelOpacity(animation));
+  const condensedFade = (beat: number) => fades.get(beat) ?? 1;
   // The condensed log: the newest actions up to the beat shown (none before the first step, or while a Divine Pulse plays).
-  const condensed = useMemo<CondensedEntry[]>(() => (at === null || beats[at]?.pulse != null ? [] : condensedEntries(chron.log, at, CONDENSED_KEEP)), [chron, beats, at]);
-  const condensedShown = labelOpacity(animation);
+  const condensed = useMemo<CondensedEntry[]>(
+    () => (logged === null || logged < 0 || beats[at ?? logged]?.pulse != null ? [] : condensedEntries(chron.log, logged, CONDENSED_KEEP)),
+    [chron, beats, at, logged],
+  );
   // What the camera keeps in view: the action, or every move of a run played together.
   const span = at === null ? null : running && animating ? animating.from : runs.from[at];
   const follow = useMemo<[number, number][]>(
@@ -441,7 +457,7 @@ export function useReplay(battle: Battle, chron: Chronicle, options: ReplayOptio
   const waitForPan = (ms: number) => {
     panWait.current = { beat: at, ms };
   };
-  return { follow, waitForPan, steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, condensed, condensedShown, cursor, go, seek, seeks, next, play, pose, label, detail, army, counter };
+  return { follow, waitForPan, steps, beats, pulses, turns, at, playing, board: rewinding ? rewinding.board : board, action, animation, rewind, condensed, condensedFade, logged, cursor, go, seek, seeks, next, play, pose, label, detail, army, counter };
 }
 
 export type Replay = ReturnType<typeof useReplay>;

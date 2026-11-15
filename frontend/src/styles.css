@@ -2104,4 +2104,7 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .condensed-slot { display: grid; flex: none; min-height: 0; max-width: 100%; }
 .condensed-slot:first-child { margin-top: 0 !important; }
 .condensed-slot-clip { min-height: 0; overflow: hidden; }
+/* An empty slot keeps a row's height, so the log fills from the bottom. */
+.condensed-row.condensed-blank { visibility: hidden; }
+.condensed-blank-face { display: block; width: 1.9em; height: 1.9em; }
 @media (prefers-reduced-motion: reduce) { .condensed-row { transform: none !important; } }
