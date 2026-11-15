@@ -4,7 +4,7 @@
  * the same way, over a faint copy that keeps its shape in view; under it "Rewinding N Steps" and a thin bar, both
  * following how much of the spiral shows (N counts up to the steps being undone as it fills).
  *
- * The cycle (fill, hold, empty, hold) loops once a second for as long as the rewind lasts. It is one SVG, so it scales evenly with the map and draws the same in a video's frames.
+ * The cycle (fill, hold, empty, hold) loops every two seconds for as long as the rewind lasts. It is one SVG, so it scales evenly with the map and draws the same in a video's frames.
  * Its clock is the rewind's own (`elapsed`), not the screen's, so a video shows exactly what the preview did.
  */
 import { useId, useMemo } from "react";
@@ -52,7 +52,7 @@ function lengthOfTrace(): number {
 const reducedMotion = () => (typeof window !== "undefined" && window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) ?? false;
 
 /** How long one loop of the cycle takes in a rewind (ms). */
-export const LOOP_MS = 1000;
+export const LOOP_MS = 2000;
 
 /** The part of the spiral showing `elapsed` ms into a rewind: the cycle, played in LOOP_MS, over and over. */
 export function rewindTrace(elapsed: number, reduced = false): { start: number; shown: number } {

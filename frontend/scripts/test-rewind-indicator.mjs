@@ -18,11 +18,11 @@ test("the spiral fills outer to inner, holds, empties outer to inner, holds empt
   assert.deepEqual(traceWindow(1234, true), { start: 0, shown: 1 }, "reduced motion: held full");
 });
 
-test("in a rewind the cycle loops once a second, for as long as the rewind lasts", () => {
+test("in a rewind the cycle loops every two seconds, for as long as the rewind lasts", () => {
   assert.deepEqual(rewindTrace(0), { start: 0, shown: 0 });
-  assert.equal(rewindTrace(450).shown, 1, "full just under halfway through the second");
-  assert.deepEqual(rewindTrace(950), { start: 1, shown: 0 }, "empty at its end");
-  assert.deepEqual(rewindTrace(3200), rewindTrace(200), "and again every second");
-  assert.deepEqual(rewindTrace(200), traceWindow(200 * 4.7), "the designed cycle, in one second");
+  assert.equal(rewindTrace(900).shown, 1, "full just under halfway through the loop");
+  assert.deepEqual(rewindTrace(1900), { start: 1, shown: 0 }, "empty at its end");
+  assert.deepEqual(rewindTrace(6400), rewindTrace(400), "and again every two seconds");
+  assert.deepEqual(rewindTrace(400), traceWindow(400 * 2.35), "the designed cycle, in two seconds");
   assert.deepEqual(rewindTrace(500, true), { start: 0, shown: 1 }, "reduced motion: held full");
 });
