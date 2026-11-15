@@ -115,10 +115,13 @@ export interface Appearance {
   otherUnitFaces: MapLook["otherFaces"];
   /** How fast the battle map's replay plays (1 normal). */
   replaySpeed: number;
-  /** Whether consecutive moves of one phase replay together, everyone moving at once. */
-  groupMoves: boolean;
-  /** Whether consecutive attacks on one target replay together, each attacker striking just after the one before. */
-  groupAttacks: boolean;
+  /** Whether grouped actions replay together: consecutive actions of one phase aimed at the same unit, or each unit at
+   * itself (moves, waits). */
+  groupActions: boolean;
+  /** Whether grouped actions start one after another (by `actionStagger`) so their order shows, or all at once. */
+  staggerActions: boolean;
+  /** How far into one grouped action the next starts (0-1: 0 at the same time, 1 once it's done). */
+  actionStagger: number;
   /** How fast the map's dynamic camera pans to the next action (1 normal). */
   panSpeed: number;
   /** How near the view's edge the action may come before the camera pans (a share of the zoom's tiles across). */
@@ -139,8 +142,9 @@ export function loadAppearance(): Appearance {
     myUnitFaces: "portraits",
     otherUnitFaces: "portraits",
     replaySpeed: 1,
-    groupMoves: true,
-    groupAttacks: true,
+    groupActions: true,
+    staggerActions: true,
+    actionStagger: 0.3,
     panSpeed: 1,
     panMargin: 0.1,
   };
@@ -151,8 +155,15 @@ export function loadAppearance(): Appearance {
       // A theme saved by an earlier version (the app has one theme now) is dropped.
       delete (current as Record<string, unknown>).theme;
       const out: Appearance = { ...fallback, ...current };
-      out.groupMoves = out.groupMoves !== false;
-      out.groupAttacks = out.groupAttacks !== false;
+      // Group moves (1.4.6) became Group actions.
+      const legacy = current as { groupMoves?: boolean; groupAttacks?: boolean };
+      if (!("groupActions" in current)) out.groupActions = legacy.groupMoves !== false;
+      delete (out as Partial<typeof legacy>).groupMoves;
+      delete (out as Partial<typeof legacy>).groupAttacks;
+      out.groupActions = out.groupActions !== false;
+      out.staggerActions = out.staggerActions !== false;
+      const stagger = Number(out.actionStagger);
+      out.actionStagger = stagger >= 0 && stagger <= 1 ? stagger : fallback.actionStagger;
       if (!(Number(out.panSpeed) > 0)) out.panSpeed = fallback.panSpeed;
       if (!(Number(out.panMargin) >= 0)) out.panMargin = fallback.panMargin;
       out.mapMine = isUnitLook(out.mapMine) ? out.mapMine : fallback.mapMine;

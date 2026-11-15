@@ -7,7 +7,8 @@
 - The replay camera pans much less: it stays put while the units acting are comfortably in view, and otherwise moves only as far as it needs to.
 - Each replay step waits for the camera to finish panning before it plays.
 - Settings → Battle Replay and Export Video’s Replay tab have Camera pan speed and Camera pan sensitivity sliders.
-- Consecutive attacks on the same target replay together, each attacker striking just after the one before. Settings → Battle Replay has a Group attacks switch, and Export Video’s Replay tab can change it for one video.
+- Group moves is now Group actions: consecutive actions in one phase aimed at the same unit (several attacks on one enemy, heals on one ally) replay together, as do actions units take on themselves (moves, waits, self-heals).
+- Grouped actions can be staggered so their order still shows. A Stagger slider sets how far into one action the next starts, from 0% (all at once) to 100% (one after another). Both are in Settings → Battle Replay, and Export Video’s Replay tab can change them for one video.
 
 ## 1.4.6 (2026-11-13)
 

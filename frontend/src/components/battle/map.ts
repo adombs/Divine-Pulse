@@ -317,7 +317,7 @@ export interface Action {
   from: [number, number] | null;
   target: string | null;
   kind: "attack" | "heal" | "none";
-  /** Attacks on the same target just before it, played together with it (moveRuns.ts `attackRuns`), first first. */
+  /** The actions of the beats just before it played together with it (moveRuns.ts `actionRuns`), first first. */
   with?: Action[];
 }
 

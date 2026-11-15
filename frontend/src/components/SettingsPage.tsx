@@ -17,7 +17,7 @@ import { useNav } from "../nav";
 import { PageHeader } from "./layout";
 import { Icon, IconName } from "./Icon";
 import { MemoryCheck } from "./MemoryCheck";
-import { ReplaySpeedSlider } from "./battle/replay";
+import { ReplaySpeedSlider, StaggerSlider } from "./battle/replay";
 import { PanSensitivitySlider, PanSpeedSlider } from "./battle/camera";
 import { BattleReplaySettings } from "./battle/OverlaySettings";
 import { FACE_LOOKS, UNIT_LOOKS } from "./battle/mapIcons";
@@ -177,12 +177,21 @@ function BattleReplaySection({ state }: { state: AppearanceState }) {
         <Row label="Replay speed" hint="How fast a battle replays on the map.">
           <ReplaySpeedSlider value={appearance.replaySpeed} onChange={(replaySpeed) => update({ replaySpeed })} />
         </Row>
-        <Row label="Group moves" hint="Consecutive moves in one phase, with nothing else between them, replay at once, on the map and in videos (Export Video can change it for one video).">
-          <Switch checked={appearance.groupMoves} label="Replay consecutive moves together" onChange={(groupMoves) => update({ groupMoves })} />
+        <Row label="Group actions" hint="Consecutive actions in one phase aimed at the same unit (attacks on one enemy, heals on one ally), or each unit at itself (moves, waits), replay together, on the map and in videos (Export Video can change it for one video).">
+          <Switch checked={appearance.groupActions} label="Replay grouped actions together" onChange={(groupActions) => update({ groupActions })} />
         </Row>
-        <Row label="Group attacks" hint="Consecutive attacks in one phase on the same target replay together, each attacker striking just after the one before, on the map and in videos (Export Video can change it for one video).">
-          <Switch checked={appearance.groupAttacks} label="Replay consecutive attacks on one target together" onChange={(groupAttacks) => update({ groupAttacks })} />
-        </Row>
+        {appearance.groupActions && (
+          <>
+            <Row label="Stagger grouped actions" hint="Start grouped actions one after another, so their order shows. Off, they play at the same time.">
+              <Switch checked={appearance.staggerActions} label="Stagger grouped actions" onChange={(staggerActions) => update({ staggerActions })} />
+            </Row>
+            {appearance.staggerActions && (
+              <Row label="Stagger" hint="How far into one grouped action the next starts: 0% at the same time, 100% once it's done (as if not grouped).">
+                <StaggerSlider value={appearance.actionStagger} onChange={(actionStagger) => update({ actionStagger })} />
+              </Row>
+            )}
+          </>
+        )}
         <Row label="Camera pan speed" hint="How fast the camera pans to the next action. A step plays once the camera is there.">
           <PanSpeedSlider value={appearance.panSpeed} onChange={(panSpeed) => update({ panSpeed })} />
         </Row>

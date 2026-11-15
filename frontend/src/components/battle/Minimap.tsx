@@ -134,64 +134,89 @@ function stage(board: Board, animation: StepAnimation | null | undefined, keep: 
       effects: [],
     };
   }
-  const { before, action, timing, elapsed } = animation;
-  const move = ease(progress(elapsed, 0, timing.move));
-  const fade = progress(elapsed, timing.act, timing.fade);
-  const was = new Map(before.pieces.map((p) => [p.id, p]));
-  const now = new Map(board.pieces.map((p) => [p.id, p]));
+  const { elapsed } = animation;
+  // Each beat played (several when a group plays together), on its own clock: from its map before to its map after.
+  const parts = animation.parts ?? [{ before: animation.before, after: board, action: animation.action, timing: animation.timing, offset: 0 }];
+  const clocks = parts.map((part) => {
+    const e = elapsed - part.offset;
+    const t = part.timing;
+    return {
+      part,
+      started: e > 0,
+      move: ease(progress(e, 0, t.move)),
+      act: progress(e, t.move, t.act),
+      fade: progress(e, t.act, t.fade),
+      was: new Map(part.before.pieces.map((q) => [q.id, q])),
+      now: new Map(part.after.pieces.map((q) => [q.id, q])),
+    };
+  });
+  // Everyone on the map at any point, as last seen.
+  const pieces = new Map<string, Piece>();
+  for (const q of parts[0].before.pieces) pieces.set(q.id, q);
+  for (const c of clocks) for (const q of c.part.after.pieces) pieces.set(q.id, q);
+  for (const q of board.pieces) pieces.set(q.id, q);
+  const first = clocks[0].was;
   const drawn: Drawn[] = [];
   const effects: Effect[] = [];
-  // Everyone acting (several attackers when attacks on one target play together), each with whom it acts on and how
-  // far along its own act is: played together, each starts `timing.stagger` after the one before, so their order shows.
-  const all = allActions(action);
-  const stagger = timing.stagger ?? 0;
-  const span = Math.max(0, timing.act - timing.move - stagger * Math.max(0, all.length - 1));
-  const acts = all.flatMap((a, k) => {
-    const actor = now.get(a.actor);
-    const start = timing.move + stagger * k;
-    return actor ? [{ a, actor, target: a.target ? now.get(a.target) : undefined, t: progress(elapsed, start, start + span) }] : [];
-  });
-  // A unit's HP changes once the last blow it's part of lands (anyone else's, once the last of all does).
-  const lastLanded = (id: string) => {
-    const mine = acts.filter(({ actor, target }) => actor.id === id || target?.id === id);
-    const last = mine.length ? mine[mine.length - 1] : acts[acts.length - 1];
-    return !last || last.t >= IMPACT;
-  };
-  for (const p of board.pieces) {
-    const q = was.get(p.id);
-    if (q?.down && p.down) continue; // gone before this step
-    if (!q) {
-      if (!p.down) drawn.push({ piece: p, x: p.x, y: p.y, opacity: fade, hp: p.hp }); // arrived: fades in
-      continue;
+  for (const [id, piece] of pieces) {
+    const q = first.get(id);
+    let x = q ? q.x : piece.x;
+    let y = q ? q.y : piece.y;
+    let hp = q ? q.hp : piece.hp;
+    let opacity = q && !q.down ? 1 : 0;
+    let lunge: { to: Piece; t: number } | null = null;
+    for (const c of clocks) {
+      if (!c.started) continue;
+      const b = c.was.get(id);
+      const a = c.now.get(id);
+      if (b && a) {
+        if (b.x !== a.x || b.y !== a.y) {
+          x = b.x + (a.x - b.x) * c.move;
+          y = b.y + (a.y - b.y) * c.move;
+        }
+        // HP changes once the blow lands (or the heal is given).
+        if (b.hp !== a.hp && c.act >= IMPACT) hp = a.hp;
+        // Fell: fades away; played backwards, got up again: fades in.
+        if (b.down !== a.down) opacity = a.down ? 1 - c.fade : c.fade;
+      } else if (a) {
+        // Arrived: fades in.
+        x = a.x;
+        y = a.y;
+        hp = a.hp;
+        opacity = a.down ? 0 : c.fade;
+      } else if (b) {
+        // Left the map: fades away.
+        opacity = b.down ? 0 : 1 - c.fade;
+      }
+      const act = c.part.action;
+      const to = act?.kind === "attack" && act.actor === id && act.target ? c.now.get(act.target) : undefined;
+      if (to && c.act > 0 && c.act < 1) lunge = { to, t: c.act };
     }
-    let x = q.x + (p.x - q.x) * move;
-    let y = q.y + (p.y - q.y) * move;
-    const lunge = acts.find(({ a, actor, target, t }) => a.kind === "attack" && target && actor.id === p.id && t > 0 && t < 1);
-    if (lunge?.target) {
+    if (lunge) {
       // The attacker lunges at its target and back: the blow lands at the peak.
-      const dx = lunge.target.x - p.x;
-      const dy = lunge.target.y - p.y;
+      const dx = lunge.to.x - x;
+      const dy = lunge.to.y - y;
       const length = Math.hypot(dx, dy) || 1;
       const reach = Math.sin(Math.PI * lunge.t) * Math.min(LUNGE, Math.max(0, length - 0.55));
       x += (dx / length) * reach;
       y += (dy / length) * reach;
     }
-    const fell = p.down && !q.down;
-    const revived = q.down && !p.down; // played backwards, a unit that fell gets up again
-    drawn.push({ piece: p, x, y, opacity: fell ? 1 - fade : revived ? fade : 1, hp: lastLanded(p.id) ? p.hp : q.hp });
+    if (opacity > 0) drawn.push({ piece, x, y, opacity, hp });
   }
-  for (const q of before.pieces) {
-    if (!q.down && !now.has(q.id)) drawn.push({ piece: q, x: q.x, y: q.y, opacity: 1 - fade, hp: q.hp }); // left the map
-  }
-  for (const { a, actor, target, t: act } of acts) {
-    if (act <= 0 || act >= 1) continue;
+  // Each attack's or heal's badge and ring, in the acting unit's army colour.
+  for (const c of clocks) {
+    const a = c.part.action;
+    if (!a || c.act <= 0 || c.act >= 1) continue;
+    const actor = c.now.get(a.actor);
+    if (!actor) continue;
+    const target = a.target ? c.now.get(a.target) : undefined;
     const [bx, by] = badgeSpot(actor, target);
     const side = actor.army ? "player" : actor.sprite.side;
     if (a.kind === "attack" && target) {
-      effects.push({ kind: "attack", x: bx, y: by, bx, by, t: act, side });
+      effects.push({ kind: "attack", x: bx, y: by, bx, by, t: c.act, side });
     } else if (a.kind === "heal") {
       const healed = target ?? actor;
-      effects.push({ kind: "heal", x: healed.x + healed.span / 2, y: healed.y + healed.span / 2, bx, by, t: act, side });
+      effects.push({ kind: "heal", x: healed.x + healed.span / 2, y: healed.y + healed.span / 2, bx, by, t: c.act, side });
     }
   }
   return { drawn, effects };

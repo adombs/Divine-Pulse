@@ -42,10 +42,9 @@ interface Props {
   mapLook: MapLook;
   replaySpeed: number;
   onReplaySpeed: (speed: number) => void;
-  /** Whether consecutive moves replay together (Settings > Battle Replay). */
-  groupMoves: boolean;
-  /** Whether consecutive attacks on one target replay together (Settings > Battle Replay). */
-  groupAttacks: boolean;
+  /** Whether grouped actions replay together, and how staggered (0-1) (Settings > Battle Replay). */
+  groupActions: boolean;
+  actionStagger: number;
   /** How the map's camera pans (Settings > Battle map). */
   cameraPan: CameraPan;
   onDeleteRecording: () => void;
@@ -58,7 +57,7 @@ interface Props {
   runName?: string;
 }
 
-export function BattlePage({ battle, recording, runId, version, units, part2, mapLook, replaySpeed, onReplaySpeed, groupMoves, groupAttacks, cameraPan, onDeleteRecording, at, fell, route, runName }: Props) {
+export function BattlePage({ battle, recording, runId, version, units, part2, mapLook, replaySpeed, onReplaySpeed, groupActions, actionStagger, cameraPan, onDeleteRecording, at, fell, route, runName }: Props) {
   // The run's battles, for More stats' comparison.
   const [history, setHistory] = useState<Battle[]>([]);
   useEffect(() => {
@@ -83,7 +82,7 @@ export function BattlePage({ battle, recording, runId, version, units, part2, ma
       </section>
     );
   }
-  return <><BattleView key={shown.id} battle={shown} live={battle} history={history} roster={units} part2={part2} mapLook={mapLook} replaySpeed={replaySpeed} onReplaySpeed={onReplaySpeed} groupMoves={groupMoves} groupAttacks={groupAttacks} cameraPan={cameraPan} at={at} fell={fell} route={route} runName={runName} recording={battle ? undefined : { onDelete: onDeleteRecording }} /></>;
+  return <><BattleView key={shown.id} battle={shown} live={battle} history={history} roster={units} part2={part2} mapLook={mapLook} replaySpeed={replaySpeed} onReplaySpeed={onReplaySpeed} groupActions={groupActions} actionStagger={actionStagger} cameraPan={cameraPan} at={at} fell={fell} route={route} runName={runName} recording={battle ? undefined : { onDelete: onDeleteRecording }} /></>;
 }
 
 interface ViewProps {
@@ -96,9 +95,9 @@ interface ViewProps {
   mapLook: MapLook;
   replaySpeed: number;
   onReplaySpeed: (speed: number) => void;
-  /** Whether consecutive moves replay together (Settings > Battle Replay). */
-  groupMoves: boolean;
-  groupAttacks: boolean;
+  /** Whether grouped actions replay together, and how staggered (0-1) (Settings > Battle Replay). */
+  groupActions: boolean;
+  actionStagger: number;
   cameraPan: CameraPan;
   /** A unit to open the battle at ("Units" with it selected). */
   at?: string | null;
@@ -202,8 +201,8 @@ export function BattleView(p: ViewProps) {
     importedFace: (id) => importedFaces.get(id) ?? null,
     mapLook: p.mapLook,
     replaySpeed: p.replaySpeed,
-    groupMoves: p.groupMoves,
-    groupAttacks: p.groupAttacks,
+    groupActions: p.groupActions,
+    actionStagger: p.actionStagger,
     cameraPan: p.cameraPan,
     setReplaySpeed: p.onReplaySpeed,
     ebstConfig: (key) => configs.get(key) ?? null,

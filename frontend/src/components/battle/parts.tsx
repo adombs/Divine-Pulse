@@ -28,10 +28,10 @@ export interface BattleNav {
   /** How units are drawn on the map, and how fast a replay plays (1 normal), from Settings > Battle Replay. */
   mapLook?: MapLook;
   replaySpeed?: number;
-  /** Whether consecutive moves of one phase replay together (moveRuns.ts); on unless set off. */
-  groupMoves?: boolean;
-  /** Whether consecutive attacks on one target replay together (moveRuns.ts `attackRuns`); on unless set off. */
-  groupAttacks?: boolean;
+  /** Whether grouped actions (moveRuns.ts) replay together; on unless set off. */
+  groupActions?: boolean;
+  /** How staggered grouped actions are: 0 all at once, 1 one after another (replay.tsx DEFAULT_STAGGER when not set). */
+  actionStagger?: number;
   /** How the map's dynamic camera pans: its speed and sensitivity (Settings > Battle map). */
   cameraPan?: CameraPan;
   /** Changes the replay speed from the battle view (it is the Settings value, so it sticks). */

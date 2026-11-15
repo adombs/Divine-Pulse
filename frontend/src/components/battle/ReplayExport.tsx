@@ -37,7 +37,7 @@ import { chronicle, type Chronicle } from "./chronicle";
 import { hasMap, phaseArmy } from "./map";
 import { MapCounts, Minimap, type Zoom } from "./Minimap";
 import { ItemList, useBattleNav } from "./parts";
-import { beatDurations, beatFocus, beatOf, ReplayBanner, ReplaySpeedSlider, useReplay } from "./replay";
+import { beatDurations, beatFocus, beatOf, DEFAULT_STAGGER, ReplayBanner, ReplaySpeedSlider, StaggerSlider, useReplay } from "./replay";
 import { battleName, KIND_LABEL } from "./scenarios";
 import { api } from "../../api";
 import { sanitizeRules, type Rule } from "../../ruleset";
@@ -390,9 +390,11 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const rulesView = useMemo(() => ({ columns: rulesPage.columns, scale: rulesPage.scale, width: rulesPage.width }), [rulesPage.columns, rulesPage.scale, rulesPage.width]);
   const [speed, setSpeed] = useState(() => nav.replaySpeed ?? 1);
   // Whether consecutive moves play together: Settings' choice, changed for this video only.
-  const [groupMoves, setGroupMoves] = useState(() => nav.groupMoves !== false);
-  const [groupAttacks, setGroupAttacks] = useState(() => nav.groupAttacks !== false);
-  const group = useMemo(() => ({ moves: groupMoves, attacks: groupAttacks }), [groupMoves, groupAttacks]);
+  const [group, setGroup] = useState(() => nav.groupActions !== false);
+  const settingsStagger = nav.actionStagger ?? DEFAULT_STAGGER;
+  const [staggered, setStaggered] = useState(() => settingsStagger > 0);
+  const [staggerShare, setStaggerShare] = useState(() => (settingsStagger > 0 ? settingsStagger : DEFAULT_STAGGER));
+  const stagger = staggered ? staggerShare : 0;
   // How the camera pans: Settings' choice, changed for this video only.
   const [panSpeed, setPanSpeed] = useState(() => nav.cameraPan?.speed ?? DEFAULT_PAN.speed);
   const [panMargin, setPanMargin] = useState(() => nav.cameraPan?.margin ?? DEFAULT_PAN.margin);
@@ -409,8 +411,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   const lastIndex = chron.beats.length - 1 - [...chron.beats].reverse().findIndex((b) => b.step.turn <= to);
   const last = Math.max(first, Math.min(chron.beats.length - 1, lastIndex));
 
-  const replay = useReplay(battle, chron, { speed, group, manual: true });
-  const played = useMemo(() => beatDurations(battle, chron, speed, group), [battle, chron, speed, group]);
+  const replay = useReplay(battle, chron, { speed, group, stagger, manual: true });
+  const played = useMemo(() => beatDurations(battle, chron, speed, group, stagger), [battle, chron, speed, group, stagger]);
   const focus = useMemo(() => beatFocus(battle, chron, group), [battle, chron, group]);
 
   // The camera. Dynamic, it pans to each beat (only as far as it takes to have the units acting in frame, as on the
@@ -514,7 +516,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   // A new range, speed or pan starts the preview over.
   useEffect(() => {
     seekRef.current(0);
-  }, [first, last, speed, group, panSpeed, panMargin]);
+  }, [first, last, speed, group, stagger, panSpeed, panMargin]);
 
   useEffect(() => {
     if (!playing || working) return;
@@ -879,12 +881,15 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                   <fieldset className="export-group" disabled={working}>
                     <legend>Replay</legend>
                     <ReplaySpeedSlider value={speed} onChange={setSpeed} labelled />
-                    <label className="export-check" title="Consecutive moves in one phase, with nothing else between them, play at once">
-                      <input type="checkbox" checked={groupMoves} onChange={(e) => setGroupMoves(e.target.checked)} /> Group consecutive moves
+                    <label className="export-check" title="Consecutive actions in one phase aimed at the same unit, or each unit at itself (moves, waits), play together">
+                      <input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} /> Group actions
                     </label>
-                    <label className="export-check" title="Consecutive attacks in one phase on the same target play together, each attacker striking just after the one before">
-                      <input type="checkbox" checked={groupAttacks} onChange={(e) => setGroupAttacks(e.target.checked)} /> Group attacks on one target
-                    </label>
+                    {group && (
+                      <label className="export-check" title="Grouped actions start one after another, so their order shows; off, they play at the same time">
+                        <input type="checkbox" checked={staggered} onChange={(e) => setStaggered(e.target.checked)} /> Stagger grouped actions
+                      </label>
+                    )}
+                    {group && staggered && <StaggerSlider value={staggerShare} onChange={setStaggerShare} labelled />}
                     <CameraModeSwitch value={mode} onChange={setMode} labelled />
                     <ZoomSlider stops={ZOOM_TILES.length} value={level} onChange={setLevel} valueText={zoomText(level)} after={<ZoomValue level={level} />} />
                     {mode === "dynamic" && (
