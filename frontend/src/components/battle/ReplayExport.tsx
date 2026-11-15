@@ -1084,16 +1084,18 @@ interface StageProps {
 /** One frame of the video: the title strip, the map and the log. */
 function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, route, zoom, time, ref }: StageProps) {
   const name = battleName(battle);
-  // The log up to the step on the map: rows of later steps aren't shown yet (the newest is at the bottom).
+  // The log up to the step on the map: rows of later steps aren't shown yet (the newest is at the bottom). In a run
+  // played together, each beat's rows come in as its own part plays.
+  const upTo = replay.logged ?? moment.beat;
   const rows = useMemo(() => {
     const out = [];
     for (const item of chron.log) {
       const beat = beatOf(item);
-      if (beat !== null && beat > moment.beat) break;
+      if (beat !== null && beat > upTo) break;
       out.push(item);
     }
     return out;
-  }, [chron.log, moment.beat]);
+  }, [chron.log, upTo]);
   const shown = rows;
   const stacks = cornerStacks(log);
   const frameRef = useRef<HTMLDivElement>(null);
@@ -1145,7 +1147,7 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
           <div key={corner} className={`replay-stage-corner ${corner}`}>
             {stacks[corner].map((o) =>
               o === "condensed" ? (
-                <CondensedLog key={o} entries={replay.condensed} current={replay.at} lines={log.condensedLines} size={log.condensedSize} time={time} />
+                <CondensedLog key={o} entries={replay.condensed} lines={log.condensedLines} size={log.condensedSize} time={time} />
               ) : o === "counter" ? (
                 <ReplayBanner key={o} replay={replay} size={log.counterSize} showTurn={log.counterTurn} showPhase={log.counterPhase} showStep={log.counterStep} className="in-corner" />
               ) : (

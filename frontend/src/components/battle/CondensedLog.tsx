@@ -4,12 +4,13 @@
  * oval, styled like the log's number chips, holds the action's icon in the doer's army colour, its name for a combat
  * art, a spell, an active ability (a Rally) or a gambit, and its number. A combat art shows the weapon it is used with
  * (a star for one used with none) and a spell its magic's plain glyph; an attack shows the attacker's weapon, and a
- * heal, item, Rally or gambit its own icon. Older lines fade a little; the newest is at the bottom. Its rows come from
+ * heal, item, Rally or gambit its own icon. It has `lines` slots, filled from the bottom: a new line comes in at the
+ * bottom and pushes the others up, before the log is full as after. Older lines fade a little. Its rows come from
  * replayLabels.ts `condensedEntries`; its text is the log's size.
  */
 import { useEffect, useState } from "react";
 import { overlaySizeStyle } from "../../exporting/videoLog";
-import { LOG_MOTION_MS, sampleLogMotion, startLogMotion, type LogMotion } from "./condensedMotion";
+import { fillSlots, isBlank, LOG_MOTION_MS, sampleLogMotion, startLogMotion, type LogMotion } from "./condensedMotion";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { abilityIconUrl, artWeaponKind, gambitIconUrl, isCombatArt, itemIconUrl, RefIcon, spellIconUrl, spellMagic } from "../../reference/icons";
 import { Icon } from "../Icon";
@@ -77,11 +78,10 @@ function ActionIcon({ item }: { item: Item }) {
   }
 }
 
-export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX, size = 1, className, time }: {
+export function CondensedLog({ entries, fade, lines = CONDENSED_MAX, size = 1, className, time }: {
   entries: CondensedEntry[];
-  /** The beat on the map: its own rows fade in with `fade` (0-1) as its action plays. */
-  current: number | null;
-  fade?: number;
+  /** How visible a beat's rows are (0-1): the beats being played fade in as their actions do. */
+  fade?: (beat: number) => number;
   /** The most rows shown (the newest). */
   lines?: number;
   /** How big it is against the text around it (1: the same). */
@@ -91,13 +91,15 @@ export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX
   time?: number;
 }) {
   const nav = useBattleNav();
-  const shown = entries.slice(Math.max(0, entries.length - lines));
+  const slots = Math.max(1, lines);
+  // Every slot, the empty ones (above the rows) included, so the log is its full height from the start.
+  const shown = fillSlots(entries, slots);
   const [, setClock] = useState(() => performance.now());
   const now = time ?? performance.now();
-  const [motion, setMotion] = useState<LogMotion>(() => startLogMotion(null, shown, now));
+  const [motion, setMotion] = useState<LogMotion<CondensedEntry>>(() => startLogMotion(null, shown, now, slots));
   const signature = shown.map((e) => e.key).join("|");
-  if (signature !== motion.to.map((e) => e.key).join("|") || now < motion.start) {
-    setMotion(startLogMotion(now < motion.start ? null : motion, shown, now));
+  if (signature !== motion.to.map((e) => e.key).join("|") || slots !== motion.slots || now < motion.start) {
+    setMotion(startLogMotion(now < motion.start ? null : motion, shown, now, slots));
   }
   useEffect(() => {
     if (time !== undefined) return;
@@ -115,9 +117,15 @@ export function CondensedLog({ entries, current, fade = 1, lines = CONDENSED_MAX
   return (
     <ol className={`condensed-log${className ? ` ${className}` : ""}`} aria-label="Recent actions" style={overlaySizeStyle(size)}>
       {moving.map(({ entry, presence, opacity: ageOpacity }) => {
+        if (isBlank(entry)) {
+          // An empty slot: as tall as a row, and invisible.
+          return (
+            <li key={entry.key} className="condensed-slot" aria-hidden style={{ gridTemplateRows: `${presence}fr`, marginTop: `${0.3 * presence}em` }}><div className="condensed-slot-clip"><div className="condensed-row condensed-blank"><span className="condensed-blank-face" /></div></div></li>
+          );
+        }
         const e = shown.find((row) => row.key === entry.key) ?? entry;
         const { actor, target } = e.item;
-        const opacity = (e.beat === current ? fade : 1) * ageOpacity;
+        const opacity = (fade ? fade(e.beat) : 1) * ageOpacity;
         const named = shownName(e.item);
         return (
           <li key={e.key} className="condensed-slot" style={{ gridTemplateRows: `${presence}fr`, marginTop: `${0.3 * presence}em` }}><div className="condensed-slot-clip"><div className={`condensed-row tone-${e.tone}${actor ? ` by-${sideOf(nav, actor)}` : ""}`} style={{ opacity, transform: `translateY(${(1 - presence) * 0.4}em)` }} title={actionName(e.item)}>

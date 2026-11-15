@@ -10,6 +10,8 @@
 - The replay speed and camera pan speed sliders have every half step from 1× to 4×.
 - Group moves is now Group actions: consecutive actions in one phase aimed at the same unit (several attacks on one enemy, heals on one ally) replay together, as do actions units take on themselves (moves, waits, self-heals).
 - Grouped actions can be staggered so their order still shows. A Stagger slider sets how far into one action the next starts, from 0% (all at once) to 100% (one after another). Both are in Settings → Battle Replay, and Export Video’s Replay tab can change them for one video.
+- The condensed log always holds its set number of lines, filled from the bottom: each new action comes in at the bottom and pushes the others up, the same way before the log is full as after. A line fades by how old it is, not by how many lines there are.
+- In grouped actions, each unit's log line and map arrows and badges appear as its own action plays, rather than all at once after the group.
 
 ## 1.4.6 (2026-11-13)
 
