@@ -20,7 +20,7 @@ export { framed };
 /** How long the camera takes to pan to the next action at normal pan speed (ms). */
 export const PAN_MS = 400;
 /** The pan speeds Settings and the video export offer (1 normal). */
-export const PAN_SPEEDS = [0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4] as const;
+export const PAN_SPEEDS = [0.25, 0.5, 0.75, 1, 1.5, 2, 2.5, 3, 3.5, 4] as const;
 /** The pan sensitivities offered: how far in from the view's edges (a share of the zoom's tiles across) the units
  * acting must stand before the camera pans to them. 0 pans only once they're out of view; 0.5 always centres them. */
 export const PAN_MARGINS = [0, 0.05, 0.1, 0.15, 0.2, 0.25, 0.3, 0.4, 0.5] as const;
