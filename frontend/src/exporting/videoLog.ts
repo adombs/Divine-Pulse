@@ -48,7 +48,7 @@ export interface VideoLogOptions {
 }
 
 /** The marks the map draws for what happens on it, each of which can be switched off. */
-export type Annotation = "moves" | "aims" | "badges" | "effects" | "frames" | "hp" | "terrain" | "rewind";
+export type Annotation = "moves" | "aims" | "badges" | "effects" | "frames" | "hp" | "rewind";
 /** Each mark, its name and what it is, in the order the settings list them. */
 export const ANNOTATIONS: readonly [Annotation, string, string][] = [
   ["moves", "Move arrows", "The arrow from where a unit started its move, with the move badge on that tile"],
@@ -57,8 +57,7 @@ export const ANNOTATIONS: readonly [Annotation, string, string][] = [
   ["effects", "Hit effects", "The ring where a blow lands, the pulse on a unit healed, and the badge popping in"],
   ["frames", "Unit highlights", "The corner frames around the unit acting and the one it acts on"],
   ["hp", "HP bars", "The bar under each unit"],
-  ["terrain", "Terrain marks", "The icons on chests, doors, levers, Crest Stones, traps, breakable walls and warp tiles"],
-  ["rewind", "Divine Pulse badge", "The badge in the middle of the map while a Divine Pulse turns time back"],
+  ["rewind", "Rewind indicator", "The spiral and \"Rewinding N Steps\" in the middle of the map while a Divine Pulse turns time back"],
 ];
 export const ALL_ANNOTATIONS = Object.fromEntries(ANNOTATIONS.map(([a]) => [a, true])) as Record<Annotation, boolean>;
 

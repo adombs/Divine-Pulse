@@ -85,6 +85,17 @@ export const sortedBranches = (battle: Battle): Branch[] => [...(battle.branches
 const isPulseOf = (branch: Branch, kind: string, step: number | null | undefined, t: number) =>
   kind === "pulse" && branch.fork === step && Math.abs(branch.at - t) < 1;
 
+/** The battle as it finally stands: only the steps that weren't undone, without the uses of Divine Pulse or what they
+ * undid (a video can show just this). */
+export function finalChronicle(battle: Battle): Chronicle {
+  return chronicle({
+    ...battle,
+    branches: [],
+    log: battle.log.filter((e) => e.kind !== "pulse"),
+    events: battle.events.filter((e) => e.kind !== "divine_pulse"),
+  });
+}
+
 export function chronicle(battle: Battle): Chronicle {
   const branches = sortedBranches(battle);
   const P = branches.length;

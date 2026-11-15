@@ -27,13 +27,14 @@ import { isPostTimeskip } from "../../portraits";
 import { useReplayAudio } from "../../exporting/useReplayAudio";
 import { fitReplayFrame } from "../../exporting/replayFrameFit";
 import { CondensedLog } from "./CondensedLog";
+import { RewindIndicator } from "./RewindIndicator";
 import { snapshotter, type Layer } from "../../exporting/snapshot";
 import { savesNatively, saveFiles, safeFilename } from "../../exporting/save";
 import { Cancelled, canEncode, encodeVideo, type VideoQuality } from "../../exporting/video";
 import { sceneAt, type Segment } from "../../exporting/teamPages";
 import { customSoundtrack, defaultTheme, loadCustomAudio, loadMusic, mixedSoundtrack, recording, releaseCustomAudio, soundtrack, THEME_GROUPS, type CustomAudio, type Music, type Theme, type Version } from "../../exporting/music";
 import { CameraMode, CameraModeSwitch, DEFAULT_PAN, DEFAULT_ZOOM, framed, PAN_MARGINS, PAN_SPEEDS, PanSensitivitySlider, panMs, PanSpeedSlider, ZOOM_TILES, ZoomSlider, ZoomValue, zoomText } from "./camera";
-import { chronicle, type Chronicle } from "./chronicle";
+import { chronicle, type Chronicle, finalChronicle } from "./chronicle";
 import { hasMap, phaseArmy } from "./map";
 import { MapCounts, Minimap, type Zoom } from "./Minimap";
 import { BattleNavContext, ItemList, useBattleNav } from "./parts";
@@ -76,7 +77,7 @@ const OPTIONS_KEY = "divine-pulse-export-video";
 
 /** The groups of options, as tabs across the top of the options panel. */
 type ExportTab = "format" | "layout" | "replay" | "team" | "music";
-const TABS: [ExportTab, string][] = [["format", "Format"], ["layout", "Layout"], ["replay", "Replay"], ["team", "Team"], ["music", "Music"]];
+const TABS: [ExportTab, string][] = [["format", "Format"], ["layout", "UI"], ["replay", "Replay"], ["team", "Team"], ["music", "Music"]];
 
 /** The video's own options, remembered between exports. */
 interface VideoOptions {
@@ -109,11 +110,13 @@ interface VideoReplayOptions {
   stagger: number;
   panSpeed: number;
   panMargin: number;
+  /** Replay every use of Divine Pulse and what it undid, or (false) only the steps that finally stand. */
+  pulses: boolean;
   /** How units are drawn on the video's map: your units, and everyone else. */
   mine: UnitLook;
   others: UnitLook;
 }
-const DEFAULT_REPLAY: VideoReplayOptions = { speed: 1, group: true, staggered: true, stagger: DEFAULT_STAGGER, panSpeed: DEFAULT_PAN.speed, panMargin: DEFAULT_PAN.margin, mine: "portraits", others: "sprites" };
+const DEFAULT_REPLAY: VideoReplayOptions = { speed: 1, group: true, staggered: true, stagger: DEFAULT_STAGGER, panSpeed: DEFAULT_PAN.speed, panMargin: DEFAULT_PAN.margin, pulses: true, mine: "portraits", others: "sprites" };
 const isUnitLook = (v: unknown): v is UnitLook => UNIT_LOOKS.some(([look]) => look === v);
 
 function sanitizeReplay(saved: unknown): VideoReplayOptions {
@@ -126,6 +129,7 @@ function sanitizeReplay(saved: unknown): VideoReplayOptions {
     stagger: among(s.stagger, STAGGER_STOPS, DEFAULT_REPLAY.stagger),
     panSpeed: among(s.panSpeed, PAN_SPEEDS, DEFAULT_REPLAY.panSpeed),
     panMargin: among(s.panMargin, PAN_MARGINS, DEFAULT_REPLAY.panMargin),
+    pulses: s.pulses !== false,
     mine: isUnitLook(s.mine) ? s.mine : DEFAULT_REPLAY.mine,
     others: isUnitLook(s.others) ? s.others : DEFAULT_REPLAY.others,
   };
@@ -315,7 +319,7 @@ function centre(follow: [number, number][], w: number, h: number): [number, numb
 
 const easeInOut = (k: number) => (1 - Math.cos(Math.PI * Math.max(0, Math.min(1, k)))) / 2;
 
-function ReplayExportDialog({ battle, chron, route, runName, units, part2, history, onClose }: {
+function ReplayExportDialog({ battle, chron: everything, route, runName, units, part2, history, onClose }: {
   battle: Battle;
   chron: Chronicle;
   route: RunRoute | null;
@@ -426,6 +430,8 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   // How the replay plays and the camera pans: the video's own options, kept between exports (not the battle page's).
   const { speed, group, staggered, stagger: staggerShare, panSpeed, panMargin } = options.replay;
   const updateReplay = (patch: Partial<VideoReplayOptions>) => setOptionsState((o) => keep({ ...o, replay: { ...o.replay, ...patch } }));
+  // What the video replays: everything that happened, Divine Pulse rewinds included, or only the final timeline.
+  const chron = useMemo(() => (options.replay.pulses ? everything : finalChronicle(battle)), [options.replay.pulses, everything, battle]);
   // The video's map draws units as the video's options say, not as the battle page does.
   const nav = useBattleNav();
   const videoNav = useMemo(
@@ -557,7 +563,7 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
   // A new range, speed or pan starts the preview over.
   useEffect(() => {
     seekRef.current(0);
-  }, [first, last, speed, group, stagger, panSpeed, panMargin]);
+  }, [first, last, speed, group, stagger, panSpeed, panMargin, chron]);
 
   useEffect(() => {
     if (!playing || working) return;
@@ -925,6 +931,9 @@ function ReplayExportDialog({ battle, chron, route, runName, units, part2, histo
                   <fieldset className="export-group" disabled={working}>
                     <legend>Replay</legend>
                     <ReplaySpeedSlider value={speed} onChange={setSpeed} labelled />
+                    <label className="export-check" title="On: every use of Divine Pulse plays, with the steps it undid. Off: only the steps that finally stand">
+                      <input type="checkbox" checked={options.replay.pulses} onChange={(e) => updateReplay({ pulses: e.target.checked })} /> Include Divine Pulse rewinds
+                    </label>
                     <label className="export-check" title="Consecutive actions in one phase aimed at the same unit, or each unit at itself (moves, waits), play together">
                       <input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} /> Group actions
                     </label>
@@ -1189,8 +1198,8 @@ function ReplayStage({ battle, chron, replay, moment, orientation, layout, log, 
           annotations={log.annotations}
         />
         {replay.rewind && log.annotations.rewind && (
-          <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.6 + 0.4 * replay.rewind.badge})` }} aria-hidden>
-            <Icon name={CONCEPT_ICON.pulse} />
+          <div className="rewind-badge" style={{ opacity: replay.rewind.badge, transform: `translate(-50%, -50%) scale(${0.85 + 0.15 * replay.rewind.badge})` }}>
+            <RewindIndicator steps={replay.rewind.steps} elapsed={replay.rewind.elapsed} />
           </div>
         )}
       <div className="replay-stage-overlays">
