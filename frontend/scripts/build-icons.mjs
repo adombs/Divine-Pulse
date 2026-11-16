@@ -20,7 +20,7 @@ const ICONS = {
   history: ["clock-counter-clockwise"],
   characters: ["identification-badge"],
   classes: ["graduation-cap"],
-  mastery: ["battery-charging"],
+  mastery: ["graduation-cap"],
   archive: ["books"],
   supports: ["hand-heart"],
   runs: ["flag-banner"],
@@ -55,6 +55,8 @@ const ICONS = {
   section: ["gear-six", "fill"],
   log: ["list-bullets"],
   share: ["export"],
+  plan: ["strategy"],
+  notes: ["note-pencil"],
   drag: ["dots-six-vertical"],
   // What happened in a battle (the log, model.ts ICON)
   phase: ["flag"],

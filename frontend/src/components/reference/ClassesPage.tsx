@@ -1,5 +1,5 @@
 import { CONCEPT_ICON } from "../../icons/concepts";
-import { isStoryClass } from "../../reference/links";
+import { isStoryClass, tierRank } from "../../reference/links";
 import { gameLanguageLocale } from "../../gameLanguage";
 import { Fragment, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { CSSProperties, ReactNode } from "react";
@@ -204,8 +204,10 @@ function ClassTable({ data, units, part2 }: { data: ReferenceData } & Props) {
     );
     const order = new Map(data.classes.map((c, i) => [c.name, i]));
     const val = (c: GameClass): number | string =>
-      sort.key === "name" ? c.name : sort.key === "tier" ? order.get(c.name)! : sort.key === "total" ? total(c) : value(c, sort.key);
-    return list.sort((a, b) => compareValues(val(a), val(b)) * sort.dir || order.get(a.name)! - order.get(b.name)!);
+      sort.key === "name" ? c.name : sort.key === "tier" ? tierRank(c) : sort.key === "total" ? total(c) : value(c, sort.key);
+    // Within a tier, classes go alphabetically (the game's own order puts Pegasus Knight and Dancer apart from theirs).
+    const within = (a: GameClass, b: GameClass) => sort.key === "tier" ? a.name.localeCompare(b.name, gameLanguageLocale()) : order.get(a.name)! - order.get(b.name)!;
+    return list.sort((a, b) => compareValues(val(a), val(b)) * sort.dir || within(a, b));
   }, [data, tiers, genders, filter, sort, view, showStoryClasses]);
 
   // The id comes from the URL: accept a misspelt or differently cased class name too.

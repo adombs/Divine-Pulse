@@ -51,7 +51,7 @@ from .battle_data import quest_battles
 from .battle_support import DefaultBattleSupport
 from ..domain import deaths, duplicates, membership
 from ..domain.changes import UnitChange
-from ..domain.units import unit_key
+from ..domain.units import UnitPlan, unit_key
 from ..storage import BattleStore, NotFound, RunStore
 
 log = logging.getLogger(__name__)
@@ -353,7 +353,8 @@ class Scanner:
             if battle is not None and battle.roster_snapshot_pending and sample.turn != 0:
                 try:
                     roster = self.store.get(run_id).units
-                    battle.roster_snapshot = {key: unit.model_copy(deep=True) for key, unit in roster.items()}
+                    # Without the player's plans: the snapshot is how the roster stood, not what was planned.
+                    battle.roster_snapshot = {key: unit.model_copy(deep=True, update={"plan": UnitPlan()}) for key, unit in roster.items()}
                 except NotFound:
                     battle.roster_snapshot = {}
                 battle.roster_snapshot_pending = False

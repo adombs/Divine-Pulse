@@ -19,7 +19,7 @@ from ..application.operations import (
     RunNameTaken,
     UnitMissing,
 )
-from .inputs import DeadIn, DuplicatesResolveIn, RestoreIn, EbstIn, RulesetIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
+from .inputs import DeadIn, DuplicatesResolveIn, RestoreIn, EbstIn, PlanIn, RulesetIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
 from ..domain.ebst import EbstConfig
 from ..domain.runs import RunSummary
 from ..domain.runs import Rule, Run
@@ -198,6 +198,12 @@ def set_unit_ebst(run_id: str, key: str, body: EbstIn, request: Request) -> Unit
         key,
         body.model_dump(exclude_none=True),
     )
+    return UnitOut.from_unit(key, unit, _call(_state(request).operations.unit_scores, run_id).get(key, 0))
+
+
+@router.put("/runs/{run_id}/units/{key}/plan")
+def set_unit_plan(run_id: str, key: str, body: PlanIn, request: Request) -> UnitOut:
+    unit = _call(_state(request).operations.set_unit_plan, run_id, key, body.model_dump())
     return UnitOut.from_unit(key, unit, _call(_state(request).operations.unit_scores, run_id).get(key, 0))
 
 

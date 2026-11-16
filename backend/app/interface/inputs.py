@@ -6,6 +6,7 @@ length-limited, and numbers are range-checked.
 
 from __future__ import annotations
 
+import unicodedata
 from typing import Annotated
 
 from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -13,6 +14,7 @@ from pydantic import AfterValidator, BaseModel, ConfigDict, Field, field_validat
 from ..domain.text import clean_text
 from ..domain.settings import DuplicateBattles, MemoryReader, WindowMode
 from ..domain.ebst import OTHER_KEYS, EbstType, ordered_others
+from ..domain.units import PLAN_LIST_MAX, PLAN_NAME_LEN, PLAN_NOTES_LEN, SkillKey, SkillRank
 from ..domain.runs import MAX_RULES, RULE_DESCRIPTION_LEN, RULE_NAME_LEN
 
 
@@ -70,6 +72,36 @@ class DeadIn(Body):
     """Mark a unit dead or alive by hand."""
 
     dead: bool
+
+
+def _notes(value: str) -> str:
+    """Control characters dropped, except line breaks and tabs; every line ending made a line feed."""
+    value = value.replace("\r\n", "\n").replace("\r", "\n")
+    value = "".join(c for c in value if c in "\n\t" or unicodedata.category(c)[0] != "C")
+    if len(value) > PLAN_NOTES_LEN:
+        raise ValueError(f"Notes must be at most {PLAN_NOTES_LEN} characters")
+    return value
+
+
+PlanBattalion = _text(PLAN_NAME_LEN, required=False, what="The battalion")
+PlanName = _text(PLAN_NAME_LEN, what="A name")
+
+
+class PlanIn(Body):
+    """A unit's whole plan, replacing the one stored."""
+
+    classes: list[PlanName] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
+    skills: dict[SkillKey, SkillRank] = Field(default_factory=dict)
+    arts: list[PlanName] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
+    abilities: list[PlanName] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
+    equipment: list[PlanName] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
+    battalion: PlanBattalion = ""
+    notes: Annotated[str, AfterValidator(_notes)] = ""
+
+    @field_validator("classes", "arts", "abilities", "equipment")
+    @classmethod
+    def _unique(cls, v: list[str]) -> list[str]:
+        return list(dict.fromkeys(v))
 
 
 class EbstIn(Body):

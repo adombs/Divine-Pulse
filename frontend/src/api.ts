@@ -94,7 +94,23 @@ export interface Unit {
   on_roster?: boolean;
   /** The unit's run score (damage dealt plus healing done, averaged over the completed battles it was deployed in, not as an adjutant); 0 when none. */
   score?: number;
+  /** The player's plan (the Roster's Planner); absent on older servers. */
+  plan?: UnitPlan;
 }
+
+/** What the player plans for a unit: Archive names, target skill ranks, and notes with links written as
+ * @[label](kind:id). */
+export interface UnitPlan {
+  classes: string[];
+  skills: Partial<Record<SkillKey, string>>;
+  arts: string[];
+  abilities: string[];
+  equipment: string[];
+  battalion: string;
+  notes: string;
+}
+
+export const EMPTY_PLAN: UnitPlan = { classes: [], skills: {}, arts: [], abilities: [], equipment: [], battalion: "", notes: "" };
 
 /** Where a unit died (the game's own "Is Dead" flag, or marked by hand): all empty but `manual` when no fall of it was
  * recorded. */
@@ -593,6 +609,8 @@ export const api = {
   setRunEbst: (runId: string, body: EbstConfig) => request<EbstConfig>("PUT", `/runs/${enc(runId)}/ebst`, body),
   setUnitEbst: (runId: string, key: string, body: Partial<EbstConfig>) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/ebst`, body),
+  setUnitPlan: (runId: string, key: string, plan: UnitPlan) =>
+    request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/plan`, plan),
   setUnitDead: (runId: string, key: string, dead: boolean) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/dead`, { dead }),
   gameFilesStatus: () => request<GameFilesStatus>("GET", "/game-assets/status"),

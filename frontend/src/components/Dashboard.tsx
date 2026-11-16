@@ -38,6 +38,7 @@ import { ClassMasteryPanel } from "./character/ClassMastery";
 import { tidyAbility } from "../appearance";
 import { TeamExportButton } from "./TeamExport";
 import { plural } from "../format";
+import { PlannerButton } from "./planner/Planner";
 import { deathText } from "../deaths";
 import { SCORE_EXPLANATION, fmtScore } from "../score";
 
@@ -554,6 +555,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
       actions={
         <>
           <IconButton icon={CONCEPT_ICON.history} label="Battle Stats" onClick={() => nav.go({ page: "history", tab: "stats", id: unit.key })} />
+          <PlannerButton unit={unit} runId={runId} toasts={toasts} />
           {/* A unit can be put back among the living when the game's flag is wrong, but never marked fallen by hand. */}
           {unit.death && <IconButton icon={CONCEPT_ICON.alive} label="Mark as Alive" onClick={setAlive} />}
         </>

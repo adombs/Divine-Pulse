@@ -1,0 +1,124 @@
+/* The Roster's Planner (Planner.tsx): a window with Build and Notes tabs. */
+
+.modal.planner { width: min(980px, 100%); height: min(780px, calc(100dvh - 4rem)); }
+.planner .modal-body { display: flex; flex-direction: column; padding: 0.7rem 0 0; overflow: hidden; }
+.planner-body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
+.planner-tabs { flex: none; margin-inline: 1.3rem; display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
+.planner-tabs .sub-tabs { margin: 0; border-bottom: 0; }
+
+.plan-save { display: inline-flex; align-items: center; gap: 0.3rem; padding-bottom: 0.45rem; font: 0.9rem var(--ui); color: var(--ink-soft); }
+.plan-save.saved .icon { color: var(--green); }
+.plan-save.error { color: var(--red); }
+
+.planner-grid { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-width: thin; padding: 0 1.3rem 1.3rem; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.6rem 2rem; align-items: start; }
+.planner-col { display: grid; gap: 1.5rem; min-width: 0; }
+
+.plan-block { display: grid; gap: 0.45rem; min-width: 0; }
+.plan-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; min-height: 1.9rem; }
+.plan-head h3 {
+  display: flex; align-items: center; gap: 0.45rem;
+  font: 700 0.8rem var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft);
+}
+.plan-head h3 > .icon { font-size: 1.05rem; color: var(--accent); }
+.plan-count, .plan-progress {
+  font: 600 0.78rem var(--nums); letter-spacing: 0; color: var(--ink-soft);
+  padding: 0 0.4rem; border: 1px solid var(--row-border); border-radius: 99px; font-variant-numeric: tabular-nums;
+}
+
+.plan-list li { padding-right: 0.3rem; min-height: 2.25rem; }
+.plan-entry { display: inline-flex; align-items: center; min-width: 0; }
+.plan-entry .ref-link { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-row-end { display: inline-flex; align-items: center; gap: 0.35rem; flex: none; }
+.plan-remove { font-size: 0.95rem; padding: 0.3rem; opacity: 0.5; }
+.plan-list li:is(:hover, :focus-within) .plan-remove { opacity: 1; }
+.plan-remove:hover { color: var(--red); }
+.plan-have { display: inline-flex; align-items: center; gap: 0.25rem; font: 0.88rem var(--ui); color: var(--green); }
+.plan-none { margin: 0; font-size: 0.95rem; }
+
+/* A class's skill requirements: dim until the unit reaches them. */
+.plan-reqs { display: inline-flex; align-items: center; gap: 0.45rem; }
+.plan-req { display: inline-flex; align-items: center; gap: 0.15rem; font: 600 0.88rem var(--nums); color: var(--ink-soft); }
+.plan-req .skill-icon { opacity: 0.6; }
+.plan-req.met { color: var(--green); }
+.plan-req.met .skill-icon { opacity: 1; }
+.plan-or { font: italic 0.82rem var(--text); color: var(--ink-soft); margin-right: 0.3rem; }
+
+/* Target skill ranks: only the skills added, each as skill, now -> target, reached. */
+.plan-skill { gap: 0.45rem; }
+.plan-skill .skill-icon { flex: none; }
+.plan-skill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.plan-skill-now { min-width: 1.6rem; font: 600 0.98rem var(--nums); text-align: right; color: var(--ink-soft); }
+.plan-skill-arrow { font-size: 0.85rem; color: var(--accent); }
+.plan-skills select { padding: 0.1rem 0.25rem; font: 600 0.95rem var(--nums); }
+.plan-skill-met { display: inline-grid; place-items: center; width: 1.1rem; color: var(--green); }
+.plan-skills li.met { border-color: color-mix(in srgb, var(--green) 45%, var(--row-border)); }
+
+/* Magic: each school's spells by rank. */
+.plan-magic { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.4rem 1rem; }
+.plan-school h4 { display: flex; align-items: center; gap: 0.35rem; margin: 0 0 0.25rem; font: 600 0.95rem var(--display); color: var(--ink-soft); }
+.plan-school ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
+.plan-school li { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) 1.1rem; align-items: center; gap: 0.35rem; padding: 0.12rem 0.3rem; font: 500 1rem var(--display); color: var(--ink-soft); }
+.plan-school li .ref-link { color: inherit; }
+.plan-school li.learned, .plan-school li.planned { color: var(--ink); }
+.plan-spell-rank { font: 600 0.9rem var(--nums); text-align: right; }
+.plan-school li.planned .plan-skill-met { color: var(--accent); }
+
+/* The add box under each list. */
+.entry-picker { position: relative; display: flex; align-items: center; }
+.entry-picker-icon { position: absolute; left: 0.6rem; font-size: 0.95rem; color: var(--ink-soft); pointer-events: none; }
+.entry-picker :is(input, select) {
+  width: 100%; padding: 0.35rem 0.6rem 0.35rem 1.9rem; border: 1px dashed var(--row-border); border-radius: 2px;
+  background: transparent; font: 0.98rem var(--ui); color: var(--ink);
+}
+.entry-picker :is(input, select):hover { border-color: var(--ink-soft); }
+.entry-picker :is(input, select):focus { border-style: solid; border-color: var(--accent); background: var(--row); outline: none; }
+.entry-picker:focus-within .entry-picker-icon { color: var(--accent); }
+
+/* Search results, over everything (the Planner window included). */
+.entry-menu {
+  position: fixed; z-index: 120; max-width: 360px; max-height: min(320px, 50vh); overflow: auto; scrollbar-width: thin;
+  margin: 0; padding: 0.25rem; list-style: none;
+  background: var(--paper-2); border: 1px solid var(--line); box-shadow: 0 10px 28px rgb(0 0 0 / 0.55);
+  animation: entry-menu-in 0.12s ease-out both;
+}
+@keyframes entry-menu-in { from { opacity: 0; transform: translateY(-3px); } }
+.entry-menu li {
+  display: flex; align-items: center; gap: 0.2rem; padding: 0.3rem 0.5rem; cursor: pointer;
+  font: 500 1rem var(--display); color: var(--ink);
+}
+.entry-menu li.on { background: var(--sel); color: var(--sel-ink); }
+.entry-menu .entry-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.entry-menu .entry-kind { flex: none; margin-left: 0.8rem; font: 0.8rem var(--ui); color: var(--ink-soft); }
+.entry-menu li.on .entry-kind { color: color-mix(in srgb, var(--sel-ink) 65%, transparent); }
+.entry-menu .entry-empty { cursor: default; color: var(--ink-soft); font-style: italic; }
+
+/* Notes: running text with links as icon + name. */
+.notes-editor { flex: 1 1 auto; display: flex; min-height: 0; padding: 0 1.3rem 1.3rem; }
+.notes-text {
+  flex: 1 1 auto; min-height: 16rem; overflow: auto; scrollbar-width: thin;
+  padding: 0.9rem 1rem; background: var(--row); border: 1px solid var(--row-border); border-radius: 2px;
+  font: 1.08rem/1.7 var(--text); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; caret-color: var(--accent);
+}
+.notes-text:focus { outline: none; border-color: var(--accent); }
+.notes-text.empty::before { content: attr(data-placeholder); position: absolute; color: var(--ink-soft); opacity: 0.85; pointer-events: none; }
+.notes-text ::selection { background: color-mix(in srgb, var(--accent) 40%, transparent); }
+.note-link {
+  display: inline; cursor: pointer; padding: 0.1em 0.3em; border-radius: 3px; color: var(--link-ink);
+  background: color-mix(in srgb, var(--accent) 14%, transparent); user-select: all; box-decoration-break: clone;
+  text-decoration: underline; text-decoration-color: color-mix(in srgb, var(--accent) 55%, transparent); text-underline-offset: 3px;
+}
+.note-link:hover { color: var(--link-hover); background: color-mix(in srgb, var(--accent) 24%, transparent); text-decoration-color: currentColor; }
+/* The icon hangs from the line's middle, so it never lifts the words around it. */
+.note-link .ref-icon { width: 1.2em; height: 1.2em; margin-right: 0.25em; vertical-align: -0.25em; }
+
+/* The roster card's button marks a unit that has a plan. */
+.btn.icon-only.has-plan { position: relative; color: var(--accent-2); }
+.btn.icon-only.has-plan::after {
+  content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
+}
+
+@media (max-width: 820px) {
+  .planner-grid { grid-template-columns: minmax(0, 1fr); }
+}
+.plan-add-skill select { cursor: pointer; color: var(--ink-soft); appearance: none; }
+.plan-add-skill select option { color: var(--ink); background: var(--paper-2); }

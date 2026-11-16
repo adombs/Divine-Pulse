@@ -2,6 +2,13 @@
 
 ## Unreleased
 
+## 1.5.0 (2026-11-15)
+
+- The Roster has a Planner for each unit, next to Battle Stats: target classes, skill ranks, combat arts, abilities, equipment and battalion, saved as you go. Classes show the skill ranks they need, and Match classes adds them as targets; anything the unit already has is marked. A Magic section lists the spells the unit learns in Reason and Faith, by rank.
+- Each unit has notes in its Planner. Type @ to link a unit, class, weapon, item, combat art, ability, spell, battalion or crest: the link shows its icon and opens the entry in the Archive.
+- Class Mastery uses the graduation cap icon.
+- The Archive's Classes list sorts by tier, then alphabetically within each tier.
+
 ## 1.4.8 (2026-11-15)
 
 - Settings → Battle Replay and Export Video each have a Map marks list to switch off any of the map's marks: move arrows, target lines, action badges, hit effects, unit highlights, HP bars and the rewind indicator.

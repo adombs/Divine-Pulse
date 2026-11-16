@@ -1,6 +1,9 @@
 import { canonical } from "../fuzzy.ts";
 const STORY_CLASSES = new Set(["Enlightened One", "Armored Lord", "High Lord", "Emperor", "Great Lord", "Wyvern Master", "Barbarossa"]);
 export const isStoryClass = (name: string) => STORY_CLASSES.has(name);
+/** A class's place by tier: Noble and Commoner, Beginner up to Master, then the story classes and the DLC's. */
+const TIER_RANK: Record<string, number> = { Unique: 0, Beginner: 1, Intermediate: 2, Advanced: 3, Master: 4, DLC: 6 };
+export const tierRank = (c: { name: string; tier: string }) => (c.tier === "Unique" && isStoryClass(c.name) ? 5 : TIER_RANK[c.tier] ?? 7);
 export interface NameMatch { start: number; end: number; name: string }
 /** Game terms that contain a linkable name but aren't about it ("Hero's Relic" is not the Hero class). */
 const NOT_LINKS = ["Hero's Relic", "Heroes' Relic"];
