@@ -131,8 +131,6 @@ function PlannerBody({ unit, initial, runId, toasts, onStatus, resetRef, onSaved
           <SkillTargets unit={unit} plan={plan} update={update} data={ref} character={character} />
         </div>
         <div className="planner-col">
-          <EntryList title="Combat Arts" icon={CONCEPT_ICON.art} kind="art" values={plan.arts} onChange={(arts) => update({ arts })} max={PLAN_MAX.arts}
-            entries={kinds("art")} suggested={suggestArts} add="Empty slot" have={learnedArts} haveLabel="Learned" data={ref} />
           <EntryList title="Abilities" icon={CONCEPT_ICON.ability} kind="ability" values={plan.abilities} onChange={(abilities) => update({ abilities })} max={PLAN_MAX.abilities}
             entries={kinds("ability")} suggested={suggestAbilities} add="Empty slot" have={learnedAbilities} haveLabel="Learned" data={ref} />
           <EntryList title="Battalion" icon={CONCEPT_ICON.battalion} kind="battalion" values={plan.battalion ? [plan.battalion] : []} max={1}
@@ -144,6 +142,8 @@ function PlannerBody({ unit, initial, runId, toasts, onStatus, resetRef, onSaved
         <div className="planner-col">
           <EntryList title="Equipment" icon={CONCEPT_ICON.equipment} kind="item" values={plan.equipment} onChange={(equipment) => update({ equipment })} max={PLAN_MAX.equipment}
             entries={kinds("weapon", "item", "spell")} add="Empty slot" have={carried} haveLabel="Carried" data={ref} />
+          <EntryList title="Combat Arts" icon={CONCEPT_ICON.art} kind="art" values={plan.arts} onChange={(arts) => update({ arts })} max={PLAN_MAX.arts}
+            entries={kinds("art")} suggested={suggestArts} add="Empty slot" have={learnedArts} haveLabel="Learned" data={ref} />
           <SupportTargets unit={unit} plan={plan} update={update} entries={byKind.get("unit") ?? []} character={character} />
         </div>
       </div>

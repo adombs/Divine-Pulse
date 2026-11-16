@@ -236,7 +236,7 @@ function CharacterCard({
 
   return (
     <DetailCard
-      title={c.full_name || c.name}
+      title={c.name}
       scope="reference"
       icon={<AffiliationIcon house={c.house} />}
       label={`${c.name} reference`}

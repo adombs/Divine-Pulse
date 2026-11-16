@@ -14,6 +14,8 @@
 - Shorter tooltips and hints across Settings, the Roster, battles and Export Video.
 - Class Mastery uses the graduation cap icon.
 - The Archive's Classes list sorts by tier, then alphabetically within each tier.
+- The Archive's character cards are titled with the first name; the full name stays in the card's details.
+- The Archive's class card is centred, with Exam and Moves on one line on narrow screens.
 
 ## 1.4.8 (2026-11-15)
 
