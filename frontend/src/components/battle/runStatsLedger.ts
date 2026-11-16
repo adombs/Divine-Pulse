@@ -59,7 +59,7 @@ export function buildRunLedger(source: Battle[], kind: LedgerKind) {
       records: AWARDS.map((a) => awards.characters.get(c.key)?.[a.key] ?? 0) } }));
   const columns: Record<LedgerPart, LedgerColumn[]> = {
     combat: [...(kind === "characters" ? [metric("score", "Score", SCORE_EXPLANATION)] : []),
-      kind === "battles" ? metric("seconds", "Time") : metric("battles", "Battles", "Battles this character appeared in; the total counts all character appearances"),
+      kind === "battles" ? metric("seconds", "Time") : metric("battles", "Battles", "Battles appeared in"),
       ...(kind === "battles" ? [metric("turns", "Turns")] : []),
       metric("fights", "Fights", "Each character’s participation, from battle counters when read, otherwise recorded actions"),
       metric("kills", "Kills"), metric("dealt", "Dealt", "Damage dealt"), metric("taken", "Taken", "Damage taken"), metric("healing", "Healing", "Healing given"),

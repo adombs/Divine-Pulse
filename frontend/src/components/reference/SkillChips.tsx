@@ -1,5 +1,6 @@
 import { SKILL_KEYS, SKILL_LABEL, type Character, type GameClass } from "../../reference/types";
 import { SkillIcon } from "../SkillIcon";
+import { RankIcon } from "../RankIcon";
 
 export function SkillChips({ character, gameClass }: { character?: Character; gameClass?: GameClass }) {
   const skills = character
@@ -15,6 +16,6 @@ export function SkillChips({ character, gameClass }: { character?: Character; ga
         return { key, rank: bonus ? `+${bonus}` : "", aptitude: proficient ? "strong" as const : null, title };
       });
   return <div className="shared-skill-chips">{skills.map(({ key, rank, aptitude, title }) => <span key={key} className={`skill-chip ${aptitude ?? ""}`} title={title}>
-    <SkillIcon skill={key} aptitude={aptitude ?? undefined} title={title} /><span className="skill-rank">{rank}</span>
+    <SkillIcon skill={key} aptitude={aptitude ?? undefined} title={title} />{rank && <span className="skill-rank"><RankIcon rank={rank} title="" /></span>}
   </span>)}</div>;
 }

@@ -21,6 +21,6 @@ export const STAT_INFO: Record<string, { name: string; text: string }> = {
   cha: { name: "Charm", text: "Gambit damage and hit rate. Gambits are the battalion attacks that don't get counterattacked." },
   ebst: {
     name: "eBST",
-    text: "Effective base stat total: the unit's offense stat + defense stat (per their Offense / Defense types) plus whichever of HP, Mv, Dex, Spd, Lck and Cha are switched on, divided by how many of those went in. A quick measure of how well a unit fights.",
+    text: "Effective base stat total: Offense + Defense + the stats switched on, averaged.",
   },
 };

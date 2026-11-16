@@ -46,6 +46,18 @@ COMBAT_ARTS = {
     "brawling": (1701, 1733), "other": (1201, 1733),
 }
 MAGIC = {"black": (1, 1633), "white": (1901, 1533)}
+# The circled rank letters of the skills screen in 6026 texture 2, 108 x 118 each with room for a "+": E to S along
+# the top, 132 px apart, and S+ under the first.
+RANK_SIZE = (108, 118)
+RANKS = {
+    **{rank: (546 + 132 * i, 1) for i, rank in enumerate(("E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+", "S"))},
+    "S+": (11, 101),
+}
+
+
+def rank_file(rank: str) -> str:
+    """'B+' -> 'b-plus'."""
+    return rank.lower().replace("+", "-plus")
 ICON_SIZE = 48
 # The house pictures in 6026 texture 8: search box (x0, y0, x1, y1) around each; the picture is its opaque pixels.
 HOUSE_TEXTURE = 8
@@ -196,6 +208,10 @@ def cut_tiles(index: Index, tex2: Image.Image) -> None:
         tile(f"combat-arts/{name}", f"images/icons/combat-arts/{name}.png", box(x, y))
     for name, (x, y) in MAGIC.items():
         tile(f"magic/{name}", f"images/icons/magic/{name}.png", box(x, y))
+    for rank, (x, y) in RANKS.items():
+        rect = (x, y, x + RANK_SIZE[0], y + RANK_SIZE[1])
+        file = rank_file(rank)
+        index.add(f"ranks/{file}", f"images/icons/ranks/{file}.png", tex2.crop(rect), f"DATA {ICONS} texture 2 rect {rect}")
 
 
 def cut_houses(index: Index, tex8: Image.Image, dlc: Image.Image | None) -> None:

@@ -10,7 +10,8 @@
   display: flex; align-items: center; justify-content: flex-start; flex-wrap: nowrap;
   gap: 0.3rem; padding: 0.25rem 0.3rem; white-space: nowrap;
 }
-.archive-stat-panel .shared-skill-chips .skill-chip { justify-content: center; }
+/* Icon and rank as one centred pair in each cell. */
+.roster-stat-panel .skill-chip, .archive-stat-panel .shared-skill-chips .skill-chip { justify-content: center; gap: 0.25rem; }
 .roster-stat-panel .skill-chip { background: var(--row); border: 1px solid var(--row-border); border-bottom-width: 2px; font: 600 0.9rem var(--display); }
 .roster-stat-panel .skill-chip.strong { border-bottom-color: var(--green); }
 .roster-stat-panel .skill-chip.weak { border-bottom-color: var(--red); }

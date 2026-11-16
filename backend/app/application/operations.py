@@ -209,6 +209,17 @@ class BackendOperations:
         self.events.publish("units_changed", {"run_id": run_id})
         return unit
 
+    def set_unit_plan(self, run_id: str, key: str, plan: dict[str, Any]) -> Unit:
+        """Replace a unit's plan (the Roster's Planner)."""
+        _, unit = self._unit(run_id, key)
+        unit = Unit.model_validate({**unit.model_dump(), "plan": plan})
+        try:
+            self.runs.put_unit(run_id, key, unit)
+        except MissingRecord as exc:
+            raise RunMissing from exc
+        self.events.publish("units_changed", {"run_id": run_id, "unit_key": key})
+        return unit
+
     def set_unit_dead(self, run_id: str, key: str, dead: bool) -> Unit:
         """Mark a unit dead (linked to where it last fell, if anywhere) or alive, overriding what was detected."""
         _, unit = self._unit(run_id, key)

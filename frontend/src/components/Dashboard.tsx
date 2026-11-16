@@ -14,6 +14,7 @@ import { FilterMenu, NoMatches, SearchBox, Segmented, compareValues, useSort } f
 import { AbilityLink, ArtLink, CharLink, ClassLink, CrestLink, ItemLink, SpellLink } from "./Links";
 import { AbilityIcon, ArtIcon, ItemIcon } from "../reference/icons";
 import { SkillIcon } from "./SkillIcon";
+import { RankIcon } from "./RankIcon";
 import { SKILL_LABEL, type SkillKey } from "../reference/types";
 import { GearIcon } from "./battle/gameIcons";
 import { EquipMark } from "./EquipMark";
@@ -38,6 +39,7 @@ import { ClassMasteryPanel } from "./character/ClassMastery";
 import { tidyAbility } from "../appearance";
 import { TeamExportButton } from "./TeamExport";
 import { plural } from "../format";
+import { PlannerButton } from "./planner/Planner";
 import { deathText } from "../deaths";
 import { SCORE_EXPLANATION, fmtScore } from "../score";
 
@@ -48,12 +50,8 @@ const NUMERIC_COLS: { key: SortKey; label: string; title?: string }[] = [
   { key: "hp", label: "HP" },
   { key: "mv", label: "Mv" },
   ...STAT_KEYS.map((k) => ({ key: k as SortKey, label: LABELS[k] })),
-  {
-    key: "ebst",
-    label: "eBST",
-    title: "Effective base stat total: Offense + Defense + the stats toggled on for this unit, divided by how many went in (set on the unit card)",
-  },
-  { key: "score", label: "Score", title: `Run score: ${SCORE_EXPLANATION} Click to sort.` },
+  { key: "ebst", label: "eBST" },
+  { key: "score", label: "Score", title: `Score: ${SCORE_EXPLANATION}` },
 ];
 
 const isValueKey = (k: SortKey): k is ValueKey => (VALUE_KEYS as readonly string[]).includes(k);
@@ -184,7 +182,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
       <section className="roster-page">
         <PageHeader title="Roster" />
         <EmptyState title="No run yet">
-          <p>Create a run for your playthrough. Everything read from the game goes into the active run.</p>
+          <p>Create a run to start tracking.</p>
           <button className="btn primary" onClick={onGoToRuns}>
             Create a Run
           </button>
@@ -238,7 +236,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
         status={
           <>
             {toCheck > 0 && (
-              <StatusChip tone="warn" title="Some values couldn't be read or have an unknown bonus. Units marked ! show which.">
+              <StatusChip tone="warn" title="Units marked ! have values that couldn't be read.">
                 {toCheck} to check
               </StatusChip>
             )}
@@ -272,7 +270,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
             <PeopleFilterFields fields={["affiliation", "status"]} />
           </FilterMenu>
           {units.length > 0 && (
-            <span className="battle-filter" title="Give every unit the same offense and defense types, to compare them on equal terms. Units keep their own.">
+            <span className="battle-filter" title="Compare everyone with the same offense and defense types">
               <Switch checked={compare.on} onChange={(on) => setCompare({ ...compare, on })} label="Compare as" />
             </span>
           )}
@@ -364,7 +362,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
                         }
                         if (c.key === "score") {
                           return (
-                            <td key={c.key} className="num score-col" title={`Run score ${fmtScore(u.score)}: ${SCORE_EXPLANATION}`}>
+                            <td key={c.key} className="num score-col">
                               {fmtScore(u.score)}
                             </td>
                           );
@@ -554,6 +552,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
       actions={
         <>
           <IconButton icon={CONCEPT_ICON.history} label="Battle Stats" onClick={() => nav.go({ page: "history", tab: "stats", id: unit.key })} />
+          <PlannerButton unit={unit} runId={runId} toasts={toasts} />
           {/* A unit can be put back among the living when the game's flag is wrong, but never marked fallen by hand. */}
           {unit.death && <IconButton icon={CONCEPT_ICON.alive} label="Mark as Alive" onClick={setAlive} />}
         </>
@@ -598,7 +597,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
               const aptitude = character?.skills[skill]?.aptitude ?? null;
               const iconAptitude = aptitude === "budding" || aptitude === null ? undefined : aptitude;
               return <span className={`skill-chip roster-skill aptitude-chip ${aptitude ?? ""}`} key={skill} title={`${SKILL_LABEL[skill]}: ${value.rank} · ${value.exp} EXP within this rank${aptitude ? ` · ${aptitude.replace("_", " and ")}` : ""}`}>
-                <SkillIcon skill={skill} aptitude={iconAptitude} /> <b>{value.rank}</b>
+                <SkillIcon skill={skill} aptitude={iconAptitude} /><RankIcon rank={value.rank} title="" />
               </span>;
             })}
           </div>

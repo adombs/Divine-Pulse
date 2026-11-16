@@ -38,6 +38,7 @@ import { AbilityIcon, ArtIcon, CrestMark, SpellIcon } from "../../reference/icon
 import "./classes.css";
 import "./characters.css";
 import "../character/panels.css";
+import { RankIcon } from "../RankIcon";
 import {
   FilterChip,
   FilterMenu,
@@ -228,14 +229,14 @@ function CharacterCard({
   // A learned ability or art's skill (its icon) and rank.
   const rankMark = (a: { skill?: SkillKey | ""; rank: string }) => (
     <>
-      {a.skill && <SkillIcon skill={a.skill} />} {a.rank}
+      {a.skill && <SkillIcon skill={a.skill} />} <RankIcon rank={a.rank} />
     </>
   );
   const hiddenCrests = c.crests_spoiler && crestText(c.crests_spoiler) !== crestText(c.crests) ? crestText(c.crests_spoiler) : null;
 
   return (
     <DetailCard
-      title={c.full_name || c.name}
+      title={c.name}
       scope="reference"
       icon={<AffiliationIcon house={c.house} />}
       label={`${c.name} reference`}
@@ -355,7 +356,7 @@ function CharacterCard({
         {learnedAbilities.length > 0 && (
           <>
             <h4 className="sub-title">Skill abilities</h4>
-            <ul className="item-list learned" title="Learned from skill ranks, on top of what every unit learns">
+            <ul className="item-list learned" title="From skill ranks">
               {learnedAbilities.map((a) => (
                 <li key={`a-${a.name}-${a.rank}`} title={data.abilities.find((x) => x.name === a.name)?.description}>
                   <span>
@@ -432,7 +433,7 @@ function CharacterCard({
                         <SpellIcon name={s.name} />
                         <SpellLink name={s.name} />
                       </span>
-                      <span className="rank">{s.rank}</span>
+                      <span className="rank"><RankIcon rank={s.rank} /></span>
                     </li>
                   ))}
                   {c.spells[school].length === 0 && <li className="muted">None</li>}

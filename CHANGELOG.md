@@ -2,6 +2,21 @@
 
 ## Unreleased
 
+## 1.5.0 (2026-11-16)
+
+- The Roster has a Planner for each unit, next to Battle Stats: classes, skill ranks, combat arts, abilities, equipment, battalion, supports, magic and notes on one page, saved as you go.
+- Classes show the skill ranks they need, and Match classes adds them as targets. Skill ranks use the game's rank letters and pick from the skill icons.
+- Combat arts (3), abilities (5), equipment (6) and the battalion (1) have the game's slots. Opened empty, a slot suggests what the plan makes available (skill-rank unlocks, class abilities and masteries); typing searches everything.
+- Supports list the partners this unit can support, with the rank to reach. Every list can be dragged into any order.
+- A new plan starts from what the unit has now, and Reset returns it there (notes are kept).
+- Notes link to the Archive: type @ to link a unit, class, weapon, item, combat art, ability, spell, battalion or crest, shown with its icon.
+- Skill ranks show as the game's rank letters everywhere: the Roster, the Planner, and the Archive's characters, classes, spells and weapons. Reprocess your game files once to get them.
+- Shorter tooltips and hints across Settings, the Roster, battles and Export Video.
+- Class Mastery uses the graduation cap icon.
+- The Archive's Classes list sorts by tier, then alphabetically within each tier.
+- The Archive's character cards are titled with the first name; the full name stays in the card's details.
+- The Archive's class card is centred, with Exam and Moves on one line on narrow screens.
+
 ## 1.4.8 (2026-11-15)
 
 - Settings → Battle Replay and Export Video each have a Map marks list to switch off any of the map's marks: move arrows, target lines, action badges, hit effects, unit highlights, HP bars and the rewind indicator.

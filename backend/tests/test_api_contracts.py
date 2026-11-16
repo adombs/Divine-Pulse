@@ -253,3 +253,39 @@ def test_marking_a_unit_dead_or_alive(tmp_path):
         assert client.put(f"/api/runs/{run_id}/units/nobody/dead", json={"dead": True}).status_code == 404
         assert client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": "maybe"}).status_code == 422
         assert client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": True, "x": 1}).status_code == 422
+
+
+def test_a_units_plan_is_saved_whole_and_kept(tmp_path):
+    app = create_app(tmp_path, background=False)
+    with TestClient(app) as client:
+        run_id = client.post("/api/runs", json={"name": "Plans"}).json()["id"]
+        app.state.store.put_unit(run_id, "felix", Unit(name="Felix", game_id=9))
+        [unit] = client.get(f"/api/runs/{run_id}/units").json()
+        assert unit["plan"] == {"classes": [], "skills": {}, "arts": [], "abilities": [], "equipment": [], "battalion": "", "supports": [], "notes": ""}
+
+        plan = {
+            "classes": ["Swordmaster", "Swordmaster", "Mortal Savant"],
+            "skills": {"sword": "A", "reason": "C"},
+            "arts": ["Wrath Strike"], "abilities": ["Sword Prowess Lv 3"], "equipment": ["Killing Edge"],
+            "battalion": "Blue Lion Knights",
+            "supports": [{"partner": "dimitri", "rank": "A"}, {"partner": "sylvain", "rank": "B"}, {"partner": "dimitri", "rank": "S"}],
+            "notes": "Pair with @[Dimitri](unit:dimitri)\r\nfor the Lv 2 support.\x07",
+        }
+        saved = client.put(f"/api/runs/{run_id}/units/felix/plan", json=plan)
+        assert saved.status_code == 200
+        assert saved.json()["plan"]["classes"] == ["Swordmaster", "Mortal Savant"]
+        assert saved.json()["plan"]["notes"] == "Pair with @[Dimitri](unit:dimitri)\nfor the Lv 2 support."
+        # Stored on the unit itself.
+        stored = app.state.store.get(run_id).units["felix"]
+        assert stored.plan.skills == {"sword": "A", "reason": "C"}
+
+        assert client.put(f"/api/runs/{run_id}/units/nobody/plan", json=plan).status_code == 404
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"skills": {"sword": "Z"}}).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"notes": "x" * 20001}).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"classes": ["x"] * 31}).status_code == 422
+        # No more than a unit can equip.
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"arts": ["a", "b", "c", "d"]}).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"abilities": list("abcdef")}).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"equipment": list("abcdefg")}).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"supports": [{"partner": "x", "rank": "Z"}]}).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"extra": 1}).status_code == 422

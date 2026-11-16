@@ -23,3 +23,14 @@ assert.equal(gambitOwner(companies, "Stride", "Gamma"), "Alpha");
 assert.equal(gambitOwner(companies, "assembly"), "Delta");
 assert.equal(gambitOwner(companies, "Nothing like it"), null);
 assert.equal(gambitOwner([], "Stride"), null);
+{
+  const { tierRank } = await import("../src/reference/links.ts");
+  const classes = [
+    { name: "Dancer", tier: "Advanced" }, { name: "Wyvern Lord", tier: "Master" }, { name: "Enlightened One", tier: "Unique" },
+    { name: "Pegasus Knight", tier: "Intermediate" }, { name: "Archer", tier: "Intermediate" }, { name: "Commoner", tier: "Unique" },
+    { name: "Assassin", tier: "Advanced" }, { name: "Trickster", tier: "DLC" }, { name: "Myrmidon", tier: "Beginner" },
+  ];
+  const sorted = classes.sort((a, b) => tierRank(a) - tierRank(b) || a.name.localeCompare(b.name)).map((c) => c.name);
+  assert.deepEqual(sorted, ["Commoner", "Myrmidon", "Archer", "Pegasus Knight", "Assassin", "Dancer", "Wyvern Lord", "Enlightened One", "Trickster"]);
+  console.log("class tier order tests passed");
+}

@@ -16,7 +16,7 @@ from PIL import Image
 MANIFEST = "manifest.json"
 # Raised when an extractor's output changes in a way the app relies on, so an
 # older import is reported as needing a new one.
-FORMAT = 8  # a character's finished sprite in their own class (data/class-sprites.json character_classes)
+FORMAT = 9  # the skill rank letters (images/icons/ranks)
 
 
 def pixel_hash(image: Image.Image) -> str:

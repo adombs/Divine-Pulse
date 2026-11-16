@@ -8,7 +8,7 @@ const CORNER_NAME: Record<Corner, string> = { "top-left": "Top left", "top-right
 const OVERLAY_NAME: Record<Overlay, string> = { condensed: "Condensed log", counter: "Turn counter", counts: "Unit counts" };
 
 /** One thing the frame can show: its name and what it is, a switch, and its settings while it's on. */
-export function LayoutSection({ title, note, on, onToggle, children, always }: { always?: ReactNode; title: string; note: string; on: boolean; onToggle: (on: boolean) => void; children: ReactNode }) {
+export function LayoutSection({ title, note, on, onToggle, children, always }: { always?: ReactNode; title: string; note: string; on: boolean; onToggle: (on: boolean) => void; children?: ReactNode }) {
   return (
     <section className={`layout-item${on ? " on" : ""}`}>
       <div className="layout-item-head">
@@ -19,7 +19,7 @@ export function LayoutSection({ title, note, on, onToggle, children, always }: {
         <Switch checked={on} onChange={onToggle} label={`Show the ${title.toLowerCase()}`} />
       </div>
       {always}
-      {on && <div className="layout-item-body">{children}</div>}
+      {on && children && <div className="layout-item-body">{children}</div>}
     </section>
   );
 }
@@ -101,7 +101,6 @@ export function AnnotationToggles({ value, onChange }: { value: Record<Annotatio
       <div className="layout-item-head">
         <div className="layout-item-text">
           <h4>Map marks</h4>
-          <p>What the map draws for each action. Switch off any you don't want.</p>
         </div>
       </div>
       <div className="layout-item-body annotation-toggles">

@@ -160,7 +160,7 @@ function FormChart({ c, onOpen }: { c: CharacterStats; onOpen: (battleId: string
           );
         })}
       </div>
-      <p className="rc-note">Oldest battle on the left. Select a column to open that battle.</p>
+      <p className="rc-note">Click a column to open that battle.</p>
     </figure>
   );
 }

@@ -67,6 +67,37 @@ class Death(BaseModel):
     at: datetime = Field(default_factory=now)
 
 
+PLAN_LIST_MAX = 30
+PLAN_NAME_LEN = 100
+PLAN_NOTES_LEN = 20000
+# What a unit can have equipped at once: the plan holds no more.
+PLAN_ARTS_MAX = 3
+PLAN_ABILITIES_MAX = 5
+PLAN_EQUIPMENT_MAX = 6
+SupportRank = Literal["C", "B", "A", "S"]
+
+
+class PlanSupport(BaseModel):
+    """A support the player plans for the unit: the partner (a character's Archive key) and the rank to reach."""
+
+    partner: str = Field(min_length=1, max_length=PLAN_NAME_LEN)
+    rank: SupportRank = "A"
+
+
+class UnitPlan(BaseModel):
+    """What the player plans for a unit (the Roster's Planner): names as the Archive spells them, and free notes."""
+
+    classes: list[str] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
+    skills: dict[SkillKey, SkillRank] = Field(default_factory=dict)
+    arts: list[str] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
+    abilities: list[str] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
+    equipment: list[str] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
+    battalion: str = Field(default="", max_length=PLAN_NAME_LEN)
+    supports: list[PlanSupport] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
+    # Plain text with links to the Archive written as @[label](kind:id).
+    notes: str = Field(default="", max_length=PLAN_NOTES_LEN)
+
+
 class Unit(BaseModel):
     model_config = ConfigDict(validate_assignment=True)
 
@@ -116,6 +147,8 @@ class Unit(BaseModel):
     # battles (domain/membership.py). A unit that left alive keeps everything stored on it, off the Roster, and comes
     # back with it all. Older runs, and units with no game ID, load as True.
     in_army: bool = True
+    # The player's plan for the unit (never read from the game).
+    plan: UnitPlan = Field(default_factory=UnitPlan)
 
     def ebst_config(self) -> EbstConfig:
         return EbstConfig(offense=self.ebst_offense, defense=self.ebst_defense, stats=ordered_others(self.ebst_stats))
@@ -134,6 +167,8 @@ __all__ = [
     "SkillRank",
     "STAT_KEYS",
     "Unit",
+    "PlanSupport",
+    "UnitPlan",
     "VALUE_KEYS",
     "byleth_look",
     "ValueKey",

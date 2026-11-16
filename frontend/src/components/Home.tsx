@@ -14,7 +14,7 @@ import { RunIcon } from "./ui";
 import { SpriteIndex, UnitSprite, spriteLayers, useSprites } from "./battle/mapIcons";
 import { chapterTitle } from "./battle/scenarios";
 import { ToastState } from "./Toasts";
-import { SCORE_EXPLANATION, fmtScore } from "../score";
+import { fmtScore } from "../score";
 import "./home.css";
 
 export interface HomeProps {
@@ -194,7 +194,7 @@ function BestUnitSprite({ unit, sprites }: { unit: BestUnit; sprites: SpriteInde
     return `${x / w} ${(y - (h - w)) / w} ${fw / w} ${fh / w}`;
   };
   return (
-    <span className="home-best" title={`${unit.name} — Best unit, score ${fmtScore(unit.score)}: ${SCORE_EXPLANATION}`}>
+    <span className="home-best" title={`Best unit · score ${fmtScore(unit.score)}`}>
       {sprites && layers && (
         <svg viewBox={frame()} aria-hidden>
           <UnitSprite index={sprites} layers={layers} side="player" />

@@ -51,6 +51,9 @@ export const CONCEPT_ICON = {
   section: "section",
   log: "log",
   share: "share",
+  reset: "reset",
+  plan: "plan",
+  notes: "notes",
   drag: "drag",
   // Battle events.
   phase: "phase",

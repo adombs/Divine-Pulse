@@ -687,7 +687,7 @@ export function LoadoutCard({ unit, part2, face, maxColumns }: { unit: Unit; par
             <span>{unit.class_name || "—"}</span>
           </div>
           <div className="team-card-badges">
-            <span className="team-card-bst" title="Base stat total: the base stats added up, without bonuses">
+            <span className="team-card-bst" title="Base stats added up, without bonuses">
               <small>BST</small>
               {baseStatTotal(unit)}
             </span>
