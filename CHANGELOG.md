@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.5.1 (2026-11-16)
+
 - A new Planner starts with everything in the unit's Equipment field, not just the equipped item.
 - The equipped mark in the Roster and battle Equipment lists is larger.
 
