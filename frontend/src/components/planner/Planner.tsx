@@ -76,16 +76,16 @@ export function PlannerButton({ unit, runId, toasts }: { unit: Unit; runId: stri
   );
 }
 
-/** What the unit has now: its class, equipped combat arts and abilities, equipped gear and battalion. A new plan
+/** What the unit has now: its class, equipped combat arts and abilities, everything in its equipment field and its battalion. A new plan
  * starts from it, and Reset returns to it. */
 export function currentKit(unit: Unit): UnitPlan {
-  const equipped = (unit.inventory ?? []).filter((i) => i.equipped && i.kind !== "spell").map((i) => i.name);
+  const carried = (unit.inventory ?? []).filter((i) => i.kind !== "spell").map((i) => i.name);
   return {
     ...EMPTY_PLAN,
     classes: unit.class_name ? [unit.class_name] : [],
     arts: [...new Set(unit.combat_arts ?? [])].slice(0, PLAN_MAX.arts),
     abilities: [...new Set(unit.abilities.map(tidyAbility).filter(Boolean))].slice(0, PLAN_MAX.abilities),
-    equipment: [...new Set([...equipped, ...(unit.accessory ? [unit.accessory] : [])])].slice(0, PLAN_MAX.equipment),
+    equipment: [...new Set([...carried, ...(unit.accessory ? [unit.accessory] : [])])].slice(0, PLAN_MAX.equipment),
     battalion: unit.battalion ?? "",
   };
 }

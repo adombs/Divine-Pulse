@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- A new Planner starts with everything in the unit's Equipment field, not just the equipped item.
+- The equipped mark in the Roster and battle Equipment lists is larger.
+
 ## 1.5.0 (2026-11-16)
 
 - The Roster has a Planner for each unit, next to Battle Stats: classes, skill ranks, combat arts, abilities, equipment, battalion, supports, magic and notes on one page, saved as you go.
