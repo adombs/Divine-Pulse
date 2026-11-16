@@ -5,6 +5,7 @@ import "./icons.css";
 import { loadGameJson, loadGameText } from "../gameAssets";
 import { gameLanguage } from "../gameLanguage";
 import { GameImage, MissingGameAsset } from "../components/GameImage";
+import { RankIcon } from "../components/RankIcon";
 import { artWeapon } from "./gameData";
 
 type Manifest = {
@@ -234,7 +235,7 @@ export function SkillIcons({
       {skills.map((s) => (
         <span key={s} className="ref-skill" title={ranks?.[s] ? `${SKILL_LABEL[s]} ${ranks[s]}` : undefined}>
           <SkillIcon skill={s} />
-          {ranks?.[s] && <span className="ref-skill-rank">{ranks[s]}</span>}
+          {ranks?.[s] && <span className="ref-skill-rank"><RankIcon rank={ranks[s]} title="" /></span>}
         </span>
       ))}
     </span>

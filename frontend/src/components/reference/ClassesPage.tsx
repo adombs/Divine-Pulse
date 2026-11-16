@@ -15,6 +15,7 @@ import { passes, usePeopleFilters } from "../../filters";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../PeopleFilters";
 import { AbilityLink, ArtLink, CharLink, ClassLink, ItemLink, LinkedDescription } from "../Links";
 import { SkillIcon } from "../SkillIcon";
+import { RankIcon } from "../RankIcon";
 import { FilterLabel, GENDER_OPTIONS, SkillFilterLabel } from "../FilterLabel";
 import { StepSlider } from "../Slider";
 import { WEAPON_RANKS, withinWeaponRank, type WeaponRank } from "../../reference/weaponRanks";
@@ -170,7 +171,7 @@ function Requirements({ c }: { c: GameClass }) {
           {i > 0 && c.requirement_any && <span className="class-reqs-or">or</span>}
           <span className="class-req">
             <SkillIcon skill={r.skill} title={SKILL_LABEL[r.skill]} />
-            <span className="class-req-rank">{r.rank}</span>
+            <span className="class-req-rank"><RankIcon rank={r.rank} /></span>
           </span>
         </Fragment>
       ))}
@@ -837,7 +838,7 @@ function ArtsTable({ data, initial }: { data: ReferenceData; initial: string }) 
                             <span className="muted" title={l.how}>
                               {l.skill ? (
                                 <>
-                                  <SkillIcon skill={l.skill} /> {l.rank}
+                                  <SkillIcon skill={l.skill} /> <RankIcon rank={l.rank} />
                                 </>
                               ) : (
                                 l.how
@@ -966,7 +967,7 @@ function MagicTable({ data, initial }: { data: ReferenceData; initial: string })
           </tr>
           {expanded && <tr className="expand-row"><td colSpan={8}>
             <span className="expand-label">Learned by</span>
-            {learners.length ? <span className="chip-list">{learners.map(({ character, rank }) => <span className="item-chip" key={character.key}><CharLink charKey={character.key}>{character.name}</CharLink> <span className="muted">{rank}</span></span>)}</span> : <span className="muted">No playable character learns this spell.</span>}
+            {learners.length ? <span className="chip-list">{learners.map(({ character, rank }) => <span className="item-chip" key={character.key}><CharLink charKey={character.key}>{character.name}</CharLink> <RankIcon rank={rank} /></span>)}</span> : <span className="muted">No playable character learns this spell.</span>}
             <p className="muted small">Uses refill after each battle. Classes and abilities can change available uses and range.</p>
           </td></tr>}
         </Fragment>;
@@ -1011,7 +1012,7 @@ function InventoryTable({ data, initial, weapons = false }: { data: ReferenceDat
     </tr></thead><tbody>{rows.map((item) => { const expanded = open === item.name; return <Fragment key={item.name}>
       <tr className={`expandable${expanded ? " open" : ""}`} tabIndex={0} aria-expanded={expanded} onClick={() => setOpen(expanded ? null : item.name)} onKeyDown={(event) => { if (event.target === event.currentTarget && (event.key === "Enter" || event.key === " ")) { event.preventDefault(); setOpen(expanded ? null : item.name); } }}>
         <td className="left name-cell"><ItemIcon name={item.name} /><ItemLink name={item.name} /></td>
-        {weapons ? <><td className="left">{item.weapon_type}</td><td>{item.rank}</td><td className="num">{item.might}</td><td className="num">{item.hit}</td><td className="num">{item.crit ?? "—"}</td><td className="num">{item.weight ?? "—"}</td><td>{item.range}</td><td className="num">{item.uses}</td></> : <td className="left">{item.kind}</td>}
+        {weapons ? <><td className="left">{item.weapon_type}</td><td>{item.rank ? <RankIcon rank={item.rank} /> : "—"}</td><td className="num">{item.might}</td><td className="num">{item.hit}</td><td className="num">{item.crit ?? "—"}</td><td className="num">{item.weight ?? "—"}</td><td>{item.range}</td><td className="num">{item.uses}</td></> : <td className="left">{item.kind}</td>}
         <td className="chevron"><RowCaret open={expanded} /></td>
       </tr>
       {expanded && <tr className="expand-row"><td colSpan={weapons ? 10 : 3}><span className="expand-label">Details</span><span><LinkedDescription text={item.effect || item.description || item.kind} /></span></td></tr>}

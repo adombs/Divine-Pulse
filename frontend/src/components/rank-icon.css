@@ -1,0 +1,17 @@
+/* Rank letters (RankIcon.tsx): the game's circled ranks, sized by the text around them. */
+.rank-icon { display: inline-block; width: 1.25em; height: 1.36em; object-fit: contain; vertical-align: -0.35em; flex: none; }
+.rank-icon.none { width: auto; height: auto; vertical-align: baseline; color: var(--ink-soft); }
+.rank-picker {
+  display: inline-grid; place-items: center; padding: 0.05rem 0.3rem; cursor: pointer; font-size: 1.1rem;
+  border: 1px solid var(--row-border); border-radius: 2px; background: var(--paper);
+}
+.rank-picker:hover, .rank-picker[aria-expanded="true"] { border-color: var(--accent); }
+.rank-menu {
+  position: fixed; z-index: 120; display: grid; grid-template-columns: repeat(6, 2.2rem); gap: 2px; padding: 0.3rem;
+  background: var(--paper-2); border: 1px solid var(--line); box-shadow: 0 10px 28px rgb(0 0 0 / 0.55);
+  animation: rank-menu-in 0.12s ease-out both;
+}
+.rank-menu button { display: grid; place-items: center; height: 2.3rem; padding: 0; border: 1px solid transparent; background: none; cursor: pointer; font-size: 1.2rem; }
+.rank-menu button:hover { background: var(--row-hover); }
+.rank-menu button.on { border-color: var(--accent); background: var(--row); }
+@keyframes rank-menu-in { from { opacity: 0; transform: translateY(-3px); } }

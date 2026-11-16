@@ -82,6 +82,8 @@ def test_icons_family_on_a_real_dump(tmp_path):
     assert count("images/icons/items/") == 3
     assert count("images/icons/combat-arts/") == 6
     assert count("images/icons/magic/") == 2
+    assert count("images/icons/ranks/") == 12
+    assert "images/icons/ranks/s-plus.png" in files
     assert count("images/houses/") == 13
     assert "images/icons/equip-mark.png" in files
     index = json.loads((tmp_path / "data/icons.json").read_text(encoding="utf-8"))

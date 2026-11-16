@@ -16,6 +16,7 @@ import { RefLink, SubTabs } from "../common";
 import { Icon, IconButton, type IconName } from "../Icon";
 import { Modal } from "../Modal";
 import { SkillIcon } from "../SkillIcon";
+import { RankIcon, RankPicker } from "../RankIcon";
 import type { ToastState } from "../Toasts";
 import { EntryIcon, EntryPicker, useArchiveEntries } from "./entries";
 import { NotesEditor } from "./NotesEditor";
@@ -44,12 +45,26 @@ export function PlannerButton({ unit, runId, toasts }: { unit: Unit; runId: stri
   );
 }
 
+/** A new plan starts from what the unit has now: its class, equipped combat arts and abilities, equipped gear and
+ * battalion. It's saved once the player changes something. */
+export function currentKit(unit: Unit): UnitPlan {
+  const equipped = (unit.inventory ?? []).filter((i) => i.equipped && i.kind !== "spell").map((i) => i.name);
+  return {
+    ...EMPTY_PLAN,
+    classes: unit.class_name ? [unit.class_name] : [],
+    arts: [...new Set(unit.combat_arts ?? [])],
+    abilities: [...new Set(unit.abilities.map(tidyAbility).filter(Boolean))],
+    equipment: [...new Set([...equipped, ...(unit.accessory ? [unit.accessory] : [])])],
+    battalion: unit.battalion ?? "",
+  };
+}
+
 type Tab = "build" | "notes";
 const TAB_KEY = "divine-pulse-planner-tab";
 
 function PlannerBody({ unit, runId, toasts }: { unit: Unit; runId: string; toasts: ToastState }) {
   const { ref, entries } = useArchiveEntries();
-  const [plan, setPlan] = useState<UnitPlan>(() => ({ ...EMPTY_PLAN, ...unit.plan }));
+  const [plan, setPlan] = useState<UnitPlan>(() => (planIsEmpty(unit.plan) ? currentKit(unit) : { ...EMPTY_PLAN, ...unit.plan }));
   const [tab, setTabState] = useState<Tab>(() => {
     try { return localStorage.getItem(TAB_KEY) === "notes" ? "notes" : "build"; } catch { return "build"; }
   });
@@ -241,7 +256,7 @@ function ClassTargets({ unit, plan, update, entries, data }: { unit: Unit; plan:
                         return (
                           <span key={r.skill} className={`plan-req${met ? " met" : ""}`} title={`${SKILL_LABEL[r.skill]} ${r.rank}${met ? " (reached)" : ""}`}>
                             {i > 0 && c.requirement_any && <span className="plan-or">or</span>}
-                            <SkillIcon skill={r.skill} title={`${SKILL_LABEL[r.skill]} ${r.rank}`} />{r.rank}
+                            <SkillIcon skill={r.skill} title={`${SKILL_LABEL[r.skill]} ${r.rank}`} /><RankIcon rank={r.rank} />
                           </span>
                         );
                       })}
@@ -304,11 +319,9 @@ function SkillTargets({ unit, plan, update, data }: { unit: Unit; plan: UnitPlan
                   <span className="plan-skill-name">{SKILL_LABEL[k]}</span>
                 </span>
                 <span className="plan-row-end">
-                  <span className="plan-skill-now" title="Current rank">{now ?? "—"}</span>
+                  <span className="plan-skill-now"><RankIcon rank={now} title={`Now ${now ?? "unranked"}`} /></span>
                   <Icon name={CONCEPT_ICON.go} className="plan-skill-arrow" />
-                  <select value={target} onChange={(e) => setRank(k, e.target.value)} aria-label={`${SKILL_LABEL[k]} target rank`}>
-                    {WEAPON_RANKS.map((r) => <option key={r} value={r}>{r}</option>)}
-                  </select>
+                  <RankPicker value={target} onChange={(r) => setRank(k, r)} label={`${SKILL_LABEL[k]} target rank`} />
                   <span className="plan-skill-met">{met && <Icon name={CONCEPT_ICON.done} title="Reached" />}</span>
                   <Remove name={SKILL_LABEL[k]} onClick={() => setRank(k, null)} />
                 </span>
@@ -350,7 +363,7 @@ function MagicByRank({ unit, plan, data }: { unit: Unit; plan: UnitPlan; data: R
                   return (
                     <li key={sp.name} className={learned ? "learned" : planned ? "planned" : ""}
                       title={learned ? "Learned" : planned ? "Reached by the target rank" : undefined}>
-                      <span className="plan-spell-rank">{sp.rank}</span>
+                      <span className="plan-spell-rank"><RankIcon rank={sp.rank} /></span>
                       <span className="plan-entry">
                         <EntryIcon entry={{ kind: "spell", id: sp.name }} data={data} />
                         <EntryLink kind="spell" id={sp.name}>{sp.name}</EntryLink>

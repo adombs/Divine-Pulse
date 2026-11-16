@@ -38,6 +38,7 @@ import { AbilityIcon, ArtIcon, CrestMark, SpellIcon } from "../../reference/icon
 import "./classes.css";
 import "./characters.css";
 import "../character/panels.css";
+import { RankIcon } from "../RankIcon";
 import {
   FilterChip,
   FilterMenu,
@@ -228,7 +229,7 @@ function CharacterCard({
   // A learned ability or art's skill (its icon) and rank.
   const rankMark = (a: { skill?: SkillKey | ""; rank: string }) => (
     <>
-      {a.skill && <SkillIcon skill={a.skill} />} {a.rank}
+      {a.skill && <SkillIcon skill={a.skill} />} <RankIcon rank={a.rank} />
     </>
   );
   const hiddenCrests = c.crests_spoiler && crestText(c.crests_spoiler) !== crestText(c.crests) ? crestText(c.crests_spoiler) : null;
@@ -432,7 +433,7 @@ function CharacterCard({
                         <SpellIcon name={s.name} />
                         <SpellLink name={s.name} />
                       </span>
-                      <span className="rank">{s.rank}</span>
+                      <span className="rank"><RankIcon rank={s.rank} /></span>
                     </li>
                   ))}
                   {c.spells[school].length === 0 && <li className="muted">None</li>}

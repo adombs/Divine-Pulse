@@ -14,6 +14,7 @@ import { FilterMenu, NoMatches, SearchBox, Segmented, compareValues, useSort } f
 import { AbilityLink, ArtLink, CharLink, ClassLink, CrestLink, ItemLink, SpellLink } from "./Links";
 import { AbilityIcon, ArtIcon, ItemIcon } from "../reference/icons";
 import { SkillIcon } from "./SkillIcon";
+import { RankIcon } from "./RankIcon";
 import { SKILL_LABEL, type SkillKey } from "../reference/types";
 import { GearIcon } from "./battle/gameIcons";
 import { EquipMark } from "./EquipMark";
@@ -600,7 +601,7 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
               const aptitude = character?.skills[skill]?.aptitude ?? null;
               const iconAptitude = aptitude === "budding" || aptitude === null ? undefined : aptitude;
               return <span className={`skill-chip roster-skill aptitude-chip ${aptitude ?? ""}`} key={skill} title={`${SKILL_LABEL[skill]}: ${value.rank} · ${value.exp} EXP within this rank${aptitude ? ` · ${aptitude.replace("_", " and ")}` : ""}`}>
-                <SkillIcon skill={skill} aptitude={iconAptitude} /> <b>{value.rank}</b>
+                <SkillIcon skill={skill} aptitude={iconAptitude} /> <RankIcon rank={value.rank} title="" />
               </span>;
             })}
           </div>

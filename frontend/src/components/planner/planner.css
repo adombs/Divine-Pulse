@@ -37,19 +37,18 @@
 
 /* A class's skill requirements: dim until the unit reaches them. */
 .plan-reqs { display: inline-flex; align-items: center; gap: 0.45rem; }
-.plan-req { display: inline-flex; align-items: center; gap: 0.15rem; font: 600 0.88rem var(--nums); color: var(--ink-soft); }
-.plan-req .skill-icon { opacity: 0.6; }
+.plan-req { display: inline-flex; align-items: center; gap: 0.1rem; color: var(--ink-soft); }
+.plan-req :is(.skill-icon, .rank-icon) { opacity: 0.55; }
 .plan-req.met { color: var(--green); }
-.plan-req.met .skill-icon { opacity: 1; }
+.plan-req.met :is(.skill-icon, .rank-icon) { opacity: 1; }
 .plan-or { font: italic 0.82rem var(--text); color: var(--ink-soft); margin-right: 0.3rem; }
 
 /* Target skill ranks: only the skills added, each as skill, now -> target, reached. */
 .plan-skill { gap: 0.45rem; }
 .plan-skill .skill-icon { flex: none; }
 .plan-skill-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.plan-skill-now { min-width: 1.6rem; font: 600 0.98rem var(--nums); text-align: right; color: var(--ink-soft); }
+.plan-skill-now { display: inline-flex; opacity: 0.8; }
 .plan-skill-arrow { font-size: 0.85rem; color: var(--accent); }
-.plan-skills select { padding: 0.1rem 0.25rem; font: 600 0.95rem var(--nums); }
 .plan-skill-met { display: inline-grid; place-items: center; width: 1.1rem; color: var(--green); }
 .plan-skills li.met { border-color: color-mix(in srgb, var(--green) 45%, var(--row-border)); }
 
@@ -60,7 +59,8 @@
 .plan-school li { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) 1.1rem; align-items: center; gap: 0.35rem; padding: 0.12rem 0.3rem; font: 500 1rem var(--display); color: var(--ink-soft); }
 .plan-school li .ref-link { color: inherit; }
 .plan-school li.learned, .plan-school li.planned { color: var(--ink); }
-.plan-spell-rank { font: 600 0.9rem var(--nums); text-align: right; }
+.plan-spell-rank { display: inline-flex; justify-content: center; }
+.plan-school li:not(.learned, .planned) .rank-icon { opacity: 0.55; }
 .plan-school li.planned .plan-skill-met { color: var(--accent); }
 
 /* The add box under each list. */
