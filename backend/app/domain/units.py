@@ -70,6 +70,18 @@ class Death(BaseModel):
 PLAN_LIST_MAX = 30
 PLAN_NAME_LEN = 100
 PLAN_NOTES_LEN = 20000
+# What a unit can have equipped at once: the plan holds no more.
+PLAN_ARTS_MAX = 3
+PLAN_ABILITIES_MAX = 5
+PLAN_EQUIPMENT_MAX = 6
+SupportRank = Literal["C", "B", "A", "S"]
+
+
+class PlanSupport(BaseModel):
+    """A support the player plans for the unit: the partner (a character's Archive key) and the rank to reach."""
+
+    partner: str = Field(min_length=1, max_length=PLAN_NAME_LEN)
+    rank: SupportRank = "A"
 
 
 class UnitPlan(BaseModel):
@@ -81,6 +93,7 @@ class UnitPlan(BaseModel):
     abilities: list[str] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
     equipment: list[str] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
     battalion: str = Field(default="", max_length=PLAN_NAME_LEN)
+    supports: list[PlanSupport] = Field(default_factory=list, max_length=PLAN_LIST_MAX)
     # Plain text with links to the Archive written as @[label](kind:id).
     notes: str = Field(default="", max_length=PLAN_NOTES_LEN)
 
@@ -154,6 +167,7 @@ __all__ = [
     "SkillRank",
     "STAT_KEYS",
     "Unit",
+    "PlanSupport",
     "UnitPlan",
     "VALUE_KEYS",
     "byleth_look",

@@ -356,7 +356,7 @@ function CharacterCard({
         {learnedAbilities.length > 0 && (
           <>
             <h4 className="sub-title">Skill abilities</h4>
-            <ul className="item-list learned" title="Learned from skill ranks, on top of what every unit learns">
+            <ul className="item-list learned" title="From skill ranks">
               {learnedAbilities.map((a) => (
                 <li key={`a-${a.name}-${a.rank}`} title={data.abilities.find((x) => x.name === a.name)?.description}>
                   <span>

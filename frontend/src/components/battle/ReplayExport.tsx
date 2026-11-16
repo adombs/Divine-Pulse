@@ -886,9 +886,7 @@ function ReplayExportDialog({ battle, chron: everything, route, runName, units, 
               ),
               layout: (
                 <fieldset className="export-group export-layout" disabled={working} aria-label="What the frame shows">
-                  <LayoutSection title="Log" note="Automatically follows the latest actions beside or under the map" on={options.log.show} onToggle={(show) => updateLog({ show })}>
-                    <p className="export-note">Shows as many complete rows as fit.</p>
-                  </LayoutSection>
+                  <LayoutSection title="Log" note="The latest actions, beside or under the map" on={options.log.show} onToggle={(show) => updateLog({ show })} />
                   <LayoutSection title="Condensed log" note="The latest actions, over the map" on={options.log.condensed} onToggle={(on) => turnOn("condensed", on)}>
                     <CornerPicker label="Condensed log corner" which="condensed" log={options.log} onChange={(c) => placeIn("condensed", c)} />
                     <StepSlider
@@ -931,14 +929,14 @@ function ReplayExportDialog({ battle, chron: everything, route, runName, units, 
                   <fieldset className="export-group" disabled={working}>
                     <legend>Replay</legend>
                     <ReplaySpeedSlider value={speed} onChange={setSpeed} labelled />
-                    <label className="export-check" title="On: every use of Divine Pulse plays, with the steps it undid. Off: only the steps that finally stand">
+                    <label className="export-check" title="Off: only the steps that stand">
                       <input type="checkbox" checked={options.replay.pulses} onChange={(e) => updateReplay({ pulses: e.target.checked })} /> Include Divine Pulse rewinds
                     </label>
-                    <label className="export-check" title="Consecutive actions in one phase aimed at the same unit, or each unit at itself (moves, waits), play together">
+                    <label className="export-check" title="Actions in a row on the same unit play together">
                       <input type="checkbox" checked={group} onChange={(e) => setGroup(e.target.checked)} /> Group actions
                     </label>
                     {group && (
-                      <label className="export-check" title="Grouped actions start one after another, so their order shows; off, they play at the same time">
+                      <label className="export-check" title="Play grouped actions one after another">
                         <input type="checkbox" checked={staggered} onChange={(e) => setStaggered(e.target.checked)} /> Stagger grouped actions
                       </label>
                     )}
@@ -972,15 +970,13 @@ function ReplayExportDialog({ battle, chron: everything, route, runName, units, 
                       <TeamPagesSection team={team} update={updateTeam} pages={pages} units={units} part2={part2} />
                     </fieldset>
                   ) : (
-                    <p className="export-note">This recording has no pre-battle roster snapshot. Team pages are available for battles recorded with roster snapshots.</p>
+                    <p className="export-note">This recording has no roster snapshot, so no team pages.</p>
                   )}
                 </>
               ),
               music: (
-                <fieldset className="export-group" disabled={working}>
-                  <legend>Music</legend>
-                  <p className="export-note">Audio follows the video. Use the controls below the preview to play, pause or seek.</p>
-                  {audioError && <p className="export-error" role="alert">{audioError}</p>}
+                <fieldset className="export-group" disabled={working} aria-label="Music">
+                                    {audioError && <p className="export-error" role="alert">{audioError}</p>}
                   <section className="music-source">
                   <h4>Battle music</h4>
                   {music === null && <p className="export-note">The battle themes need your game files reprocessed (Settings &gt; Game files). You can still use your own audio.</p>}
@@ -1005,7 +1001,7 @@ function ReplayExportDialog({ battle, chron: everything, route, runName, units, 
                   </section>
                   <section className="music-source">
                   <div className="music-source-head"><h4>Your audio</h4><button type="button" className="btn small" onClick={() => { enableAudio(); picker.current?.click(); }} disabled={reading}>{custom ? "Replace audio…" : "Upload audio…"}</button></div>
-                  <p className="export-note">Add an MP3 or other audio file. It plays together with the battle music.</p>
+                  <p className="export-note">Plays along with the battle music.</p>
                   <input
                     ref={picker}
                     type="file"
@@ -1027,7 +1023,7 @@ function ReplayExportDialog({ battle, chron: everything, route, runName, units, 
                       <button type="button" className="checklist-clear" onClick={removeCustom}>Remove</button>
                     </div>
                   )}
-                  {usingCustom && <p className="export-note">{custom.duration * 1000 < total ? "Shorter than the video, so it plays again from the start." : "Longer than the video, so it stops at the end with a fade-out."}</p>}
+                  {usingCustom && <p className="export-note">{custom.duration * 1000 < total ? "Shorter than the video: it loops." : "Longer than the video: it fades out at the end."}</p>}
                   {custom && <StepSlider label="Audio volume" stops={101} value={options.customVolume} onChange={(v) => setOption("customVolume", v)} valueText={`${options.customVolume}%`} variant="timeline" slim after={<span className="export-value">{options.customVolume}%</span>} />}
                   </section>
                 </fieldset>

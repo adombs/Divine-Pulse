@@ -2,12 +2,16 @@
 
 ## Unreleased
 
-## 1.5.0 (2026-11-15)
+## 1.5.0 (2026-11-16)
 
-- The Roster has a Planner for each unit, next to Battle Stats: target classes, skill ranks, combat arts, abilities, equipment and battalion, saved as you go. Classes show the skill ranks they need, and Match classes adds them as targets; anything the unit already has is marked. A Magic section lists the spells the unit learns in Reason and Faith, by rank.
-- Each unit has notes in its Planner. Type @ to link a unit, class, weapon, item, combat art, ability, spell, battalion or crest: the link shows its icon and opens the entry in the Archive.
-- A new plan starts from what the unit has now: its class, equipped combat arts and abilities, equipped gear and battalion.
+- The Roster has a Planner for each unit, next to Battle Stats: classes, skill ranks, combat arts, abilities, equipment, battalion, supports, magic and notes on one page, saved as you go.
+- Classes show the skill ranks they need, and Match classes adds them as targets. Skill ranks use the game's rank letters and pick from the skill icons.
+- Combat arts (3), abilities (5), equipment (6) and the battalion (1) have the game's slots. Opened empty, a slot suggests what the plan makes available (skill-rank unlocks, class abilities and masteries); typing searches everything.
+- Supports list the partners this unit can support, with the rank to reach. Every list can be dragged into any order.
+- A new plan starts from what the unit has now, and Reset returns it there (notes are kept).
+- Notes link to the Archive: type @ to link a unit, class, weapon, item, combat art, ability, spell, battalion or crest, shown with its icon.
 - Skill ranks show as the game's rank letters everywhere: the Roster, the Planner, and the Archive's characters, classes, spells and weapons. Reprocess your game files once to get them.
+- Shorter tooltips and hints across Settings, the Roster, battles and Export Video.
 - Class Mastery uses the graduation cap icon.
 - The Archive's Classes list sorts by tier, then alphabetically within each tier.
 

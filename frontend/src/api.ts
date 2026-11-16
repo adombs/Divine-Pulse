@@ -107,10 +107,17 @@ export interface UnitPlan {
   abilities: string[];
   equipment: string[];
   battalion: string;
+  /** Support partners (Archive character keys) and the rank to reach, in the player's order. */
+  supports: PlanSupport[];
   notes: string;
 }
 
-export const EMPTY_PLAN: UnitPlan = { classes: [], skills: {}, arts: [], abilities: [], equipment: [], battalion: "", notes: "" };
+export type PlanSupportRank = "C" | "B" | "A" | "S";
+export interface PlanSupport { partner: string; rank: PlanSupportRank }
+
+export const EMPTY_PLAN: UnitPlan = { classes: [], skills: {}, arts: [], abilities: [], equipment: [], battalion: "", supports: [], notes: "" };
+/** What a unit can have equipped at once; the plan holds no more. */
+export const PLAN_MAX = { arts: 3, abilities: 5, equipment: 6 } as const;
 
 /** Where a unit died (the game's own "Is Dead" flag, or marked by hand): all empty but `manual` when no fall of it was
  * recorded. */

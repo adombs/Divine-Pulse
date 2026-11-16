@@ -12,7 +12,7 @@ import { TierIcon } from "../reference/TierIcon";
 export function ClassMasteryPanel({ unit }: { unit: Unit }) {
   const ref = useReference();
   const mastered = masteredClasses(unit.mastered_classes, ref?.classes);
-  if (mastered === null) return <p className="muted">Not read yet. It is read from the game the next time the roster is.</p>;
+  if (mastered === null) return <p className="muted">Not read yet.</p>;
   if (mastered.length === 0) return <p className="muted">No class mastered yet</p>;
   return (
     <ul className="item-list mastery-list" aria-label={`${unit.name}'s mastered classes`}>

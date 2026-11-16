@@ -20,7 +20,7 @@ import "./character.css";
 export type CharacterScope = "battle" | "run" | "stats" | "reference";
 
 export const SCOPE: Record<CharacterScope, { label: string; icon: IconName; title: string }> = {
-  battle: { label: "This Battle", icon: CONCEPT_ICON.battle, title: "This unit as it was in this battle: its HP, gear and what it did here." },
+  battle: { label: "This Battle", icon: CONCEPT_ICON.battle, title: "As in this battle" },
   run: { label: "This Run", icon: CONCEPT_ICON.roster, title: "This run's unit, as last read from the game." },
   stats: { label: "This Run", icon: CONCEPT_ICON.history, title: "Added up over the run's finished battles." },
   reference: { label: "General", icon: CONCEPT_ICON.characters, title: "The character in general: the same in every run." },

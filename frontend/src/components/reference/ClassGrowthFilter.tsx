@@ -5,7 +5,7 @@ import { TierIcon } from "./TierIcon";
 /** A native radio group keeps keyboard choice behavior while allowing the existing tier artwork. */
 export function ClassGrowthFilter({ classes, value, onChange }: { classes: GameClass[]; value: string; onChange: (name: string) => void }) {
   const selected = classes.find((item) => item.name === value);
-  return <div className="field" title="Growth rates in a class are the character's own plus the class's">
+  return <div className="field" title="Add a class's growths">
     <span>Growths in a class</span>
     <details className="class-growth-filter">
       <summary><span className="filter-label">{selected && <TierIcon tier={selected.tier} size={18} decorative />}{selected ? `+ ${selected.name}` : "Own growths only"}</span></summary>

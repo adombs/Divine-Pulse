@@ -146,7 +146,7 @@ export function BattalionPanel({ unit, name: given, scope }: { unit?: BattalionS
           <h4 className="bp-name">
             <BattalionName entry={entry} name={name} />
             {progress ? (
-              <span className="bp-level" title={progress.level === 5 ? "Battalion level (the highest)" : "Battalion level, and experience toward the next (100 a level)"}>
+              <span className="bp-level" title={progress.level === 5 ? "Battalion level (the highest)" : "Level and EXP"}>
                 Lv {progress.level}
                 {progress.level < 5 ? <span className="bp-exp">Exp {progress.exp}</span> : null}
               </span>

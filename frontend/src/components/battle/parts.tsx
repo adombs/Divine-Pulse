@@ -581,7 +581,7 @@ export function CopySummary({ battle, seconds }: { battle: Battle; seconds: numb
     timer.current = window.setTimeout(() => setState("idle"), 2000);
   };
   return (
-    <button type="button" className="btn small" onClick={copy} title="Copy the battle as text, to paste into notes or a message">
+    <button type="button" className="btn small" onClick={copy} title="Copy as text">
       {state === "copied" ? "Copied" : state === "failed" ? "Couldn't copy" : "Copy Summary"}
     </button>
   );

@@ -135,7 +135,7 @@ export function UnitsTab({ battle, items, selected, onSelect, roster, part2 }: P
         };
       }),
   ];
-  if (!all.length) return <EmptyState title="No units yet">Everyone in the battle shows here once its data is read.</EmptyState>;
+  if (!all.length) return <EmptyState title="No units yet">No units read yet.</EmptyState>;
 
   const state = (r: Row): State => (r.onMap ? "alive" : r.enemy?.left ? "left" : "defeated");
   const value = (r: Row, key: Col): number | string => {

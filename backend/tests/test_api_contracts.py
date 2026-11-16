@@ -261,13 +261,14 @@ def test_a_units_plan_is_saved_whole_and_kept(tmp_path):
         run_id = client.post("/api/runs", json={"name": "Plans"}).json()["id"]
         app.state.store.put_unit(run_id, "felix", Unit(name="Felix", game_id=9))
         [unit] = client.get(f"/api/runs/{run_id}/units").json()
-        assert unit["plan"] == {"classes": [], "skills": {}, "arts": [], "abilities": [], "equipment": [], "battalion": "", "notes": ""}
+        assert unit["plan"] == {"classes": [], "skills": {}, "arts": [], "abilities": [], "equipment": [], "battalion": "", "supports": [], "notes": ""}
 
         plan = {
             "classes": ["Swordmaster", "Swordmaster", "Mortal Savant"],
             "skills": {"sword": "A", "reason": "C"},
             "arts": ["Wrath Strike"], "abilities": ["Sword Prowess Lv 3"], "equipment": ["Killing Edge"],
             "battalion": "Blue Lion Knights",
+            "supports": [{"partner": "dimitri", "rank": "A"}, {"partner": "sylvain", "rank": "B"}, {"partner": "dimitri", "rank": "S"}],
             "notes": "Pair with @[Dimitri](unit:dimitri)\r\nfor the Lv 2 support.\x07",
         }
         saved = client.put(f"/api/runs/{run_id}/units/felix/plan", json=plan)
@@ -282,4 +283,9 @@ def test_a_units_plan_is_saved_whole_and_kept(tmp_path):
         assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"skills": {"sword": "Z"}}).status_code == 422
         assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"notes": "x" * 20001}).status_code == 422
         assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"classes": ["x"] * 31}).status_code == 422
+        # No more than a unit can equip.
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"arts": ["a", "b", "c", "d"]}).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"abilities": list("abcdef")}).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"equipment": list("abcdefg")}).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"supports": [{"partner": "x", "rank": "Z"}]}).status_code == 422
         assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"extra": 1}).status_code == 422

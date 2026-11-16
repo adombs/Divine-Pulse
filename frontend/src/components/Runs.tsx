@@ -75,7 +75,7 @@ export function Runs({ runs, activeRunId, onActivate, toasts }: Props) {
         </form>
         {transfer && <RunTransfer mode={transfer} runs={runs} toasts={toasts} onClose={() => setTransfer(null)} />}
         {runs.length === 0 ? (
-          <EmptyState title="No runs yet">Name your playthrough above and create it. Units and battles are saved in the active run.</EmptyState>
+          <EmptyState title="No runs yet">Name your playthrough above to create it.</EmptyState>
         ) : (
           <RowList>
             {runs.map((r) => (
@@ -209,7 +209,7 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
         ) : battles === null ? (
           <p className="muted">Loading…</p>
         ) : battles.length === 0 ? (
-          <p className="muted">No battles recorded in this run. They're recorded while reading game memory with auto mode on.</p>
+          <p className="muted">No battles recorded yet.</p>
         ) : (
           <>
             {counted && <RunTotals battles={counted} />}

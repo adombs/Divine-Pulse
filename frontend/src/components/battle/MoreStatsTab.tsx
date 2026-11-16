@@ -289,7 +289,7 @@ function Share({ stats }: { stats: MoreStats }) {
         <h3 id="ms-share-title">Fight Breakdown</h3>
       </header>
       <div className="share-scroll">
-        <table className="share-table" aria-label="Your units in this battle" title="This battle only. A dash means not recorded. Fights use battle counters when read, otherwise recorded actions.">
+        <table className="share-table" aria-label="Your units in this battle" title="This battle only. — means not recorded.">
           <thead>
             <tr>
               <th scope="col" className="left">Unit</th>

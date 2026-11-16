@@ -1,20 +1,27 @@
 /* The Roster's Planner (Planner.tsx): a window with Build and Notes tabs. */
 
-.modal.planner { width: min(980px, 100%); height: min(780px, calc(100dvh - 4rem)); }
-.planner .modal-body { display: flex; flex-direction: column; padding: 0.7rem 0 0; overflow: hidden; }
-.planner-body { display: flex; flex-direction: column; flex: 1 1 auto; min-height: 0; }
-.planner-tabs { flex: none; margin-inline: 1.3rem; display: flex; align-items: flex-end; justify-content: space-between; gap: 1rem; border-bottom: 1px solid var(--line); margin-bottom: 1rem; }
-.planner-tabs .sub-tabs { margin: 0; border-bottom: 0; }
-
-.plan-save { display: inline-flex; align-items: center; gap: 0.3rem; padding-bottom: 0.45rem; font: 0.9rem var(--ui); color: var(--ink-soft); }
+.modal.planner { width: min(1560px, 100%); }
+.planner .modal-body { padding: 0.8rem 1.2rem 1rem; }
+.planner .modal-actions { gap: 0.5rem; }
+.plan-save { display: inline-flex; align-items: center; gap: 0.3rem; font: 0.9rem var(--ui); color: var(--ink-soft); white-space: nowrap; }
 .plan-save.saved .icon { color: var(--green); }
 .plan-save.error { color: var(--red); }
 
-.planner-grid { flex: 1 1 auto; min-height: 0; overflow: auto; scrollbar-width: thin; padding: 0 1.3rem 1.3rem; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 1.6rem 2rem; align-items: start; }
-.planner-col { display: grid; gap: 1.5rem; min-width: 0; }
+/* The plan's three columns, and the notes as a tall column beside them. */
+.planner-body { position: relative; display: grid; grid-template-columns: minmax(0, 1fr) 13rem; gap: 1.25rem; align-items: stretch; }
+/* While being written in, the notes open out over the plan's right side; the plan itself doesn't move. */
+.plan-notes { background: var(--paper); transition: width 0.22s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.22s; }
+.planner-body:has(.plan-notes:focus-within) { padding-right: 13rem; grid-template-columns: minmax(0, 1fr); }
+.plan-notes:focus-within {
+  position: absolute; z-index: 3; top: 0; right: 0; bottom: 0; width: min(30rem, 55%);
+  padding-left: 1rem; box-shadow: -18px 0 24px -12px rgb(0 0 0 / 0.6);
+}
+@media (prefers-reduced-motion: reduce) { .plan-notes { transition: none; } }
+.planner-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 1rem 1.5rem; align-items: start; }
+.planner-col { display: grid; gap: 1rem; min-width: 0; }
 
-.plan-block { display: grid; gap: 0.45rem; min-width: 0; }
-.plan-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; min-height: 1.9rem; }
+.plan-block { display: grid; gap: 0.35rem; min-width: 0; }
+.plan-head { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; min-height: 1.7rem; }
 .plan-head h3 {
   display: flex; align-items: center; gap: 0.45rem;
   font: 700 0.8rem var(--ui); letter-spacing: 0.08em; text-transform: uppercase; color: var(--ink-soft);
@@ -25,7 +32,8 @@
   padding: 0 0.4rem; border: 1px solid var(--row-border); border-radius: 99px; font-variant-numeric: tabular-nums;
 }
 
-.plan-list li { padding-right: 0.3rem; min-height: 2.25rem; }
+.plan-list li { position: relative; gap: 0.35rem; padding: 0.1rem 0.3rem 0.1rem 0.2rem; min-height: 1.85rem; }
+.plan-list li > .plan-entry { flex: 1 1 auto; }
 .plan-entry { display: inline-flex; align-items: center; min-width: 0; }
 .plan-entry .ref-link { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .plan-row-end { display: inline-flex; align-items: center; gap: 0.35rem; flex: none; }
@@ -53,7 +61,7 @@
 .plan-skills li.met { border-color: color-mix(in srgb, var(--green) 45%, var(--row-border)); }
 
 /* Magic: each school's spells by rank. */
-.plan-magic { display: grid; grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr)); gap: 0.4rem 1rem; }
+.plan-magic { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.4rem 0.8rem; }
 .plan-school h4 { display: flex; align-items: center; gap: 0.35rem; margin: 0 0 0.25rem; font: 600 0.95rem var(--display); color: var(--ink-soft); }
 .plan-school ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 2px; }
 .plan-school li { display: grid; grid-template-columns: 1.8rem minmax(0, 1fr) 1.1rem; align-items: center; gap: 0.35rem; padding: 0.12rem 0.3rem; font: 500 1rem var(--display); color: var(--ink-soft); }
@@ -93,9 +101,9 @@
 .entry-menu .entry-empty { cursor: default; color: var(--ink-soft); font-style: italic; }
 
 /* Notes: running text with links as icon + name. */
-.notes-editor { flex: 1 1 auto; display: flex; min-height: 0; padding: 0 1.3rem 1.3rem; }
+.notes-editor { display: flex; }
 .notes-text {
-  flex: 1 1 auto; min-height: 16rem; overflow: auto; scrollbar-width: thin;
+  flex: 1 1 auto; min-height: 4.6em; position: relative;
   padding: 0.9rem 1rem; background: var(--row); border: 1px solid var(--row-border); border-radius: 2px;
   font: 1.08rem/1.7 var(--text); color: var(--ink); white-space: pre-wrap; overflow-wrap: anywhere; caret-color: var(--accent);
 }
@@ -117,8 +125,98 @@
   content: ""; position: absolute; top: 3px; right: 3px; width: 6px; height: 6px; border-radius: 50%; background: var(--accent);
 }
 
-@media (max-width: 820px) {
+@media (max-width: 1300px) {
+  .planner-body { grid-template-columns: minmax(0, 1fr); }
+  .plan-notes .notes-text { min-height: 12rem; }
+}
+@media (max-width: 1100px) {
+  .planner-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
   .planner-grid { grid-template-columns: minmax(0, 1fr); }
 }
 .plan-add-skill select { cursor: pointer; color: var(--ink-soft); appearance: none; }
 .plan-add-skill select option { color: var(--ink); background: var(--paper-2); }
+
+/* Reordering: a handle at the start of each row; the gap a dragged row would land in is marked. */
+.plan-drag {
+  flex: none; display: grid; place-items: center; width: 1.1rem; align-self: stretch; padding: 0; border: 0; background: none;
+  color: var(--ink-soft); opacity: 0.45; cursor: grab; font-size: 0.95rem;
+}
+.plan-list li:is(:hover, :focus-within) .plan-drag { opacity: 1; }
+.plan-drag:active { cursor: grabbing; }
+.plan-list li.dragging { opacity: 0.45; }
+.plan-list li.drop-before { box-shadow: 0 -2px 0 var(--accent); }
+.plan-list li.drop-after { box-shadow: 0 2px 0 var(--accent); }
+
+/* "Add skill" opens the skills as icons. */
+.plan-add-button {
+  display: flex; align-items: center; gap: 0.5rem; width: 100%; padding: 0.35rem 0.6rem; cursor: pointer; text-align: left;
+  border: 1px dashed var(--row-border); border-radius: 2px; background: transparent; font: 0.98rem var(--ui); color: var(--ink-soft);
+}
+.plan-add-button .icon { font-size: 0.95rem; }
+.plan-add-button:hover, .plan-add-button[aria-expanded="true"] { border-color: var(--accent); color: var(--ink); }
+.skill-menu {
+  position: fixed; z-index: 120; display: grid; grid-template-columns: repeat(6, 2.3rem); gap: 2px; padding: 0.3rem;
+  background: var(--paper-2); border: 1px solid var(--line); box-shadow: 0 10px 28px rgb(0 0 0 / 0.55);
+  animation: entry-menu-in 0.12s ease-out both;
+}
+.skill-menu button { display: grid; place-items: center; height: 2.3rem; padding: 0; border: 1px solid transparent; background: none; cursor: pointer; font-size: 1.15rem; }
+.skill-menu button:is(:hover, :focus-visible) { background: var(--row-hover); border-color: var(--accent); outline: none; }
+
+/* A support's target rank. */
+.plan-support-ranks { display: inline-flex; border: 1px solid var(--row-border); }
+.plan-support-ranks button {
+  min-width: 1.6rem; padding: 0.05rem 0.35rem; border: 0; background: transparent; cursor: pointer;
+  font: 600 0.9rem var(--display); color: var(--ink-soft);
+}
+.plan-support-ranks button:hover { color: var(--ink); }
+.plan-support-ranks button.on { background: var(--sel); color: var(--sel-ink); }
+
+/* Notes: a tall column that fills the window's height and grows with the text. */
+.plan-notes { grid-template-rows: auto minmax(0, 1fr); align-self: stretch; }
+.plan-notes .notes-editor { min-height: 0; }
+.plan-notes .notes-text { min-height: max(20rem, 100%); }
+
+/* Reset's confirmation. */
+.modal.planner-confirm { width: min(420px, 100%); }
+.planner-confirm p { margin: 0 0 1rem; }
+.planner-confirm-actions { display: flex; justify-content: flex-end; gap: 0.5rem; }
+
+/* Empty slots of a fixed-size list, under its filled ones. */
+.plan-slots { display: grid; gap: 4px; }
+.plan-slots .entry-picker input { min-height: 1.85rem; padding-block: 0.2rem; }
+.plan-slots .entry-picker:not(:focus-within) .entry-picker-icon { opacity: 0.6; }
+
+/* Narrow columns: Magic keeps the rank and name, and leaves out the spell icons. */
+.planner-col { container-type: inline-size; }
+@container (max-width: 21rem) {
+  .plan-school .ref-icons { display: none; }
+  .plan-magic { gap: 0.3rem 0.5rem; }
+}
+
+/* Short screens: tighter rows, so the whole plan still fits without scrolling. */
+@media (max-height: 820px) {
+  .planner .modal-body { padding-block: 0.5rem 0.7rem; }
+  .planner-col, .planner-grid { row-gap: 0.7rem; }
+  .plan-block { gap: 0.25rem; }
+  .plan-head { min-height: 1.5rem; }
+  .plan-list li { min-height: 1.6rem; padding-block: 0; }
+  .plan-slots .entry-picker input, .plan-add-button, .entry-picker input { min-height: 1.6rem; padding-block: 0.1rem; }
+  .plan-school li { padding-block: 0.05rem; }
+}
+
+/* Skill ranks: icons only (skill, now, target), two to a row. A reached target turns the row's edge green. */
+.plan-skills { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.plan-skills li { gap: 0.25rem; padding-right: 0.15rem; }
+.plan-skills .plan-row-end { gap: 0.2rem; }
+.plan-skills .plan-remove { padding: 0.2rem; }
+.plan-skills li > .plan-entry { flex: none; }
+.plan-skills li > .plan-row-end { margin-left: auto; }
+.plan-skills .skill-icon { flex: none; }
+
+/* A class: its name, and under it the ranks it needs (or Mastered). */
+.plan-class { flex-direction: column; align-items: flex-start; gap: 0.05rem; padding-block: 0.15rem; }
+.plan-class-name { display: inline-flex; align-items: center; min-width: 0; max-width: 100%; }
+.plan-class .plan-reqs { flex-wrap: wrap; gap: 0.15rem 0.6rem; font-size: 0.92em; }
+.plan-class .plan-reqs { padding-left: calc(20px + 0.3em); }

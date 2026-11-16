@@ -81,8 +81,8 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
   useEffect(() => setTextScale(appearance.textScale), [appearance.textScale]);
   return (
     <>
-      <Group title="Text" note="Changes apply at once and are remembered for this installation.">
-        <Row label="Text size" hint="Applies to every page. Press Apply when it looks right.">
+      <Group title="Text">
+        <Row label="Text size">
           <StepSlider
             label="Text size"
             bare
@@ -107,7 +107,7 @@ function AppearanceSection({ state }: { state: AppearanceState }) {
             }
           />
         </Row>
-        <Row label="Font" hint="Each sample is shown in its own typeface." wide>
+        <Row label="Font" wide>
           <div className="font-grid" role="radiogroup" aria-label="Font">
             {FONTS.map((f) => (
               <button
@@ -148,8 +148,8 @@ function BattleReplaySection({ state }: { state: AppearanceState }) {
           label="Portraits"
           hint={
             <>
-              Auto follows the active playthrough once post-timeskip portraits are enabled in Spoilers.
-              {!preferences.portraits && <> Later portraits are hidden.</>}
+              Auto matches the run's chapter.
+              {!preferences.portraits && <> Part II needs its spoiler shown.</>}
             </>
           }
         >
@@ -174,29 +174,29 @@ function BattleReplaySection({ state }: { state: AppearanceState }) {
         <Row label="Other units">
           <Segmented label="Other units on the battle map" value={appearance.mapOthers} onChange={(mapOthers) => update({ mapOthers })} options={UNIT_LOOKS} />
         </Row>
-        <Row label="Group actions" hint="Consecutive actions in one phase aimed at the same unit (attacks on one enemy, heals on one ally), or each unit at itself (moves, waits), replay together.">
+        <Row label="Group actions" hint="Actions in a row on the same unit replay together.">
           <Switch checked={appearance.groupActions} label="Replay grouped actions together" onChange={(groupActions) => update({ groupActions })} />
         </Row>
         {appearance.groupActions && (
           <>
-            <Row label="Stagger grouped actions" hint="Start grouped actions one after another, so their order shows. Off, they play at the same time.">
+            <Row label="Stagger grouped actions" hint="Play grouped actions one after another.">
               <Switch checked={appearance.staggerActions} label="Stagger grouped actions" onChange={(staggerActions) => update({ staggerActions })} />
             </Row>
             {appearance.staggerActions && (
-              <Row label="Stagger" hint="How far into one grouped action the next starts: 0% at the same time, 100% once it's done (as if not grouped).">
+              <Row label="Stagger" hint="0%: all at once. 100%: one after another.">
                 <StaggerSlider value={appearance.actionStagger} onChange={(actionStagger) => update({ actionStagger })} />
               </Row>
             )}
           </>
         )}
-        <Row label="Camera pan speed" hint="How fast the camera pans to the next action. A step plays once the camera is there.">
+        <Row label="Camera pan speed" hint="How fast the camera moves to the next action.">
           <PanSpeedSlider value={appearance.panSpeed} onChange={(panSpeed) => update({ panSpeed })} />
         </Row>
-        <Row label="Camera pan sensitivity" hint="How near the edge of the view the action may come before the camera pans. Lower pans less; Centre always centres the action.">
+        <Row label="Camera pan sensitivity" hint="How close to the edge before the camera pans.">
           <PanSensitivitySlider value={appearance.panMargin} onChange={(panMargin) => update({ panMargin })} />
         </Row>
       </Group>
-      <p className="set-group-note">These settings are for the battle page and are saved as you change them. The replay speed, camera and zoom are on the battle page itself. Export Video keeps its own settings.</p>
+      <p className="set-group-note">For the battle page. Export Video has its own.</p>
       <BattleReplaySettings />
     </>
   );
@@ -209,7 +209,7 @@ function SpoilerSection() {
   return (
     <Group
       title={`${shown} of ${categories.length} shown`}
-      note="Spoilers apply at once and are remembered for this installation."
+      
       right={
         <div className="settings-actions">
           <SpoilerButton onClick={() => setAllSpoilers(true)} label="Show all spoilers" />
@@ -263,7 +263,7 @@ function EbstSection({ runId, toasts }: { runId: string | null; toasts: ToastSta
     <>
       <Group
         title="eBST for this playthrough"
-        note="Apply replaces every unit's eBST setup, including custom setups, and sets the default for units added later. You can still change individual units in the Roster afterwards."
+        note="Apply sets every unit's eBST, and the default for new units."
       >
         {(["offense", "defense"] as const).map((field) => (
           <Row key={field} label={field === "offense" ? "Offense type" : "Defense type"}>
@@ -426,7 +426,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
               <p>{current.blurb}</p>
             </header>
             <div key={tab} className="settings-body">
-              {tab === "game-files" && <GameFilesSection desktop={desktop} />}
+              {tab === "game-files" && <GameFilesSection desktop={desktop} heading={false} />}
               {tab === "general" && (
                 <>
                   <Group title="Game" note={memoryReader === "recomp"
@@ -441,7 +441,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                   </Group>
                   <Group title="Battle recordings">
                     <Row label="Maximum raw recordings" htmlFor={ids + "-recordings"}
-                      hint="Enter 0 to turn off raw recording. Older recordings are removed when the limit is reached."
+                      hint="0 turns it off. The oldest are removed first."
                       error={invalid ? "Enter a whole number from 0 to 1000." : undefined}>
                       <input id={ids + "-recordings"} type="number" min={0} max={1000} step={1}
                         value={recordingLimit} onChange={(e) => setRecordingLimit(e.target.value)} aria-invalid={invalid} />

@@ -968,7 +968,6 @@ function MagicTable({ data, initial }: { data: ReferenceData; initial: string })
           {expanded && <tr className="expand-row"><td colSpan={8}>
             <span className="expand-label">Learned by</span>
             {learners.length ? <span className="chip-list">{learners.map(({ character, rank }) => <span className="item-chip" key={character.key}><CharLink charKey={character.key}>{character.name}</CharLink> <RankIcon rank={rank} /></span>)}</span> : <span className="muted">No playable character learns this spell.</span>}
-            <p className="muted small">Uses refill after each battle. Classes and abilities can change available uses and range.</p>
           </td></tr>}
         </Fragment>;
       })}</tbody></table>

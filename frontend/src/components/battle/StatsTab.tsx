@@ -55,7 +55,7 @@ export function StatsTab({ history, roster, part2, selected, onSelect, onOpen, b
   const popupIcon = useAffiliationIcon(shownUnit ? characterKeyOfUnit(shownUnit) : null);
 
   const heading = <span className="history-stats-heading">Characters<button type="button" className="btn small" onClick={onStats} aria-label="Run character statistics"><Icon name={CONCEPT_ICON.history} /> Stats</button></span>;
-  if (history === null || !battles.length) return <div className="stats-tab">{battlesSection}<Section title={heading}><p className="muted" role="status">{history === null ? "Loading characters…" : "No character statistics yet. Record a battle to see their contributions."}</p></Section></div>;
+  if (history === null || !battles.length) return <div className="stats-tab">{battlesSection}<Section title={heading}><p className="muted" role="status">{history === null ? "Loading characters…" : "No stats yet. Record a battle first."}</p></Section></div>;
 
   const value = (c: CharacterStats, key: Col): number | string => {
     switch (key) {

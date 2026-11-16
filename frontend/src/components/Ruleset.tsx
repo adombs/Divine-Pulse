@@ -133,7 +133,7 @@ export function RulesetSection({ run, toasts }: { run: RunSummary; toasts: Toast
         </div>
       </div>
       {rules.length === 0 ? (
-        <p className="muted">No rules yet. Pick common challenge rules below, or write your own.</p>
+        <p className="muted">No rules yet. Add one below.</p>
       ) : (
         <ol className="ruleset-rules">
           {rules.map((rule, i) => editing?.index === i ? (

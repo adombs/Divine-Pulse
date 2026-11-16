@@ -70,6 +70,7 @@ export function EntryMenu({
   onPick,
   data: ref,
   showKind,
+  notes,
   empty,
 }: {
   id: string;
@@ -80,6 +81,8 @@ export function EntryMenu({
   onPick: (e: ArchiveEntry) => void;
   data: ReferenceData | null;
   showKind?: boolean;
+  /** A word or two beside an entry (why it's suggested), in place of its kind. */
+  notes?: Map<string, string>;
   empty?: ReactNode;
 }) {
   const menu = useRef<HTMLUListElement>(null);
@@ -112,7 +115,7 @@ export function EntryMenu({
         >
           <EntryIcon entry={e} data={ref} />
           <span className="entry-name">{e.label}</span>
-          {showKind && <span className="entry-kind">{KIND_LABEL[e.kind]}</span>}
+          {notes?.has(e.id) ? <span className="entry-kind">{notes.get(e.id)}</span> : showKind && <span className="entry-kind">{KIND_LABEL[e.kind]}</span>}
         </li>
       ))}
     </ul>,
@@ -120,17 +123,20 @@ export function EntryMenu({
   );
 }
 
-/** A search box that adds an entry: type, then pick with the arrows and Enter, or click. */
+/** A search box that adds an entry: type, then pick with the arrows and Enter, or click. Opened empty, it lists
+ * `suggested` (what the unit's plan makes available) when given; typing searches every entry. */
 export function EntryPicker({
   entries,
   placeholder,
   onPick,
   exclude,
+  suggested,
 }: {
   entries: ArchiveEntry[];
   placeholder: string;
   onPick: (e: ArchiveEntry) => void;
   exclude?: readonly string[];
+  suggested?: { entry: ArchiveEntry; note: string }[];
 }) {
   const { ref } = useArchiveEntries();
   const [text, setText] = useState("");
@@ -140,9 +146,11 @@ export function EntryPicker({
   const input = useRef<HTMLInputElement>(null);
   const id = `picker-${useId().replace(/[^\w-]/g, "")}`;
   const items = useMemo(() => {
+    if (!text.trim() && suggested) return suggested.map((s) => s.entry).filter((e) => !exclude?.includes(e.id));
     const left = exclude?.length ? entries.filter((e) => !exclude.includes(e.id)) : entries;
     return searchEntries(left, text, text ? 8 : 50);
-  }, [entries, exclude, text]);
+  }, [entries, exclude, text, suggested]);
+  const notes = useMemo(() => (!text.trim() && suggested ? new Map(suggested.map((s) => [s.entry.id, s.note])) : undefined), [text, suggested]);
   const show = () => {
     setAnchor(input.current?.getBoundingClientRect() ?? null);
     setOpen(true);
@@ -195,7 +203,8 @@ export function EntryPicker({
         onBlur={() => setOpen(false)}
         onKeyDown={onKey}
       />
-      {open && anchor && <EntryMenu id={id} anchor={anchor} items={items} active={active} onHover={setActive} onPick={pick} data={ref} />}
+      {open && anchor && <EntryMenu id={id} anchor={anchor} items={items} active={active} onHover={setActive} onPick={pick} data={ref} notes={notes}
+        empty={suggested && !text.trim() ? "Type to search" : undefined} />}
     </div>
   );
 }

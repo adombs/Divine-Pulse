@@ -64,7 +64,7 @@ function RunLedger({ kind, battles: source }: { kind: LedgerKind; battles: Battl
       <span className="run-stats-duration"><b>{clock(run.seconds)}</b> in battle</span></div>
       <dl className="run-stats-totals">{figures.map(({ label, sum, icon }) => <div key={label}><dt><Icon name={icon} />{label}</dt><dd>{sum.value === null ? unknown() : numberFormat.format(sum.value)}</dd></div>)}</dl>
     </header>
-    {!battles.length ? <div className="run-stats-state"><Icon name={CONCEPT_ICON.history} /><h3>No recorded battles yet</h3><p>Record a battle in this run to see totals and comparisons here.</p></div> : <>
+    {!battles.length ? <div className="run-stats-state"><Icon name={CONCEPT_ICON.history} /><h3>No recorded battles yet</h3><p>Record a battle to see totals.</p></div> : <>
       <div className="run-stats-toolbar"><div className="run-stats-topics" role="tablist" aria-label="Statistics topic">{topics.map((t, index) => <button
         type="button" key={t.key} id={`${id}-${t.key}`} role="tab" aria-selected={part === t.key} aria-controls={`${id}-panel`} tabIndex={part === t.key ? 0 : -1}
         onClick={() => selectTopic(t.key)} onKeyDown={(event) => navigateTopics(event, index)}><Icon name={t.icon} />{t.label}</button>)}</div>

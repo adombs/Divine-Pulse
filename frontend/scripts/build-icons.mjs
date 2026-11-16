@@ -55,6 +55,7 @@ const ICONS = {
   section: ["gear-six", "fill"],
   log: ["list-bullets"],
   share: ["export"],
+  reset: ["arrow-counter-clockwise"],
   plan: ["strategy"],
   notes: ["note-pencil"],
   drag: ["dots-six-vertical"],
