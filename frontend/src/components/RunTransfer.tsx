@@ -2,15 +2,16 @@ import { useEffect, useRef, useState } from "react";
 import { api, ApiError, Battle, RunSummary } from "../api";
 import { ToastState } from "./Toasts";
 import { Modal } from "./Modal";
+import { PlansTransfer } from "./PlansTransfer";
 import { mergeRules, readRulesetFile, rulesetFile, type Rule } from "../ruleset";
 import "./run-transfer.css";
 
 type Mode = "import" | "export";
-export type TransferKind = "run" | "battles" | "ruleset";
-const KIND_LABEL: Record<TransferKind, string> = { run: "run", battles: "battles", ruleset: "ruleset" };
+export type TransferKind = "run" | "battles" | "ruleset" | "plans";
+const KIND_LABEL: Record<TransferKind, string> = { run: "run", battles: "battles", ruleset: "ruleset", plans: "plans" };
 type WebviewApi = { save_export?: (filename: string, jsonContent: string) => Promise<boolean> };
 
-/** Runs → Import/Export: a whole run, some of its battles, or its ruleset, as a JSON file. `kind` and `runId` open it on
+/** Runs → Import/Export: a whole run, some of its battles, its ruleset or its plans (PlansTransfer.tsx), as a JSON file. `kind` and `runId` open it on
  * one of them (the Ruleset section's own Import and Export). */
 export function RunTransfer({ mode, runs, toasts, onClose, kind: initialKind = null, runId: initialRunId }: { mode: Mode; runs: RunSummary[]; toasts: ToastState; onClose: () => void; kind?: TransferKind | null; runId?: string }) {
   const [kind, setKind] = useState<TransferKind | null>(initialKind);
@@ -116,6 +117,7 @@ export function RunTransfer({ mode, runs, toasts, onClose, kind: initialKind = n
     <button type="button" className="btn danger" disabled={working} onClick={() => void resolveConflict({ name: conflict.name, overwrite: true })}>Overwrite existing run</button>
     <button type="button" className="btn" disabled={working} onClick={() => setConflict(null)}>Back</button>
   </Modal>;
+  if (kind === "plans") return <PlansTransfer mode={mode} runs={runs} toasts={toasts} onClose={onClose} runId={runId} onBack={initialKind ? undefined : () => setKind(null)} />;
   if (pendingRules) {
     const target = runs.find((r) => r.id === runId);
     const added = mergeRules(pendingRules.current, pendingRules.incoming).length - pendingRules.current.length;
@@ -127,7 +129,7 @@ export function RunTransfer({ mode, runs, toasts, onClose, kind: initialKind = n
     </Modal>;
   }
   return <Modal open onClose={() => { if (!working) onClose(); }} title={`${mode === "import" ? "Import" : "Export"} ${kind ? KIND_LABEL[kind] : "data"}`} className="run-transfer-modal">
-    {!kind ? <div className="run-transfer-options"><button className="btn" onClick={() => setKind("run")}>Runs</button><button className="btn" onClick={() => setKind("battles")}>Battles</button><button className="btn" onClick={() => setKind("ruleset")}>Rulesets</button></div> : <>
+    {!kind ? <div className="run-transfer-options"><button className="btn" onClick={() => setKind("run")}>Runs</button><button className="btn" onClick={() => setKind("battles")}>Battles</button><button className="btn" onClick={() => setKind("ruleset")}>Rulesets</button><button className="btn" onClick={() => setKind("plans")}>Plans</button></div> : <>
       {mode === "import" && kind === "run" ? <p>Choose a run JSON file to import.</p> : <label>{mode === "import" ? (kind === "ruleset" ? "Import into run" : "Run") : "Run"}<select disabled={working} value={runId} onChange={(e) => setRunId(e.target.value)}>{runs.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}</select></label>}
       {mode === "export" && kind === "battles" && <fieldset className="run-transfer-battles"><legend>Battles to export</legend>{battles.map((battle) => <label key={battle.id}><input type="checkbox" disabled={working || loadingBattles} checked={selected.has(battle.id)} onChange={() => toggleBattle(battle.id)} />{new Date(battle.started_at).toLocaleString()} — {battle.map_name || "Unnamed battle"}</label>)}{loadingBattles && <p>Loading battles…</p>}{!loadingBattles && battles.length === 0 && <p>No battles recorded in this run.</p>}</fieldset>}
       {mode === "import" ? <><input tabIndex={-1} ref={file} className="run-transfer-file" type="file" accept="application/json,.json" onChange={(e) => void readFile(e.currentTarget.files?.[0])} />{kind === "ruleset" && <p>Choose a ruleset file, or a run's export, to take its rules.</p>}<button className="btn primary" disabled={working || (!runId && kind !== "run")} onClick={() => file.current?.click()}>{working ? "Importing…" : "Choose file"}</button></> : <button className="btn primary" disabled={working || loadingBattles || !runId || (kind === "battles" && selected.size === 0)} onClick={() => void exportData()}>{working ? "Exporting…" : "Save file…"}</button>}

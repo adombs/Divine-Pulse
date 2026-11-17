@@ -18,6 +18,7 @@
 - The Planner's supports offer exactly the ranks each pair can reach, A+ included (with support spoilers shown), and Byleth's supports follow the run's Byleth. Only people the unit can support with can be added.
 - Rulesets can be exported to a file and imported into another run: from the Ruleset section's Import and Export buttons, or Runs → Import/Export → Rulesets. Importing into a run that already has rules adds the new ones or replaces them; a run's own export file works too.
 - The Ruleset section's Export Image button is now Share.
+- Plans can be exported from one run and imported into another (Runs → Import/Export → Plans), all of them or just the characters you tick. A plan goes to that character's unit, or waits for them to join; the list says which plans an import would replace.
 
 ## 1.5.0 (2026-11-16)
 

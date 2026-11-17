@@ -9,6 +9,7 @@ import { createPortal } from "react-dom";
 import { api, EMPTY_PLAN, PLAN_MAX, type PlanSupportRank, type Unit, type UnitPlan } from "../../api";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { useNav } from "../../nav";
+import { planIsEmpty } from "../../planTransfer";
 import { linkRoute, rankIndex, reaches, targetsForClasses, type ArchiveEntry, type LinkKind } from "../../planner";
 import { characterKeyOfUnit, portraitKey } from "../../portraits";
 import { SKILL_KEYS, SKILL_LABEL, type Aptitude, type Character, type ReferenceData, type SkillKey } from "../../reference/types";
@@ -29,12 +30,14 @@ const SAVE_MS = 600;
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type Update = (change: Partial<UnitPlan>) => void;
 
-export const planIsEmpty = (p: UnitPlan | undefined) =>
-  !p || (!p.classes.length && !Object.keys(p.skills).length && !p.arts.length && !p.abilities.length && !p.equipment.length
-    && !p.battalion && !(p.supports ?? []).length && !p.notes.trim());
+export { planIsEmpty };
 
 // The last plan each window saved, by run and unit, so reopening shows it even before the roster has reloaded.
 const savedPlans = new Map<string, UnitPlan>();
+/** Forget them for a run whose plans changed elsewhere (an import), so the roster's own are shown. */
+export function forgetSavedPlans(runId: string) {
+  for (const key of [...savedPlans.keys()]) if (key.startsWith(`${runId}:`)) savedPlans.delete(key);
+}
 
 /** The roster card's Planner button, and the window it opens. */
 export function PlannerButton({ unit, units, runId, toasts }: { unit: Unit; units: Unit[]; runId: string; toasts: ToastState }) {
