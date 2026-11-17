@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  addRule, ALL_SUGGESTIONS, cleanRuleText, fitScale, hasRule, MAX_RULES, moveRule, removeRule, RULE_DESCRIPTION_LEN, RULE_NAME_LEN,
+  addRule, ALL_SUGGESTIONS, cleanRuleText, fitScale, hasRule, MAX_RULES, mergeRules, moveRule, readRulesetFile, rulesetFile, removeRule, RULE_DESCRIPTION_LEN, RULE_NAME_LEN,
   RULE_SUGGESTIONS, ruleError, rulesetColumns, rulesetPageMs, RULES_PAGE_MAX_MS, RULES_PAGE_MIN_MS, sanitizeRules, updateRule,
 } from "../src/ruleset.ts";
 
@@ -78,4 +78,24 @@ test("the picture's columns and the page's time on screen", () => {
   assert.equal(fitScale(500, 1000), 1);
   assert.equal(fitScale(2000, 1000), 0.5);
   assert.equal(fitScale(0, 1000), 1);
+});
+
+test("a ruleset goes out to a file and comes back", () => {
+  const rules = [r("Maddening", "Hard"), r("No DLC")];
+  const file = rulesetFile("Azure Moon", rules);
+  assert.equal(file.format, "divine-pulse-ruleset");
+  assert.equal(file.run, "Azure Moon");
+  assert.deepEqual(readRulesetFile(JSON.parse(JSON.stringify(file))), rules);
+  assert.deepEqual(readRulesetFile([{ name: "A" }, { name: "a" }]), [r("A")]);
+  assert.deepEqual(readRulesetFile({ format: "divine-pulse-run", run: { name: "X", ruleset: [{ name: "B", description: "b" }] }, battles: [] }), [r("B", "b")]);
+  assert.throws(() => readRulesetFile({ format: "divine-pulse-battles", battles: [] }), /battles file/);
+  assert.throws(() => readRulesetFile({ hello: 1 }), /no ruleset/);
+  assert.throws(() => readRulesetFile("text"), /no ruleset/);
+  assert.throws(() => readRulesetFile({ rules: [{ description: "no name" }] }), /no rules/);
+});
+
+test("imported rules are added after the run's own, without repeats", () => {
+  assert.deepEqual(mergeRules([r("A"), r("B")], [r("b"), r("C")]).map((x) => x.name), ["A", "B", "C"]);
+  const many = Array.from({ length: MAX_RULES }, (_, i) => r(`R${i}`));
+  assert.equal(mergeRules(many, [r("Extra")]).length, MAX_RULES);
 });

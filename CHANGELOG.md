@@ -16,6 +16,8 @@
 - Plan characters you haven't recruited yet: search for them in the Planner. Their plan carries over to the unit when they join.
 - The Roster card's Battle Stats and Planner buttons have larger icons.
 - The Planner's supports offer exactly the ranks each pair can reach, A+ included (with support spoilers shown), and Byleth's supports follow the run's Byleth. Only people the unit can support with can be added.
+- Rulesets can be exported to a file and imported into another run: from the Ruleset section's Import and Export buttons, or Runs → Import/Export → Rulesets. Importing into a run that already has rules adds the new ones or replaces them; a run's own export file works too.
+- The Ruleset section's Export Image button is now Share.
 
 ## 1.5.0 (2026-11-16)
 

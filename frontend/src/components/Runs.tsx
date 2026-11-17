@@ -198,7 +198,7 @@ function RunCard({ run, runs, active, onActivate, toasts }: { run: RunSummary; r
           {renameError && <span className="field-hint error">{renameError}</span>}
         </form>
       ) : null}
-      <RulesetSection run={run} toasts={toasts} />
+      <RulesetSection run={run} runs={runs} toasts={toasts} />
       <section className="block runs-battle-overview">
         <div className="sec-head"><h2>Battles</h2></div>
         {battleError ? (
