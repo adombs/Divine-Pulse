@@ -10,11 +10,11 @@ import { api, EMPTY_PLAN, PLAN_MAX, type PlanSupportRank, type Unit, type UnitPl
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { useNav } from "../../nav";
 import { linkRoute, rankIndex, reaches, targetsForClasses, type ArchiveEntry, type LinkKind } from "../../planner";
-import { characterKeyOfUnit } from "../../portraits";
+import { characterKeyOfUnit, portraitKey } from "../../portraits";
 import { SKILL_KEYS, SKILL_LABEL, type Aptitude, type Character, type ReferenceData, type SkillKey } from "../../reference/types";
 import { WEAPON_RANKS } from "../../reference/weaponRanks";
-import { useSupports, type SupportPair } from "../../reference/supports";
-import { visibleRanks } from "../reference/supports/shared";
+import { useSupports } from "../../reference/supports";
+import { pairsByPartner, runBylethGender, visibleRanks } from "../reference/supports/shared";
 import { tidyAbility } from "../../appearance";
 import { RefLink } from "../common";
 import { Icon, IconButton, type IconName } from "../Icon";
@@ -173,7 +173,7 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
         </>}
       >
         {open && shown && (unit || offRoster) && (
-          <PlannerBody key={`${runId}:${subject.kind}:${subject.key}`} unit={shown} onRoster={!!unit} initial={initial} toasts={toasts}
+          <PlannerBody key={`${runId}:${subject.kind}:${subject.key}`} unit={shown} units={units} onRoster={!!unit} initial={initial} toasts={toasts}
             onStatus={setStatus} resetRef={reset} save={save} />
         )}
       </Modal>
@@ -202,8 +202,8 @@ export function currentKit(unit: Unit): UnitPlan {
   };
 }
 
-function PlannerBody({ unit, onRoster, initial, toasts, onStatus, resetRef, save: send }: {
-  unit: Unit; onRoster: boolean; initial: UnitPlan | undefined; toasts: ToastState; onStatus: (s: SaveStatus) => void;
+function PlannerBody({ unit, units, onRoster, initial, toasts, onStatus, resetRef, save: send }: {
+  unit: Unit; units: Unit[]; onRoster: boolean; initial: UnitPlan | undefined; toasts: ToastState; onStatus: (s: SaveStatus) => void;
   resetRef: React.MutableRefObject<() => void>; save: (plan: UnitPlan) => Promise<unknown>;
 }) {
   const { ref, entries } = useArchiveEntries();
@@ -257,7 +257,7 @@ function PlannerBody({ unit, onRoster, initial, toasts, onStatus, resetRef, save
             entries={kinds("weapon", "item", "spell")} add="Empty slot" have={carried} haveLabel="Carried" data={ref} />
           <EntryList title="Combat Arts" icon={CONCEPT_ICON.art} kind="art" values={plan.arts} onChange={(arts) => update({ arts })} max={PLAN_MAX.arts}
             entries={kinds("art")} suggested={suggestArts} add="Empty slot" have={learnedArts} haveLabel="Learned" data={ref} />
-          <SupportTargets unit={unit} plan={plan} update={update} entries={byKind.get("unit") ?? []} character={character} />
+          <SupportTargets unit={unit} units={units} plan={plan} update={update} entries={byKind.get("unit") ?? []} character={character} />
         </div>
       </div>
       <section className="plan-block plan-notes">
@@ -637,31 +637,26 @@ function SkillAdder({ skills, aptitudeOf, onPick }: { skills: SkillKey[]; aptitu
   );
 }
 
-const SUPPORT_RANKS: PlanSupportRank[] = ["C", "B", "A", "S"];
-const baseName = (n: string) => n.replace(/ \([MF]\)$/, "");
+const SUPPORT_RANKS: PlanSupportRank[] = ["C", "B", "A", "A+", "S"];
 
 /** Planned support partners, each with the rank to reach (only ranks the pair can have), in the player's order. */
-function SupportTargets({ unit, plan, update, entries, character }: { unit: Unit; plan: UnitPlan; update: Update; entries: ArchiveEntry[]; character: Character | undefined }) {
+function SupportTargets({ unit, units, plan, update, entries, character }: { unit: Unit; units: Unit[]; plan: UnitPlan; update: Update; entries: ArchiveEntry[]; character: Character | undefined }) {
   const supports = useSupports();
   const nav = useNav();
   const me = character?.name ?? unit.name;
-  const pairs = useMemo(() => {
-    const m = new Map<string, SupportPair>();
-    for (const p of supports?.pairs ?? []) {
-      const [a, b] = [baseName(p.a), baseName(p.b)];
-      if (a === me) m.set(b, p);
-      else if (b === me) m.set(a, p);
-    }
-    return m;
-  }, [supports, me]);
+  const myKey = character?.key ?? characterKeyOfUnit(unit);
+  // The same lookup as the Supports page: by Characters page key, with the run's Byleth.
+  const byleth = myKey === "byleth" ? (portraitKey(unit) === "byleth_f" ? "F" : "M") : runBylethGender(units);
+  const pairs = useMemo(() => pairsByPartner(supports?.pairs ?? [], myKey ?? "", byleth), [supports, myKey, byleth]);
   const nameOf = (key: string) => entries.find((e) => e.id === key)?.label ?? key;
+  /** The ranks the pair can reach; none when the two can't support (or the data hasn't loaded). */
   const ranksFor = (key: string): PlanSupportRank[] => {
-    const pair = pairs.get(nameOf(key));
-    const have = pair ? SUPPORT_RANKS.filter((r) => visibleRanks(pair).includes(r)) : [];
-    return have.length ? have : ["C", "B", "A"];
+    const pair = pairs.get(key);
+    return pair ? SUPPORT_RANKS.filter((r) => visibleRanks(pair).includes(r)) : [];
   };
-  const others = entries.filter((e) => e.id !== character?.key);
-  const suggested = others.filter((e) => pairs.has(e.label)).map((e) => ({ entry: e, note: `up to ${ranksFor(e.id).at(-1)}` }));
+  // Only people this unit can support with: anyone else has no rank to aim for.
+  const others = entries.filter((e) => e.id !== myKey && pairs.has(e.id));
+  const suggested = others.map((e) => ({ entry: e, note: `up to ${ranksFor(e.id).at(-1)}` }));
   const list = plan.supports ?? [];
   const set = (supports: UnitPlan["supports"]) => update({ supports });
   return (
@@ -679,12 +674,14 @@ function SupportTargets({ unit, plan, update, entries, character }: { unit: Unit
                 <RefLink onClick={() => nav.go({ page: "supports", tab: "character", id: me })} title="Support partners and gifts">{nameOf(partner)}</RefLink>
               </span>
               <span className="plan-row-end">
-                <span className="plan-support-ranks" role="radiogroup" aria-label={`Support rank with ${nameOf(partner)}`}>
-                  {ranksFor(partner).map((r) => (
-                    <button key={r} type="button" role="radio" aria-checked={s.rank === r} className={s.rank === r ? "on" : ""}
-                      onClick={() => set(list.map((x) => (x.partner === partner ? { ...x, rank: r } : x)))}>{r}</button>
-                  ))}
-                </span>
+                {ranksFor(partner).length ? (
+                  <span className="plan-support-ranks" role="radiogroup" aria-label={`Support rank with ${nameOf(partner)}`}>
+                    {ranksFor(partner).map((r) => (
+                      <button key={r} type="button" role="radio" aria-checked={s.rank === r} className={s.rank === r ? "on" : ""}
+                        onClick={() => set(list.map((x) => (x.partner === partner ? { ...x, rank: r } : x)))}>{r}</button>
+                    ))}
+                  </span>
+                ) : supports && <span className="muted small">No support</span>}
                 <Remove name={nameOf(partner)} onClick={() => set(list.filter((x) => x.partner !== partner))} />
               </span>
             </>;

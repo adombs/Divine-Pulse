@@ -112,7 +112,7 @@ export interface UnitPlan {
   notes: string;
 }
 
-export type PlanSupportRank = "C" | "B" | "A" | "S";
+export type PlanSupportRank = "C" | "B" | "A" | "A+" | "S";
 export interface PlanSupport { partner: string; rank: PlanSupportRank }
 
 export const EMPTY_PLAN: UnitPlan = { classes: [], skills: {}, arts: [], abilities: [], equipment: [], battalion: "", supports: [], notes: "" };

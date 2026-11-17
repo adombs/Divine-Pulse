@@ -4,7 +4,7 @@
  */
 import { CONCEPT_ICON } from "../../../icons/concepts";
 import type { Unit } from "../../../api";
-import { deadCharacterKeys, runCharacterKeys } from "../../../portraits";
+import { characterPortraitKey, deadCharacterKeys, runCharacterKeys } from "../../../portraits";
 import { AFFILIATIONS, PeopleFilters, passes, routesOf } from "../../../filters";
 import {
   ROUTES,
@@ -43,6 +43,21 @@ export interface Filters {
 
 export const isByleth = (n: string) => n.startsWith("Byleth");
 export const sameBase = (a: string, b: string) => a === b || (isByleth(a) && isByleth(b));
+/** The Characters page key of a name in the support data ("Hilda" → "hilda", "Byleth (F)" → "byleth"). */
+export const pairCharKey = (name: string) => (isByleth(name) ? "byleth" : name.toLowerCase());
+/** Which Byleth the run has, as the support data splits them. */
+export const runBylethGender = (units: Unit[]): "M" | "F" => (characterPortraitKey("byleth", units) === "byleth_f" ? "F" : "M");
+/** One person's pairs (by Characters page key) keyed by the partner's Characters page key, for one Byleth. */
+export function pairsByPartner(pairs: SupportPair[], charKey: string, byleth: "M" | "F"): Map<string, SupportPair> {
+  const m = new Map<string, SupportPair>();
+  for (const p of pairs) {
+    if ([p.a, p.b].some((n) => isByleth(n) && n !== `Byleth (${byleth})`)) continue;
+    const [a, b] = [pairCharKey(p.a), pairCharKey(p.b)];
+    if (a === charKey) m.set(b, p);
+    else if (b === charKey) m.set(a, p);
+  }
+  return m;
+}
 export const visibleRanks = (pair: SupportPair): SupportRank[] => spoilerShown("supports") ? pair.ranks : pair.ranks.filter((rank) => rank !== "S" && rank !== "A+");
 export const visibleMaxRank = (pair: SupportPair): SupportRank => visibleRanks(pair).at(-1) ?? "C";
 export const rankClass = (r: SupportRank) => r.replace("+", "p").toLowerCase();

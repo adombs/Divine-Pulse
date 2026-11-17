@@ -6,7 +6,6 @@
 import { gameLanguageLocale } from "../../gameLanguage";
 import { useMemo, useState } from "react";
 import type { Unit } from "../../api";
-import { characterPortraitKey } from "../../portraits";
 import { canonical } from "../../fuzzy";
 import { Character, useReference } from "../../reference/types";
 import { SupportPair, useSupports } from "../../reference/supports";
@@ -17,7 +16,7 @@ import { usePeopleFilters } from "../../filters";
 import { ByCharacter } from "./supports/ByCharacter";
 import { Pairings } from "./supports/Pairings";
 import { Gifts } from "./supports/Gifts";
-import { Filters, HOUSES, NPC_HOUSE, Person, isByleth, pairOnRoutes } from "./supports/shared";
+import { Filters, HOUSES, NPC_HOUSE, Person, isByleth, pairCharKey, pairOnRoutes, runBylethGender } from "./supports/shared";
 import "./supports.css";
 
 type Tab = "character" | "matrix" | "gifts";
@@ -39,8 +38,7 @@ function SupportsContent({ units, part2 }: Props) {
   // Keep old links to the retired rules tab useful instead of rendering a blank view.
   const tab: Tab = nav.route.tab === "matrix" || nav.route.tab === "gifts" ? nav.route.tab : "character";
   const setTab = (t: Tab) => nav.go({ page: "supports", tab: t });
-  const runByleth = characterPortraitKey("byleth", units);
-  const [filters, setFilters] = useState<Filters>({ byleth: runByleth === "byleth_f" ? "F" : "M", endingsOnly: false });
+  const [filters, setFilters] = useState<Filters>({ byleth: runBylethGender(units), endingsOnly: false });
   // "Byleth" (from links) means whichever Byleth is shown.
   // The id comes from the URL or a link: accept a misspelt or differently cased name too.
   const rawSelected =
@@ -55,7 +53,7 @@ function SupportsContent({ units, part2 }: Props) {
     const out: Person[] = [...names]
       .filter((n) => !isByleth(n) || n === `Byleth (${filters.byleth})`)
       .map((n) => {
-        const c: Character | undefined = byName.get(isByleth(n) ? "byleth" : n.toLowerCase());
+        const c: Character | undefined = byName.get(pairCharKey(n));
         return {
           name: n,
           label: c?.name ?? data.names[n] ?? n,

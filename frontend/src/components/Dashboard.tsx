@@ -436,7 +436,7 @@ function DeathLink({ unit }: { unit: Unit }) {
 /** A compact version of the in-game Status page for one unit. */
 interface CardProps {
   unit: Unit;
-  /** Everyone the Planner can step through. */
+  /** Everyone the Planner can step through (also tells its supports which Byleth the run has). */
   units: Unit[];
   runId: string;
   mode: Mode;

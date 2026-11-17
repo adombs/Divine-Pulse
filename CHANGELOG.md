@@ -15,6 +15,7 @@
 - The Planner's title bar has Previous and Next buttons to step through the Roster's plans, and a search to open anyone's plan without leaving the window.
 - Plan characters you haven't recruited yet: search for them in the Planner. Their plan carries over to the unit when they join.
 - The Roster card's Battle Stats and Planner buttons have larger icons.
+- The Planner's supports offer exactly the ranks each pair can reach, A+ included (with support spoilers shown), and Byleth's supports follow the run's Byleth. Only people the unit can support with can be added.
 
 ## 1.5.0 (2026-11-16)
 
