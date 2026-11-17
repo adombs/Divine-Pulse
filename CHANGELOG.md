@@ -6,6 +6,12 @@
 
 - A new Planner starts with everything in the unit's Equipment field, not just the equipped item.
 - The equipped mark in the Roster and battle Equipment lists is larger.
+- Game saves are tied to runs. Switching runs no longer copies the save the game has loaded into the other run's roster.
+- A run recognises its own saves: a save overwritten by later progress, several saves of one playthrough, and an older save (the run quietly rolls back to it).
+- Loading a save from another run pauses tracking and asks: switch to the run it belongs to (every matching run is listed, newest first), or sync it with this run. A save no run follows offers to start a new run instead.
+- Playing on with that save (starting a battle, or any unit changing) syncs it with the active run.
+- Before a run is synced with a save it wasn't following, it keeps a copy of its roster, plans included.
+- A battle's starting roster now includes each unit's plan.
 
 ## 1.5.0 (2026-11-16)
 

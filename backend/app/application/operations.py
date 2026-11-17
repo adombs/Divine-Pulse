@@ -251,6 +251,10 @@ class BackendOperations:
     def auto_status(self) -> dict[str, Any]:
         return self.scanner.auto_status()
 
+    def sync_save(self) -> None:
+        """Sync the game save held back from the active run with it anyway ("Sync with this Run")."""
+        self.scanner.sync_save()
+
     def current_battle(self) -> Battle | None:
         return self.scanner.current_battle()
 

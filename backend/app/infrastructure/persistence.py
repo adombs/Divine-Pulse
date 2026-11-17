@@ -17,7 +17,10 @@ from ..domain.ebst import EbstConfig
 from ..domain.runs import MAIN_SCENARIOS, BestUnit, ChapterRef, RunSummary
 from ..domain.membership import on_roster
 from ..domain.units import Unit, byleth_look, now
-from ..domain.runs import Rule, Run
+from ..domain.runs import RosterSnapshot, Rule, Run, snapshot_roster
+from ..domain.saves import Place, SaveFingerprint, SaveLineage, record
+from dataclasses import dataclass
+from datetime import datetime
 from .saved_models import Run as SavedRun, decode_battle, decode_battles
 import json
 from .route_inference import route_of
@@ -30,6 +33,16 @@ log = logging.getLogger(__name__)
 
 class NotFound(MissingRecord):
     pass
+
+
+@dataclass(frozen=True)
+class SavedRunSaves:
+    """A run's name, last change and the checkpoints of its game saves."""
+
+    id: str
+    name: str
+    updated_at: datetime
+    saves: SaveLineage
 
 
 def _slug(name: str) -> str:
@@ -262,6 +275,36 @@ class RunStore:
             if not changed:
                 return
             self._save(run)
+
+    # Game saves (domain/saves.py)
+
+    def save_lineages(self) -> list[SavedRunSaves]:
+        """Every run's checkpoints of the game saves synced with it, newest run first."""
+        with self._lock:
+            out = []
+            for path in self.dir.glob("*.json"):
+                try:
+                    self.get(path.stem)
+                except (OSError, ValueError, TypeError, NotFound):
+                    continue
+                run = self._cache[path.stem]
+                out.append(SavedRunSaves(run.id, run.name, run.updated_at, run.saves.model_copy(deep=True)))
+            out.sort(key=lambda r: r.updated_at, reverse=True)
+            return out
+
+    def snapshot_roster(self, run_id: str) -> None:
+        """Keep the run's roster as it stands, before a sync replaces it with a save the run wasn't following."""
+        with self._lock:
+            run = self.get(run_id)
+            run.roster_snapshot = RosterSnapshot(units=snapshot_roster(run.units))
+            self._save(run)
+
+    def record_save(self, run_id: str, save: SaveFingerprint, place: Place | None, in_battle: bool) -> None:
+        """Note the game save just synced with the run (saves.record)."""
+        with self._lock:
+            run = self.get(run_id)
+            if record(run.saves, save, place, in_battle):
+                self._save(run)
 
     def set_ebst(self, run_id: str, config: EbstConfig) -> None:
         """Overwrite every unit and the future-unit default in one locked save."""

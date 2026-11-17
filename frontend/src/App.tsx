@@ -24,6 +24,7 @@ import { acceptUpdate, loadUpdate, setUpdateDismissed } from "./updateStatus";
 import type { UpdateStatus } from "./api";
 import { reportAssetIssue } from "./requiredAssets";
 import { GameFilesGate } from "./components/GameFilesGate";
+import { SavePrompt } from "./components/SavePrompt";
 import { loadPortraitIndex } from "./portraits";
 import { loadReferenceIcons } from "./reference/icons";
 import { loadBattleIndexes } from "./components/battle/factions";
@@ -61,6 +62,7 @@ function statusText(a: AutoStatus | null): string {
     case "error": return "Tracking unavailable";
     case "off": return "Tracking off";
     case "watching": return a.seeing ? `Tracking · ${a.seeing}` : "Tracking game";
+    case "held": return "Paused · save from another run";
   }
 }
 
@@ -320,6 +322,7 @@ export default function App() {
     if (recording?.id !== id) void loadRecording(id, activeRunId);
   }, [activeRunId, battleActive, goNav, loadRecording, loaded, page, recording?.id, routeId]);
 
+  const [reopenSavePrompt, setReopenSavePrompt] = useState(0);
   const switchRun = async (id: string) => {
     await bootstrap.switchRun(id);
     battleSync.setRun(id);
@@ -390,10 +393,17 @@ export default function App() {
           {importJob?.state === "running" && <button type="button" className="link-btn auto-status" title={`Importing game files ${importJob.done}/${importJob.total}`} aria-label={`Importing game files${importJob.total > 0 ? ` ${importJob.done}/${importJob.total}` : ""}; open Game files`} onClick={() => nav.go({ page: "settings", tab: "game-files" })}>
             <Icon name={CONCEPT_ICON.settings} /><span className="status-text">Importing game files{importJob.total > 0 ? ` ${importJob.done}/${importJob.total}` : "\u2026"}</span>
           </button>}
-          <div className={`auto-status ${auto?.state === "watching" ? "on" : ""} ${auto?.seeing ? "seeing" : ""}`} role="status" title={auto?.state === "error" && connected ? auto.message : status}>
-            <span className={tracking ? "dot online" : "dot offline"} />
-            <span className="status-text">{status}</span>
-          </div>
+          {auto?.state === "held" && connected ? (
+            <button type="button" className="link-btn auto-status" role="status" title={auto.message} onClick={() => setReopenSavePrompt((n) => n + 1)}>
+              <span className="dot offline" />
+              <span className="status-text">{status}</span>
+            </button>
+          ) : (
+            <div className={`auto-status ${auto?.state === "watching" ? "on" : ""} ${auto?.seeing ? "seeing" : ""}`} role="status" title={auto?.state === "error" && connected ? auto.message : status}>
+              <span className={tracking ? "dot online" : "dot offline"} />
+              <span className="status-text">{status}</span>
+            </div>
+          )}
         </div>
       </Sidebar>
 
@@ -472,6 +482,7 @@ export default function App() {
         </ErrorBoundary>
       </main>
 
+      <SavePrompt prompt={connected ? auto?.save_prompt ?? null : null} runs={runs} reopen={reopenSavePrompt} onSwitchRun={switchRun} toasts={toasts} />
       <Toasts state={toasts} />
     </div>
     </PortraitPhaseContext.Provider>

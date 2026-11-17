@@ -249,6 +249,11 @@ def auto_status(request: Request) -> dict:
     return _state(request).operations.auto_status()
 
 
+@router.post("/auto/sync-save")
+def sync_save(request: Request) -> None:
+    _state(request).operations.sync_save()
+
+
 @router.get("/battle")
 def current_battle(request: Request) -> dict:
     battle = _state(request).operations.current_battle()

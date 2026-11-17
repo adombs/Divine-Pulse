@@ -13,6 +13,7 @@ import logging
 import queue
 import threading
 import time
+from dataclasses import dataclass
 from functools import partial
 from datetime import timedelta
 
@@ -37,7 +38,7 @@ from .game_assets import game_assets
 from . import game_tables
 from ..gamemem.battle import FlagWatch
 from ..gamemem.combat import weapon_kind
-from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_dead, decode_player_birthday, decode_player_name, decode_roster
+from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_dead, decode_player_birthday, decode_player_name, decode_roster, save_fingerprint
 from ..gamemem.readers import emulators_for
 from ..gamemem.recorder import BattleRecorder
 from ..gamemem.units import SCREEN_TITLE as MEMORY_TITLE
@@ -51,12 +52,30 @@ from .battle_data import quest_battles
 from .battle_support import DefaultBattleSupport
 from ..domain import deaths, duplicates, membership
 from ..domain.changes import UnitChange
-from ..domain.units import UnitPlan, unit_key
+from ..domain.runs import snapshot_roster
+from ..domain.saves import Place, SaveFingerprint, compare, decode_units, locate
+from ..domain.units import unit_key
 from ..storage import BattleStore, NotFound, RunStore
 
 log = logging.getLogger(__name__)
 
 NEEDS_IMPORT = "Import your game files first"
+HELD_MESSAGE = "The game has a save from another run loaded: nothing is synced until you choose."
+
+
+@dataclass(frozen=True)
+class HeldSave:
+    """A save held back from the active run: the roster and name bytes read, and the save they make."""
+
+    run_id: str
+    roster: bytes
+    player_name: bytes
+    save: SaveFingerprint
+
+
+def _fresh(units: str) -> bool:
+    """A checkpoint from before the first battle (saves.SaveFingerprint.fresh)."""
+    return SaveFingerprint("", decode_units(units)).fresh
 
 
 def history_steps(
@@ -160,6 +179,11 @@ class Scanner:
         self._mem_pending: Snapshot | None = None
         self._mem_applied: tuple[str, Snapshot] | None = None
         self._mem_seeing: str | None = None  # e.g. "15 units", shown in the status
+        # Worker thread only: a save the game holds that isn't the active run's (domain/saves.py), held back until the
+        # player chooses, plays on with it or loads another; and the run to sync the next save with whatever it is.
+        self._held: HeldSave | None = None
+        self._forced: str | None = None
+        self._save_prompt: dict | None = None  # what the page asks about the held save (auto_status)
         # Keys (in the active run) of the units in the battle in progress, read from game memory.
         self._battle: list[str] = []
         self._status = {"state": "off", "screen": None, "seeing": None, "message": ""}
@@ -207,7 +231,11 @@ class Scanner:
         )
 
     def auto_status(self) -> dict:
-        return {"battle": list(self._battle), **self._status}
+        return {"battle": list(self._battle), **self._status, "save_prompt": self._save_prompt}
+
+    def sync_save(self) -> None:
+        """Sync the save the game holds with the active run, whichever run it belongs to ("Sync with this Run")."""
+        self._jobs.put("sync")
 
     def current_battle(self) -> Battle | None:
         """A copy of the battle in progress in the active run (game memory only), or None."""
@@ -240,7 +268,7 @@ class Scanner:
                     next_tick = started + self.tick_interval()  # (the interval counts from the start of the read)
                 else:
                     next_tick = time.monotonic()
-                    self._reset()
+                    self._job(job)
             except Exception:  # never let the worker die
                 log.exception("Read failed")
                 try:
@@ -260,6 +288,12 @@ class Scanner:
         if new != self._status or force:
             self._status = new
             self.events.publish("auto", self.auto_status())
+
+    def _job(self, job: str) -> None:
+        """A job other than a read: "sync" (sync_save) or "wake"."""
+        if job == "sync":
+            self._forced, self._held = self.settings.get().active_run_id, None
+        self._reset()
 
     def _reset(self) -> None:
         self._mem_pending, self._mem_applied = None, None
@@ -308,6 +342,8 @@ class Scanner:
             self._publish_status("error", MEMORY_TITLE, message=str(exc))
             return
         self._data()  # a new import/language must also refresh an otherwise unchanged snapshot
+        if self._holding(run_id, snapshot):
+            return
         self._track_battle(snapshot, run_id)
         if self._mem_applied == (run_id, snapshot):
             self._publish_status("watching", MEMORY_TITLE, self._mem_seeing)
@@ -353,8 +389,7 @@ class Scanner:
             if battle is not None and battle.roster_snapshot_pending and sample.turn != 0:
                 try:
                     roster = self.store.get(run_id).units
-                    # Without the player's plans: the snapshot is how the roster stood, not what was planned.
-                    battle.roster_snapshot = {key: unit.model_copy(deep=True, update={"plan": UnitPlan()}) for key, unit in roster.items()}
+                    battle.roster_snapshot = snapshot_roster(roster)
                 except NotFound:
                     battle.roster_snapshot = {}
                 battle.roster_snapshot_pending = False
@@ -783,7 +818,97 @@ class Scanner:
 
     def _apply_memory(self, snapshot: Snapshot) -> None:
         with self.roster_updates.lock:
+            run_id = self.settings.get().active_run_id or ""
+            if len(snapshot.roster) != ROSTER_SIZE:
+                self._apply_roster(snapshot)  # (warns that the roster couldn't be read)
+                return
+            save = save_fingerprint(snapshot.roster, snapshot.player_name)
+            decision = self._decide_save(run_id, save, snapshot)
+            if decision is None:
+                return
+            place, keep_roster = decision
+            try:
+                if keep_roster:
+                    self.store.snapshot_roster(run_id)
+            except NotFound:
+                pass
             self._apply_roster(snapshot)
+            try:
+                self.store.record_save(run_id, save, place, bool(snapshot.in_battle) or self._battles.active)
+            except NotFound:
+                pass
+            if self._forced == run_id:
+                self._forced = None
+            self._set_save_prompt(None)
+
+    # Game saves (domain/saves.py)
+
+    def _decide_save(self, run_id: str, save: SaveFingerprint, snapshot: Snapshot) -> tuple[Place | None, bool] | None:
+        """Whether the save the game holds may be synced with the active run: (where it sits in the run's saves,
+        whether to keep the run's roster first), or None to hold it back and ask the player."""
+        try:
+            lineages = self.store.save_lineages()
+        except Exception:
+            log.exception("Could not read the runs' saves")
+            lineages = []
+        active = next((r for r in lineages if r.id == run_id), None)
+        if active is None:
+            return None, False  # (the run is gone: _apply_roster says so)
+        place = locate(active.saves, save)
+        if place is not None:
+            # The run's save, or an older one of it (rolled back to quietly, keeping the roster it replaces).
+            return place, place.kind == "between" and not snapshot.in_battle
+        follows = bool(active.saves.checkpoints)
+        if self._forced == run_id or snapshot.in_battle or self._battles.active:
+            # The player chose this run for the save, or plays on with it (a battle started): the run follows it.
+            return None, follows
+        matches = [r for r in lineages if r.id != run_id and locate(r.saves, save) is not None]
+        if not matches and (not follows or (save.fresh and all(_fresh(c.units) for c in active.saves.checkpoints))):
+            # The run's first save: a new run, or a run from before saves were noted.
+            return None, False
+        self._held = HeldSave(run_id, snapshot.roster, snapshot.player_name, save)
+        self._mem_applied = (run_id, snapshot)
+        self._set_save_prompt(
+            {
+                "run_id": run_id,
+                "matches": [{"id": r.id, "name": r.name, "updated_at": r.updated_at.isoformat()} for r in matches],
+            }
+        )
+        return None
+
+    def _holding(self, run_id: str, snapshot: Snapshot) -> bool:
+        """While a save is held back: True to skip this read. Playing on with the save (a battle starts, or the
+        roster moves on from it) syncs it with the active run; switching runs or loading another save decides
+        again."""
+        held = self._held
+        if held is None:
+            return False
+        if held.run_id != run_id or snapshot.in_battle:
+            if held.run_id == run_id:
+                self._forced = run_id  # a battle started with the save: the run follows it
+            self._held, self._mem_applied = None, None
+            self._set_save_prompt(None)
+            return False
+        if snapshot.roster == held.roster and snapshot.player_name == held.player_name:
+            self._publish_status("held", MEMORY_TITLE, message=HELD_MESSAGE)
+            return True
+        if snapshot != self._mem_pending:  # changed: wait for the next read to agree
+            self._mem_pending = snapshot
+            return True
+        save = save_fingerprint(snapshot.roster, snapshot.player_name)
+        if save.player == held.save.player and compare(save.units, held.save.units) == "ge":
+            self._forced = run_id  # the player played on with the held save
+        self._held, self._mem_applied = None, None  # otherwise another save was loaded: decide again
+        self._set_save_prompt(None)
+        return False
+
+    def _set_save_prompt(self, prompt: dict | None) -> None:
+        if prompt == self._save_prompt:
+            return
+        self._save_prompt = prompt
+        if prompt is not None:
+            self._status = {**self._status, "state": "held", "screen": MEMORY_TITLE, "seeing": None, "message": HELD_MESSAGE}
+        self.events.publish("auto", self.auto_status())
 
     def _apply_roster(self, snapshot: Snapshot) -> None:
         """Save complete observations and warn about unreadable units."""

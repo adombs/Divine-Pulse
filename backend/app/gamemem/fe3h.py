@@ -28,7 +28,8 @@ from ..system.memory import AccessDenied, ProcessMemory, open_process
 from ..domain.battalions import valid_endurance, valid_exp, valid_uses
 from ..domain.units import SkillProgress
 from .emulators import EMULATORS, Emulator, MemoryLayout, names, running
-from .skills import decode_skill_progress
+from .skills import decode_skill_progress, skill_exp_total
+from ..domain.saves import SaveFingerprint
 
 log = logging.getLogger(__name__)
 
@@ -279,6 +280,21 @@ def decode_player_birthday(data: bytes) -> str | None:
         return None
     month, day = data[BIRTH_MONTH] + 1, data[BIRTH_DAY]
     return f"{month}/{day}" if 1 <= month <= 12 and 1 <= day <= 31 else None
+
+
+def save_fingerprint(roster: bytes, player_name: bytes) -> SaveFingerprint:
+    """The save the game holds, as domain/saves.py recognises it: Byleth's name and birthday, and each army unit's
+    battles started, fights, victories, level and skill experience."""
+    units = {}
+    for i in range(min(SLOTS, len(roster) // SLOT_SIZE)):
+        s = roster[i * SLOT_SIZE : (i + 1) * SLOT_SIZE]
+        character = struct.unpack_from("<H", s, _CHARACTER)[0]
+        if character == EMPTY_SLOT or s[_FLAGS] & IN_ARMY != IN_ARMY:
+            continue
+        combats, victories = struct.unpack_from("<HH", s, _COMBATS)
+        units[character] = (_counter(s), combats, victories, s[_LEVEL], skill_exp_total(s))
+    player = f"{decode_player_name(player_name) or ''}|{decode_player_birthday(player_name) or ''}"
+    return SaveFingerprint(player, units)
 
 
 def _counter(record: bytes) -> int:

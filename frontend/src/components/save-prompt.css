@@ -1,0 +1,13 @@
+.save-prompt { max-width: 34rem; }
+.save-prompt .modal-body { display: grid; gap: 1rem; }
+.save-prompt p { margin: 0; }
+.save-prompt-runs { list-style: none; margin: 0; padding: 0; display: grid; gap: 0.5rem; }
+.save-prompt-runs li { display: flex; align-items: center; justify-content: space-between; gap: 0.75rem; flex-wrap: wrap; }
+.save-prompt-run { display: grid; gap: 0.1rem; min-width: 0; }
+.save-prompt-run small,
+.save-prompt-sync small { color: var(--ink-soft); }
+.save-prompt-new { display: grid; gap: 0.4rem; }
+.save-prompt-row { display: flex; gap: 0.5rem; flex-wrap: wrap; }
+.save-prompt-row input { flex: 1 1 12rem; min-width: 0; }
+.save-prompt-error { color: var(--red); }
+.save-prompt-sync { display: grid; gap: 0.3rem; justify-items: start; border-top: 1px solid var(--line); padding-top: 0.9rem; }

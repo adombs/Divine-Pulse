@@ -195,6 +195,7 @@ def test_event_publishers_and_sse_wire_message_keep_names_and_payloads(tmp_path)
                 "screen": MEMORY_TITLE,
                 "seeing": "Byleth",
                 "message": "",
+                "save_prompt": None,
             },
         )
 

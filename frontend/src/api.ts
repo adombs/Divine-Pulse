@@ -190,10 +190,18 @@ export interface DuplicateGroups { groups: DuplicateGroup[] }
 export interface AutoStatus {
   /** Keys of the units in the battle in progress (empty outside a battle). */
   battle: string[];
-  state: "off" | "watching" | "no_run" | "error";
+  state: "off" | "watching" | "no_run" | "error" | "held";
   /** What the last read saw, e.g. "15 units". */
   seeing: string | null;
   message: string;
+  /** The game has a save loaded that isn't the active run's ("held"): nothing is synced until the player chooses. */
+  save_prompt?: SavePromptInfo | null;
+}
+
+/** A save held back from the active run, and the runs it belongs to (newest first; none: no run follows it). */
+export interface SavePromptInfo {
+  run_id: string;
+  matches: { id: string; name: string; updated_at: string }[];
 }
 
 // Battles
@@ -633,6 +641,7 @@ export const api = {
   saveSettings: (s: SettingsInput) => request<Settings>("PUT", "/settings", s),
   update: () => request<UpdateStatus>("GET", "/update"),
   auto: () => request<AutoStatus>("GET", "/auto"),
+  syncSave: () => request<void>("POST", "/auto/sync-save"),
   battle: () => request<{ battle: Battle | null }>("GET", "/battle"),
   battles: (runId: string) => request<Battle[]>("GET", `/runs/${enc(runId)}/battles`),
   exportRun: (runId: string) => request<Record<string, unknown>>("GET", `/runs/${enc(runId)}/export`),
