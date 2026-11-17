@@ -3,6 +3,22 @@
 .modal.planner { width: min(1560px, 100%); }
 .planner .modal-body { padding: 0.8rem 1.2rem 1rem; }
 .planner .modal-actions { gap: 0.5rem; }
+/* Beside the name in the banner: Previous, Next, and a search for anyone else's plan. */
+.planner .modal-head .banner-title { display: flex; align-items: center; gap: 1.1rem; overflow: visible; }
+.plan-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.plan-nav { flex: none; display: flex; align-items: center; gap: 0.3rem; font: 400 1rem var(--ui); text-shadow: none; letter-spacing: 0; }
+.plan-nav-step {
+  display: grid; place-items: center; width: 2rem; height: 1.85rem; padding: 0; border-radius: 2px; cursor: pointer; font-size: 1.15rem;
+  border: 1px solid rgb(255 255 255 / 0.3); background: rgb(255 255 255 / 0.12); color: #fbf8f1;
+}
+.plan-nav-step:hover:not(:disabled) { background: rgb(255 255 255 / 0.24); border-color: rgb(255 255 255 / 0.5); color: #fff; }
+.plan-nav-step:disabled { opacity: 0.4; cursor: default; }
+.plan-find { margin-left: 0.35rem; }
+.plan-find input { width: 13rem; min-height: 1.85rem; border: 1px solid rgb(255 255 255 / 0.3); background: rgb(255 255 255 / 0.12); color: #fbf8f1; }
+.plan-find input::placeholder { color: rgb(251 248 241 / 0.65); }
+.plan-find input:hover { border-color: rgb(255 255 255 / 0.5); }
+.plan-find input:focus { border-color: rgb(255 255 255 / 0.7); background: rgb(255 255 255 / 0.2); }
+.plan-find .entry-picker-icon, .plan-find:focus-within .entry-picker-icon { color: rgb(251 248 241 / 0.8); }
 .plan-save { display: inline-flex; align-items: center; gap: 0.3rem; font: 0.9rem var(--ui); color: var(--ink-soft); white-space: nowrap; }
 .plan-save.saved .icon { color: var(--green); }
 .plan-save.error { color: var(--red); }

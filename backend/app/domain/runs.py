@@ -9,7 +9,7 @@ from pydantic import BaseModel, Field
 
 from .ebst import EbstConfig
 from .saves import SaveLineage
-from .units import Unit, now
+from .units import Unit, UnitPlan, now
 
 
 class Rule(BaseModel):
@@ -44,6 +44,8 @@ class Run(BaseModel):
     route: str | None = None
     # The run's self-imposed rules, in the order the player put them.
     ruleset: list[Rule] = Field(default_factory=list)
+    # Plans for characters not on the roster yet, by Characters page key; a unit that joins under that key takes its plan.
+    plans: dict[str, UnitPlan] = Field(default_factory=dict)
     # The game saves synced with this run, to recognise them when the game loads one (saves.py).
     saves: SaveLineage = Field(default_factory=SaveLineage)
     # The roster as it stood before the run was last synced with a save it wasn't following (a save new to the run,

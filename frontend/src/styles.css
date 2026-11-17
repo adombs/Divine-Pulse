@@ -1689,6 +1689,9 @@ code.path { word-break: break-all; font-size: 0.9rem; }
 .banner-actions .btn.icon-only:hover:not(:disabled) { background: rgb(255 255 255 / 0.24); color: #fff; border-color: rgb(255 255 255 / 0.5); }
 .banner-actions .btn.icon-only.danger { color: #ffb8b2; }
 .banner-actions .btn.icon-only.danger:hover:not(:disabled) { background: var(--red); border-color: var(--red); color: #fff; }
+/* The Roster card's Battle Stats and Planner buttons; the Planner's glyph draws smaller, so it gets a little more. */
+.banner-actions .btn.icon-only.card-history { font-size: 1.3rem; }
+.banner-actions .btn.icon-only.plan-open { font-size: 1.5rem; }
 .popup-card-actions { display: contents; }
 /* List pages with a side card (Roster, Characters, the battle's Units): on wide screens the page fits the sheet, the
    search and filters stay put, only the table scrolls, and the card fills the column beside it. */

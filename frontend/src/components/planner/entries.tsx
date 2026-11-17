@@ -10,7 +10,7 @@ import { abilityIconUrl, artIconUrl, crestIconUrl, itemIconUrl, spellIconUrl, Re
 import { useSpoiler } from "../../spoilers";
 import { KIND_LABEL, searchEntries, type ArchiveEntry, type LinkKind } from "../../planner";
 import { TierIcon } from "../reference/TierIcon";
-import { Icon } from "../Icon";
+import { Icon, type IconName } from "../Icon";
 import { CONCEPT_ICON } from "../../icons/concepts";
 
 /** The game-asset path of an entry's in-game icon; units and classes have none. */
@@ -131,12 +131,19 @@ export function EntryPicker({
   onPick,
   exclude,
   suggested,
+  notes: marks,
+  icon = CONCEPT_ICON.add,
+  className,
 }: {
   entries: ArchiveEntry[];
   placeholder: string;
   onPick: (e: ArchiveEntry) => void;
   exclude?: readonly string[];
   suggested?: { entry: ArchiveEntry; note: string }[];
+  /** A word or two beside entries in search results too (the suggestions' own notes win while the box is empty). */
+  notes?: Map<string, string>;
+  icon?: IconName;
+  className?: string;
 }) {
   const { ref } = useArchiveEntries();
   const [text, setText] = useState("");
@@ -150,7 +157,11 @@ export function EntryPicker({
     const left = exclude?.length ? entries.filter((e) => !exclude.includes(e.id)) : entries;
     return searchEntries(left, text, text ? 8 : 50);
   }, [entries, exclude, text, suggested]);
-  const notes = useMemo(() => (!text.trim() && suggested ? new Map(suggested.map((s) => [s.entry.id, s.note])) : undefined), [text, suggested]);
+  const notes = useMemo(() => {
+    const out = new Map(marks);
+    if (!text.trim() && suggested) for (const s of suggested) out.set(s.entry.id, s.note);
+    return out.size ? out : undefined;
+  }, [text, suggested, marks]);
   const show = () => {
     setAnchor(input.current?.getBoundingClientRect() ?? null);
     setOpen(true);
@@ -185,8 +196,8 @@ export function EntryPicker({
     }
   };
   return (
-    <div className="entry-picker">
-      <Icon name={CONCEPT_ICON.add} className="entry-picker-icon" />
+    <div className={`entry-picker${className ? ` ${className}` : ""}`}>
+      <Icon name={icon} className="entry-picker-icon" />
       <input
         ref={input}
         value={text}

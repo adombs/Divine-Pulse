@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 from ..domain.battle import Battle, BattleUnitStats
 from ..domain.runs import Rule, RunSummary
 from ..domain.membership import on_roster
-from ..domain.units import Unit, VALUE_KEYS
+from ..domain.units import Unit, UnitPlan, VALUE_KEYS
 from ..domain.ebst import EbstConfig
 from ..domain.outlook import outlook
 
@@ -19,6 +19,12 @@ class RunsOut(BaseModel):
 
 class RulesetOut(BaseModel):
     rules: list[Rule]
+
+
+class PlansOut(BaseModel):
+    """Plans for characters not on the roster yet, by Characters page key."""
+
+    plans: dict[str, UnitPlan]
 
 
 class BattleUnitOut(BattleUnitStats):

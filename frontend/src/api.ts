@@ -626,6 +626,10 @@ export const api = {
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/ebst`, body),
   setUnitPlan: (runId: string, key: string, plan: UnitPlan) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/plan`, plan),
+  /** Plans for characters not on the roster yet, by Characters page key. */
+  plans: (runId: string) => request<{ plans: Record<string, UnitPlan> }>("GET", `/runs/${enc(runId)}/plans`),
+  setPlan: (runId: string, key: string, plan: UnitPlan) =>
+    request<UnitPlan>("PUT", `/runs/${enc(runId)}/plans/${enc(key)}`, plan),
   setUnitDead: (runId: string, key: string, dead: boolean) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/dead`, { dead }),
   gameFilesStatus: () => request<GameFilesStatus>("GET", "/game-assets/status"),
