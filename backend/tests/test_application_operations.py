@@ -71,6 +71,11 @@ class MemoryRuns:
         self.values[run_id] = run
         return list(rules)
 
+    def set_plan(self, run_id, key, plan):
+        run = self.get(run_id)
+        run.plans[key] = plan
+        self.values[run_id] = run
+
     def delete_unit(self, run_id, key):
         run = self.get(run_id)
         if key not in run.units:

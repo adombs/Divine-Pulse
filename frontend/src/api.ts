@@ -92,7 +92,7 @@ export interface Unit {
   in_army?: boolean;
   /** Whether the Roster shows it: in the army, or dead. Units off the Roster keep their history. */
   on_roster?: boolean;
-  /** The unit's run score (damage dealt plus healing done, averaged over the completed battles it was deployed in, not as an adjutant); 0 when none. */
+  /** The unit's run score (damage dealt plus half the healing done, averaged over the completed battles it was deployed in, not as an adjutant); 0 when none. */
   score?: number;
   /** The player's plan (the Roster's Planner); absent on older servers. */
   plan?: UnitPlan;
@@ -112,7 +112,7 @@ export interface UnitPlan {
   notes: string;
 }
 
-export type PlanSupportRank = "C" | "B" | "A" | "S";
+export type PlanSupportRank = "C" | "B" | "A" | "A+" | "S";
 export interface PlanSupport { partner: string; rank: PlanSupportRank }
 
 export const EMPTY_PLAN: UnitPlan = { classes: [], skills: {}, arts: [], abilities: [], equipment: [], battalion: "", supports: [], notes: "" };
@@ -190,10 +190,18 @@ export interface DuplicateGroups { groups: DuplicateGroup[] }
 export interface AutoStatus {
   /** Keys of the units in the battle in progress (empty outside a battle). */
   battle: string[];
-  state: "off" | "watching" | "no_run" | "error";
+  state: "off" | "watching" | "no_run" | "error" | "held";
   /** What the last read saw, e.g. "15 units". */
   seeing: string | null;
   message: string;
+  /** The game has a save loaded that isn't the active run's ("held"): nothing is synced until the player chooses. */
+  save_prompt?: SavePromptInfo | null;
+}
+
+/** A save held back from the active run, and the runs it belongs to (newest first; none: no run follows it). */
+export interface SavePromptInfo {
+  run_id: string;
+  matches: { id: string; name: string; updated_at: string }[];
 }
 
 // Battles
@@ -618,6 +626,10 @@ export const api = {
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/ebst`, body),
   setUnitPlan: (runId: string, key: string, plan: UnitPlan) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/plan`, plan),
+  /** Plans for characters not on the roster yet, by Characters page key. */
+  plans: (runId: string) => request<{ plans: Record<string, UnitPlan> }>("GET", `/runs/${enc(runId)}/plans`),
+  setPlan: (runId: string, key: string, plan: UnitPlan) =>
+    request<UnitPlan>("PUT", `/runs/${enc(runId)}/plans/${enc(key)}`, plan),
   setUnitDead: (runId: string, key: string, dead: boolean) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/dead`, { dead }),
   gameFilesStatus: () => request<GameFilesStatus>("GET", "/game-assets/status"),
@@ -633,6 +645,7 @@ export const api = {
   saveSettings: (s: SettingsInput) => request<Settings>("PUT", "/settings", s),
   update: () => request<UpdateStatus>("GET", "/update"),
   auto: () => request<AutoStatus>("GET", "/auto"),
+  syncSave: () => request<void>("POST", "/auto/sync-save"),
   battle: () => request<{ battle: Battle | null }>("GET", "/battle"),
   battles: (runId: string) => request<Battle[]>("GET", `/runs/${enc(runId)}/battles`),
   exportRun: (runId: string) => request<Record<string, unknown>>("GET", `/runs/${enc(runId)}/export`),

@@ -176,6 +176,8 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
 
   // With none picked, the first row's card shows.
   const current = units.find((u) => u.key === selected) ?? sorted[0] ?? null;
+  // The Planner's Previous and Next: the Roster as listed, then any of it the filters hide.
+  const planOrder = useMemo(() => [...sorted, ...units.filter((u) => u.on_roster !== false && !sorted.includes(u))], [sorted, units]);
 
   if (!run) {
     return (
@@ -254,6 +256,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
           current && (
             <UnitCard
               unit={current}
+              units={planOrder}
               runId={run.id}
               mode={mode}
               lens={lens}
@@ -433,6 +436,8 @@ function DeathLink({ unit }: { unit: Unit }) {
 /** A compact version of the in-game Status page for one unit. */
 interface CardProps {
   unit: Unit;
+  /** Everyone the Planner can step through (also tells its supports which Byleth the run has). */
+  units: Unit[];
   runId: string;
   mode: Mode;
   lens: Lens;
@@ -440,7 +445,7 @@ interface CardProps {
   toasts: ToastState;
 }
 
-function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
+function UnitCard({ unit, units, runId, mode, lens, part2, toasts }: CardProps) {
   const left: StatKey[] = ["str", "mag", "dex", "spd"];
   const right: StatKey[] = ["lck", "def", "res", "cha"];
   const values = valuesFor(unit, mode);
@@ -551,8 +556,8 @@ function UnitCard({ unit, runId, mode, lens, part2, toasts }: CardProps) {
       label={`${unit.name} details`}
       actions={
         <>
-          <IconButton icon={CONCEPT_ICON.history} label="Battle Stats" onClick={() => nav.go({ page: "history", tab: "stats", id: unit.key })} />
-          <PlannerButton unit={unit} runId={runId} toasts={toasts} />
+          <IconButton icon={CONCEPT_ICON.history} label="Battle Stats" onClick={() => nav.go({ page: "history", tab: "stats", id: unit.key })} className="card-history" />
+          <PlannerButton unit={unit} units={units} runId={runId} toasts={toasts} />
           {/* A unit can be put back among the living when the game's flag is wrong, but never marked fallen by hand. */}
           {unit.death && <IconButton icon={CONCEPT_ICON.alive} label="Mark as Alive" onClick={setAlive} />}
         </>

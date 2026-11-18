@@ -172,7 +172,7 @@ await t.test("battle comparison shows type tags beside dates using History's sha
   assert.doesNotMatch(html, /Select a column to compare|run-stats-footnote|Battle comparison/);
 });
 
-await t.test("run score: damage plus healing averaged per deployment (not as an adjutant), finished battles only", () => {
+await t.test("run score: damage plus half the healing averaged per deployment (not as an adjutant), finished battles only", () => {
   const u = (key, defeats, damage_dealt, healing_given, extra = {}) => unit(key, { defeats, damage_dealt, healing_given, ...extra });
   const source = [
     battle("1", { units: [u("a", 3, 10, 5), u("b", 3, 20, 0), u("c", 1, 0, 3)] }),
@@ -182,9 +182,9 @@ await t.test("run score: damage plus healing averaged per deployment (not as an 
     battle("5", { units: [u("b", 1, 30, 0), u("d", 0, 90, 0, { adjutant_of: "b", on_map: false })] }),
   ];
   const scores = unitScores(source);
-  assert.equal(scores.get("a"), 7); // 20 over 3 deployments; MVPs add nothing
-  assert.equal(scores.get("b"), 13); // 52 over 4
-  assert.equal(scores.get("c"), 3); // its battle as an adjutant isn't a deployment
+  assert.equal(scores.get("a"), 6); // 17 over 3 deployments (healing counts half); MVPs add nothing
+  assert.equal(scores.get("b"), 13); // 51.5 over 4
+  assert.equal(scores.get("c"), 2); // 1.5 over 1; its battle as an adjutant isn't a deployment
   assert.equal(scores.get("d"), 0); // only ever an adjutant
   const data = buildRunLedger(source, "characters");
   assert.equal(data.columns.combat[0].key, "score");

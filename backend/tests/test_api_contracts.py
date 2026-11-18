@@ -195,6 +195,7 @@ def test_event_publishers_and_sse_wire_message_keep_names_and_payloads(tmp_path)
                 "screen": MEMORY_TITLE,
                 "seeing": "Byleth",
                 "message": "",
+                "save_prompt": None,
             },
         )
 
@@ -289,3 +290,30 @@ def test_a_units_plan_is_saved_whole_and_kept(tmp_path):
         assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"equipment": list("abcdefg")}).status_code == 422
         assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"supports": [{"partner": "x", "rank": "Z"}]}).status_code == 422
         assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"extra": 1}).status_code == 422
+
+
+def test_a_plan_for_a_character_off_the_roster_is_kept_until_they_join(tmp_path):
+    app = create_app(tmp_path, background=False)
+    with TestClient(app) as client:
+        run_id = client.post("/api/runs", json={"name": "Recruits"}).json()["id"]
+        assert client.get(f"/api/runs/{run_id}/plans").json() == {"plans": {}}
+
+        plan = {"classes": ["Bow Knight"], "supports": [{"partner": "raphael", "rank": "B"}], "notes": "Recruit in Part I"}
+        saved = client.put(f"/api/runs/{run_id}/plans/leonie", json=plan)
+        assert saved.status_code == 200 and saved.json()["classes"] == ["Bow Knight"]
+        assert client.get(f"/api/runs/{run_id}/plans").json()["plans"]["leonie"]["notes"] == "Recruit in Part I"
+
+        assert client.put(f"/api/runs/{run_id}/plans/Not A Key", json=plan).status_code == 422
+        assert client.put(f"/api/runs/{run_id}/plans/leonie", json={"extra": 1}).status_code == 422
+        assert client.put("/api/runs/missing/plans/leonie", json=plan).status_code == 404
+
+        # Joining the roster brings the plan along, and it leaves the off-roster plans.
+        app.state.store.put_unit(run_id, "leonie", Unit(name="Leonie", game_id=30))
+        [unit] = client.get(f"/api/runs/{run_id}/units").json()
+        assert unit["plan"]["classes"] == ["Bow Knight"] and unit["plan"]["supports"] == [{"partner": "raphael", "rank": "B"}]
+        assert client.get(f"/api/runs/{run_id}/plans").json() == {"plans": {}}
+
+        # An empty plan forgets it.
+        client.put(f"/api/runs/{run_id}/plans/lorenz", json={"notes": "maybe"})
+        client.put(f"/api/runs/{run_id}/plans/lorenz", json={})
+        assert client.get(f"/api/runs/{run_id}/plans").json() == {"plans": {}}

@@ -61,6 +61,15 @@ Both packages require Windows 10 or 11 (64-bit) with Microsoft Edge WebView2. Th
    labels (for example **Export Video**, **Battles and stats**, **Map**, **Smaller changes**), one line per bullet,
    saying what a player can now do or see, not every precise change, setting or number. Keep anything a player must
    act on (for example "Reprocess your game files once"). Version 1.4.3's section is a good model.
+
+   **Screenshots.** A release's notes may carry screenshots, as 1.4.0's do. Never link a file that is not in the
+   repository at the release tag (the 1.5.0 notes linked a `planner-screenshot.webp` that was never uploaded and
+   broke). Never upload one as a release asset: assets are only the installer, the portable ZIP and the checksums.
+   To add one, open the release's edit page on GitHub in a signed-in browser, attach the image to the description box
+   (the file input beside it, not the release-assets one) so GitHub returns a `github.com/user-attachments/assets/…`
+   link, copy that link into the notes with a short alt text, and set the notes with `gh release edit`; leave the
+   web form unsaved. After editing, check that `gh release view vX.Y.Z --json assets` lists only the three build files.
+   Ask for the screenshot if the release needs one and none was provided.
 5. **Test and publish.** Try the installer and portable ZIP on a clean PC (or fresh Windows user account). Inspect
    the draft's version, notes, files, and checksums before publishing it manually on GitHub.
 

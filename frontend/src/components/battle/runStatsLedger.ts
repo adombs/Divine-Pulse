@@ -20,7 +20,10 @@ export interface LedgerRow {
 export interface LedgerSort { column: number; direction: "ascending" | "descending" }
 const metric = (key: string, label: string, hint?: string): LedgerColumn => ({ key, label, hint });
 
-/** Each unit's run score, as the backend's domain/best_unit.py works it out: damage dealt plus healing given, averaged
+/** A point of healing is worth half a point of damage (backend/app/domain/best_unit.py has the same weight). */
+const HEALING_WEIGHT = 0.5;
+
+/** Each unit's run score, as the backend's domain/best_unit.py works it out: damage dealt plus half the healing given, averaged
  *  over its deployments (finished battles it was in, not as an adjutant). 0 if never deployed. */
 export function unitScores(source: Battle[]): Map<string, number> {
   const earned = new Map<string, { points: number; deployments: number }>();
@@ -30,7 +33,7 @@ export function unitScores(source: Battle[]): Map<string, number> {
       const e = earned.get(u.key) ?? { points: 0, deployments: 0 };
       earned.set(u.key, e);
       if (u.adjutant_of) continue;
-      e.points += (u.damage_dealt ?? 0) + (u.healing_given ?? 0);
+      e.points += (u.damage_dealt ?? 0) + HEALING_WEIGHT * (u.healing_given ?? 0);
       e.deployments += 1;
     }
   }

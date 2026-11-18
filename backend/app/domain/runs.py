@@ -8,7 +8,8 @@ from typing import Literal
 from pydantic import BaseModel, Field
 
 from .ebst import EbstConfig
-from .units import Unit, now
+from .saves import SaveLineage
+from .units import Unit, UnitPlan, now
 
 
 class Rule(BaseModel):
@@ -25,6 +26,13 @@ RULE_NAME_LEN = 60
 RULE_DESCRIPTION_LEN = 280
 
 
+class RosterSnapshot(BaseModel):
+    """A run's roster at one moment: every unit with everything the run holds for it, plans included."""
+
+    at: datetime = Field(default_factory=now)
+    units: dict[str, Unit] = Field(default_factory=dict)
+
+
 class Run(BaseModel):
     schema_version: Literal[1] = 1
     id: str
@@ -36,6 +44,19 @@ class Run(BaseModel):
     route: str | None = None
     # The run's self-imposed rules, in the order the player put them.
     ruleset: list[Rule] = Field(default_factory=list)
+    # Plans for characters not on the roster yet, by Characters page key; a unit that joins under that key takes its plan.
+    plans: dict[str, UnitPlan] = Field(default_factory=dict)
+    # The game saves synced with this run, to recognise them when the game loads one (saves.py).
+    saves: SaveLineage = Field(default_factory=SaveLineage)
+    # The roster as it stood before the run was last synced with a save it wasn't following (a save new to the run,
+    # or an older one rolled back to), so that roster isn't lost.
+    roster_snapshot: RosterSnapshot | None = None
+
+
+def snapshot_roster(units: dict[str, Unit]) -> dict[str, Unit]:
+    """A copy of a roster that later changes to the run never reach: how a battle's roster stood when it began, and a
+    run's before a sync replaced it."""
+    return {key: unit.model_copy(deep=True) for key, unit in units.items()}
 
 
 # The game's scenario ids for main-story chapters (the prologue to the last chapter of every route), as in

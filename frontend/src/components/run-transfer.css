@@ -7,3 +7,9 @@
 .run-transfer-battles { display: grid; gap: .45rem; max-height: 15rem; overflow: auto; margin: 0; padding: .65rem; }
 .run-transfer-battles label { display: flex; align-items: center; gap: .5rem; }
 .run-transfer-file { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0, 0, 0, 0); }
+.run-transfer-options { flex-wrap: wrap; }
+.run-transfer-file-row { display: flex; align-items: center; gap: .75rem; min-width: 0; }
+.run-transfer-file-row > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.run-transfer-plans label { flex-wrap: wrap; column-gap: .5rem; row-gap: 0; }
+.run-transfer-plans label > .muted { margin-left: auto; }
+.run-transfer-plans .run-transfer-all { padding-bottom: .4rem; border-bottom: 1px solid var(--line); font-weight: 600; }

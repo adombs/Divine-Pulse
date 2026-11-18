@@ -9,12 +9,13 @@ import { createPortal } from "react-dom";
 import { api, EMPTY_PLAN, PLAN_MAX, type PlanSupportRank, type Unit, type UnitPlan } from "../../api";
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { useNav } from "../../nav";
+import { planIsEmpty } from "../../planTransfer";
 import { linkRoute, rankIndex, reaches, targetsForClasses, type ArchiveEntry, type LinkKind } from "../../planner";
-import { characterKeyOfUnit } from "../../portraits";
+import { characterKeyOfUnit, portraitKey } from "../../portraits";
 import { SKILL_KEYS, SKILL_LABEL, type Aptitude, type Character, type ReferenceData, type SkillKey } from "../../reference/types";
 import { WEAPON_RANKS } from "../../reference/weaponRanks";
-import { useSupports, type SupportPair } from "../../reference/supports";
-import { visibleRanks } from "../reference/supports/shared";
+import { useSupports } from "../../reference/supports";
+import { pairsByPartner, runBylethGender, visibleRanks } from "../reference/supports/shared";
 import { tidyAbility } from "../../appearance";
 import { RefLink } from "../common";
 import { Icon, IconButton, type IconName } from "../Icon";
@@ -29,44 +30,163 @@ const SAVE_MS = 600;
 type SaveStatus = "idle" | "saving" | "saved" | "error";
 type Update = (change: Partial<UnitPlan>) => void;
 
-export const planIsEmpty = (p: UnitPlan | undefined) =>
-  !p || (!p.classes.length && !Object.keys(p.skills).length && !p.arts.length && !p.abilities.length && !p.equipment.length
-    && !p.battalion && !(p.supports ?? []).length && !p.notes.trim());
+export { planIsEmpty };
+
+// The last plan each window saved, by run and unit, so reopening shows it even before the roster has reloaded.
+const savedPlans = new Map<string, UnitPlan>();
+/** Forget them for a run whose plans changed elsewhere (an import), so the roster's own are shown. */
+export function forgetSavedPlans(runId: string) {
+  for (const key of [...savedPlans.keys()]) if (key.startsWith(`${runId}:`)) savedPlans.delete(key);
+}
 
 /** The roster card's Planner button, and the window it opens. */
-export function PlannerButton({ unit, runId, toasts }: { unit: Unit; runId: string; toasts: ToastState }) {
+export function PlannerButton({ unit, units, runId, toasts }: { unit: Unit; units: Unit[]; runId: string; toasts: ToastState }) {
   const [open, setOpen] = useState(false);
-  const [confirm, setConfirm] = useState(false);
-  const [status, setStatus] = useState<SaveStatus>("idle");
-  const reset = useRef<() => void>(() => {});
-  // The last plan this window saved, so reopening shows it even before the roster has reloaded.
-  const latest = useRef<{ key: string; plan: UnitPlan } | null>(null);
-  const known = latest.current?.key === unit.key ? latest.current.plan : unit.plan;
-  const planned = !planIsEmpty(known);
+  const planned = !planIsEmpty(savedPlans.get(`${runId}:${unit.key}`) ?? unit.plan);
   return (
     <>
       <IconButton
         icon={CONCEPT_ICON.plan}
         label={planned ? "Planner (has a plan)" : "Planner"}
-        onClick={() => { setStatus("idle"); setOpen(true); }}
-        className={planned ? "has-plan" : undefined}
+        onClick={() => setOpen(true)}
+        className={`plan-open${planned ? " has-plan" : ""}`}
       />
+      <PlannerWindow open={open} onClose={() => setOpen(false)} start={unit} units={units} runId={runId} toasts={toasts} />
+    </>
+  );
+}
+
+/** Whose plan the window shows: a unit on the Roster, or a character who isn't (by Characters page key). */
+type Subject = { kind: "unit"; key: string } | { kind: "character"; key: string };
+const sameSubject = (a: Subject, b: Subject) => a.kind === b.kind && a.key === b.key;
+
+/** A character off the Roster as the plan sees them: no class, gear or progress yet. */
+function stubUnit(c: Character): Unit {
+  return {
+    key: c.key, name: c.name, full_name: c.full_name, class_name: "", gender: c.gender === "Either" ? "" : c.gender,
+    displayed: {} as Unit["displayed"], bonuses: {}, effective_bonuses: {}, base_values: {} as Unit["base_values"],
+    ebst_effective: {} as Unit["ebst_effective"], blue: [], boosted_unexplained: [], personal_ability: "", abilities: [],
+    accessory: null, updated_at: "",
+  };
+}
+
+/** The Planner window: one plan at a time, the previous and next ones a click away, and a search for anyone else,
+ * on the Roster or not. */
+function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
+  open: boolean; onClose: () => void; start: Unit; units: Unit[]; runId: string; toasts: ToastState;
+}) {
+  const { ref, entries } = useArchiveEntries();
+  const [subject, setSubject] = useState<Subject>({ kind: "unit", key: start.key });
+  const [offRoster, setOffRoster] = useState<Record<string, UnitPlan> | null>(null);
+  const [confirm, setConfirm] = useState(false);
+  const [status, setStatus] = useState<SaveStatus>("idle");
+  const reset = useRef<() => void>(() => {});
+  useEffect(() => {
+    if (!open) return;
+    setSubject({ kind: "unit", key: start.key });
+    setStatus("idle");
+    let live = true;
+    api.plans(runId).then((r) => live && setOffRoster(r.plans), () => live && setOffRoster({}));
+    return () => { live = false; };
+  }, [open, runId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Roster units by Characters page key, so picking someone on the Roster opens their unit's plan.
+  const rosterByCharacter = useMemo(() => {
+    const m = new Map<string, Unit>();
+    for (const u of units) { const k = characterKeyOfUnit(u); if (k && !m.has(k)) m.set(k, u); }
+    return m;
+  }, [units]);
+  // The order Previous and Next walk: the Roster as listed, then those planned off it, then whoever is open now.
+  const order = useMemo(() => {
+    const nameOf = (key: string) => ref?.characters.find((c) => c.key === key)?.name ?? key;
+    const out: Subject[] = units.map((u) => ({ kind: "unit", key: u.key }));
+    const planned = Object.entries(offRoster ?? {}).filter(([k, p]) => !rosterByCharacter.has(k) && !planIsEmpty(p)).map(([k]) => k);
+    planned.sort((a, b) => nameOf(a).localeCompare(nameOf(b)));
+    for (const key of planned) out.push({ kind: "character", key });
+    if (!out.some((s) => sameSubject(s, subject))) out.push(subject);
+    return out;
+  }, [units, offRoster, rosterByCharacter, subject, ref]);
+  const go = (next: Subject) => { setStatus("idle"); setSubject(next); };
+  const step = (by: number) => {
+    const at = order.findIndex((s) => sameSubject(s, subject));
+    go(order[(at + by + order.length) % order.length]);
+  };
+
+  const unit = subject.kind === "unit" ? units.find((u) => u.key === subject.key) ?? (subject.key === start.key ? start : null) : null;
+  const character = subject.kind === "character" ? ref?.characters.find((c) => c.key === subject.key) ?? null : null;
+  const shown = useMemo(() => unit ?? (character ? stubUnit(character) : null), [unit, character]);
+  const initial = unit ? savedPlans.get(`${runId}:${unit.key}`) ?? unit.plan : character ? offRoster?.[character.key] : undefined;
+  const name = shown?.name ?? "";
+  const current = shown ? characterKeyOfUnit(shown) : null;
+
+  const unitEntries = useMemo(() => entries.filter((e) => e.kind === "unit"), [entries]);
+  const notes = useMemo(() => {
+    const m = new Map<string, string>();
+    for (const e of unitEntries) {
+      if (rosterByCharacter.has(e.id)) m.set(e.id, "Roster");
+      else if (!planIsEmpty(offRoster?.[e.id])) m.set(e.id, "Planned");
+    }
+    return m;
+  }, [unitEntries, rosterByCharacter, offRoster]);
+  // With nothing typed: the Roster, then those planned off it, in the order Previous and Next walk.
+  const suggested = useMemo(() => order.flatMap((s) => {
+    const key = s.kind === "character" ? s.key : characterKeyOfUnit(units.find((u) => u.key === s.key) ?? start);
+    const entry = key ? unitEntries.find((e) => e.id === key) : undefined;
+    return entry ? [{ entry, note: notes.get(entry.id) ?? "" }] : [];
+  }), [order, units, start, unitEntries, notes]);
+  const pick = (e: ArchiveEntry) => {
+    const u = rosterByCharacter.get(e.id);
+    go(u ? { kind: "unit", key: u.key } : { kind: "character", key: e.id });
+  };
+  const save = useCallback((plan: UnitPlan) => (subject.kind === "unit"
+    ? api.setUnitPlan(runId, subject.key, plan).then(() => { savedPlans.set(`${runId}:${subject.key}`, plan); })
+    : api.setPlan(runId, subject.key, plan).then(() => setOffRoster((p) => ({ ...p, [subject.key]: plan })))), [runId, subject]);
+
+  return (
+    <>
       <Modal
         open={open}
-        onClose={() => setOpen(false)}
-        title={`${unit.name}’s Plan`}
-        ariaLabel={`${unit.name} planner`}
+        onClose={onClose}
+        title={`${name}’s Plan`}
+        ariaLabel={`${name} planner`}
         className="planner"
         actions={<>
+          <span className="plan-nav">
+            <button type="button" className="plan-nav-step" aria-label="Previous plan" title="Previous plan" onClick={() => step(-1)} disabled={order.length < 2}>
+              <Icon name={CONCEPT_ICON.prev} />
+            </button>
+
+            <button type="button" className="plan-nav-step" aria-label="Next plan" title="Next plan" onClick={() => step(1)} disabled={order.length < 2}>
+              <Icon name={CONCEPT_ICON.next} />
+            </button>
+            <EntryPicker
+              className="plan-find"
+              icon={CONCEPT_ICON.search}
+              entries={unitEntries}
+              placeholder="Find a unit"
+              exclude={current ? [current] : []}
+              notes={notes}
+              suggested={suggested}
+              onPick={pick}
+            />
+          </span>
+        </>}
+        footer={<>
           <SaveState state={status} />
-          <IconButton icon={CONCEPT_ICON.reset} label="Reset to current" onClick={() => setConfirm(true)} className="plan-reset" />
+          {unit && (
+            <button type="button" className="plan-nav-step plan-reset" aria-label="Reset to current" title="Reset to current" onClick={() => setConfirm(true)}>
+              <Icon name={CONCEPT_ICON.reset} />
+            </button>
+          )}
         </>}
       >
-        {open && <PlannerBody key={`${runId}:${unit.key}`} unit={unit} initial={known} runId={runId} toasts={toasts} onStatus={setStatus} resetRef={reset}
-          onSaved={(plan) => { latest.current = { key: unit.key, plan }; }} />}
+        {open && shown && (unit || offRoster) && (
+          <PlannerBody key={`${runId}:${subject.kind}:${subject.key}`} unit={shown} units={units} onRoster={!!unit} initial={initial} toasts={toasts}
+            onStatus={setStatus} resetRef={reset} save={save} />
+        )}
       </Modal>
       <Modal open={confirm} onClose={() => setConfirm(false)} title="Reset plan?" className="planner-confirm">
-        <p>Replace {unit.name}’s plan with what they have now? Notes are kept.</p>
+        <p>Replace {name}’s plan with what they have now? Notes are kept.</p>
         <div className="planner-confirm-actions">
           <button type="button" className="btn" onClick={() => setConfirm(false)}>Cancel</button>
           <button type="button" className="btn primary" onClick={() => { reset.current(); setConfirm(false); }}>Reset</button>
@@ -76,27 +196,28 @@ export function PlannerButton({ unit, runId, toasts }: { unit: Unit; runId: stri
   );
 }
 
-/** What the unit has now: its class, equipped combat arts and abilities, equipped gear and battalion. A new plan
+/** What the unit has now: its class, equipped combat arts and abilities, everything in its equipment field and its battalion. A new plan
  * starts from it, and Reset returns to it. */
 export function currentKit(unit: Unit): UnitPlan {
-  const equipped = (unit.inventory ?? []).filter((i) => i.equipped && i.kind !== "spell").map((i) => i.name);
+  const carried = (unit.inventory ?? []).filter((i) => i.kind !== "spell").map((i) => i.name);
   return {
     ...EMPTY_PLAN,
     classes: unit.class_name ? [unit.class_name] : [],
     arts: [...new Set(unit.combat_arts ?? [])].slice(0, PLAN_MAX.arts),
     abilities: [...new Set(unit.abilities.map(tidyAbility).filter(Boolean))].slice(0, PLAN_MAX.abilities),
-    equipment: [...new Set([...equipped, ...(unit.accessory ? [unit.accessory] : [])])].slice(0, PLAN_MAX.equipment),
+    equipment: [...new Set([...carried, ...(unit.accessory ? [unit.accessory] : [])])].slice(0, PLAN_MAX.equipment),
     battalion: unit.battalion ?? "",
   };
 }
 
-function PlannerBody({ unit, initial, runId, toasts, onStatus, resetRef, onSaved }: {
-  unit: Unit; initial: UnitPlan | undefined; runId: string; toasts: ToastState; onStatus: (s: SaveStatus) => void;
-  resetRef: React.MutableRefObject<() => void>; onSaved: (plan: UnitPlan) => void;
+function PlannerBody({ unit, units, onRoster, initial, toasts, onStatus, resetRef, save: send }: {
+  unit: Unit; units: Unit[]; onRoster: boolean; initial: UnitPlan | undefined; toasts: ToastState; onStatus: (s: SaveStatus) => void;
+  resetRef: React.MutableRefObject<() => void>; save: (plan: UnitPlan) => Promise<unknown>;
 }) {
   const { ref, entries } = useArchiveEntries();
-  const [plan, setPlan] = useState<UnitPlan>(() => (planIsEmpty(initial) ? currentKit(unit) : { ...EMPTY_PLAN, ...initial }));
-  const save = useSaver(runId, unit.key, toasts, onSaved);
+  // A character off the Roster has nothing yet to start from.
+  const [plan, setPlan] = useState<UnitPlan>(() => (planIsEmpty(initial) ? (onRoster ? currentKit(unit) : { ...EMPTY_PLAN }) : { ...EMPTY_PLAN, ...initial }));
+  const save = useSaver(send, toasts);
   useEffect(() => onStatus(save.state), [save.state, onStatus]);
   const update = useCallback<Update>((change) => setPlan((p) => {
     const next = { ...p, ...change };
@@ -144,7 +265,7 @@ function PlannerBody({ unit, initial, runId, toasts, onStatus, resetRef, onSaved
             entries={kinds("weapon", "item", "spell")} add="Empty slot" have={carried} haveLabel="Carried" data={ref} />
           <EntryList title="Combat Arts" icon={CONCEPT_ICON.art} kind="art" values={plan.arts} onChange={(arts) => update({ arts })} max={PLAN_MAX.arts}
             entries={kinds("art")} suggested={suggestArts} add="Empty slot" have={learnedArts} haveLabel="Learned" data={ref} />
-          <SupportTargets unit={unit} plan={plan} update={update} entries={byKind.get("unit") ?? []} character={character} />
+          <SupportTargets unit={unit} units={units} plan={plan} update={update} entries={byKind.get("unit") ?? []} character={character} />
         </div>
       </div>
       <section className="plan-block plan-notes">
@@ -196,7 +317,7 @@ function obtainable(
 }
 
 /** Saves the latest plan a moment after the last change, and right away when the window closes. */
-function useSaver(runId: string, key: string, toasts: ToastState, onSaved: (plan: UnitPlan) => void) {
+function useSaver(send: (plan: UnitPlan) => Promise<unknown>, toasts: ToastState) {
   const [state, setState] = useState<SaveStatus>("idle");
   const pending = useRef<UnitPlan | null>(null);
   const timer = useRef<number | undefined>(undefined);
@@ -206,14 +327,14 @@ function useSaver(runId: string, key: string, toasts: ToastState, onSaved: (plan
     if (!plan) return;
     pending.current = null;
     setState("saving");
-    api.setUnitPlan(runId, key, plan).then(
-      () => { onSaved(plan); setState((s) => (pending.current ? s : "saved")); },
+    send(plan).then(
+      () => setState((s) => (pending.current ? s : "saved")),
       (e: Error) => {
         setState("error");
         toasts.push({ kind: "error", title: "Couldn't save the plan", body: e.message });
       },
     );
-  }, [runId, key, toasts]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [send, toasts]);
   const queue = useCallback((plan: UnitPlan) => {
     pending.current = plan;
     setState("saving");
@@ -227,10 +348,10 @@ function useSaver(runId: string, key: string, toasts: ToastState, onSaved: (plan
 }
 
 function SaveState({ state }: { state: SaveStatus }) {
-  if (state === "idle") return null;
+  // Always the same width, so nothing beside it moves as it changes.
   return (
     <span className={`plan-save ${state}`} role="status">
-      {state === "saving" ? "Saving…" : state === "saved" ? <><Icon name={CONCEPT_ICON.done} /> Saved</> : <><Icon name={CONCEPT_ICON.warning} /> Not saved</>}
+      {state === "idle" ? null : state === "saving" ? "Saving…" : state === "saved" ? <><Icon name={CONCEPT_ICON.done} /> Saved</> : <><Icon name={CONCEPT_ICON.warning} /> Not saved</>}
     </span>
   );
 }
@@ -524,31 +645,26 @@ function SkillAdder({ skills, aptitudeOf, onPick }: { skills: SkillKey[]; aptitu
   );
 }
 
-const SUPPORT_RANKS: PlanSupportRank[] = ["C", "B", "A", "S"];
-const baseName = (n: string) => n.replace(/ \([MF]\)$/, "");
+const SUPPORT_RANKS: PlanSupportRank[] = ["C", "B", "A", "A+", "S"];
 
 /** Planned support partners, each with the rank to reach (only ranks the pair can have), in the player's order. */
-function SupportTargets({ unit, plan, update, entries, character }: { unit: Unit; plan: UnitPlan; update: Update; entries: ArchiveEntry[]; character: Character | undefined }) {
+function SupportTargets({ unit, units, plan, update, entries, character }: { unit: Unit; units: Unit[]; plan: UnitPlan; update: Update; entries: ArchiveEntry[]; character: Character | undefined }) {
   const supports = useSupports();
   const nav = useNav();
   const me = character?.name ?? unit.name;
-  const pairs = useMemo(() => {
-    const m = new Map<string, SupportPair>();
-    for (const p of supports?.pairs ?? []) {
-      const [a, b] = [baseName(p.a), baseName(p.b)];
-      if (a === me) m.set(b, p);
-      else if (b === me) m.set(a, p);
-    }
-    return m;
-  }, [supports, me]);
+  const myKey = character?.key ?? characterKeyOfUnit(unit);
+  // The same lookup as the Supports page: by Characters page key, with the run's Byleth.
+  const byleth = myKey === "byleth" ? (portraitKey(unit) === "byleth_f" ? "F" : "M") : runBylethGender(units);
+  const pairs = useMemo(() => pairsByPartner(supports?.pairs ?? [], myKey ?? "", byleth), [supports, myKey, byleth]);
   const nameOf = (key: string) => entries.find((e) => e.id === key)?.label ?? key;
+  /** The ranks the pair can reach; none when the two can't support (or the data hasn't loaded). */
   const ranksFor = (key: string): PlanSupportRank[] => {
-    const pair = pairs.get(nameOf(key));
-    const have = pair ? SUPPORT_RANKS.filter((r) => visibleRanks(pair).includes(r)) : [];
-    return have.length ? have : ["C", "B", "A"];
+    const pair = pairs.get(key);
+    return pair ? SUPPORT_RANKS.filter((r) => visibleRanks(pair).includes(r)) : [];
   };
-  const others = entries.filter((e) => e.id !== character?.key);
-  const suggested = others.filter((e) => pairs.has(e.label)).map((e) => ({ entry: e, note: `up to ${ranksFor(e.id).at(-1)}` }));
+  // Only people this unit can support with: anyone else has no rank to aim for.
+  const others = entries.filter((e) => e.id !== myKey && pairs.has(e.id));
+  const suggested = others.map((e) => ({ entry: e, note: `up to ${ranksFor(e.id).at(-1)}` }));
   const list = plan.supports ?? [];
   const set = (supports: UnitPlan["supports"]) => update({ supports });
   return (
@@ -566,12 +682,14 @@ function SupportTargets({ unit, plan, update, entries, character }: { unit: Unit
                 <RefLink onClick={() => nav.go({ page: "supports", tab: "character", id: me })} title="Support partners and gifts">{nameOf(partner)}</RefLink>
               </span>
               <span className="plan-row-end">
-                <span className="plan-support-ranks" role="radiogroup" aria-label={`Support rank with ${nameOf(partner)}`}>
-                  {ranksFor(partner).map((r) => (
-                    <button key={r} type="button" role="radio" aria-checked={s.rank === r} className={s.rank === r ? "on" : ""}
-                      onClick={() => set(list.map((x) => (x.partner === partner ? { ...x, rank: r } : x)))}>{r}</button>
-                  ))}
-                </span>
+                {ranksFor(partner).length ? (
+                  <span className="plan-support-ranks" role="radiogroup" aria-label={`Support rank with ${nameOf(partner)}`}>
+                    {ranksFor(partner).map((r) => (
+                      <button key={r} type="button" role="radio" aria-checked={s.rank === r} className={s.rank === r ? "on" : ""}
+                        onClick={() => set(list.map((x) => (x.partner === partner ? { ...x, rank: r } : x)))}>{r}</button>
+                    ))}
+                  </span>
+                ) : supports && <span className="muted small">No support</span>}
                 <Remove name={nameOf(partner)} onClick={() => set(list.filter((x) => x.partner !== partner))} />
               </span>
             </>;

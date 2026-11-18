@@ -2,6 +2,26 @@
 
 ## Unreleased
 
+## 1.5.1 (2026-11-16)
+
+- A unit's run score counts healing as half a point of damage, since healing keeps a fight going but only damage wins it.
+- A new Planner starts with everything in the unit's Equipment field, not just the equipped item.
+- The equipped mark in the Roster and battle Equipment lists is larger.
+- Game saves are tied to runs. Switching runs no longer copies the save the game has loaded into the other run's roster.
+- A run recognises its own saves: a save overwritten by later progress, several saves of one playthrough, and an older save (the run quietly rolls back to it).
+- Loading a save from another run pauses tracking and asks: switch to the run it belongs to (every matching run is listed, newest first), or sync it with this run. A save no run follows offers to start a new run instead.
+- Playing on with that save (starting a battle, or any unit changing) syncs it with the active run.
+- Before a save is loaded (no units, or only the game's stand-in Byleth), nothing is synced and nothing asks. A battle started with the stand-in Byleth asks first if the run already follows a save.
+- Before a run is synced with a save it wasn't following, it keeps a copy of its roster, plans included.
+- A battle's starting roster now includes each unit's plan.
+- The Planner's title bar has Previous and Next buttons to step through the Roster's plans, and a search to open anyone's plan without leaving the window.
+- Plan characters you haven't recruited yet: search for them in the Planner. Their plan carries over to the unit when they join.
+- The Roster card's Battle Stats and Planner buttons have larger icons.
+- The Planner's supports offer exactly the ranks each pair can reach, A+ included (with support spoilers shown), and Byleth's supports follow the run's Byleth. Only people the unit can support with can be added.
+- Rulesets can be exported to a file and imported into another run: from the Ruleset section's Import and Export buttons, or Runs → Import/Export → Rulesets. Importing into a run that already has rules adds the new ones or replaces them; a run's own export file works too.
+- The Ruleset section's Export Image button is now Share.
+- Plans can be exported from one run and imported into another (Runs → Import/Export → Plans), all of them or just the characters you tick. A plan goes to that character's unit, or waits for them to join; the list says which plans an import would replace.
+
 ## 1.5.0 (2026-11-16)
 
 - The Roster has a Planner for each unit, next to Battle Stats: classes, skill ranks, combat arts, abilities, equipment, battalion, supports, magic and notes on one page, saved as you go.

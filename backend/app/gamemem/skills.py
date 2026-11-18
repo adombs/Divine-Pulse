@@ -55,3 +55,17 @@ def decode_skill_progress(record: bytes) -> dict[str, SkillProgress]:
 
         result[skill] = SkillProgress(rank=RANKS[rank_index], exp=exp)
     return result
+
+
+def skill_exp_total(record: bytes) -> int:
+    """All the skill experience a roster slot has earned: every rank's EXP up to its current one, plus the EXP within
+    it, over all skills. It only ever goes up within one playthrough (domain/saves.py)."""
+    if len(record) < RECORD_SIZE:
+        return 0
+    total = 0
+    for index in range(SKILL_COUNT):
+        rank_index = record[RANKS_OFFSET + index]
+        if rank_index >= len(RANKS):
+            continue
+        total += sum(RANK_EXP_LIMITS[:rank_index]) + struct.unpack_from("<H", record, EXP_OFFSET + index * 2)[0]
+    return total

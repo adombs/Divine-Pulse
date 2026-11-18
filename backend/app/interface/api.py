@@ -3,6 +3,7 @@ from __future__ import annotations
 import asyncio
 import json
 import os
+import re
 from collections.abc import Callable
 from typing import NoReturn
 
@@ -23,13 +24,16 @@ from .inputs import DeadIn, DuplicatesResolveIn, RestoreIn, EbstIn, PlanIn, Rule
 from ..domain.ebst import EbstConfig
 from ..domain.runs import RunSummary
 from ..domain.runs import Rule, Run
+from ..domain.units import UnitPlan
 from ..domain.battle import Battle
 from pydantic import ValidationError
 from .responses import UnitOut
-from .responses import RulesetOut, RunsOut, battle_out
+from .responses import PlansOut, RulesetOut, RunsOut, battle_out
 from .runtime import RuntimeView, runtime_for
 
 router = APIRouter(prefix="/api")
+# A Characters page key ("leonie", "byleth"): what an off-roster plan is kept under.
+PLAN_KEY = re.compile(r"[a-z0-9_-]{1,40}")
 
 
 @router.get("/game-assets/status")
@@ -207,6 +211,18 @@ def set_unit_plan(run_id: str, key: str, body: PlanIn, request: Request) -> Unit
     return UnitOut.from_unit(key, unit, _call(_state(request).operations.unit_scores, run_id).get(key, 0))
 
 
+@router.get("/runs/{run_id}/plans")
+def get_run_plans(run_id: str, request: Request) -> PlansOut:
+    return PlansOut(plans=_call(_state(request).operations.list_plans, run_id))
+
+
+@router.put("/runs/{run_id}/plans/{key}")
+def set_run_plan(run_id: str, key: str, body: PlanIn, request: Request) -> UnitPlan:
+    if not PLAN_KEY.fullmatch(key):
+        raise HTTPException(422, "Plans are kept under a character's key.")
+    return _call(_state(request).operations.set_plan, run_id, key, body.model_dump())
+
+
 @router.put("/runs/{run_id}/units/{key}/dead")
 def set_unit_dead(run_id: str, key: str, body: DeadIn, request: Request) -> UnitOut:
     unit = _call(_state(request).operations.set_unit_dead, run_id, key, body.dead)
@@ -247,6 +263,11 @@ def put_settings(body: SettingsIn, request: Request):
 @router.get("/auto")
 def auto_status(request: Request) -> dict:
     return _state(request).operations.auto_status()
+
+
+@router.post("/auto/sync-save")
+def sync_save(request: Request) -> None:
+    _state(request).operations.sync_save()
 
 
 @router.get("/battle")

@@ -152,3 +152,31 @@ export const rulesetPageMs = (count: number): number => Math.min(RULES_PAGE_MAX_
 
 /** How much smaller content `natural` px tall is drawn to fit `room` px (never bigger: 1 when it fits). */
 export const fitScale = (natural: number, room: number): number => (natural > room && natural > 0 && room > 0 ? room / natural : 1);
+
+/** What a ruleset file says it is (Runs → Export → Rulesets), like the run and battle exports' `format`. */
+export const RULESET_FORMAT = "divine-pulse-ruleset";
+
+/** A run's ruleset as the file it is exported to. */
+export const rulesetFile = (runName: string, rules: readonly Rule[]) => ({ format: RULESET_FORMAT, version: 1, run: runName, rules: rules.map(cleanRule) });
+
+/**
+ * The rules in a file being imported: a ruleset file, a run's export (its ruleset), or a bare list of rules. Throws,
+ * saying why, when there are none to import.
+ */
+export function readRulesetFile(payload: unknown): Rule[] {
+  let list: unknown = payload;
+  if (payload && typeof payload === "object" && !Array.isArray(payload)) {
+    const data = payload as Record<string, unknown>;
+    if (data.format === "divine-pulse-battles") throw new Error("This is a battles file, not a ruleset.");
+    const run = data.run && typeof data.run === "object" ? (data.run as Record<string, unknown>) : null;
+    list = data.rules ?? run?.ruleset;
+    if (list === undefined) throw new Error("This file has no ruleset.");
+  }
+  if (!Array.isArray(list)) throw new Error("This file has no ruleset.");
+  const rules = sanitizeRules(list);
+  if (!rules.length) throw new Error("This file's ruleset has no rules.");
+  return rules;
+}
+
+/** `incoming` added after `rules`, skipping the ones already there, up to MAX_RULES. */
+export const mergeRules = (rules: readonly Rule[], incoming: readonly Rule[]): Rule[] => incoming.reduce<Rule[]>((out, rule) => addRule(out, rule), [...rules]);

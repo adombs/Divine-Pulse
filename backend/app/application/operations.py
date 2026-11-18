@@ -15,7 +15,7 @@ from ..domain.text import normalize
 from ..domain.ebst import EbstConfig
 from ..domain.runs import Rule, Run, RunSummary
 from ..domain.membership import on_roster
-from ..domain.units import Unit
+from ..domain.units import Unit, UnitPlan
 from .death_links import relink_deaths
 from .ports import (
     BattleRepository,
@@ -220,6 +220,23 @@ class BackendOperations:
         self.events.publish("units_changed", {"run_id": run_id, "unit_key": key})
         return unit
 
+    def list_plans(self, run_id: str) -> dict[str, UnitPlan]:
+        """Plans for characters not on the roster yet, by Characters page key."""
+        try:
+            return dict(self.runs.get(run_id).plans)
+        except MissingRecord as exc:
+            raise RunMissing from exc
+
+    def set_plan(self, run_id: str, key: str, plan: dict[str, Any]) -> UnitPlan:
+        """Replace the plan of a character not on the roster yet; it moves to the unit when one joins under that key."""
+        saved = UnitPlan.model_validate(plan)
+        try:
+            self.runs.set_plan(run_id, key, saved)
+        except MissingRecord as exc:
+            raise RunMissing from exc
+        self.events.publish("units_changed", {"run_id": run_id})
+        return saved
+
     def set_unit_dead(self, run_id: str, key: str, dead: bool) -> Unit:
         """Mark a unit dead (linked to where it last fell, if anywhere) or alive, overriding what was detected."""
         _, unit = self._unit(run_id, key)
@@ -250,6 +267,10 @@ class BackendOperations:
 
     def auto_status(self) -> dict[str, Any]:
         return self.scanner.auto_status()
+
+    def sync_save(self) -> None:
+        """Sync the game save held back from the active run with it anyway ("Sync with this Run")."""
+        self.scanner.sync_save()
 
     def current_battle(self) -> Battle | None:
         return self.scanner.current_battle()

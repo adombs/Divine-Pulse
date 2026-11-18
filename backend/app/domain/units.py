@@ -74,7 +74,7 @@ PLAN_NOTES_LEN = 20000
 PLAN_ARTS_MAX = 3
 PLAN_ABILITIES_MAX = 5
 PLAN_EQUIPMENT_MAX = 6
-SupportRank = Literal["C", "B", "A", "S"]
+SupportRank = Literal["C", "B", "A", "A+", "S"]
 
 
 class PlanSupport(BaseModel):

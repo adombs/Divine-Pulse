@@ -1,5 +1,5 @@
 /* A run's ruleset (Ruleset.tsx): on the Runs page, the rules in order with their controls, the form to add one and the
-   one-click suggestions; in pictures (Export Image, the video's ruleset page), the numbered list in columns. */
+   one-click suggestions; in pictures (Share, the video's ruleset page), the numbered list in columns. */
 .runs-ruleset .sec-head-right { gap: 0.6rem; }
 .ruleset-rules { list-style: none; margin: 0 0 0.6rem; padding: 0; display: grid; gap: 4px; }
 .ruleset-rule {
