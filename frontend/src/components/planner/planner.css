@@ -1,12 +1,12 @@
 /* The Roster's Planner (Planner.tsx): a window with Build and Notes tabs. */
 
-.modal.planner { width: min(1560px, 100%); }
+/* A fixed, large window that leaves a margin of page around it, whatever the plan holds. */
+.modal.planner { width: min(1920px, 100%); height: calc(100dvh - 4rem); }
 .planner .modal-body { padding: 0.8rem 1.2rem 1rem; }
-.planner .modal-actions { gap: 0.5rem; }
-/* Beside the name in the banner: Previous, Next, and a search for anyone else's plan. */
-.planner .modal-head .banner-title { display: flex; align-items: center; gap: 1.1rem; overflow: visible; }
-.plan-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
-.plan-nav { flex: none; display: flex; align-items: center; gap: 0.3rem; font: 400 1rem var(--ui); text-shadow: none; letter-spacing: 0; }
+/* The head reads: name, save state, reset ... Previous, Next, search, close. */
+.planner .modal-head { gap: 0.9rem; }
+.planner .modal-actions { flex: 1 1 auto; gap: 0.5rem; }
+.plan-nav { flex: none; display: flex; align-items: center; gap: 0.3rem; margin-left: auto; font: 400 1rem var(--ui); }
 .plan-nav-step {
   display: grid; place-items: center; width: 2rem; height: 1.85rem; padding: 0; border-radius: 2px; cursor: pointer; font-size: 1.15rem;
   border: 1px solid rgb(255 255 255 / 0.3); background: rgb(255 255 255 / 0.12); color: #fbf8f1;

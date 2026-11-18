@@ -147,8 +147,12 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
       <Modal
         open={open}
         onClose={onClose}
-        title={<>
-          <span className="plan-title">{name}’s Plan</span>
+        title={`${name}’s Plan`}
+        ariaLabel={`${name} planner`}
+        className="planner"
+        actions={<>
+          <SaveState state={status} />
+          {unit && <IconButton icon={CONCEPT_ICON.reset} label="Reset to current" onClick={() => setConfirm(true)} className="plan-reset" />}
           <span className="plan-nav">
             <button type="button" className="plan-nav-step" aria-label="Previous plan" title="Previous plan" onClick={() => step(-1)} disabled={order.length < 2}>
               <Icon name={CONCEPT_ICON.prev} />
@@ -167,12 +171,6 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
               onPick={pick}
             />
           </span>
-        </>}
-        ariaLabel={`${name} planner`}
-        className="planner"
-        actions={<>
-          <SaveState state={status} />
-          {unit && <IconButton icon={CONCEPT_ICON.reset} label="Reset to current" onClick={() => setConfirm(true)} className="plan-reset" />}
         </>}
       >
         {open && shown && (unit || offRoster) && (
