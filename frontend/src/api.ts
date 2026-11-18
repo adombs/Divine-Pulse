@@ -92,7 +92,7 @@ export interface Unit {
   in_army?: boolean;
   /** Whether the Roster shows it: in the army, or dead. Units off the Roster keep their history. */
   on_roster?: boolean;
-  /** The unit's run score (damage dealt plus healing done, averaged over the completed battles it was deployed in, not as an adjutant); 0 when none. */
+  /** The unit's run score (damage dealt plus half the healing done, averaged over the completed battles it was deployed in, not as an adjutant); 0 when none. */
   score?: number;
   /** The player's plan (the Roster's Planner); absent on older servers. */
   plan?: UnitPlan;

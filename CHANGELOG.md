@@ -4,6 +4,7 @@
 
 ## 1.5.1 (2026-11-16)
 
+- A unit's run score counts healing as half a point of damage, since healing keeps a fight going but only damage wins it.
 - A new Planner starts with everything in the unit's Equipment field, not just the equipped item.
 - The equipped mark in the Roster and battle Equipment lists is larger.
 - Game saves are tied to runs. Switching runs no longer copies the save the game has loaded into the other run's roster.

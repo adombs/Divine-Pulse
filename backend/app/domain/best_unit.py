@@ -8,6 +8,10 @@ from dataclasses import dataclass
 from .battle import Battle, BattleUnitStats
 from .runs import BestUnit
 
+# A point of healing is worth half a point of damage: healing keeps a fight going, but only damage wins it.
+# (Mirrored by HEALING_WEIGHT in frontend/src/components/battle/runStatsLedger.ts.)
+HEALING_WEIGHT = 0.5
+
 @dataclass
 class _Totals:
     latest: BattleUnitStats  # as of the newest battle it was in: its look and current level
@@ -19,11 +23,11 @@ class _Totals:
 
     @property
     def score(self) -> int:
-        """Damage dealt plus healing done, averaged over the battles it was deployed in (0 if none)."""
+        """Damage dealt plus half the healing done, averaged over the battles it was deployed in (0 if none)."""
         if not self.deployments:
             return 0
         # Halves round up, as the frontend's Math.round does.
-        return int((self.damage + self.healing) / self.deployments + 0.5)
+        return int((self.damage + HEALING_WEIGHT * self.healing) / self.deployments + 0.5)
 
 
 def _totals(battles: Iterable[Battle], roster: Collection[str]) -> dict[str, _Totals]:
@@ -50,7 +54,7 @@ def _totals(battles: Iterable[Battle], roster: Collection[str]) -> dict[str, _To
 
 
 def unit_scores(battles: Iterable[Battle], roster: Collection[str] = ()) -> dict[str, int]:
-    """Every unit's run score: damage dealt plus healing done, averaged over its deployments (the finished battles it
+    """Every unit's run score: damage dealt plus half the healing done, averaged over its deployments (the finished battles it
     was in, not as an adjutant)."""
     return {key: total.score for key, total in _totals(battles, roster).items()}
 
