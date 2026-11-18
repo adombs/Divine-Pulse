@@ -155,11 +155,7 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
             <button type="button" className="plan-nav-step" aria-label="Previous plan" title="Previous plan" onClick={() => step(-1)} disabled={order.length < 2}>
               <Icon name={CONCEPT_ICON.prev} />
             </button>
-            {unit && (
-              <button type="button" className="plan-nav-step plan-reset" aria-label="Reset to current" title="Reset to current" onClick={() => setConfirm(true)}>
-                <Icon name={CONCEPT_ICON.reset} />
-              </button>
-            )}
+
             <button type="button" className="plan-nav-step" aria-label="Next plan" title="Next plan" onClick={() => step(1)} disabled={order.length < 2}>
               <Icon name={CONCEPT_ICON.next} />
             </button>
@@ -175,7 +171,14 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
             />
           </span>
         </>}
-        footer={<SaveState state={status} />}
+        footer={<>
+          <SaveState state={status} />
+          {unit && (
+            <button type="button" className="plan-nav-step plan-reset" aria-label="Reset to current" title="Reset to current" onClick={() => setConfirm(true)}>
+              <Icon name={CONCEPT_ICON.reset} />
+            </button>
+          )}
+        </>}
       >
         {open && shown && (unit || offRoster) && (
           <PlannerBody key={`${runId}:${subject.kind}:${subject.key}`} unit={shown} units={units} onRoster={!!unit} initial={initial} toasts={toasts}
@@ -345,10 +348,10 @@ function useSaver(send: (plan: UnitPlan) => Promise<unknown>, toasts: ToastState
 }
 
 function SaveState({ state }: { state: SaveStatus }) {
-  if (state === "idle") return null;
+  // Always the same width, so nothing beside it moves as it changes.
   return (
     <span className={`plan-save ${state}`} role="status">
-      {state === "saving" ? "Saving…" : state === "saved" ? <><Icon name={CONCEPT_ICON.done} /> Saved</> : <><Icon name={CONCEPT_ICON.warning} /> Not saved</>}
+      {state === "idle" ? null : state === "saving" ? "Saving…" : state === "saved" ? <><Icon name={CONCEPT_ICON.done} /> Saved</> : <><Icon name={CONCEPT_ICON.warning} /> Not saved</>}
     </span>
   );
 }
