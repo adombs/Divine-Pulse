@@ -1,7 +1,6 @@
 /**
  * A run's ruleset on the Runs page: its self-imposed rules in order, to add (one-click suggestions or the player's own),
- * edit, remove and reorder (drag a rule, or its arrows), each change saved at once. Import and Export move it to or from
- * a JSON file (RunTransfer.tsx), to reuse in another run. Share saves the ruleset as a picture at Export Team's sizes and
+ * edit, remove and reorder (drag a rule, or its arrows), each change saved at once. Share saves the ruleset as a picture at Export Team's sizes and
  * aspect ratios; the video export can show it as a page too (battle/RulesetPage.tsx).
  */
 import { CONCEPT_ICON } from "../icons/concepts";
@@ -18,7 +17,6 @@ import { safeFilename, saveFiles } from "../exporting/save";
 import { ExportActions, type ExportStatus } from "./ExportActions";
 import { Icon, IconButton } from "./Icon";
 import { Modal } from "./Modal";
-import { RunTransfer } from "./RunTransfer";
 import { Segmented } from "./ui";
 import { ASPECTS, FitWidth, SIZES, TeamSheet, type Aspect } from "./TeamExport";
 import type { ToastState } from "./Toasts";
@@ -44,7 +42,7 @@ export const RULE_COLUMN_W = 420;
 export const RULE_COLUMN_GAP = 28;
 
 /** The Runs page's Ruleset section for one run. */
-export function RulesetSection({ run, runs, toasts }: { run: RunSummary; /** Every run, to pick from when importing or exporting. */ runs: RunSummary[]; toasts: ToastState }) {
+export function RulesetSection({ run, toasts }: { run: RunSummary; toasts: ToastState }) {
   const [rules, setRules] = useState<Rule[] | null>(null);
   const [failed, setFailed] = useState(false);
   const [retry, setRetry] = useState(0);
@@ -53,7 +51,6 @@ export function RulesetSection({ run, runs, toasts }: { run: RunSummary; /** Eve
   const [dragging, setDragging] = useState<number | null>(null);
   const [over, setOver] = useState<number | null>(null);
   const [sharing, setSharing] = useState(false);
-  const [transfer, setTransfer] = useState<"import" | "export" | null>(null);
   const saving = useRef(0);
 
   useEffect(() => {
@@ -130,8 +127,6 @@ export function RulesetSection({ run, runs, toasts }: { run: RunSummary; /** Eve
         <h2>Ruleset</h2>
         <div className="sec-head-right">
           {rules.length > 0 && <span className="muted small">{plural(rules.length, "rule")}</span>}
-          <button type="button" className="btn small" onClick={() => setTransfer("import")} title="Take rules from a ruleset file">Import</button>
-          <button type="button" className="btn small" onClick={() => setTransfer("export")} disabled={!rules.length} title={rules.length ? "Save the ruleset as a file, to use in another run" : "Add a rule first"}>Export</button>
           <button type="button" className="btn small" onClick={() => setSharing(true)} disabled={!rules.length} title={rules.length ? "Save the ruleset as an image, to share" : "Add a rule first"}>
             <Icon name={CONCEPT_ICON.share} /> Share
           </button>
@@ -215,7 +210,6 @@ export function RulesetSection({ run, runs, toasts }: { run: RunSummary; /** Eve
         ))}
       </div>
       {sharing && <RulesetShareDialog run={run} rules={rules} onClose={() => setSharing(false)} />}
-      {transfer && <RunTransfer mode={transfer} kind="ruleset" runId={run.id} runs={runs} toasts={toasts} onClose={() => setTransfer(null)} />}
     </section>
   );
 }
