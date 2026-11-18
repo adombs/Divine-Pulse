@@ -10,6 +10,7 @@
 - A run recognises its own saves: a save overwritten by later progress, several saves of one playthrough, and an older save (the run quietly rolls back to it).
 - Loading a save from another run pauses tracking and asks: switch to the run it belongs to (every matching run is listed, newest first), or sync it with this run. A save no run follows offers to start a new run instead.
 - Playing on with that save (starting a battle, or any unit changing) syncs it with the active run.
+- Before a save is loaded (no units, or only the game's stand-in Byleth), nothing is synced and nothing asks. A battle started with the stand-in Byleth asks first if the run already follows a save.
 - Before a run is synced with a save it wasn't following, it keeps a copy of its roster, plans included.
 - A battle's starting roster now includes each unit's plan.
 - The Planner's title bar has Previous and Next buttons to step through the Roster's plans, and a search to open anyone's plan without leaving the window.

@@ -22,6 +22,7 @@ from .units import now
 # Each unit's counters, in this order: battles started, fights, victories, level, total skill experience.
 Counters = tuple[int, int, int, int, int]
 BATTLES = 0
+BYLETH = {0, 1}  # character IDs: Byleth, male and female
 
 
 @dataclass(frozen=True)
@@ -36,6 +37,12 @@ class SaveFingerprint:
     def fresh(self) -> bool:
         """Before the first battle: every new game looks alike, so such a save belongs to whichever run is active."""
         return all(c[BATTLES] == 0 for c in self.units.values())
+
+    @property
+    def blank(self) -> bool:
+        """No save loaded yet: the game holds no army, or only the stand-in Byleth it keeps before a save is loaded
+        (no battle fought). Nothing to sync, and nothing to ask about until a battle starts with it."""
+        return not self.units or (self.units.keys() <= BYLETH and self.fresh)
 
 
 def encode_units(units: dict[int, Counters]) -> str:

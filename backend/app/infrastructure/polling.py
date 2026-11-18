@@ -854,13 +854,20 @@ class Scanner:
         active = next((r for r in lineages if r.id == run_id), None)
         if active is None:
             return None, False  # (the run is gone: _apply_roster says so)
+        playing = bool(snapshot.in_battle) or self._battles.active
+        if save.blank and not playing and self._forced != run_id:
+            # No save loaded yet (the title screen): nothing to sync, and nothing to ask about.
+            self._mem_applied = (run_id, snapshot)
+            self._set_save_prompt(None)
+            return None
         place = locate(active.saves, save)
         if place is not None:
             # The run's save, or an older one of it (rolled back to quietly, keeping the roster it replaces).
             return place, place.kind == "between" and not snapshot.in_battle
         follows = bool(active.saves.checkpoints)
-        if self._forced == run_id or snapshot.in_battle or self._battles.active:
+        if self._forced == run_id or (playing and not save.blank):
             # The player chose this run for the save, or plays on with it (a battle started): the run follows it.
+            # A battle started with no save loaded (a new game's stand-in Byleth) asks first, below.
             return None, follows
         matches = [r for r in lineages if r.id != run_id and locate(r.saves, save) is not None]
         if not matches and (not follows or (save.fresh and all(_fresh(c.units) for c in active.saves.checkpoints))):
@@ -883,7 +890,7 @@ class Scanner:
         held = self._held
         if held is None:
             return False
-        if held.run_id != run_id or snapshot.in_battle:
+        if held.run_id != run_id or (snapshot.in_battle and not held.save.blank):
             if held.run_id == run_id:
                 self._forced = run_id  # a battle started with the save: the run follows it
             self._held, self._mem_applied = None, None

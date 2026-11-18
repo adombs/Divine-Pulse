@@ -14,7 +14,7 @@ from app.infrastructure.polling import Scanner
 from app.storage import RunStore
 from helpers.synthetic_roster import DATA, SLOT_OF
 
-BATTLES, COMBATS = 0xBC, 0x26
+BATTLES, COMBATS, CHARACTER = 0xBC, 0x26, 0x24
 
 
 def fp(**units):
@@ -111,6 +111,15 @@ def scanner(tmp_path, roster_import):
 def sync(sc, reads=2):
     for _ in range(reads):
         sc._tick()
+
+
+def no_save_loaded(memory, byleth=True):
+    """The game before a save is loaded: no army, or only the stand-in Byleth with no battle fought."""
+    for slot in range(len(memory.roster) // SLOT_SIZE):
+        if not (byleth and slot == SLOT_OF[0]):
+            struct.pack_into("<H", memory.roster, slot * SLOT_SIZE + CHARACTER, 0xFFFF)
+    if byleth:
+        memory.set_counts(0, 0, 0)
 
 
 def other_playthrough(memory):
@@ -249,3 +258,43 @@ def test_a_battles_roster_snapshot_keeps_the_units_plans(scanner, tmp_path):
     sync(scanner, 3)
     battle = scanner.current_battle()
     assert battle.roster_snapshot["lysithea"].plan.notes == "Gremory"
+
+
+def test_a_blank_save_is_a_save_not_yet_loaded():
+    assert SaveFingerprint("|", {}).blank
+    assert fp(c0=(0, 0, 0, 1, 0)).blank and fp(c1=(0, 0, 0, 1, 0)).blank
+    assert not fp(c0=(1, 0, 0, 1, 0)).blank  # a battle fought
+    assert not fp(c0=(0, 0, 0, 1, 0), c22=(0, 0, 0, 1, 0)).blank  # more than Byleth
+
+
+@pytest.mark.parametrize("byleth", [True, False])
+def test_no_save_loaded_neither_asks_nor_syncs(scanner, byleth):
+    memory = scanner.memory
+    memory.set_counts(22, 3, 5)
+    sync(scanner)
+    a = scanner.settings.get().active_run_id
+    units = scanner.store.get(a).units
+    no_save_loaded(memory, byleth)
+    sync(scanner, 3)
+    assert scanner.auto_status()["save_prompt"] is None
+    assert scanner.store.get(a).units == units
+    # Nor in a new run: nothing is synced into it until a save is loaded.
+    b = scanner.store.create("Run B")
+    scanner.settings.update(active_run_id=b.id)
+    sync(scanner, 3)
+    assert scanner.auto_status()["save_prompt"] is None
+    assert scanner.store.get(b.id).units == {} and not scanner.store.get(b.id).saves.checkpoints
+
+
+def test_a_battle_with_the_stand_in_byleth_asks_when_the_run_has_a_save(scanner):
+    memory = scanner.memory
+    memory.set_counts(22, 3, 5)
+    sync(scanner)
+    a = scanner.settings.get().active_run_id
+    units = scanner.store.get(a).units
+    no_save_loaded(memory)
+    sync(scanner, 3)
+    memory.in_battle = (0,)
+    sync(scanner, 3)
+    assert scanner.auto_status()["save_prompt"] == {"run_id": a, "matches": []}
+    assert scanner.store.get(a).units == units
