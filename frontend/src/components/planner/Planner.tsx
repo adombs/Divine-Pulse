@@ -151,12 +151,15 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
         ariaLabel={`${name} planner`}
         className="planner"
         actions={<>
-          <SaveState state={status} />
-          {unit && <IconButton icon={CONCEPT_ICON.reset} label="Reset to current" onClick={() => setConfirm(true)} className="plan-reset" />}
           <span className="plan-nav">
             <button type="button" className="plan-nav-step" aria-label="Previous plan" title="Previous plan" onClick={() => step(-1)} disabled={order.length < 2}>
               <Icon name={CONCEPT_ICON.prev} />
             </button>
+            {unit && (
+              <button type="button" className="plan-nav-step plan-reset" aria-label="Reset to current" title="Reset to current" onClick={() => setConfirm(true)}>
+                <Icon name={CONCEPT_ICON.reset} />
+              </button>
+            )}
             <button type="button" className="plan-nav-step" aria-label="Next plan" title="Next plan" onClick={() => step(1)} disabled={order.length < 2}>
               <Icon name={CONCEPT_ICON.next} />
             </button>
@@ -172,6 +175,7 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
             />
           </span>
         </>}
+        footer={<SaveState state={status} />}
       >
         {open && shown && (unit || offRoster) && (
           <PlannerBody key={`${runId}:${subject.kind}:${subject.key}`} unit={shown} units={units} onRoster={!!unit} initial={initial} toasts={toasts}

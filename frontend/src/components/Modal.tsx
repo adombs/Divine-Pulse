@@ -19,6 +19,7 @@ export function Modal({
   title,
   icon,
   actions,
+  footer,
   children,
   wide,
   className,
@@ -30,6 +31,8 @@ export function Modal({
   /** Replaces the crest in the banner. */
   icon?: ReactNode;
   actions?: ReactNode;
+  /** A strip along the bottom of the window. */
+  footer?: ReactNode;
   children: ReactNode;
   wide?: boolean;
   className?: string;
@@ -102,6 +105,7 @@ export function Modal({
           </span>
         </header>
         <div className="modal-body">{children}</div>
+        {footer && <footer className="modal-foot">{footer}</footer>}
       </div>
     </div>,
     document.body,
