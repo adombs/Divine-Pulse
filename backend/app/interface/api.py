@@ -20,7 +20,7 @@ from ..application.operations import (
     RunNameTaken,
     UnitMissing,
 )
-from .inputs import DuplicatesResolveIn, RestoreIn, EbstIn, PlanIn, RulesetIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
+from .inputs import DuplicatesResolveIn, MarksIn, RestoreIn, EbstIn, PlanIn, RulesetIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
 from ..domain.ebst import EbstConfig
 from ..domain.runs import RunSummary
 from ..domain.runs import Rule, Run
@@ -203,6 +203,14 @@ def set_unit_ebst(run_id: str, key: str, body: EbstIn, request: Request) -> Unit
         body.model_dump(exclude_none=True),
     )
     return UnitOut.from_unit(key, unit, _call(_state(request).operations.unit_scores, run_id).get(key, 0))
+
+
+@router.put("/runs/{run_id}/marks")
+def set_unit_marks(run_id: str, body: MarksIn, request: Request) -> list[UnitOut]:
+    """Replace units' Roster marks; returns the units named, as saved."""
+    units = _call(_state(request).operations.set_unit_marks, run_id, body.marks)
+    scores = _call(_state(request).operations.unit_scores, run_id)
+    return [UnitOut.from_unit(key, unit, scores.get(key, 0)) for key, unit in units.items()]
 
 
 @router.put("/runs/{run_id}/units/{key}/plan")

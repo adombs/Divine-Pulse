@@ -116,6 +116,13 @@ const ICONS = {
   absorb: ["shield-check"],
   // A combat art used with no weapon (the condensed log)
   star: ["star", "fill"],
+  // The Roster's marks (frontend/src/marks.ts): five plain shapes, drawn filled
+  markCircle: ["circle", "fill"],
+  markSquare: ["square", "fill"],
+  markTriangle: ["triangle", "fill"],
+  markDiamond: ["diamond", "fill"],
+  markStar: ["star", "fill"],
+  eraser: ["eraser"],
 };
 
 const inner = (name, weight) => {

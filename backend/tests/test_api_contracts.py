@@ -244,6 +244,34 @@ def test_marking_a_unit_dead_or_alive(tmp_path):
 
 
 
+def test_roster_marks_are_set_and_cleared_in_one_call(tmp_path):
+    app = create_app(tmp_path, background=False)
+    with TestClient(app) as client:
+        run_id = client.post("/api/runs", json={"name": "Marks"}).json()["id"]
+        app.state.store.put_unit(run_id, "byleth", Unit(name="Byleth"))
+        app.state.store.put_unit(run_id, "edelgard", Unit(name="Edelgard"))
+        assert all(unit["marks"] == [] for unit in client.get(f"/api/runs/{run_id}/units").json())
+
+        url = f"/api/runs/{run_id}/marks"
+        five = ["star-gold", "circle-red", "square-blue", "triangle-green", "diamond-violet"]
+        saved = client.put(url, json={"marks": {"byleth": five, "edelgard": ["circle-red"]}})
+        assert saved.status_code == 200
+        assert {unit["key"]: unit["marks"] for unit in saved.json()} == {"byleth": five, "edelgard": ["circle-red"]}
+
+        client.put(url, json={"marks": {"edelgard": []}})
+        marks = {unit["key"]: unit["marks"] for unit in client.get(f"/api/runs/{run_id}/units").json()}
+        assert marks == {"byleth": five, "edelgard": []}
+
+        assert client.put(url, json={"marks": {"byleth": [*five, "star-red"]}}).status_code == 422
+        assert client.put(url, json={"marks": {"byleth": ["star-gold", "star-gold"]}}).status_code == 422
+        assert client.put(url, json={"marks": {"nobody": ["star-gold"]}}).status_code == 404
+        assert client.put(url, json={"marks": {"byleth": ["hexagon-gold"]}}).status_code == 422
+        assert client.put(url, json={"marks": {"byleth": ["star-pink"]}}).status_code == 422
+        assert client.put(url, json={"marks": {"byleth": "star-gold"}}).status_code == 422
+        assert client.put(url, json={"marks": {}}).status_code == 422
+        assert client.put("/api/runs/missing/marks", json={"marks": {"byleth": []}}).status_code == 404
+
+
 def test_a_units_plan_is_saved_whole_and_kept(tmp_path):
     app = create_app(tmp_path, background=False)
     with TestClient(app) as client:

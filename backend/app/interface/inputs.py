@@ -16,7 +16,7 @@ from ..domain.settings import DuplicateBattles, MemoryReader, WindowMode
 from ..domain.ebst import OTHER_KEYS, EbstType, ordered_others
 from ..domain.units import (
     PLAN_ABILITIES_MAX, PLAN_ARTS_MAX, PLAN_EQUIPMENT_MAX, PLAN_LIST_MAX, PLAN_NAME_LEN, PLAN_NOTES_LEN, SkillKey, SkillRank,
-    SupportRank,
+    MAX_MARKS, SupportRank, UnitMark,
 )
 from ..domain.runs import MAX_RULES, RULE_DESCRIPTION_LEN, RULE_NAME_LEN
 
@@ -110,6 +110,21 @@ class PlanIn(Body):
     @classmethod
     def _one_per_partner(cls, v: list[PlanSupportIn]) -> list[PlanSupportIn]:
         return list({s.partner: s for s in reversed(v)}.values())[::-1]
+
+
+def _distinct(marks: list[str]) -> list[str]:
+    if len(set(marks)) != len(marks):
+        raise ValueError("A unit can't wear the same mark twice.")
+    return marks
+
+
+class MarksIn(Body):
+    """Each named Roster unit's whole list of marks, replacing its own ([] takes them all off). Units left out keep
+    theirs."""
+
+    marks: dict[str, Annotated[list[UnitMark], Field(max_length=MAX_MARKS), AfterValidator(_distinct)]] = Field(
+        min_length=1, max_length=1000
+    )
 
 
 class EbstIn(Body):
