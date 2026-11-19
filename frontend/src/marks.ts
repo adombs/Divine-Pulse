@@ -1,6 +1,6 @@
 /**
- * The Roster's marks: a shape in a color the player puts beside a unit's name ("star-gold"), saved on the unit
- * (Unit.mark). The backend accepts exactly these shapes and colors (backend/app/domain/units.py, MARK_SHAPES and
+ * The Roster's marks: shapes in colors the player puts beside a unit's name ("star-gold"), up to MAX_MARKS different
+ * ones per unit, saved on the unit (Unit.marks). The backend accepts exactly these shapes and colors (backend/app/domain/units.py, MARK_SHAPES and
  * MARK_COLORS).
  */
 import type { IconName } from "./components/Icon";
@@ -11,6 +11,8 @@ export const MARK_COLORS = ["red", "gold", "green", "blue", "violet"] as const;
 export type MarkShape = (typeof MARK_SHAPES)[number];
 export type MarkColor = (typeof MARK_COLORS)[number];
 export type Mark = `${MarkShape}-${MarkColor}`;
+/** The most marks one unit can wear (backend MAX_MARKS). */
+export const MAX_MARKS = 5;
 
 export const MARK_ICON: Record<MarkShape, IconName> = {
   circle: CONCEPT_ICON.markCircle,
@@ -33,3 +35,10 @@ export function parseMark(value: string | null | undefined): { shape: MarkShape;
 
 /** "Gold star". */
 export const markLabel = (shape: MarkShape, color: MarkColor) => `${cap(color)} ${shape}`;
+
+/** The marks of a saved list this version can draw, in order, without repeats, at most MAX_MARKS. */
+export function validMarks(marks: readonly string[] | null | undefined): Mark[] {
+  const out: Mark[] = [];
+  for (const m of marks ?? []) if (parseMark(m) && !out.includes(m as Mark) && out.length < MAX_MARKS) out.push(m as Mark);
+  return out;
+}

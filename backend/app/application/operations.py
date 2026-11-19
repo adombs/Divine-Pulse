@@ -209,8 +209,8 @@ class BackendOperations:
         self.events.publish("units_changed", {"run_id": run_id})
         return unit
 
-    def set_unit_marks(self, run_id: str, marks: dict[str, str | None]) -> dict[str, Unit]:
-        """Set or clear the Roster marks of several units in one save (the Roster's Mark menu)."""
+    def set_unit_marks(self, run_id: str, marks: dict[str, list[str]]) -> dict[str, Unit]:
+        """Replace the Roster marks of several units in one save (the Roster's Mark menu)."""
         try:
             run = self.runs.get(run_id)
         except MissingRecord as exc:
@@ -219,9 +219,9 @@ class BackendOperations:
         if missing is not None:
             raise UnitMissing(missing)
         changed = {
-            key: run.units[key].model_copy(update={"mark": mark})
-            for key, mark in marks.items()
-            if run.units[key].mark != mark
+            key: run.units[key].model_copy(update={"marks": list(wearing)})
+            for key, wearing in marks.items()
+            if run.units[key].marks != wearing
         }
         if changed:
             try:

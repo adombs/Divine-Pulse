@@ -207,7 +207,7 @@ def set_unit_ebst(run_id: str, key: str, body: EbstIn, request: Request) -> Unit
 
 @router.put("/runs/{run_id}/marks")
 def set_unit_marks(run_id: str, body: MarksIn, request: Request) -> list[UnitOut]:
-    """Set or clear Roster marks; returns the units named, as saved."""
+    """Replace units' Roster marks; returns the units named, as saved."""
     units = _call(_state(request).operations.set_unit_marks, run_id, body.marks)
     scores = _call(_state(request).operations.unit_scores, run_id)
     return [UnitOut.from_unit(key, unit, scores.get(key, 0)) for key, unit in units.items()]

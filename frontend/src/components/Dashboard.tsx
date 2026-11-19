@@ -40,8 +40,8 @@ import { tidyAbility } from "../appearance";
 import { TeamExportButton } from "./TeamExport";
 import { plural } from "../format";
 import { PlannerButton } from "./planner/Planner";
-import { MarkMenu, UnitMark } from "./MarkMenu";
-import type { Mark } from "../marks";
+import { MarkMenu, UnitMarks } from "./MarkMenu";
+import { validMarks, type Mark } from "../marks";
 import { deathText } from "../deaths";
 import { SCORE_EXPLANATION, fmtScore } from "../score";
 
@@ -144,15 +144,16 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
   const resizeStart = useRef<{ x: number; width: number } | null>(null);
   const [compare, setCompare] = useCompare();
   // Marks being saved, shown straight away; each is dropped once the units read back with it (or the save fails).
-  const [pendingMarks, setPendingMarks] = useState<Record<string, Mark | null>>({});
-  const markOf = (u: Unit): string | null => (u.key in pendingMarks ? pendingMarks[u.key] : u.mark ?? null);
+  const [pendingMarks, setPendingMarks] = useState<Record<string, Mark[]>>({});
+  const marksOf = (u: Unit): Mark[] => pendingMarks[u.key] ?? validMarks(u.marks);
   useEffect(() => {
     setPendingMarks((pending) => {
-      const left = Object.entries(pending).filter(([key, mark]) => (units.find((u) => u.key === key)?.mark ?? null) !== mark);
+      const saved = (key: string) => validMarks(units.find((u) => u.key === key)?.marks).join();
+      const left = Object.entries(pending).filter(([key, marks]) => saved(key) !== marks.join());
       return left.length === Object.keys(pending).length ? pending : Object.fromEntries(left);
     });
   }, [units]);
-  const saveMarks = async (marks: Record<string, Mark | null>) => {
+  const saveMarks = async (marks: Record<string, Mark[]>) => {
     if (!run) return;
     setPendingMarks((pending) => ({ ...pending, ...marks }));
     try {
@@ -283,7 +284,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
               lens={lens}
               part2={part2}
               toasts={toasts}
-              mark={markOf(current)}
+              marks={marksOf(current)}
             />
           )
         }
@@ -299,7 +300,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
               <Switch checked={compare.on} onChange={(on) => setCompare({ ...compare, on })} label="Compare as" />
             </span>
           )}
-          {units.length > 0 && <MarkMenu units={planOrder} markOf={markOf} part2={part2} onChange={saveMarks} />}
+          {units.length > 0 && <MarkMenu units={planOrder} marksOf={marksOf} part2={part2} onChange={saveMarks} />}
           <span className="toolbar-end">
             <Segmented
               label="Stat values"
@@ -363,7 +364,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
                           <div className="who-text">
                             <span className="who-name">
                               <span className="who-label">{u.name}</span>
-                              <UnitMark mark={markOf(u)} />
+                              <UnitMarks marks={marksOf(u)} />
                               {u.death && (
                                 <span className="fallen-mark" title={deathText(u)} aria-label={deathText(u)} role="img">
                                   <Icon name={CONCEPT_ICON.dead} />
@@ -467,11 +468,11 @@ interface CardProps {
   lens: Lens;
   part2: boolean;
   toasts: ToastState;
-  /** The unit's Roster mark as it stands (saving included), drawn left of the Name field. */
-  mark: string | null;
+  /** The unit's Roster marks as they stand (saving included), drawn left of the name in the Name field. */
+  marks: Mark[];
 }
 
-function UnitCard({ unit, units, runId, mode, lens, part2, toasts, mark }: CardProps) {
+function UnitCard({ unit, units, runId, mode, lens, part2, toasts, marks }: CardProps) {
   const left: StatKey[] = ["str", "mag", "dex", "spd"];
   const right: StatKey[] = ["lck", "def", "res", "cha"];
   const values = valuesFor(unit, mode);
@@ -587,7 +588,7 @@ function UnitCard({ unit, units, runId, mode, lens, part2, toasts, mark }: CardP
         face={<span className={`cv-face${unit.death ? " fallen" : ""}`}><Portrait unit={unit} part2={part2} size={104} /></span>}
         backFace={<SpriteFace sprite={unitSprite(unit)} name={unit.name} />}
         facts={[
-          ["Name", <span key="name" className="cv-name-marked"><UnitMark mark={mark} /><CharLink charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills in the Archive">{unit.full_name || unit.name}</CharLink></span>],
+          ["Name", <span key="name" className="cv-name-marked"><UnitMarks marks={marks} /><CharLink charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills in the Archive">{unit.full_name || unit.name}</CharLink></span>],
           ["Class", unit.class_name ? <ClassLink key="class" name={unit.class_name} /> : "—"],
           ["Crest", crests.length ? <span className="crest-marks">{crests.map((c) => <span key={`${c.name}-${c.major}`}><CrestLink name={c.name}>{crestLabel(c.name, c.major)}</CrestLink></span>)}</span> : "None"],
           ["Status", <DeathLink key="status" unit={unit} />],

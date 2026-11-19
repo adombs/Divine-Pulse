@@ -1972,16 +1972,27 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .mark-green { --mark-c: var(--mark-green); }
 .mark-blue { --mark-c: var(--mark-blue); }
 .mark-violet { --mark-c: var(--mark-violet); }
-.unit-mark { display: inline-flex; flex: none; color: var(--mark-c); font-size: 0.58em; }
+/* A unit's marks give way before its name does: in a tight spot they overlap into a stack (each keeps 0.2em of
+   room, the newest drawn on top) instead of cutting the name short. */
+.unit-marks {
+  display: inline-flex; align-items: center; font-size: 0.58em; line-height: 1;
+  flex: 0 100 auto; min-width: calc(1em + (var(--marks, 1) - 1) * 0.2em);
+}
+.unit-mark { display: inline-flex; color: var(--mark-c); flex: 0 1 1.12em; min-width: 0.2em; overflow: visible; }
+.unit-mark:last-child { flex: none; min-width: 1em; width: 1em; }
+.unit-mark .icon { flex: none; width: 1em; height: 1em; }
+/* Where marks overlap, a hairline of the row's own color parts each from the one under it. */
+.units .unit-mark + .unit-mark .icon { filter: drop-shadow(-0.07em 0 0 var(--row)); }
+.units tr:hover .unit-mark + .unit-mark .icon, .units tr.selected .unit-mark + .unit-mark .icon { filter: drop-shadow(-0.07em 0 0 var(--row-hover)); }
 .units tr.selected .unit-mark { filter: drop-shadow(0 0 0.6px var(--sel-ink)) drop-shadow(0 0 0.6px var(--sel-ink)); }
-.roster-page .units .who-name { display: flex; align-items: center; gap: 0.35rem; }
-.roster-page .units .who-label { overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.roster-page .units .who-name { display: flex; align-items: center; gap: 0.25rem; }
+.roster-page .units .who-label { flex: 0 0.001 auto; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 .roster-page .units .who-name .fallen-mark { margin-left: 0; }
 /* The Roster card's Name field: the mark sits just left of the name. */
 .cv-name-marked { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; }
-.cv-name-marked .unit-mark { font-size: 0.7em; }
+.cv-name-marked .unit-marks { font-size: 0.7em; }
 
-.dropdown-panel:has(> .mark-menu) { width: min(25rem, calc(100vw - 2rem)); max-height: none; overflow: visible; padding: 0.8rem 0.9rem 0.7rem; }
+.dropdown-panel:has(> .mark-menu) { width: min(28rem, calc(100vw - 2rem)); max-height: none; overflow: visible; padding: 0.8rem 0.9rem 0.7rem; }
 .mark-menu { display: grid; gap: 0.6rem; }
 .mark-brushes { display: grid; grid-template-columns: auto 1fr; align-items: stretch; gap: 0.35rem 0.8rem; margin: 0; padding: 0; border: 0; }
 .mark-brushes legend { padding: 0; margin-bottom: 0.35rem; font: 600 0.92rem var(--display); color: var(--ink-soft); }
@@ -2019,8 +2030,11 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 }
 .mark-unit:hover { background: var(--row-hover); border-color: var(--row-border); }
 .mark-unit[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 10%, var(--row)); }
-.mark-unit-name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.mark-unit .unit-mark { font-size: 0.68rem; }
+.mark-unit-name { flex: 0 0.001 auto; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mark-unit .unit-marks { font-size: 0.68rem; }
+.mark-unit.full { cursor: not-allowed; }
+.mark-unit.full:hover { background: var(--row); border-color: transparent; }
+.mark-unit.full .mark-unit-name, .mark-unit.full .portrait { opacity: 0.55; }
 .mark-empty { flex: none; width: 0.5rem; height: 0.5rem; border: 1px dashed var(--line); border-radius: 50%; margin-right: 0.15rem; }
 .mark-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; font-size: 0.92rem; }
 @media (prefers-reduced-motion: reduce) { .mark-swatch:hover { transform: none; } }

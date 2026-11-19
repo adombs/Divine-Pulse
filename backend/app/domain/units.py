@@ -20,6 +20,8 @@ SkillKey = Literal[
 MARK_SHAPES = ("circle", "square", "triangle", "diamond", "star")
 MARK_COLORS = ("red", "gold", "green", "blue", "violet")
 UnitMark = Annotated[str, StringConstraints(pattern=rf"^({'|'.join(MARK_SHAPES)})-({'|'.join(MARK_COLORS)})$")]
+# The most marks one unit can wear.
+MAX_MARKS = 5
 SkillRank = Literal["E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+", "S", "S+"]
 
 
@@ -151,9 +153,9 @@ class Unit(BaseModel):
     in_army: bool = True
     # The player's plan for the unit (never read from the game).
     plan: UnitPlan = Field(default_factory=UnitPlan)
-    # The player's mark beside the unit's name on the Roster, "<shape>-<color>" ("star-gold"); None when unmarked.
-    # Never read from the game. Older runs load with None.
-    mark: UnitMark | None = None
+    # The player's marks beside the unit's name on the Roster, "<shape>-<color>" ("star-gold"), in the order they were
+    # put on: at most MAX_MARKS, no two alike. Never read from the game. Older runs load with none.
+    marks: list[UnitMark] = Field(default_factory=list, max_length=MAX_MARKS)
 
     def ebst_config(self) -> EbstConfig:
         return EbstConfig(offense=self.ebst_offense, defense=self.ebst_defense, stats=ordered_others(self.ebst_stats))
@@ -173,6 +175,7 @@ __all__ = [
     "STAT_KEYS",
     "Unit",
     "PlanSupport",
+    "MAX_MARKS",
     "UnitMark",
     "UnitPlan",
     "VALUE_KEYS",

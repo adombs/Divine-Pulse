@@ -1,10 +1,11 @@
 /**
  * The Roster's Mark menu: pick a brush (one of five shapes in one of five colors, or the eraser), then click units to
- * mark them. Clicking a unit that already wears the brush takes the mark off. Marks show beside names on the Roster.
+ * mark them. A unit wears up to MAX_MARKS different marks; clicking a unit that already wears the brush takes that
+ * mark off, and the eraser takes all of them off. Marks show beside names on the Roster.
  */
-import { useState } from "react";
+import { useState, type CSSProperties } from "react";
 import type { Unit } from "../api";
-import { MARK_COLORS, MARK_ICON, MARK_SHAPES, markLabel, parseMark, type Mark } from "../marks";
+import { MARK_COLORS, MARK_ICON, MARK_SHAPES, MAX_MARKS, markLabel, parseMark, validMarks, type Mark } from "../marks";
 import { CONCEPT_ICON } from "../icons/concepts";
 import { Dropdown } from "./common";
 import { Icon } from "./Icon";
@@ -36,14 +37,30 @@ function useBrush(): [Brush, (b: Brush) => void] {
   return [brush, update];
 }
 
-/** A unit's mark as drawn beside its name; nothing for none. */
-export function UnitMark({ mark, className = "" }: { mark: string | null | undefined; className?: string }) {
-  const parsed = parseMark(mark);
-  if (!parsed) return null;
-  const label = markLabel(parsed.shape, parsed.color);
+/** A unit's marks as drawn beside its name, in the order they were put on; nothing for none. */
+export function UnitMarks({ marks, className = "" }: { marks: readonly string[] | null | undefined; className?: string }) {
+  const shown = validMarks(marks);
+  if (!shown.length) return null;
+  const labels = shown.map((m) => {
+    const { shape, color } = parseMark(m)!;
+    return markLabel(shape, color);
+  });
   return (
-    <span className={`unit-mark mark-${parsed.color} ${className}`} title={label} aria-label={`Marked: ${label}`} role="img">
-      <Icon name={MARK_ICON[parsed.shape]} weight="fill" />
+    <span
+      className={`unit-marks ${className}`}
+      style={{ "--marks": shown.length } as CSSProperties}
+      role="img"
+      aria-label={`Marked: ${labels.join(", ")}`}
+      title={labels.join(", ")}
+    >
+      {shown.map((m) => {
+        const { shape, color } = parseMark(m)!;
+        return (
+          <span key={m} className={`unit-mark mark-${color}`}>
+            <Icon name={MARK_ICON[shape]} weight="fill" />
+          </span>
+        );
+      })}
     </span>
   );
 }
@@ -51,22 +68,28 @@ export function UnitMark({ mark, className = "" }: { mark: string | null | undef
 interface Props {
   /** Every unit on the Roster, in the order it lists them. */
   units: Unit[];
-  /** A unit's mark as it stands, including changes still being saved. */
-  markOf: (u: Unit) => string | null;
+  /** A unit's marks as they stand, including changes still being saved. */
+  marksOf: (u: Unit) => Mark[];
   /** Show post-timeskip portraits. */
   part2: boolean;
-  onChange: (marks: Record<string, Mark | null>) => void;
+  /** Each named unit's whole new list of marks. */
+  onChange: (marks: Record<string, Mark[]>) => void;
 }
 
-export function MarkMenu({ units, markOf, part2, onChange }: Props) {
+export function MarkMenu({ units, marksOf, part2, onChange }: Props) {
   const [brush, setBrush] = useBrush();
-  const marked = units.filter((u) => parseMark(markOf(u)));
+  const marked = units.filter((u) => marksOf(u).length > 0);
 
   const apply = (u: Unit) => {
-    const current = markOf(u);
-    // Painting the same mark again takes it off, so a misclick is one click to undo.
-    const next = brush === null || current === brush ? null : brush;
-    if (next !== current) onChange({ [u.key]: next });
+    const current = marksOf(u);
+    if (brush === null) {
+      if (current.length) onChange({ [u.key]: [] });
+    } else if (current.includes(brush)) {
+      // Painting a mark the unit already wears takes it off, so a misclick is one click to undo.
+      onChange({ [u.key]: current.filter((m) => m !== brush) });
+    } else if (current.length < MAX_MARKS) {
+      onChange({ [u.key]: [...current, brush] });
+    }
   };
 
   return (
@@ -102,12 +125,14 @@ export function MarkMenu({ units, markOf, part2, onChange }: Props) {
         </fieldset>
 
         <p className="mark-hint">
-          {brush === null ? "Click a unit to take its mark off." : "Click a unit to mark it. Click again to take the mark off."}
+          {brush === null
+            ? "Click a unit to take all its marks off."
+            : `Click a unit to add the mark, again to take it off. Up to ${MAX_MARKS} marks each.`}
         </p>
 
         <ul className="mark-units" aria-label="Units">
           {units.map((u) => (
-            <MarkUnitRow key={u.key} unit={u} mark={markOf(u)} brush={brush} part2={part2} onApply={apply} />
+            <MarkUnitRow key={u.key} unit={u} marks={marksOf(u)} brush={brush} part2={part2} onApply={apply} />
           ))}
         </ul>
 
@@ -117,7 +142,7 @@ export function MarkMenu({ units, markOf, part2, onChange }: Props) {
             type="button"
             className="btn small"
             disabled={marked.length === 0}
-            onClick={() => onChange(Object.fromEntries(marked.map((u) => [u.key, null])))}
+            onClick={() => onChange(Object.fromEntries(marked.map((u) => [u.key, []])))}
           >
             Clear All Marks
           </button>
@@ -129,24 +154,33 @@ export function MarkMenu({ units, markOf, part2, onChange }: Props) {
 
 function MarkUnitRow({
   unit,
-  mark,
+  marks,
   brush,
   part2,
   onApply,
 }: {
   unit: Unit;
-  mark: string | null;
+  marks: Mark[];
   brush: Brush;
   part2: boolean;
   onApply: (u: Unit) => void;
 }) {
-  const wearsBrush = brush !== null && mark === brush;
+  const wearsBrush = brush !== null && marks.includes(brush);
+  // Full: the brush can't go on until one of the unit's marks comes off.
+  const full = brush !== null && !wearsBrush && marks.length >= MAX_MARKS;
   return (
     <li>
-      <button type="button" className="mark-unit" aria-pressed={wearsBrush} onClick={() => onApply(unit)}>
+      <button
+        type="button"
+        className={`mark-unit${full ? " full" : ""}`}
+        aria-pressed={wearsBrush}
+        aria-disabled={full || undefined}
+        title={full ? `${unit.name} already has ${MAX_MARKS} marks. Click one of them with its brush, or use the Eraser.` : undefined}
+        onClick={() => onApply(unit)}
+      >
         <Portrait unit={unit} part2={part2} size={26} />
         <span className="mark-unit-name">{unit.name}</span>
-        {parseMark(mark) ? <UnitMark mark={mark} /> : <span className="mark-empty" aria-hidden />}
+        {marks.length ? <UnitMarks marks={marks} /> : <span className="mark-empty" aria-hidden />}
       </button>
     </li>
   );
