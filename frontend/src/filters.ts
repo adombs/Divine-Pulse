@@ -67,15 +67,15 @@ export function passes(f: PeopleFilters, p: { key: string; house: string; inRun:
 const STORE = "divine-pulse-people-filters";
 
 const RUN_STORE = `${STORE}-run-only`;
-type RunOnlyChoices = { loaded: boolean; empty: boolean };
-function runOnlyChoices(): RunOnlyChoices {
+/** "Current run only" is on unless turned off, and only means anything while a run is loaded. */
+function savedRunOnly(): boolean {
   try {
     const saved = localStorage.getItem(RUN_STORE);
-    if (saved) return { loaded: true, empty: false, ...JSON.parse(saved) as Partial<RunOnlyChoices> };
+    if (saved) return (JSON.parse(saved) as { loaded?: unknown }).loaded !== false;
   } catch {
-    /* storage unavailable: use the defaults */
+    /* storage unavailable: use the default */
   }
-  return { loaded: true, empty: false };
+  return true;
 }
 
 export function usePeopleFiltersState(loadedRun = false): [PeopleFilters, (f: PeopleFilters) => void] {
@@ -91,22 +91,25 @@ export function usePeopleFiltersState(loadedRun = false): [PeopleFilters, (f: Pe
       return NO_FILTERS;
     }
   });
-  const [choices, setChoices] = useState<RunOnlyChoices>(runOnlyChoices);
-  const state = loadedRun ? "loaded" : "empty";
-  const filters = { ...f, runOnly: choices[state] };
+  const [runOnly, setRunOnly] = useState(savedRunOnly);
+  // Without a run there is nothing to narrow to, so the filter is off (and its switch disabled).
+  const filters = useMemo(() => ({ ...f, runOnly: loadedRun && runOnly }), [f, loadedRun, runOnly]);
   const setFilters = useCallback((next: PeopleFilters) => {
     setF({ ...next, runOnly: false });
-    const updated = { ...choices, [state]: next.runOnly };
+    const nextRunOnly = loadedRun ? next.runOnly : runOnly;
     try {
       localStorage.setItem(STORE, JSON.stringify({ ...next, runOnly: false }));
-      localStorage.setItem(RUN_STORE, JSON.stringify(updated));
+      if (loadedRun) localStorage.setItem(RUN_STORE, JSON.stringify({ loaded: nextRunOnly }));
     } catch {
       /* storage unavailable: filters just aren't remembered */
     }
-    setChoices(updated);
-  }, [choices, state]);
+    setRunOnly(nextRunOnly);
+  }, [loadedRun, runOnly]);
   return [filters, setFilters];
 }
+
+/** Whether a run is loaded, so the "Current run only" filter can be offered. */
+export const RunLoadedContext = createContext(false);
 
 export const PeopleFiltersContext = createContext<[PeopleFilters, (f: PeopleFilters) => void]>([NO_FILTERS, () => {}]);
 export function usePeopleFilters(): [PeopleFilters, (f: PeopleFilters) => void] {

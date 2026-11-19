@@ -16,7 +16,7 @@ import { PortraitPhaseContext, useAppearance } from "./appearance";
 import { showPart2 } from "./portraits";
 import { rosterUnits } from "./roster";
 import { NavProvider, Page, useNavState } from "./nav";
-import { PeopleFiltersContext, usePeopleFiltersState } from "./filters";
+import { PeopleFiltersContext, RunLoadedContext, usePeopleFiltersState } from "./filters";
 import { gameAssetsAvailable, gameAssetUrl, loadGameAssetsStatus, onGameAssetsChange } from "./gameAssets";
 import { GameAssetAlert } from "./components/GameAssetAlert";
 import { UpdateBanner } from "./components/UpdateBanner";
@@ -362,6 +362,7 @@ export default function App() {
   return (
     <NavProvider nav={nav}>
     <PeopleFiltersContext.Provider value={peopleFilters}>
+    <RunLoadedContext.Provider value={loaded}>
     <PortraitPhaseContext.Provider value={portraitPhase}>
     <div className="app nav-collapsed">
       <Sidebar>
@@ -486,6 +487,7 @@ export default function App() {
       <Toasts state={toasts} />
     </div>
     </PortraitPhaseContext.Provider>
+    </RunLoadedContext.Provider>
     </PeopleFiltersContext.Provider>
     </NavProvider>
   );

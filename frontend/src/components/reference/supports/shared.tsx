@@ -15,7 +15,8 @@ import {
   pairRoutes,
 } from "../../../reference/supports";
 import { Switch } from "../../ui";
-import { FilterChip, FilterMenu, Segmented, Spoiler, SpoilerButton } from "../../common";
+import type { ReactNode } from "react";
+import { FilterChip, FilterMenu, Segmented } from "../../common";
 import { useSpoiler, spoilerShown } from "../../../spoilers";
 import { PeopleFilterChips, PeopleFilterFields, usePeopleFilterCount } from "../../PeopleFilters";
 import { Icon } from "../../Icon";
@@ -119,15 +120,36 @@ export function RankBadge({ rank }: { rank: SupportRank }) {
 
 /** Each rank with when it unlocks: the pair's whole story in one list. */
 export function RankTimeline({ p }: { p: SupportPair }) {
+  const [shown] = useSpoiler("supports");
   return (
     <ol className="sup-timeline">
       {visibleRanks(p).map((r) => (
         <li key={r}>
           <span className={`sup-rank r-${rankClass(r)}`}>{r}</span>
-          <span className="sup-when"><Spoiler category="supports">{p.avail[r] || "Any Time"}</Spoiler>{p.avail[r] && <WikiCredit />}</span>
+          <span className="sup-when"><Concealed>{p.avail[r] || "Any Time"}</Concealed>{shown && p.avail[r] && <WikiCredit />}</span>
         </li>
       ))}
     </ol>
+  );
+}
+
+/**
+ * Support spoiler text, or a quiet "Hidden" in its place. The one switch in the toolbar (SpoilerSwitch)
+ * reveals every one of them at once, so rows carry no buttons of their own.
+ */
+export function Concealed({ children }: { children: ReactNode }) {
+  const [shown] = useSpoiler("supports");
+  return shown ? <>{children}</> : <span className="sup-concealed" title="Turn on Spoilers in the toolbar to see this">Hidden</span>;
+}
+
+/** The page's single spoiler control: support conditions, chapter locks and paired endings. */
+export function SpoilerSwitch() {
+  const [shown, setShown] = useSpoiler("supports");
+  return (
+    <span className="filter-label sup-spoiler-switch">
+      <Icon name={shown ? CONCEPT_ICON.show : CONCEPT_ICON.hide} />
+      <Switch checked={shown} onChange={setShown} label="Spoilers" title="Show support conditions, chapter locks and paired endings" />
+    </span>
   );
 }
 
@@ -171,7 +193,7 @@ export function PairMarks({ pair, a, b }: { pair: SupportPair; a: string; b: str
 
 /** What the marks under a list or the matrix mean. */
 export function Legend({ ranks }: { ranks?: boolean }) {
-  const [shown, setShown] = useSpoiler("supports");
+  const [shown] = useSpoiler("supports");
   return (
     <p className="sup-legend">
       {ranks && shown && (
@@ -184,9 +206,7 @@ export function Legend({ ranks }: { ranks?: boolean }) {
           </span>
         </>
       )}
-      {shown ? (
-        <><span className="sup-key"><span className="ending"><Icon name={CONCEPT_ICON.ending} weight="fill" /></span> paired ending</span><SpoilerButton conceal onClick={() => setShown(false)} label="Hide support spoilers" /></>
-      ) : <SpoilerButton onClick={() => setShown(true)} label="Show support spoilers" />}
+      {shown && <span className="sup-key"><span className="ending"><Icon name={CONCEPT_ICON.ending} weight="fill" /></span> paired ending</span>}
       <span className="sup-key">
         <span className="atk">
           <Icon name={CONCEPT_ICON.linked} />
@@ -212,7 +232,7 @@ export function FilterControls({
   filters: Filters;
   setFilters: (f: Filters) => void;
 }) {
-  const [shown, setShown] = useSpoiler("supports");
+  const [shown] = useSpoiler("supports");
   const set = (patch: Partial<Filters>) => setFilters({ ...filters, ...patch });
   const [peopleCount, clearPeople] = usePeopleFilterCount();
   const active = peopleCount + Number(shown && filters.endingsOnly);
@@ -245,7 +265,7 @@ export function FilterControls({
           ]}
         />
       </div>
-      {shown ? <span className="filter-label"><Icon name={CONCEPT_ICON.ending} /><Switch checked={filters.endingsOnly} onChange={(endingsOnly) => set({ endingsOnly })} label="Paired endings only" /></span> : <span className="filter-label"><SpoilerButton onClick={() => { setShown(true); set({ endingsOnly: true }); }} label="Show support spoilers and filter to paired endings" />Paired endings only</span>}
+      <span className="filter-label"><Icon name={CONCEPT_ICON.ending} /><Switch checked={shown && filters.endingsOnly} disabled={!shown} title={shown ? undefined : "Turn on Spoilers to filter by paired endings"} onChange={(endingsOnly) => set({ endingsOnly })} label="Paired endings only" /></span>
       <PeopleFilterFields />
     </FilterMenu>
   );

@@ -521,6 +521,7 @@ code { font: 0.85em var(--text); background: var(--row); border: 1px solid var(-
 .switch input:checked + .switch-track .switch-thumb { left: calc(100% - 1.15rem); background: #fff; border-color: #fff; }
 .switch input:focus-visible + .switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
 .switch-label { color: var(--ink-soft); }
+.switch.disabled { cursor: not-allowed; opacity: 0.5; }
 .sticky-save { position: sticky; bottom: -1.6rem; padding: 0.7rem 0 0.2rem; background: linear-gradient(transparent, var(--paper) 30%); }
 
 .font-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; width: 100%; justify-self: stretch !important; }
@@ -1957,6 +1958,87 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 .roster-page .profile { margin: 0.1rem 0 0.3rem; gap: 0.7rem; }
 .roster-page .cv-hero { --cv-face: 6rem; margin: 0.15rem 0 0.35rem; }
 .roster-page .cv-fact { padding: 0.15rem 0; }
+
+/* Roster marks (MarkMenu.tsx): a filled shape in one of five colors beside a unit's name. The colors are mid-tones
+   that hold on the dark rows; on the light selected row a hairline of the row's ink keeps their edge. */
+:root {
+  --mark-red: #e8574b;
+  --mark-gold: #e3a92a;
+  --mark-green: #4cb866;
+  --mark-blue: #4b9cf2;
+  --mark-violet: #a97ff4;
+}
+.mark-red { --mark-c: var(--mark-red); }
+.mark-gold { --mark-c: var(--mark-gold); }
+.mark-green { --mark-c: var(--mark-green); }
+.mark-blue { --mark-c: var(--mark-blue); }
+.mark-violet { --mark-c: var(--mark-violet); }
+/* A unit's marks give way before its name does: in a tight spot they overlap into a stack (each keeps 0.2em of
+   room, the newest drawn on top) instead of cutting the name short. */
+.unit-marks {
+  display: inline-flex; align-items: center; font-size: 0.58em; line-height: 1;
+  flex: 0 100 auto; min-width: calc(1em + (var(--marks, 1) - 1) * 0.2em);
+}
+.unit-mark { display: inline-flex; color: var(--mark-c); flex: 0 1 1.12em; min-width: 0.2em; overflow: visible; }
+.unit-mark:last-child { flex: none; min-width: 1em; width: 1em; }
+.unit-mark .icon { flex: none; width: 1em; height: 1em; }
+/* Where marks overlap, a hairline of the row's own color parts each from the one under it. */
+.units .unit-mark + .unit-mark .icon { filter: drop-shadow(-0.07em 0 0 var(--row)); }
+.units tr:hover .unit-mark + .unit-mark .icon, .units tr.selected .unit-mark + .unit-mark .icon { filter: drop-shadow(-0.07em 0 0 var(--row-hover)); }
+.units tr.selected .unit-mark { filter: drop-shadow(0 0 0.6px var(--sel-ink)) drop-shadow(0 0 0.6px var(--sel-ink)); }
+.roster-page .units .who-name { display: flex; align-items: center; gap: 0.25rem; }
+.roster-page .units .who-label { flex: 0 0.001 auto; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+.roster-page .units .who-name .fallen-mark { margin-left: 0; }
+/* The Roster card's Name field: the mark sits just left of the name. */
+.cv-name-marked { display: inline-flex; align-items: center; gap: 0.35rem; min-width: 0; }
+.cv-name-marked .unit-marks { font-size: 0.7em; }
+
+.dropdown-panel:has(> .mark-menu) { width: min(28rem, calc(100vw - 2rem)); max-height: none; overflow: visible; padding: 0.8rem 0.9rem 0.7rem; }
+.mark-menu { display: grid; gap: 0.6rem; }
+.mark-brushes { display: grid; grid-template-columns: auto 1fr; align-items: stretch; gap: 0.35rem 0.8rem; margin: 0; padding: 0; border: 0; }
+.mark-brushes legend { padding: 0; margin-bottom: 0.35rem; font: 600 0.92rem var(--display); color: var(--ink-soft); }
+.mark-grid { display: grid; grid-template-columns: repeat(5, 2rem); gap: 0.25rem; }
+.mark-swatch {
+  display: grid; place-items: center; width: 2rem; height: 2rem; padding: 0; cursor: pointer;
+  font-size: 0.9rem; color: var(--mark-c); background: var(--row); border: 1px solid var(--row-border); border-radius: 2px;
+  transition: background-color 0.15s, border-color 0.15s, transform 0.15s;
+}
+.mark-swatch:hover { background: var(--row-hover); border-color: var(--line); transform: translateY(-1px); }
+.mark-swatch[aria-pressed="true"] {
+  background: var(--sel); border-color: var(--sel-ink);
+  box-shadow: 0 2px 6px rgb(0 0 0 / 0.35), inset 0 0 0 1px var(--sel-ink);
+}
+.mark-swatch[aria-pressed="true"] .icon { filter: drop-shadow(0 0 0.6px var(--sel-ink)) drop-shadow(0 0 0.6px var(--sel-ink)); }
+.mark-eraser {
+  align-self: stretch; display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem;
+  padding: 0 0.7rem; cursor: pointer; font: 600 0.88rem var(--display); color: var(--ink-soft);
+  background: none; border: 1px dashed var(--line); border-radius: 2px; transition: background-color 0.15s, color 0.15s, border-color 0.15s;
+}
+.mark-eraser .icon { font-size: 1.3rem; }
+.mark-eraser:hover { color: var(--ink); border-color: var(--ink-soft); }
+.mark-eraser[aria-pressed="true"] { background: var(--sel); color: var(--sel-ink); border: 1px solid var(--sel-ink); }
+.mark-hint { margin: 0; font: italic 0.92rem var(--display); color: var(--ink-soft); }
+.mark-units {
+  list-style: none; margin: 0; padding: 0.2rem; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0.2rem;
+  max-height: min(19rem, 45vh); overflow-y: auto; overscroll-behavior: contain;
+  border: 1px solid var(--row-border); background: color-mix(in srgb, var(--row) 55%, transparent);
+  scrollbar-width: thin; scrollbar-color: var(--line) transparent;
+}
+.mark-unit {
+  display: flex; align-items: center; gap: 0.45rem; width: 100%; padding: 0.2rem 0.45rem 0.2rem 0.25rem; cursor: pointer;
+  font: 600 1rem var(--display); color: var(--ink); text-align: left;
+  background: var(--row); border: 1px solid transparent; border-radius: 2px; transition: background-color 0.15s, border-color 0.15s;
+}
+.mark-unit:hover { background: var(--row-hover); border-color: var(--row-border); }
+.mark-unit[aria-pressed="true"] { border-color: color-mix(in srgb, var(--accent) 55%, transparent); background: color-mix(in srgb, var(--accent) 10%, var(--row)); }
+.mark-unit-name { flex: 0 0.001 auto; margin-right: auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mark-unit .unit-marks { font-size: 0.68rem; }
+.mark-unit.full { cursor: not-allowed; }
+.mark-unit.full:hover { background: var(--row); border-color: transparent; }
+.mark-unit.full .mark-unit-name, .mark-unit.full .portrait { opacity: 0.55; }
+.mark-empty { flex: none; width: 0.5rem; height: 0.5rem; border: 1px dashed var(--line); border-radius: 50%; margin-right: 0.15rem; }
+.mark-foot { display: flex; align-items: center; justify-content: space-between; gap: 0.6rem; font-size: 0.92rem; }
+@media (prefers-reduced-motion: reduce) { .mark-swatch:hover { transform: none; } }
 .roster-page .profile-rows dd { overflow: visible; text-overflow: clip; }
 .roster-page .card-pane { padding-left: 0.8rem; }
 .roster-skills { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 0.35rem; margin-top: 0.55rem; }
@@ -2019,7 +2101,7 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 
 /* Dead units (Classic mode): greyed, below the living in their own group, with the log's "fell" mark. */
 .units tr.fallen:not(.selected) td, .units tr.fallen:not(.selected) .who-class { color: var(--ink-soft); }
-.units tr.fallen .portrait, .cv-face.fallen .portrait { filter: grayscale(1); }
+.units tr.fallen .portrait, .cv-face.fallen .portrait, .cv-face.fallen .cv-sprite { filter: grayscale(1); }
 .units tr.fallen:not(.selected) .portrait { opacity: 0.72; }
 .units tr.fallen-divider th {
   padding: 0.7rem 0.35rem 0.15rem; text-align: left; font: 700 0.95rem var(--display); color: var(--ink-soft);
@@ -2036,7 +2118,7 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 
 /* Roster fit: the search shrinks before the toolbar wraps, and a narrower window trims the table's columns instead of
    clipping the eBST column. */
-.roster-page .toolbar .search-box { flex: 1 1 6.5rem; min-width: 0; max-width: 17rem; }
+.roster-page .master .toolbar .search-box { flex: 1 1 6.5rem; min-width: 0; max-width: 17rem; }
 .roster-page .toolbar .search-box .search { width: 100%; }
 @media (min-width: 1151px) and (max-width: 1360px) {
   .roster-page .ref-layout { grid-template-columns: minmax(0, 1fr) minmax(19rem, 34%); }

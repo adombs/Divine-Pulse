@@ -86,8 +86,6 @@ export interface Unit {
   updated_at: string;
   /** Dead (Classic mode): the battle and step of its log where it fell. null/absent while alive. */
   death?: Death | null;
-  /** The user said it's alive although the game marks it dead. */
-  marked_alive?: boolean;
   /** Whether the game has it in the army as of the last read between battles (absent/true on older servers). */
   in_army?: boolean;
   /** Whether the Roster shows it: in the army, or dead. Units off the Roster keep their history. */
@@ -96,6 +94,8 @@ export interface Unit {
   score?: number;
   /** The player's plan (the Roster's Planner); absent on older servers. */
   plan?: UnitPlan;
+  /** The player's marks beside the name on the Roster, "<shape>-<color>" (marks.ts), up to 5; absent on older servers. */
+  marks?: string[];
 }
 
 /** What the player plans for a unit: Archive names, target skill ranks, and notes with links written as
@@ -624,14 +624,15 @@ export const api = {
   setRunEbst: (runId: string, body: EbstConfig) => request<EbstConfig>("PUT", `/runs/${enc(runId)}/ebst`, body),
   setUnitEbst: (runId: string, key: string, body: Partial<EbstConfig>) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/ebst`, body),
+  /** Replace the Roster marks of the units named ([] clears them); returns them as saved. */
+  setMarks: (runId: string, marks: Record<string, string[]>) =>
+    request<Unit[]>("PUT", `/runs/${enc(runId)}/marks`, { marks }),
   setUnitPlan: (runId: string, key: string, plan: UnitPlan) =>
     request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/plan`, plan),
   /** Plans for characters not on the roster yet, by Characters page key. */
   plans: (runId: string) => request<{ plans: Record<string, UnitPlan> }>("GET", `/runs/${enc(runId)}/plans`),
   setPlan: (runId: string, key: string, plan: UnitPlan) =>
     request<UnitPlan>("PUT", `/runs/${enc(runId)}/plans/${enc(key)}`, plan),
-  setUnitDead: (runId: string, key: string, dead: boolean) =>
-    request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/dead`, { dead }),
   gameFilesStatus: () => request<GameFilesStatus>("GET", "/game-assets/status"),
   scanGameFiles: (dump: string) => request<GameFilesScan>("POST", "/game-assets/scan", { dump }),
   importGameFiles: (dump: string) => request<{ job: GameAssetsJob }>("POST", "/game-assets/import", { dump }),

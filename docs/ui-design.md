@@ -51,7 +51,7 @@ Components (frontend/src/components/layout.tsx unless noted):
 | Component | Use |
 |---|---|
 | `PageHeader` | Every page: the page's sidebar icon and title, status chips, actions and Back at the right, optional sub-tabs with counts (`SubTabs`, common.tsx). |
-| `StatusChip` | A short status in a header or row: `live`, `good` (active), `bad`, `warn` (to check, unsaved), `accent` (a temporary view such as "Comparing as"). |
+| `StatusChip` | A short status in a header or row: `live`, `good` (active), `bad`, `warn` (to check, unsaved), `accent` (a temporary view, such as a comparison lens). |
 | `MasterDetail` | A list (its children) on the left and a `DetailCard` on the right; stacks on narrow screens. |
 | `DetailCard` | The banner-titled card for the selected thing (Roster, Characters, Classes, Supports, Runs, Battle units / enemies). `actions` are icon buttons at the top right of its name banner (in a character window, of the window's header); its `Section`s make up the icon bar along its bottom. |
 | `Section` | A headed block inside a card or page. |
@@ -135,8 +135,14 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
 
 ## Other pages
 
-- **Roster:** header with the unit count and chips for what changes the view (in-battle filter, units to check,
-  "Comparing as"); the run picker is the header's action. Table and unit card as before (`DetailCard`). Export Team (TeamExport.tsx), left
+- **Roster:** header with the unit count and chips for what changes the view (in-battle filter, units to check); the run picker is the header's action. The toolbar's Mark menu (MarkMenu.tsx), between Compare as and Base | On
+  screen, holds a brush grid (five shapes down five colors, marks.ts, plus an Eraser; the brush is remembered in this browser) and every
+  Roster unit as a two-column list: clicking a unit adds the brush's mark (up to 5 different marks, in the order put on; a full unit's row
+  dims and refuses a sixth), clicking again takes that mark off, and the Eraser takes all of a unit's marks off; Clear All Marks empties
+  them. Marks are saved on the unit (`Unit.marks`, `PUT /api/runs/{id}/marks`), shown at once while saving, and drawn small and filled
+  right after
+  the name in the table and just left of it in the unit card's Name field. Where room is short the marks overlap into a stack
+  before the name is cut short. Table and unit card as before (`DetailCard`). Export Team (TeamExport.tsx), left
   of Back, previews the two images it saves (an overview of each unit with BST, never eBST, as rows of cards as tall as the unit's
   portrait and stats, the rest flowing into columns beside them, units per row set beside the preview; run statistics) and the units to include, in slots laid out as many side by side as the overview (an empty row more at the
   end); a six-dot handle drags a unit to another slot, empty or not (they swap), and empty slots leave rows short. An Order menu above
@@ -146,7 +152,7 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
   overview, and their Team totals count whoever is shown).
   Dead units (Classic mode) stay in the table, greyed with a skull, in a Fallen group below the living whatever the sort;
   their card's Status fact says where they fell and opens that battle with the replay at that step
-  (`#/battle/<id>?fell=<unit key>`), and the banner's Mark as Alive button (only on a fallen unit) overrides the game's flag; a unit can't be marked dead by hand.
+  (`#/battle/<id>?fell=<unit key>`).
   The shared people filters' Status (Alive / Dead) only counts people in the active run.
 - **Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
   with a `DetailCard`. The Archive's tabs: Characters, Crests, Battalions, Classes, Combat Arts, Abilities, Magic,

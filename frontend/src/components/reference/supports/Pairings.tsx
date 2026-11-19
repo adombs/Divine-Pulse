@@ -11,14 +11,16 @@ import { SUPPORT_RANKS, SupportData, SupportPair, hasEnding } from "../../../ref
 import { KeyPortrait } from "../../ui";
 import { DetailCard, EmptyState, MasterDetail, Section } from "../../layout";
 import { AffiliationIcon } from "../../AffiliationIcon";
-import { NoMatches, SearchBox, Segmented, Spoiler } from "../../common";
+import { NoMatches, SearchBox, Segmented } from "../../common";
 import { Icon } from "../../Icon";
 import { usePeopleFilters } from "../../../filters";
 import { searchMatches } from "../../../fuzzy";
 import { CharLink } from "../../Links";
 import {
   Filters,
+  Concealed,
   FilterControls,
+  SpoilerSwitch,
   HOUSES,
   Legend,
   NoteChip,
@@ -60,7 +62,7 @@ interface Row {
 export function Pairings({ data, people, part2, units, routeOk, filters, setFilters, onOpen }: Props) {
   const [showSupports] = useSpoiler("supports");
   const [peopleFilters] = usePeopleFilters();
-  const [view, setView] = useState<View>("list");
+  const [view, setView] = useState<View>("matrix");
   const [sort, setSort] = useState<SortKey>("rank");
   const [q, setQ] = useState("");
   const [picked, setPicked] = useState<string | null>(null);
@@ -110,8 +112,8 @@ export function Pairings({ data, people, part2, units, routeOk, filters, setFilt
           value={view}
           onChange={setView}
           options={[
-            ["list", "List"],
             ["matrix", "Matrix"],
+            ["list", "List"],
           ]}
         />
         {view === "list" && (
@@ -129,6 +131,7 @@ export function Pairings({ data, people, part2, units, routeOk, filters, setFilt
           </>
         )}
         <FilterControls filters={filters} setFilters={setFilters} />
+        <SpoilerSwitch />
       </div>
       {view === "list" ? (
         <>
@@ -334,7 +337,7 @@ function PairCard({ row, part2, onOpen }: { row: Row | null; part2: boolean; onO
         {pair.notes.length ? (
           <ul className="sup-notes">
             {pair.notes.map((n) => (
-              <li key={n}><Spoiler category="supports">{n}</Spoiler><WikiCredit /></li>
+              <li key={n}><Concealed>{n}</Concealed>{showSupports && <WikiCredit />}</li>
             ))}
           </ul>
         ) : (

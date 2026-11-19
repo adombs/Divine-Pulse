@@ -111,6 +111,13 @@ export const CONCEPT_ICON = {
   carry: "carry",
   absorb: "absorb",
   star: "star",
+  // The Roster's marks (marks.ts) and the Mark menu's eraser.
+  markCircle: "markCircle",
+  markSquare: "markSquare",
+  markTriangle: "markTriangle",
+  markDiamond: "markDiamond",
+  markStar: "markStar",
+  eraser: "eraser",
   // Shared aliases.
   weapon: "attack",
   actions: "act",
