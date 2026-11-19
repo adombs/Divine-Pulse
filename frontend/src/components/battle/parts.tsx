@@ -380,8 +380,11 @@ export function ItemList({
     if (!row || !box) return;
     const r = row.getBoundingClientRect();
     const b = box.getBoundingClientRect();
-    if (r.top < b.top || r.bottom > b.bottom) box.scrollTo({ top: box.scrollTop + (r.top - b.top) - b.height / 2 + r.height / 2, behavior: "smooth" });
-  }, [current]);
+    // The sticky "Log" header covers the top of the scroller, so the visible area starts below it.
+    const top = b.top + (box.querySelector<HTMLElement>(".sec-head")?.offsetHeight ?? 0);
+    const mid = (top + b.bottom) / 2;
+    if (r.top < top || r.bottom > b.bottom) box.scrollTo({ top: box.scrollTop + (r.top + r.height / 2 - mid), behavior: "smooth" });
+  }, [current, items.length]);
   if (!items.length) return <p className="muted">{empty}</p>;
   const shown = mergeHits(items);
   // The chronology (chronicle.ts) is by replay beat, and a row is undone once the replay is at or past the Divine Pulse
