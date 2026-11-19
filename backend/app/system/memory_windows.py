@@ -14,6 +14,7 @@ from .memory import AccessDenied, Region
 
 PROCESS_QUERY_INFORMATION = 0x0400
 PROCESS_VM_READ = 0x0010
+PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
 MEM_COMMIT = 0x1000
 MEM_MAPPED = 0x40000
 PAGE_NOACCESS = 0x01
@@ -86,6 +87,25 @@ def find_processes(exe_names: set[str]) -> list[tuple[int, str]]:
     finally:
         k32.CloseHandle(snap)
     return found
+
+
+def process_paths(exe_names: set[str]) -> list[str]:
+    """The full executable paths of running processes whose executable name (lower case) is in `exe_names`."""
+    k32 = _kernel32()
+    k32.QueryFullProcessImageNameW.argtypes = [wt.HANDLE, wt.DWORD, wt.LPWSTR, ctypes.POINTER(wt.DWORD)]
+    paths = []
+    for pid, _name in find_processes(exe_names):
+        handle = k32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, False, pid)
+        if not handle:
+            continue
+        try:
+            size = wt.DWORD(32768)
+            buffer = ctypes.create_unicode_buffer(size.value)
+            if k32.QueryFullProcessImageNameW(handle, 0, buffer, ctypes.byref(size)):
+                paths.append(buffer.value)
+        finally:
+            k32.CloseHandle(handle)
+    return paths
 
 
 class Process:

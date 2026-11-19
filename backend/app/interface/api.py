@@ -381,6 +381,19 @@ def open_data_folder(request: Request) -> None:
         raise HTTPException(500, str(exc)) from exc
 
 
+@router.get("/save-backups")
+def save_backups(request: Request) -> dict:
+    return _state(request).operations.save_backup_status()
+
+
+@router.post("/save-backups/open")
+def open_save_backups(request: Request) -> None:
+    try:
+        _state(request).operations.open_save_backups()
+    except OSError as exc:
+        raise HTTPException(500, str(exc)) from exc
+
+
 @router.get("/events")
 async def events(request: Request) -> StreamingResponse:
     runtime = _state(request)

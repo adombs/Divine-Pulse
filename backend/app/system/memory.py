@@ -39,6 +39,17 @@ def find_processes(exe_names: set[str]) -> list[tuple[int, str]]:
     return find_windows_processes({n.lower() for n in exe_names})
 
 
+def process_paths(exe_names: set[str]) -> list[str]:
+    """Full executable paths of running programs whose executable name is in `exe_names` (none off Windows)."""
+    import sys
+
+    if sys.platform != "win32":
+        return []
+    from .memory_windows import process_paths as windows_process_paths
+
+    return windows_process_paths({n.lower() for n in exe_names})
+
+
 def open_process(pid: int) -> ProcessMemory:
     """Open a process for reading. Raises AccessDenied if the OS refuses, OSError if it's gone."""
     from .memory_windows import Process

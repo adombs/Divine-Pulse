@@ -43,10 +43,14 @@ class Settings(BaseModel):
     memory_reader: MemoryReader = "eden"
     duplicate_battles: DuplicateBattles = "keep_best"
     check_updates: bool = True
+    # How many older versions of each game save to keep (0: no backups), and the save folder to back up
+    # (None: found automatically, Eden's and FE3H Recomp's).
+    save_backups: int = Field(3, ge=0, le=100)
+    save_folder: str | None = Field(None, max_length=1024)
     # The release version whose update banner was dismissed ("1.4.4"); None when none was.
     update_dismissed: str | None = Field(None, max_length=32)
 
-    @field_validator("update_dismissed")
+    @field_validator("update_dismissed", "save_folder")
     @classmethod
     def _blank_dismissal_is_none(cls, value: str | None) -> str | None:
         return (value.strip() or None) if value is not None else None
