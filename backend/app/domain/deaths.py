@@ -4,8 +4,8 @@ The game says who is dead: the "Is Dead" bit of each roster slot's flags (gameme
 only say where it happened, for the link to that step of the replay: the unit's fall in the timeline that still stands
 (the battle's own log, not a Divine Pulse branch) of the latest finished battle it took part in.
 
-The user can overrule the game by hand: Unit.death with manual set (dead), or Unit.marked_alive (alive while the game
-calls it dead; forgotten once the game reads it alive again).
+A death with manual set (from runs saved when units could be marked dead by hand) stays through reads that find the
+unit alive.
 """
 
 from __future__ import annotations
@@ -78,11 +78,11 @@ def latest_fall(key: str, battles: Iterable[Battle]) -> Death | None:
 
 
 def newly_dead(units: Mapping[str, Unit], dead: Collection[int]) -> list[str]:
-    """Run units the game marks dead that the run doesn't have as dead yet (and the user hasn't said are alive)."""
+    """Run units the game marks dead that the run doesn't have as dead yet ."""
     return [
         key
         for key, unit in units.items()
-        if unit.game_id is not None and unit.game_id in dead and unit.death is None and not unit.marked_alive
+        if unit.game_id is not None and unit.game_id in dead and unit.death is None
     ]
 
 
@@ -106,8 +106,6 @@ def detect(
         update = {}
         if unit.death is not None and not unit.death.manual:
             update["death"] = None
-        if unit.marked_alive:
-            update["marked_alive"] = False
         if update:
             changed[key] = unit.model_copy(update=update)
     fresh = newly_dead(units, dead)
@@ -116,12 +114,3 @@ def detect(
         for key in fresh:
             changed[key] = units[key].model_copy(update={"death": fall_of(key, battles) or Death()})
     return changed
-
-
-def mark(key: str, unit: Unit, dead: bool, battles: Iterable[Battle]) -> Unit:
-    """The user says the unit is dead (linked to where it fell, if anywhere) or alive (whatever the game says)."""
-    if dead:
-        fall = unit.death or fall_of(key, battles)
-        death = (fall or Death()).model_copy(update={"manual": True})
-        return unit.model_copy(update={"death": death, "marked_alive": False})
-    return unit.model_copy(update={"death": None, "marked_alive": True})

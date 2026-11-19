@@ -454,14 +454,6 @@ function UnitCard({ unit, units, runId, mode, lens, part2, toasts }: CardProps) 
   const nav = useNav();
   const ref = useReference();
 
-  const setAlive = async () => {
-    try {
-      await api.setUnitDead(runId, unit.key, false);
-    } catch (e) {
-      toasts.push({ kind: "error", title: "Couldn't mark the unit alive", body: (e as Error).message });
-    }
-  };
-
   const setEbst = async (body: Partial<EbstConfig>) => {
     try {
       await api.setUnitEbst(runId, unit.key, body);
@@ -558,8 +550,6 @@ function UnitCard({ unit, units, runId, mode, lens, part2, toasts }: CardProps) 
         <>
           <IconButton icon={CONCEPT_ICON.history} label="Battle Stats" onClick={() => nav.go({ page: "history", tab: "stats", id: unit.key })} className="card-history" />
           <PlannerButton unit={unit} units={units} runId={runId} toasts={toasts} />
-          {/* A unit can be put back among the living when the game's flag is wrong, but never marked fallen by hand. */}
-          {unit.death && <IconButton icon={CONCEPT_ICON.alive} label="Mark as Alive" onClick={setAlive} />}
         </>
       }
     >

@@ -71,12 +71,6 @@ class RestoreIn(Body):
     ids: list[str] = Field(max_length=1000)
 
 
-class DeadIn(Body):
-    """Mark a unit dead or alive by hand."""
-
-    dead: bool
-
-
 def _notes(value: str) -> str:
     """Control characters dropped, except line breaks and tabs; every line ending made a line feed."""
     value = value.replace("\r\n", "\n").replace("\r", "\n")

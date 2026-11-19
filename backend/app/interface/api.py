@@ -20,7 +20,7 @@ from ..application.operations import (
     RunNameTaken,
     UnitMissing,
 )
-from .inputs import DeadIn, DuplicatesResolveIn, RestoreIn, EbstIn, PlanIn, RulesetIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
+from .inputs import DuplicatesResolveIn, RestoreIn, EbstIn, PlanIn, RulesetIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
 from ..domain.ebst import EbstConfig
 from ..domain.runs import RunSummary
 from ..domain.runs import Rule, Run
@@ -221,12 +221,6 @@ def set_run_plan(run_id: str, key: str, body: PlanIn, request: Request) -> UnitP
     if not PLAN_KEY.fullmatch(key):
         raise HTTPException(422, "Plans are kept under a character's key.")
     return _call(_state(request).operations.set_plan, run_id, key, body.model_dump())
-
-
-@router.put("/runs/{run_id}/units/{key}/dead")
-def set_unit_dead(run_id: str, key: str, body: DeadIn, request: Request) -> UnitOut:
-    unit = _call(_state(request).operations.set_unit_dead, run_id, key, body.dead)
-    return UnitOut.from_unit(key, unit, _call(_state(request).operations.unit_scores, run_id).get(key, 0))
 
 
 @router.post("/window/show")

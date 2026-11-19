@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- The Mark as Alive button is gone from the Roster card; the game decides who is dead.
+
 ## 1.5.1 (2026-11-16)
 
 - A unit's run score counts healing as half a point of damage, since healing keeps a fight going but only damage wins it.

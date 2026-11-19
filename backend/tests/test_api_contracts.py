@@ -242,18 +242,6 @@ def test_marking_a_unit_dead_or_alive(tmp_path):
         [unit] = client.get(f"/api/runs/{run_id}/units").json()
         assert unit["death"] is None and unit["in_army"] is True and unit["on_roster"] is True
 
-        dead = client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": True})
-        assert dead.status_code == 200
-        death = dead.json()["death"]
-        assert (death["battle_id"], death["battle_name"], death["step"], death["t"], death["manual"]) == (
-            "forest", "Battle in the Forest", 4, 12.5, True)
-
-        alive = client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": False}).json()
-        assert alive["death"] is None and alive["marked_alive"] is True
-
-        assert client.put(f"/api/runs/{run_id}/units/nobody/dead", json={"dead": True}).status_code == 404
-        assert client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": "maybe"}).status_code == 422
-        assert client.put(f"/api/runs/{run_id}/units/raphael/dead", json={"dead": True, "x": 1}).status_code == 422
 
 
 def test_a_units_plan_is_saved_whole_and_kept(tmp_path):

@@ -86,8 +86,6 @@ export interface Unit {
   updated_at: string;
   /** Dead (Classic mode): the battle and step of its log where it fell. null/absent while alive. */
   death?: Death | null;
-  /** The user said it's alive although the game marks it dead. */
-  marked_alive?: boolean;
   /** Whether the game has it in the army as of the last read between battles (absent/true on older servers). */
   in_army?: boolean;
   /** Whether the Roster shows it: in the army, or dead. Units off the Roster keep their history. */
@@ -630,8 +628,6 @@ export const api = {
   plans: (runId: string) => request<{ plans: Record<string, UnitPlan> }>("GET", `/runs/${enc(runId)}/plans`),
   setPlan: (runId: string, key: string, plan: UnitPlan) =>
     request<UnitPlan>("PUT", `/runs/${enc(runId)}/plans/${enc(key)}`, plan),
-  setUnitDead: (runId: string, key: string, dead: boolean) =>
-    request<Unit>("PUT", `/runs/${enc(runId)}/units/${enc(key)}/dead`, { dead }),
   gameFilesStatus: () => request<GameFilesStatus>("GET", "/game-assets/status"),
   scanGameFiles: (dump: string) => request<GameFilesScan>("POST", "/game-assets/scan", { dump }),
   importGameFiles: (dump: string) => request<{ job: GameAssetsJob }>("POST", "/game-assets/import", { dump }),

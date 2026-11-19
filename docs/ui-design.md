@@ -146,7 +146,7 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
   overview, and their Team totals count whoever is shown).
   Dead units (Classic mode) stay in the table, greyed with a skull, in a Fallen group below the living whatever the sort;
   their card's Status fact says where they fell and opens that battle with the replay at that step
-  (`#/battle/<id>?fell=<unit key>`), and the banner's Mark as Alive button (only on a fallen unit) overrides the game's flag; a unit can't be marked dead by hand.
+  (`#/battle/<id>?fell=<unit key>`).
   The shared people filters' Status (Alive / Dead) only counts people in the active run.
 - **Archive, Supports:** header with sub-tabs (with counts where they mean something), `MasterDetail`
   with a `DetailCard`. The Archive's tabs: Characters, Crests, Battalions, Classes, Combat Arts, Abilities, Magic,

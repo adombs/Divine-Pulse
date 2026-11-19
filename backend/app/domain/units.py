@@ -141,8 +141,6 @@ class Unit(BaseModel):
     # Dead (Classic mode, from the game's own flag, or marked by hand): where it fell. None while alive. Older runs load
     # with None.
     death: Death | None = None
-    # The user said it's alive although the game marks it dead ("Mark as Alive"). Cleared once the game reads it alive.
-    marked_alive: bool = False
     # Whether the game has the unit in the army (its roster slot's in-army flag) as of the last complete read between
     # battles (domain/membership.py). A unit that left alive keeps everything stored on it, off the Roster, and comes
     # back with it all. Older runs, and units with no game ID, load as True.
