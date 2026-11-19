@@ -48,9 +48,9 @@ export function useHasSprite(sprite: Sprite | null): boolean {
 
 /** The requested map sprite in a round medallion; never replace a missing sprite with a portrait. `className` is the
  * class the sprite shows, for its label. */
-export function SpriteFace({ sprite, name, className }: { sprite: Sprite | null; name: string; className?: string }) {
+export function SpriteFace({ sprite, name, className, fallen }: { sprite: Sprite | null; name: string; className?: string; fallen?: boolean }) {
   return (
-    <span className="cv-face cv-sprite-face">
+    <span className={`cv-face cv-sprite-face${fallen ? " fallen" : ""}`}>
       <span className="cv-sprite-disc"><SpriteFigure sprite={sprite} label={`${name}'s map sprite${className ? ` as a ${className}` : ""}`} /></span>
     </span>
   );

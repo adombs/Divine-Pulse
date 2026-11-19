@@ -2100,7 +2100,7 @@ a[href]:is(:hover, :focus-visible), :is(.ref-link, .link-btn, .who-link):is(:hov
 
 /* Dead units (Classic mode): greyed, below the living in their own group, with the log's "fell" mark. */
 .units tr.fallen:not(.selected) td, .units tr.fallen:not(.selected) .who-class { color: var(--ink-soft); }
-.units tr.fallen .portrait, .cv-face.fallen .portrait { filter: grayscale(1); }
+.units tr.fallen .portrait, .cv-face.fallen .portrait, .cv-face.fallen .cv-sprite { filter: grayscale(1); }
 .units tr.fallen:not(.selected) .portrait { opacity: 0.72; }
 .units tr.fallen-divider th {
   padding: 0.7rem 0.35rem 0.15rem; text-align: left; font: 700 0.95rem var(--display); color: var(--ink-soft);
