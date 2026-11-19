@@ -265,7 +265,7 @@ def test_roster_marks_are_set_and_cleared_in_one_call(tmp_path):
         assert client.put(url, json={"marks": {"byleth": "hexagon-gold"}}).status_code == 422
         assert client.put(url, json={"marks": {"byleth": "star-pink"}}).status_code == 422
         assert client.put(url, json={"marks": {}}).status_code == 422
-        assert client.put(f"/api/runs/missing/marks", json={"marks": {"byleth": None}}).status_code == 404
+        assert client.put("/api/runs/missing/marks", json={"marks": {"byleth": None}}).status_code == 404
 
 
 def test_a_units_plan_is_saved_whole_and_kept(tmp_path):
