@@ -136,7 +136,11 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
 ## Other pages
 
 - **Roster:** header with the unit count and chips for what changes the view (in-battle filter, units to check,
-  "Comparing as"); the run picker is the header's action. Table and unit card as before (`DetailCard`). Export Team (TeamExport.tsx), left
+  "Comparing as"); the run picker is the header's action. The toolbar's Mark menu (MarkMenu.tsx), between Compare as and Base | On
+  screen, holds a brush grid (five shapes down five colors, marks.ts, plus an Eraser; the brush is remembered in this browser) and every
+  Roster unit as a two-column list: clicking a unit gives it the brush, clicking again takes it off; Clear All Marks empties them. Marks
+  are saved on the unit (`Unit.mark`, `PUT /api/runs/{id}/marks`), shown at once while saving, and drawn small and filled right after
+  the name in the table and just left of it in the unit card's Name field. Table and unit card as before (`DetailCard`). Export Team (TeamExport.tsx), left
   of Back, previews the two images it saves (an overview of each unit with BST, never eBST, as rows of cards as tall as the unit's
   portrait and stats, the rest flowing into columns beside them, units per row set beside the preview; run statistics) and the units to include, in slots laid out as many side by side as the overview (an empty row more at the
   end); a six-dot handle drags a unit to another slot, empty or not (they swap), and empty slots leave rows short. An Order menu above

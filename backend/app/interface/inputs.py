@@ -16,7 +16,7 @@ from ..domain.settings import DuplicateBattles, MemoryReader, WindowMode
 from ..domain.ebst import OTHER_KEYS, EbstType, ordered_others
 from ..domain.units import (
     PLAN_ABILITIES_MAX, PLAN_ARTS_MAX, PLAN_EQUIPMENT_MAX, PLAN_LIST_MAX, PLAN_NAME_LEN, PLAN_NOTES_LEN, SkillKey, SkillRank,
-    SupportRank,
+    SupportRank, UnitMark,
 )
 from ..domain.runs import MAX_RULES, RULE_DESCRIPTION_LEN, RULE_NAME_LEN
 
@@ -110,6 +110,12 @@ class PlanIn(Body):
     @classmethod
     def _one_per_partner(cls, v: list[PlanSupportIn]) -> list[PlanSupportIn]:
         return list({s.partner: s for s in reversed(v)}.values())[::-1]
+
+
+class MarksIn(Body):
+    """Marks to set on Roster units, by unit key; null takes a unit's mark off. Units left out keep theirs."""
+
+    marks: dict[str, UnitMark | None] = Field(min_length=1, max_length=1000)
 
 
 class EbstIn(Body):

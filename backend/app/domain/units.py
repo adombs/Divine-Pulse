@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from .ebst import DEFAULT_OTHER_KEYS, EbstConfig, EbstType, OtherKey, ordered_others
 from .inventory import InventoryItem
@@ -16,6 +16,10 @@ ValueKey = Literal["hp", "mv", "str", "mag", "dex", "spd", "lck", "def", "res", 
 SkillKey = Literal[
     "sword", "lance", "axe", "bow", "brawling", "reason", "faith", "authority", "heavy_armor", "riding", "flying"
 ]
+# A Roster mark: one of five shapes in one of five colors (the Roster's Mark menu).
+MARK_SHAPES = ("circle", "square", "triangle", "diamond", "star")
+MARK_COLORS = ("red", "gold", "green", "blue", "violet")
+UnitMark = Annotated[str, StringConstraints(pattern=rf"^({'|'.join(MARK_SHAPES)})-({'|'.join(MARK_COLORS)})$")]
 SkillRank = Literal["E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+", "S", "S+"]
 
 
@@ -147,6 +151,9 @@ class Unit(BaseModel):
     in_army: bool = True
     # The player's plan for the unit (never read from the game).
     plan: UnitPlan = Field(default_factory=UnitPlan)
+    # The player's mark beside the unit's name on the Roster, "<shape>-<color>" ("star-gold"); None when unmarked.
+    # Never read from the game. Older runs load with None.
+    mark: UnitMark | None = None
 
     def ebst_config(self) -> EbstConfig:
         return EbstConfig(offense=self.ebst_offense, defense=self.ebst_defense, stats=ordered_others(self.ebst_stats))
@@ -166,6 +173,7 @@ __all__ = [
     "STAT_KEYS",
     "Unit",
     "PlanSupport",
+    "UnitMark",
     "UnitPlan",
     "VALUE_KEYS",
     "byleth_look",
