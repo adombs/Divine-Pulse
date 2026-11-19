@@ -26,6 +26,7 @@ from .ports import (
     ScannerOperations,
     SettingsRepository,
     SystemInformation,
+    SaveBackupOperations,
     UpdateChecks,
     WindowOperations,
 )
@@ -76,6 +77,7 @@ class BackendOperations:
     route_resolver: Callable[[Battle], str | None] | None = None
     quest_battles: frozenset[int] = frozenset()
     updates: UpdateChecks | None = None
+    save_backups: SaveBackupOperations | None = None
 
     def _unique_name(self, name: str, run_id: str | None = None) -> None:
         taken = next(
@@ -268,6 +270,8 @@ class BackendOperations:
         self.scanner.settings_changed()
         if self.updates is not None:
             self.updates.settings_changed()
+        if self.save_backups is not None:
+            self.save_backups.settings_changed()
         if self.window is not None:
             self.window.set_mode(saved.window_mode)
         return saved.model_dump()
@@ -399,6 +403,14 @@ class BackendOperations:
 
     def open_data_folder(self) -> None:
         self.system.open_folder(self.data_dir)
+
+    def save_backup_status(self) -> dict[str, Any]:
+        if self.save_backups is None:
+            return {"sources": [], "folder": str(self.data_dir / "save-backups")}
+        return self.save_backups.status()
+
+    def open_save_backups(self) -> None:
+        self.system.open_folder(self.save_backups.folder if self.save_backups is not None else self.data_dir / "save-backups")
 
 
 def _group_out(group: duplicates.DuplicateGroup) -> dict[str, Any]:

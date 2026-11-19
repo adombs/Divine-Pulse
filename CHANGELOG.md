@@ -10,6 +10,7 @@
 - Supports has one Spoilers switch in its toolbar instead of an eye button on every rank. Hidden conditions read "Hidden" until you turn it on.
 - Supports opens on All Pairings, in the Matrix view.
 - "Current run only" is on by default wherever people are filtered, and greyed out until a run is loaded.
+- Settings → General has Backup Game Saves: every game save is copied as it changes, keeping 3 earlier versions of each by default (0 turns it off). Eden's and FE3H Recomp's save folders are found automatically, or set one yourself; Open shows the copies.
 
 ## 1.5.1 (2026-11-16)
 

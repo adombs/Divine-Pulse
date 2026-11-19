@@ -149,9 +149,19 @@ export interface Settings {
   check_updates: boolean;
   /** The version whose banner was dismissed (e.g. "1.4.4"); save "" to clear it. */
   update_dismissed: string | null;
+  /** Older versions of each game save to keep (0: no backups). */
+  save_backups: number;
+  /** The save folder to back up; null finds Eden's and FE3H Recomp's automatically. Save "" to go back to that. */
+  save_folder: string | null;
 }
 
-export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader" | "duplicate_battles" | "check_updates" | "update_dismissed">>;
+/** The save folders being backed up, and where the copies go (GET /api/save-backups). */
+export interface SaveBackupStatus {
+  sources: string[];
+  folder: string;
+}
+
+export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader" | "duplicate_battles" | "check_updates" | "update_dismissed" | "save_backups">> & { save_folder?: string };
 
 /** The startup check for a newer release (GET /api/update, SSE `update`). */
 export interface UpdateStatus {
@@ -666,4 +676,6 @@ export const api = {
   checkMemory: () => request<{ ok: boolean; message: string }>("GET", "/memory/check"),
   about: () => request<About>("GET", "/about"),
   openDataFolder: () => request<void>("POST", "/about/open-data-folder"),
+  saveBackups: () => request<SaveBackupStatus>("GET", "/save-backups"),
+  openSaveBackups: () => request<void>("POST", "/save-backups/open"),
 };

@@ -7,7 +7,7 @@
  */
 import { CONCEPT_ICON } from "../icons/concepts";
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useId, useRef, useState } from "react";
-import { About, api, LABELS, Settings } from "../api";
+import { About, api, LABELS, SaveBackupStatus, Settings } from "../api";
 import { DEFAULT_CONFIG, EBST_TYPES, EbstConfig, OTHER_KEYS } from "../ebst";
 import { SPOILER_CATEGORIES, SpoilerCategory, setAllSpoilers, useSpoilers } from "../spoilers";
 import { ToastState } from "./Toasts";
@@ -310,6 +310,8 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const [memoryReader, setMemoryReader] = useState<Settings["memory_reader"]>("eden");
   const [duplicates, setDuplicates] = useState<Settings["duplicate_battles"]>("keep_best");
   const [checkUpdates, setCheckUpdates] = useState(true);
+  const [backupLimit, setBackupLimit] = useState("3");
+  const [saveFolder, setSaveFolder] = useState("");
   // The window mode only applies to the desktop window, not the browser.
   const [desktop, setDesktop] = useState(false);
   const ids = useId();
@@ -323,6 +325,8 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
     setDuplicates(s.duplicate_battles ?? "keep_best");
     setCheckUpdates(s.check_updates ?? true);
     setRecordingLimit(String(s.max_recordings));
+    setBackupLimit(String(s.save_backups ?? 3));
+    setSaveFolder(s.save_folder ?? "");
   };
 
   useEffect(() => {
@@ -334,11 +338,13 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
 
   const count = Number(recordingLimit);
   const invalid = !recordingLimit.trim() || !Number.isInteger(count) || count < 0 || count > 1000;
-  const problems: Partial<Record<SettingsTab, boolean>> = { general: invalid };
+  const backups = Number(backupLimit);
+  const backupsInvalid = !backupLimit.trim() || !Number.isInteger(backups) || backups < 0 || backups > 100;
+  const problems: Partial<Record<SettingsTab, boolean>> = { general: invalid || backupsInvalid };
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
-    if (invalid) return;
+    if (invalid || backupsInvalid) return;
     try {
       const s = await api.saveSettings({
         window_mode: windowMode,
@@ -346,6 +352,8 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
         duplicate_battles: duplicates,
         check_updates: checkUpdates,
         max_recordings: count,
+        save_backups: backups,
+        save_folder: saveFolder.trim(),
       });
       apply(s);
       onSaved(s);
@@ -358,7 +366,8 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   if (!settings) return <p className="muted">Loading…</p>;
 
   const changed: Partial<Record<SettingsTab, boolean>> = {
-    general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader || duplicates !== (settings.duplicate_battles ?? "keep_best") || checkUpdates !== (settings.check_updates ?? true),
+    general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader || duplicates !== (settings.duplicate_battles ?? "keep_best") || checkUpdates !== (settings.check_updates ?? true)
+      || backups !== (settings.save_backups ?? 3) || saveFolder.trim() !== (settings.save_folder ?? ""),
   };
   const dirty = Object.values(changed).some(Boolean);
 
@@ -439,6 +448,9 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                       <MemoryCheck key={settings.memory_reader} />
                     </Row>
                   </Group>
+                  <SaveBackupsGroup key={`${settings.save_folder ?? ""}|${settings.save_backups}`} toasts={toasts} id={ids + "-backups"}
+                    limit={backupLimit} setLimit={setBackupLimit} invalid={backupsInvalid}
+                    folder={saveFolder} setFolder={setSaveFolder} />
                   <Group title="Battle recordings">
                     <Row label="Maximum raw recordings" htmlFor={ids + "-recordings"}
                       hint="0 turns it off. The oldest are removed first."
@@ -486,6 +498,56 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
         </form>
       </div>
     </section>
+  );
+}
+
+/** Backup Game Saves: how many older versions of each save to keep, which save folder, and where the copies are. */
+function SaveBackupsGroup({ toasts, id, limit, setLimit, invalid, folder, setFolder }: {
+  toasts: ToastState;
+  id: string;
+  limit: string;
+  setLimit: (v: string) => void;
+  invalid: boolean;
+  folder: string;
+  setFolder: (v: string) => void;
+}) {
+  const [status, setStatus] = useState<SaveBackupStatus | null>(null);
+  useEffect(() => {
+    api.saveBackups().then(setStatus, () => setStatus(null));
+  }, []);
+  const open = async () => {
+    try {
+      await api.openSaveBackups();
+    } catch (e) {
+      toasts.push({ kind: "error", title: "Couldn't open the folder", body: (e as Error).message });
+    }
+  };
+  const found = status?.sources ?? [];
+  return (
+    <Group title="Backup Game Saves">
+      <Row label="Older versions to keep" htmlFor={id}
+        hint="Each save is copied, and when the game overwrites it, up to this many earlier versions are kept. 0 turns backups off."
+        error={invalid ? "Enter a whole number from 0 to 100." : undefined}>
+        <input id={id} type="number" min={0} max={100} step={1}
+          value={limit} onChange={(e) => setLimit(e.target.value)} aria-invalid={invalid} />
+      </Row>
+      <Row label="Save folder" htmlFor={id + "-folder"} wide
+        hint={folder.trim() ? "Leave empty to find Eden's and FE3H Recomp's saves automatically."
+          : found.length ? <>Found: {found.map((f) => <code key={f} className="path">{f}</code>)}</>
+          : "None found yet. Eden's are found automatically, and FE3H Recomp's once it has run with Divine Pulse open. Or paste the folder here."}>
+        <input id={id + "-folder"} type="text" value={folder} placeholder="Automatic" onChange={(e) => setFolder(e.target.value)} />
+      </Row>
+      {status && (
+        <Row label="Backups" wide hint="To restore one, copy it back into the save folder under the save's own name, with the game closed.">
+          <span className="with-unit set-path">
+            <code className="path">{status.folder}</code>
+            <button type="button" className="btn small" onClick={open}>
+              Open
+            </button>
+          </span>
+        </Row>
+      )}
+    </Group>
   );
 }
 

@@ -31,6 +31,7 @@ def create_app(data_dir: Path = DATA_DIR, background: bool = True, settings: Set
         if background:
             state.scanner.start()
             state.runtime.updates.start()
+            state.runtime.save_backups.start()
         try:
             yield
         finally:
