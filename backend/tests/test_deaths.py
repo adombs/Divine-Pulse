@@ -69,7 +69,7 @@ def test_the_link_goes_to_the_fall_that_stood_in_the_latest_battle():
     assert deaths.detect(UNITS, {0}, {20}, undone)["raphael"].death.battle_id is None
 
 
-def test_a_unit_back_in_the_army_without_the_flag_is_alive_again_unless_marked_by_hand():
+def test_a_unit_back_in_the_army_without_the_flag_is_alive_again_unless_marked_dead_by_hand():
     dead = {
         "raphael": Unit(name="Raphael", game_id=20, death=Death(battle_id="b1")),
         "hilda": Unit(name="Hilda", game_id=25, death=Death(battle_id="b1", manual=True)),
@@ -78,29 +78,9 @@ def test_a_unit_back_in_the_army_without_the_flag_is_alive_again_unless_marked_b
     assert list(changed) == ["raphael"] and changed["raphael"].death is None
 
 
-def test_marking_by_hand():
-    from app.domain.battle import EnemyStats
-
-    battles = [battle("b1", ["byleth", "raphael"], [fell("raphael", 4, by="e:7")])]
-    battles[0].enemy_stats = {7: EnemyStats(slot=7, label="Rogue 7")}
-    marked = deaths.mark("raphael", UNITS["raphael"], True, battles)
-    assert marked.death is not None and marked.death.manual and marked.death.battle_id == "b1"
-    assert marked.death.by == "Rogue 7"
-    # Marked alive: the game's dead flag doesn't mark it dead again...
-    alive = deaths.mark("raphael", marked, False, battles)
-    assert alive.death is None and alive.marked_alive
-    assert deaths.detect({"raphael": alive}, set(), {20}, battles) == {}
-    # ...until the game reads it alive, which ends the override.
-    back = deaths.detect({"raphael": alive}, {20}, set(), battles)["raphael"]
-    assert not back.marked_alive and back.death is None
-    # Dead with no fall recorded: no battle to link to.
-    alone = deaths.mark("byleth", UNITS["byleth"], True, [])
-    assert alone.death == Death(manual=True, at=alone.death.at)
-
-
 def test_runs_saved_before_deaths_load_alive():
     run = Run.model_validate({"id": "run", "name": "Run", "units": {"raphael": {"name": "Raphael"}}})
-    assert run.units["raphael"].death is None and not run.units["raphael"].marked_alive
+    assert run.units["raphael"].death is None
 
 
 def test_the_roster_dead_bit_is_read_from_the_slot_flags():

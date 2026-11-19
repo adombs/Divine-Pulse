@@ -2,6 +2,11 @@
 
 ## Unreleased
 
+## 1.5.2 (2026-11-18)
+
+- The Mark as Alive button is gone from the Roster card; the game decides who is dead.
+- Mark units on the Roster with a shape and color: open Mark in the toolbar, pick a mark, and click units (up to 5 marks each). Marks show beside their names in the table and on the unit's card.
+
 ## 1.5.1 (2026-11-16)
 
 - A unit's run score counts healing as half a point of damage, since healing keeps a fight going but only damage wins it.

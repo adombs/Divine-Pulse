@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 from uuid import uuid4
 
-from ..domain import deaths, duplicates
+from ..domain import duplicates
 from ..domain.text import normalize
 from ..domain.ebst import EbstConfig
 from ..domain.runs import Rule, Run, RunSummary
@@ -209,6 +209,28 @@ class BackendOperations:
         self.events.publish("units_changed", {"run_id": run_id})
         return unit
 
+    def set_unit_marks(self, run_id: str, marks: dict[str, list[str]]) -> dict[str, Unit]:
+        """Replace the Roster marks of several units in one save (the Roster's Mark menu)."""
+        try:
+            run = self.runs.get(run_id)
+        except MissingRecord as exc:
+            raise RunMissing from exc
+        missing = next((key for key in marks if key not in run.units), None)
+        if missing is not None:
+            raise UnitMissing(missing)
+        changed = {
+            key: run.units[key].model_copy(update={"marks": list(wearing)})
+            for key, wearing in marks.items()
+            if run.units[key].marks != wearing
+        }
+        if changed:
+            try:
+                self.runs.apply_units(run_id, changed)
+            except MissingRecord as exc:
+                raise RunMissing from exc
+            self.events.publish("units_changed", {"run_id": run_id})
+        return {key: changed.get(key, run.units[key]) for key in marks}
+
     def set_unit_plan(self, run_id: str, key: str, plan: dict[str, Any]) -> Unit:
         """Replace a unit's plan (the Roster's Planner)."""
         _, unit = self._unit(run_id, key)
@@ -237,16 +259,6 @@ class BackendOperations:
         self.events.publish("units_changed", {"run_id": run_id})
         return saved
 
-    def set_unit_dead(self, run_id: str, key: str, dead: bool) -> Unit:
-        """Mark a unit dead (linked to where it last fell, if anywhere) or alive, overriding what was detected."""
-        _, unit = self._unit(run_id, key)
-        unit = deaths.mark(key, unit, dead, self.battles.list(run_id))
-        try:
-            self.runs.put_unit(run_id, key, unit)
-        except MissingRecord as exc:
-            raise RunMissing from exc
-        self.events.publish("units_changed", {"run_id": run_id, "unit_key": key})
-        return unit
 
     def get_settings(self) -> dict[str, Any]:
         return self.settings.get().model_dump()

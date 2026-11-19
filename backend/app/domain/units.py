@@ -3,9 +3,9 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Literal
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, StringConstraints
 
 from .ebst import DEFAULT_OTHER_KEYS, EbstConfig, EbstType, OtherKey, ordered_others
 from .inventory import InventoryItem
@@ -16,6 +16,12 @@ ValueKey = Literal["hp", "mv", "str", "mag", "dex", "spd", "lck", "def", "res", 
 SkillKey = Literal[
     "sword", "lance", "axe", "bow", "brawling", "reason", "faith", "authority", "heavy_armor", "riding", "flying"
 ]
+# A Roster mark: one of five shapes in one of five colors (the Roster's Mark menu).
+MARK_SHAPES = ("circle", "square", "triangle", "diamond", "star")
+MARK_COLORS = ("red", "gold", "green", "blue", "violet")
+UnitMark = Annotated[str, StringConstraints(pattern=rf"^({'|'.join(MARK_SHAPES)})-({'|'.join(MARK_COLORS)})$")]
+# The most marks one unit can wear.
+MAX_MARKS = 5
 SkillRank = Literal["E", "E+", "D", "D+", "C", "C+", "B", "B+", "A", "A+", "S", "S+"]
 
 
@@ -141,14 +147,15 @@ class Unit(BaseModel):
     # Dead (Classic mode, from the game's own flag, or marked by hand): where it fell. None while alive. Older runs load
     # with None.
     death: Death | None = None
-    # The user said it's alive although the game marks it dead ("Mark as Alive"). Cleared once the game reads it alive.
-    marked_alive: bool = False
     # Whether the game has the unit in the army (its roster slot's in-army flag) as of the last complete read between
     # battles (domain/membership.py). A unit that left alive keeps everything stored on it, off the Roster, and comes
     # back with it all. Older runs, and units with no game ID, load as True.
     in_army: bool = True
     # The player's plan for the unit (never read from the game).
     plan: UnitPlan = Field(default_factory=UnitPlan)
+    # The player's marks beside the unit's name on the Roster, "<shape>-<color>" ("star-gold"), in the order they were
+    # put on: at most MAX_MARKS, no two alike. Never read from the game. Older runs load with none.
+    marks: list[UnitMark] = Field(default_factory=list, max_length=MAX_MARKS)
 
     def ebst_config(self) -> EbstConfig:
         return EbstConfig(offense=self.ebst_offense, defense=self.ebst_defense, stats=ordered_others(self.ebst_stats))
@@ -168,6 +175,8 @@ __all__ = [
     "STAT_KEYS",
     "Unit",
     "PlanSupport",
+    "MAX_MARKS",
+    "UnitMark",
     "UnitPlan",
     "VALUE_KEYS",
     "byleth_look",
