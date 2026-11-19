@@ -521,6 +521,7 @@ code { font: 0.85em var(--text); background: var(--row); border: 1px solid var(-
 .switch input:checked + .switch-track .switch-thumb { left: calc(100% - 1.15rem); background: #fff; border-color: #fff; }
 .switch input:focus-visible + .switch-track { outline: 2px solid var(--accent); outline-offset: 2px; }
 .switch-label { color: var(--ink-soft); }
+.switch.disabled { cursor: not-allowed; opacity: 0.5; }
 .sticky-save { position: sticky; bottom: -1.6rem; padding: 0.7rem 0 0.2rem; background: linear-gradient(transparent, var(--paper) 30%); }
 
 .font-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 6px; width: 100%; justify-self: stretch !important; }

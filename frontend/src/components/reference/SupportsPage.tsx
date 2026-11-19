@@ -36,7 +36,8 @@ function SupportsContent({ units, part2 }: Props) {
   const nav = useNav();
   const [people] = usePeopleFilters();
   // Keep old links to the retired rules tab useful instead of rendering a blank view.
-  const tab: Tab = nav.route.tab === "matrix" || nav.route.tab === "gifts" ? nav.route.tab : "character";
+  // All Pairings comes first; By Character opens from links (or a picked person) as before.
+  const tab: Tab = nav.route.tab === "character" || nav.route.tab === "gifts" ? nav.route.tab : nav.route.id ? "character" : "matrix";
   const setTab = (t: Tab) => nav.go({ page: "supports", tab: t });
   const [filters, setFilters] = useState<Filters>({ byleth: runBylethGender(units), endingsOnly: false });
   // "Byleth" (from links) means whichever Byleth is shown.
@@ -84,8 +85,8 @@ function SupportsContent({ units, part2 }: Props) {
       <PageHeader
         title="Supports"
         tabs={[
-          { id: "character", label: "By Character", count: cast.length || undefined },
           { id: "matrix", label: "All Pairings", count: pairCount },
+          { id: "character", label: "By Character", count: cast.length || undefined },
           { id: "gifts", label: "Gifts, Meals, and Lost Items" },
         ]}
         tab={tab}

@@ -2,7 +2,8 @@
  * The shared people filters (affiliation, current run, route), as fields for a page's Filters dropdown and
  * as removable chips next to it. The same state is used on every page (see filters.ts).
  */
-import { AFFILIATIONS, NO_FILTERS, PeopleFilters, usePeopleFilters, type LifeStatus } from "../filters";
+import { useContext } from "react";
+import { AFFILIATIONS, NO_FILTERS, PeopleFilters, RunLoadedContext, usePeopleFilters, type LifeStatus } from "../filters";
 import { ROUTES, type RouteId } from "../reference/supports";
 import { RunIcon, Switch } from "./ui";
 import { Icon } from "./Icon";
@@ -36,10 +37,11 @@ const ALL: Field[] = ["affiliation", "run", "status", "route"];
 export function PeopleFilterFields({ fields = ALL }: { fields?: Field[] }) {
   const [f, setF] = usePeopleFilters();
   const [showRoutes, setShowRoutes] = useSpoiler("recruitment");
+  const runLoaded = useContext(RunLoadedContext);
   const set = (patch: Partial<PeopleFilters>) => setF({ ...f, ...patch });
   return (
     <div className="people-filter-fields">
-      {fields.includes("run") && <span className="filter-label"><Icon name={CONCEPT_ICON.inRun} /><Switch checked={f.runOnly} onChange={(runOnly) => set({ runOnly })} label="Current run only" /></span>}
+      {fields.includes("run") && <span className="filter-label"><Icon name={CONCEPT_ICON.inRun} /><Switch checked={f.runOnly} disabled={!runLoaded} title={runLoaded ? undefined : "Load a run to filter to its units"} onChange={(runOnly) => set({ runOnly })} label="Current run only" /></span>}
       {fields.includes("status") && (
         <CheckList<LifeStatus>
           label="Status"
