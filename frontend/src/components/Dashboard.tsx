@@ -586,7 +586,7 @@ function UnitCard({ unit, units, runId, mode, lens, part2, toasts, marks }: Card
         layout="flip"
         scope="run"
         face={<span className={`cv-face${unit.death ? " fallen" : ""}`}><Portrait unit={unit} part2={part2} size={104} /></span>}
-        backFace={<SpriteFace sprite={unitSprite(unit)} name={unit.name} />}
+        backFace={<SpriteFace sprite={unitSprite(unit)} name={unit.name} fallen={!!unit.death} />}
         facts={[
           ["Name", <span key="name" className="cv-name-marked"><UnitMarks marks={marks} /><CharLink charKey={characterKeyOfUnit(unit)} title="Base stats, growths and skills in the Archive">{unit.full_name || unit.name}</CharLink></span>],
           ["Class", unit.class_name ? <ClassLink key="class" name={unit.class_name} /> : "—"],
