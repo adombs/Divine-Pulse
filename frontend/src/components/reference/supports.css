@@ -740,3 +740,7 @@ table.sup-matrix {
   color: var(--link-hover, #b9a5ef);
   text-decoration: underline;
 }
+
+/* Spoiler text stays in place as a quiet word; the toolbar switch reveals it all at once. */
+.sup-concealed { color: var(--ink-soft); font-style: italic; letter-spacing: 0.01em; }
+.toolbar > .sup-spoiler-switch:last-child { margin-left: auto; }

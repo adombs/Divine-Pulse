@@ -46,10 +46,10 @@ export function RunIcon({ route }: { route?: RunRoute | null }) {
 }
 
 
-export function Switch({ checked, onChange, label }: { checked: boolean; onChange: (v: boolean) => void; label: string }) {
+export function Switch({ checked, onChange, label, disabled = false, title }: { checked: boolean; onChange: (v: boolean) => void; label: string; disabled?: boolean; title?: string }) {
   return (
-    <label className="switch">
-      <input type="checkbox" checked={checked} onChange={(e) => onChange(e.target.checked)} />
+    <label className={`switch${disabled ? " disabled" : ""}`} title={title}>
+      <input type="checkbox" checked={checked} disabled={disabled} onChange={(e) => onChange(e.target.checked)} />
       <span className="switch-track" aria-hidden>
         <span className="switch-thumb" />
       </span>

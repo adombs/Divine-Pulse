@@ -18,14 +18,16 @@ import {
 import { KeyPortrait } from "../../ui";
 import { unitForCharacter } from "../../../portraits";
 import { DetailCard, EmptyState, MasterDetail, Section } from "../../layout";
-import { NoMatches, SearchBox, Segmented, Spoiler } from "../../common";
+import { NoMatches, SearchBox, Segmented } from "../../common";
 import { Icon } from "../../Icon";
 import { usePeopleFilters } from "../../../filters";
 import { searchMatches } from "../../../fuzzy";
 import { CharLink } from "../../Links";
 import {
   Filters,
+  Concealed,
   FilterControls,
+  SpoilerSwitch,
   HOUSES,
   Legend,
   NoteChip,
@@ -173,11 +175,12 @@ export function ByCharacter({ data, people, selected, onSelect, pairsFor, routeO
             ]}
           />
           <FilterControls filters={filters} setFilters={setFilters} />
+          <SpoilerSwitch />
           <span className="sup-stats">
             <span title="Partners shown of all">{rows.length === all.length ? all.length : `${rows.length}/${all.length}`}</span>
-            <Spoiler category="supports"><span className="ending" title="Paired endings">
+            {showSupports && <span className="ending" title="Paired endings">
               <Icon name={CONCEPT_ICON.ending} weight="fill" /> {endings}
-            </span></Spoiler>
+            </span>}
             {top && <RankBadge rank={top} />}
           </span>
         </div>
@@ -221,7 +224,7 @@ export function ByCharacter({ data, people, selected, onSelect, pairsFor, routeO
                       {pair.notes.length > 0 && (
                         <ul className="sup-notes">
                           {pair.notes.map((n) => (
-                            <li key={n}><Spoiler category="supports">{n}</Spoiler><WikiCredit /></li>
+                            <li key={n}><Concealed>{n}</Concealed>{showSupports && <WikiCredit />}</li>
                           ))}
                         </ul>
                       )}
