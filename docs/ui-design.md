@@ -51,7 +51,7 @@ Components (frontend/src/components/layout.tsx unless noted):
 | Component | Use |
 |---|---|
 | `PageHeader` | Every page: the page's sidebar icon and title, status chips, actions and Back at the right, optional sub-tabs with counts (`SubTabs`, common.tsx). |
-| `StatusChip` | A short status in a header or row: `live`, `good` (active), `bad`, `warn` (to check, unsaved), `accent` (a temporary view such as "Comparing as"). |
+| `StatusChip` | A short status in a header or row: `live`, `good` (active), `bad`, `warn` (to check, unsaved), `accent` (a temporary view, such as a comparison lens). |
 | `MasterDetail` | A list (its children) on the left and a `DetailCard` on the right; stacks on narrow screens. |
 | `DetailCard` | The banner-titled card for the selected thing (Roster, Characters, Classes, Supports, Runs, Battle units / enemies). `actions` are icon buttons at the top right of its name banner (in a character window, of the window's header); its `Section`s make up the icon bar along its bottom. |
 | `Section` | A headed block inside a card or page. |
@@ -135,8 +135,7 @@ History is a page of its own (HistoryPage.tsx), one page with three blocks:
 
 ## Other pages
 
-- **Roster:** header with the unit count and chips for what changes the view (in-battle filter, units to check,
-  "Comparing as"); the run picker is the header's action. The toolbar's Mark menu (MarkMenu.tsx), between Compare as and Base | On
+- **Roster:** header with the unit count and chips for what changes the view (in-battle filter, units to check); the run picker is the header's action. The toolbar's Mark menu (MarkMenu.tsx), between Compare as and Base | On
   screen, holds a brush grid (five shapes down five colors, marks.ts, plus an Eraser; the brush is remembered in this browser) and every
   Roster unit as a two-column list: clicking a unit adds the brush's mark (up to 5 different marks, in the order put on; a full unit's row
   dims and refuses a sixth), clicking again takes that mark off, and the Eraser takes all of a unit's marks off; Clear All Marks empties

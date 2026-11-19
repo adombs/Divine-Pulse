@@ -264,11 +264,6 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
                 {toCheck} to check
               </StatusChip>
             )}
-            {lens && (
-              <StatusChip tone="accent" title="eBST is temporarily worked out this way for every unit">
-                Comparing as {lens.name}
-              </StatusChip>
-            )}
           </>
         }
       />
