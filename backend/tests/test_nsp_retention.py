@@ -18,6 +18,13 @@ from test_game_assets_api import wait_job
 from test_nsp_extractor import FakeExtractor
 
 
+@pytest.fixture(autouse=True)
+def _fake_nstool_runs(monkeypatch):
+    """The tests' NSTool is an empty file standing in for it: skip the check that it starts."""
+    monkeypatch.setattr("app.infrastructure.game_assets_import.check_nstool", lambda tool: None)
+
+
+
 def configure(tmp_path, monkeypatch):
     from app.infrastructure import game_assets, paths
 

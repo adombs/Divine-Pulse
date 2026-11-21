@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import os
 import shutil
+import subprocess
 import sys
 import threading
 from pathlib import Path
@@ -15,17 +17,60 @@ from .nsp_workspace import extraction_workspace, validate_destination
 
 
 NSTOOL_NAME = "nstool.exe" if sys.platform == "win32" else "nstool"
+NSTOOL_DOWNLOAD = "https://github.com/jakcron/nstool/releases/latest"
+NSTOOL_MISSING = (
+    f"NSTool wasn't found. Download the latest macOS release from {NSTOOL_DOWNLOAD} (macos_arm64 for Apple silicon, "
+    "macos_x64 for Intel), unzip it, and put the nstool file in your Applications or Downloads folder. Or import a "
+    "dump folder instead."
+)
+NSTOOL_BLOCKED = (
+    "macOS blocked NSTool ({path}) because it was downloaded from the internet. Open System Settings > Privacy & "
+    "Security, click Allow Anyway next to \"nstool\", then import again (choose Open if macOS asks)."
+)
 
 
-def nstool_path(install_dir: Path | None, project_root: Path) -> Path | None:
+def _mac_download_spots(home: Path) -> list[Path]:
+    """Where a Mac user is likely to have put a downloaded nstool: Applications and Downloads, as the bare file or
+    in the folder its zip unpacked to, and Homebrew's and /usr/local's bin (not on a GUI app's PATH)."""
+    spots: list[Path] = []
+    for folder in (Path("/Applications"), home / "Applications", home / "Downloads", home / "Desktop"):
+        spots.append(folder / "nstool")
+        try:
+            spots += sorted((p / "nstool" for p in folder.glob("nstool*") if p.is_dir()), reverse=True)  # newest first
+        except OSError:
+            continue
+    return spots + [Path("/opt/homebrew/bin/nstool"), Path("/usr/local/bin/nstool")]
+
+
+def nstool_path(install_dir: Path | None, project_root: Path, home: Path | None = None) -> Path | None:
     """NSTool: bundled with the Windows program (tools/nstool.exe) or vendored for source runs; on macOS and Linux,
-    a build beside the vendored copy (vendor/nstool/nstool) or on PATH. None if there is none."""
+    a build beside the vendored copy (vendor/nstool/nstool), on PATH, or (macOS) where a download usually ends up
+    (_mac_download_spots). None if there is none."""
     candidates = [install_dir / "tools" / NSTOOL_NAME] if install_dir is not None else []
     candidates.append(project_root / "vendor" / "nstool" / NSTOOL_NAME)
-    found = next((c for c in candidates if c.is_file()), None)
-    if found is None and sys.platform != "win32" and (on_path := shutil.which("nstool")):
-        found = Path(on_path)
-    return found
+    if sys.platform != "win32":
+        if on_path := shutil.which("nstool"):
+            candidates.append(Path(on_path))
+        if sys.platform == "darwin":
+            candidates += _mac_download_spots(home if home is not None else Path.home())
+    return next((c for c in candidates if c.is_file()), None)
+
+
+def check_nstool(tool: Path) -> None:
+    """Raise ValueError saying how to fix it when NSTool can't run: not executable, or (macOS) killed by Gatekeeper
+    on its first run after a browser download, until the user allows it in System Settings."""
+    if sys.platform == "win32":
+        return
+    if not os.access(tool, os.X_OK):
+        raise ValueError(f"NSTool ({tool}) isn't executable. Download it again from {NSTOOL_DOWNLOAD} and unzip it.")
+    try:
+        result = subprocess.run([str(tool)], capture_output=True, timeout=30)
+    except OSError as exc:
+        raise ValueError(f"NSTool ({tool}) couldn't start: {exc}. Download it again from {NSTOOL_DOWNLOAD}.") from exc
+    except subprocess.TimeoutExpired:
+        return  # it runs
+    if result.returncode < 0:  # killed by a signal: Gatekeeper's SIGKILL for an unapproved download
+        raise ValueError(NSTOOL_BLOCKED.format(path=tool))
 
 
 class BusyError(RuntimeError):
@@ -136,9 +181,9 @@ class GameAssetsImport:
         if not key_path.is_file():
             raise ValueError("Choose your prod.keys file.")
         if tool is None:
-            raise ValueError("Bundled NSTool was not found. Reinstall the application." if sys.platform == "win32" else
-                             "NSTool was not found. Install nstool (github.com/jakcron/nstool) on your PATH, or import "
-                             "a dump folder instead.")
+            raise ValueError("Bundled NSTool was not found. Reinstall the application." if sys.platform == "win32"
+                             else NSTOOL_MISSING)
+        check_nstool(tool)
         destination = Path(keep_dumps) if keep_dumps else None
         protected = (DATA_DIR, game_assets().root, INSTALL_DIR) if FROZEN else (DATA_DIR, game_assets().root)
         with self.lock:

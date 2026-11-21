@@ -24,8 +24,13 @@ to open the window.
 
 Choose **Astris / Ryubing** under Settings > General > Game (the default on macOS). macOS lets another program read an
 app's memory only when the app allows debugging, as Astris's releases do; Divine Pulse builds and signs a small
-reader for this (`backend/app/system/macos`) the first time it connects. It only reads. NSP import needs
-[NSTool](https://github.com/jakcron/nstool) on your PATH; importing a dump folder needs nothing extra.
+reader for this (`backend/app/system/macos`) the first time it connects. It only reads.
+
+To import NSP files, download the latest macOS NSTool from
+[its releases page](https://github.com/jakcron/nstool/releases/latest) (`macos_arm64` for Apple silicon), unzip it, and
+leave `nstool` in Applications or Downloads: Divine Pulse finds it there. The first time it runs, macOS may block it
+as a download; allow it in System Settings > Privacy & Security, then import again. Importing a dump folder needs
+nothing extra.
 
 ## Install and import
 

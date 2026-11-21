@@ -13,6 +13,13 @@ from app.infrastructure import game_assets_import as importer
 from app.main import create_app
 
 
+@pytest.fixture(autouse=True)
+def _fake_nstool_runs(monkeypatch):
+    """The tests' NSTool is an empty file standing in for it: skip the check that it starts."""
+    monkeypatch.setattr("app.infrastructure.game_assets_import.check_nstool", lambda tool: None)
+
+
+
 @pytest.fixture
 def assets(tmp_path, monkeypatch):
     assets = assets_module.GameAssets(tmp_path / "assets")
@@ -227,3 +234,36 @@ def test_nsp_extraction_failure_preserves_existing_assets(tmp_path, assets, monk
         assert job["state"] == "failed" and job["error"] == "bad keys"
         assert client.post("/api/game-assets/import-nsps", json={"nsps": ["missing.nsp"], "keys": str(keys)}).status_code == 400
     assert (assets.root / "old.txt").read_text() == "old"
+
+
+def test_nstool_is_found_where_mac_downloads_go(tmp_path, monkeypatch):
+    from app.infrastructure import game_assets_import as gi
+
+    monkeypatch.setattr("sys.platform", "darwin")
+    monkeypatch.setattr(gi.shutil, "which", lambda name: None)
+    unzipped = tmp_path / "Downloads" / "nstool-v1.9.2-macos_arm64" / "nstool"
+    unzipped.parent.mkdir(parents=True)
+    # (only this test's home: not the /Applications or Homebrew copy this computer may have)
+    monkeypatch.setattr(gi, "_mac_download_spots", lambda home, real=gi._mac_download_spots: [
+        p for p in real(home) if str(p).startswith(str(tmp_path))])
+    assert gi.nstool_path(None, tmp_path, home=tmp_path) is None
+    unzipped.write_bytes(b"")
+    assert gi.nstool_path(None, tmp_path, home=tmp_path) == unzipped
+    assert "releases/latest" in gi.NSTOOL_MISSING
+
+
+def test_a_gatekeeper_blocked_nstool_says_how_to_allow_it(tmp_path, monkeypatch):
+    from app.infrastructure import game_assets_import as gi
+
+    monkeypatch.undo()  # the real check, not this file's stand-in
+    monkeypatch.setattr("sys.platform", "darwin")
+    tool = tmp_path / "nstool"
+    tool.write_text("#!/bin/sh\nkill -9 $$\n")  # what Gatekeeper does to an unapproved download
+    tool.chmod(0o755)
+    with pytest.raises(ValueError, match="Privacy & Security"):
+        gi.check_nstool(tool)
+    tool.write_text("#!/bin/sh\nexit 1\n")  # NSTool's usage message
+    gi.check_nstool(tool)
+    tool.chmod(0o644)
+    with pytest.raises(ValueError, match="isn't executable"):
+        gi.check_nstool(tool)
