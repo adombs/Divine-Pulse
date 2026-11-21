@@ -286,12 +286,14 @@ def test_frontend_files_served_through_a_symlinked_folder(tmp_path, monkeypatch)
         assert "page" in c.get("/settings").text
 
 
-def test_appledouble_files_beside_runs_are_skipped(tmp_path):
-    """A data folder on an exFAT drive or a network share gets a "._<name>" twin beside each file macOS writes."""
+def test_files_not_named_as_runs_are_skipped(tmp_path):
+    """A data folder on an exFAT drive or a network share gets a "._<name>" twin beside each file macOS writes, and
+    Finder's Duplicate names a copy "<name> copy.json": neither stops the runs from loading."""
     from app.infrastructure.persistence import RunStore
 
     store = RunStore(tmp_path)
     run = store.create("Mine")
     (tmp_path / f"._{run.id}.json").write_bytes(b"\0\5\x16\7")
+    (tmp_path / f"{run.id} copy.json").write_bytes((tmp_path / f"{run.id}.json").read_bytes())  # Finder's Duplicate
     assert [r.id for r in store.list()] == [run.id]
     assert [r.id for r in store.save_lineages()] == [run.id]
