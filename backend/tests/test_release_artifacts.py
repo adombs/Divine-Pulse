@@ -177,6 +177,68 @@ def test_release_files_on_macos_is_the_app_zip(tmp_path: Path, monkeypatch: pyte
     assert release_script.release_files("1.2.3") == [archive, sums]
 
 
+def test_release_files_on_macos_takes_the_zip_the_build_named(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """build.py names the zip by build/venv's architecture, which an x86_64 (Rosetta) Python running this script
+    wouldn't report. More than one for the version can't be told apart."""
+    monkeypatch.setattr(release_script, "ROOT", tmp_path)
+    monkeypatch.setattr(release_script, "MACOS", True)
+    monkeypatch.setattr(release_script.platform, "machine", lambda: "x86_64")
+    (tmp_path / "release").mkdir()
+    archive = tmp_path / "release" / "Divine-Pulse-1.2.3-macos-arm64.zip"
+    archive.write_bytes(b"app")
+    (tmp_path / "release" / "Divine-Pulse-1.2.2-macos-x86_64.zip").write_bytes(b"older")
+    sums = tmp_path / "release" / "SHA256SUMS.txt"
+    _write_manifest({archive.name: archive}, sums)
+    assert release_script.release_files("1.2.3") == [archive, sums]
+    (tmp_path / "release" / "Divine-Pulse-1.2.3-macos-x86_64.zip").write_bytes(b"other")
+    with pytest.raises(RuntimeError, match="more than one macOS zip"):
+        release_script.release_files("1.2.3")
+
+
+def test_release_files_on_macos_names_the_missing_zip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(release_script, "ROOT", tmp_path)
+    monkeypatch.setattr(release_script, "MACOS", True)
+    monkeypatch.setattr(release_script.platform, "machine", lambda: "arm64")
+    (tmp_path / "release").mkdir()
+    with pytest.raises(RuntimeError, match=r"did not create Divine-Pulse-1\.2\.3-macos-arm64\.zip, SHA256SUMS\.txt$"):
+        release_script.release_files("1.2.3")
+
+
+def test_build_and_check_on_macos_uses_the_build_venvs_ruff_and_scans_the_app_zip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(release_script, "ROOT", tmp_path)
+    monkeypatch.setattr(release_script, "MACOS", True)
+    commands = []
+    monkeypatch.setattr(release_script, "run", lambda *command, cwd=tmp_path: commands.append(([*command], cwd)))
+    archive, sums = tmp_path / "release" / "Divine-Pulse-1.2.3-macos-arm64.zip", tmp_path / "release" / "SHA256SUMS.txt"
+    monkeypatch.setattr(release_script, "release_files", lambda version: [archive, sums])
+    scanned = []
+    monkeypatch.setattr(release_script.game_content, "check_zip", lambda path: scanned.append(path) or [])
+
+    assert release_script.build_and_check("1.2.3") == [archive, sums]
+    (build, _), (ruff, cwd) = commands
+    assert build == [release_script.sys.executable, tmp_path / "tools/build.py"]
+    assert ruff[0] == tmp_path / "build/venv/bin/python" and ruff[1:4] == ["-m", "ruff", "check"]
+    assert cwd == tmp_path / "backend"
+    assert scanned == [archive]
+
+
+def test_the_release_script_runs_with_macos_own_python3(tmp_path: Path) -> None:
+    """macOS's /usr/bin/python3 is 3.9 (no tomllib): the script switches to a newer Python, as build.py does."""
+    old = Path("/usr/bin/python3")
+    if not old.is_file():
+        pytest.skip("no /usr/bin/python3")
+    found = subprocess.run([str(old), "-c", "import sys; print(sys.version_info < (3, 11))"], capture_output=True,
+                           text=True)
+    if found.returncode or found.stdout.strip() != "True":
+        pytest.skip("/usr/bin/python3 has tomllib")
+    result = subprocess.run([str(old), str(RELEASE_SCRIPT), "finalize", "not-a-version"], capture_output=True,
+                            text=True, cwd=tmp_path)
+    assert "tomllib" not in result.stderr
+    assert "version must look like 1.2.3" in result.stderr or "Python 3.12 or newer is needed" in result.stderr
+
+
 def test_add_to_draft_merges_the_checksums_and_checks_the_upload(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:

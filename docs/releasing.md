@@ -28,7 +28,9 @@ or later on Apple silicon. All bundle their Python and frontend runtimes.
 2. **Prerequisites.** Releases are built on Windows and on a Mac (Apple silicon). On both, install Python 3.12+,
    Node.js 22.12+ (24.x recommended) and the GitHub CLI; authenticate it with `gh auth login`. Windows also needs
    [Inno Setup 6](https://jrsoftware.org/isinfo.php) for the installer, and the Mac Xcode's command-line tools
-   (`xcode-select --install`). On the Mac use a Python 3.12+ environment's `python`, not macOS's own `python3` (3.9):
+   (`xcode-select --install`) and Python 3.12+ from Homebrew or python.org: started with macOS's own `python3` (3.9),
+   `tools/release.py` and `tools/build.py` switch to it. The build's tests read a real process's memory on the Mac,
+   so allow developer tools once (`sudo DevToolsSecurity -enable`), or they wait on a password prompt:
 
    ```
    gh auth status
@@ -85,7 +87,11 @@ or later on Apple silicon. All bundle their Python and frontend runtimes.
    web form unsaved. After editing, check that `gh release view vX.Y.Z --json assets` lists only the four build files.
    Ask for the screenshot if the release needs one and none was provided.
 5. **Test and publish.** Try the installer and portable ZIP on a clean PC (or fresh Windows user account), and the
-   macOS zip on a Mac (downloaded from the draft, so macOS treats it as a download). Inspect
+   macOS zip on a Mac (downloaded from the draft, so macOS treats it as a download). Before that, `python
+   tools/smoke_app.py` checks a build's zip in `release/` as CI does on each pull request: it unzips it into a
+   temporary folder (with `ditto` on the Mac), checks the app's signature and the memory reader's debugger
+   entitlement, starts it with an empty data folder on port 8799 (`--port`), checks the server, the page and its
+   pictures, waits for the window to load the page, and quits it through `/api/quit`. Inspect
    the draft's version, notes, files, and checksums before publishing it manually on GitHub.
 
    The build also runs the packaged executable with `--check-desktop`: it opens and closes a hidden WebView2

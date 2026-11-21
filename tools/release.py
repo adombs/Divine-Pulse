@@ -15,15 +15,24 @@ import argparse
 import datetime
 import hashlib
 import json
+import os
 import platform
 import re
 import subprocess
 import sys
 import tempfile
-import tomllib
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
+if sys.version_info < (3, 12):  # noqa: UP036 (macOS's own python3 is 3.9, which lacks tomllib)
+    from build import newer_python
+
+    if newer := newer_python():
+        print(f"Python {sys.version.split()[0]} is too old for the release script: using {newer}", flush=True)
+        os.execv(newer, [newer, __file__, *sys.argv[1:]])
+    sys.exit(f"release: Python 3.12 or newer is needed (this is {sys.version.split()[0]}).")
+import tomllib  # noqa: E402
+
 import game_content  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -120,7 +129,11 @@ def preflight(tag: str) -> list[str] | None:
 def artifact_names(version: str) -> list[str]:
     """This computer's release files, without the checksum file."""
     if MACOS:
-        return [f"Divine-Pulse-{version}-macos-{platform.machine()}.zip"]
+        # Named by the build's own Python (build/venv), which needn't be this one's architecture: look for it.
+        found = sorted(path.name for path in (ROOT / "release").glob(f"Divine-Pulse-{version}-macos-*.zip"))
+        if len(found) > 1:
+            raise RuntimeError(f"more than one macOS zip for {version} in release/: {', '.join(found)}")
+        return found or [f"Divine-Pulse-{version}-macos-{platform.machine()}.zip"]
     return [f"Divine-Pulse-{version}-windows-portable.zip", f"Divine-Pulse-{version}-setup.exe"]
 
 

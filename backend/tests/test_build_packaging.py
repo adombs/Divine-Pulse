@@ -148,6 +148,31 @@ def test_macos_builds_an_app_instead_of_the_windows_files(monkeypatch):
     assert build_script.venv_python().parts[-2:] == ("bin", "python")
 
 
+def test_mac_package_replaces_this_versions_zips_only(tmp_path, monkeypatch):
+    """One macOS zip per version in release/, so release.py can't take a stale one for another architecture."""
+    release = tmp_path / "release"
+    release.mkdir()
+    for name in ("Divine-Pulse-1.2.3-macos-x86_64.zip", "Divine-Pulse-1.2.3-macos-arm64.zip",
+                 "Divine-Pulse-1.2.2-macos-arm64.zip"):
+        (release / name).write_bytes(b"old")
+    monkeypatch.setattr(build_script, "RELEASE", release)
+    monkeypatch.setattr(build_script.platform, "machine", lambda: "arm64")
+    commands = []
+
+    def fake_run(*command, cwd=None):
+        commands.append([str(part) for part in command])
+        if command[:2] == ("ditto", "-c"):
+            Path(command[-1]).write_bytes(b"new")
+
+    monkeypatch.setattr(build_script, "run", fake_run)
+    app = tmp_path / "dist" / "Divine Pulse.app"
+    assert build_script.mac_package(app, "1.2.3") == [release / "Divine-Pulse-1.2.3-macos-arm64.zip"]
+    assert sorted(path.name for path in release.glob("*.zip")) == [
+        "Divine-Pulse-1.2.2-macos-arm64.zip", "Divine-Pulse-1.2.3-macos-arm64.zip"]
+    assert (release / "Divine-Pulse-1.2.3-macos-arm64.zip").read_bytes() == b"new"
+    assert commands[-1][:5] == ["ditto", "-c", "-k", "--sequesterRsrc", "--keepParent"]
+
+
 def test_spec_bundles_an_app_on_macos():
     spec = (build_script.PACKAGING / "divine_pulse.spec").read_text(encoding="utf-8")
     assert "BUNDLE(" in spec and 'f"{NAME}.app"' in spec

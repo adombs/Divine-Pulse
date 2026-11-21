@@ -330,8 +330,9 @@ def mac_package(app: Path, v: str) -> list[Path]:
     target = RELEASE / app.name
     shutil.rmtree(target, ignore_errors=True)
     run("ditto", app, target)
+    for old in RELEASE.glob(f"Divine-Pulse-{v}-macos-*.zip"):  # this version's, another architecture's too
+        old.unlink()
     archive = RELEASE / f"Divine-Pulse-{v}-macos-{platform.machine()}.zip"
-    archive.unlink(missing_ok=True)
     run("ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", target, archive)
     return [archive]
 

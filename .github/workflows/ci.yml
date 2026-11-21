@@ -67,6 +67,10 @@ jobs:
       - name: Frontend tests
         working-directory: frontend
         run: npm test
+      # The build's tsc -b checks types too; this says so on its own line when they're what fails.
+      - name: Type check
+        working-directory: frontend
+        run: npx tsc --noEmit
       - name: Frontend build
         working-directory: frontend
         run: npm run build
@@ -82,7 +86,7 @@ jobs:
   release-build:
     # tools/build.py as tools/release.py finalize runs it (the tests ran above): the Windows installer and portable
     # zip, or the signed macOS app and its zip, each opened once with --check-desktop. Then the release's game-content
-    # scan, and the files kept for a week to try out.
+    # scan, a smoke test of the zip (tools/smoke_app.py), and the files kept for a week to try out.
     name: release build (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -125,7 +129,15 @@ jobs:
               problems += game_content.check_zip(path)
           print("\n".join(problems) or "Release files OK: " + ", ".join(p.name for p in zips))
           sys.exit(1 if problems else 0)
+      # The release zip unzipped as a player would and started with a new data folder: its signature and the memory
+      # reader's entitlement (macOS), the server, the page and a picture, the window loading the page, and a clean
+      # quit. The runners have a desktop session, so the window really opens.
+      - name: Smoke test the release
+        id: smoke
+        run: python tools/smoke_app.py --port 8799
+      # Kept when only the smoke test failed too, to try the build by hand.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: success() || steps.smoke.outcome == 'failure'
         with:
           name: divine-pulse-${{ matrix.label }}
           path: |
