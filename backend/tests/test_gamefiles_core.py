@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 from pathlib import Path
 import struct
 import zlib
@@ -204,7 +205,8 @@ def test_verify_ignores_files_macos_adds_to_folders(tmp_path):
     out = Output(tmp_path / "out")
     out.json("data/b.json", {"x": 1}, source="test")
     out.write_manifest(dump={"version": "1.2.0"}, families={})
-    for name in (".DS_Store", "data/.DS_Store", "data/._b.json", ".localized", "Icon\r", "__MACOSX/data/._b.json"):
+    names = [".DS_Store", "data/.DS_Store", "data/._b.json", ".localized", "__MACOSX/data/._b.json"]
+    for name in names + (["Icon\r"] if sys.platform != "win32" else []):  # (Windows doesn't allow \r in a name)
         (out.root / name).parent.mkdir(parents=True, exist_ok=True)
         (out.root / name).write_bytes(b"\0\0\0\1Bud1")
     (out.root / "data" / "extra.json").write_text("{}")
