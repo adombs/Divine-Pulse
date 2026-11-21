@@ -33,6 +33,22 @@ GET_TASK_ALLOW = """<?xml version="1.0" encoding="UTF-8"?>
 """
 
 
+@pytest.fixture(autouse=True)
+def no_hang():
+    """Opening a process can wait on macOS's developer-tools password prompt when nobody is there to answer it (a CI
+    machine without `DevToolsSecurity -enable`): fail after a minute instead of waiting forever."""
+    import signal
+
+    def give_up(_signum, _frame):
+        raise TimeoutError("macOS kept waiting, probably on its developer-tools prompt: run sudo DevToolsSecurity -enable")
+
+    previous = signal.signal(signal.SIGALRM, give_up)
+    signal.alarm(60)
+    yield
+    signal.alarm(0)
+    signal.signal(signal.SIGALRM, previous)
+
+
 @pytest.fixture(scope="module")
 def built(tmp_path_factory):
     from app.system import memory_macos
