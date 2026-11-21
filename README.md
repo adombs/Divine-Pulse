@@ -8,7 +8,7 @@ Divine Pulse is a free, offline companion for players who emulate **Fire Emblem:
 
 ## Requirements
 
-- Windows 10 or 11, 64-bit, with Microsoft Edge WebView2; or macOS on Apple silicon, run from source for now (see
+- Windows 10 or 11, 64-bit, with Microsoft Edge WebView2; or macOS 12 or newer on Apple silicon (see
   [macOS](#macos)).
 - One of these, picked under Settings > General > Game: **Eden** with fastmem enabled (Windows), **Astris** (macOS) or
   **Ryubing**/Ryujinx, or **FE3H Recomp by onerag90** (Windows); and **Fire Emblem: Three Houses v1.2.0**.
@@ -18,13 +18,17 @@ Divine Pulse reads game memory. It does not write to the emulator or game. It ha
 
 ## macOS
 
-Divine Pulse runs from a source checkout on macOS. You need Python 3.12 or newer (`brew install python@3.13`),
-Node.js, and Xcode's command-line tools (`xcode-select --install`). Run `tools/setup.sh` once, then `tools/launch.sh`
-to open the window.
+Build the app with `python3 tools/build.py --skip-tests`: it makes **release/Divine Pulse.app** (open it, or drag it to
+Applications) and a zip of it to share. You need Python 3.12 or newer (`brew install python@3.13`; the build finds it
+even when `python3` is macOS's older one), Node.js, and Xcode's command-line tools (`xcode-select --install`). The app
+is signed ad hoc, not notarized: on another Mac, open it the first time with right-click > Open, or allow it in System
+Settings > Privacy & Security. Its data folder is ~/Library/Application Support/Divine Pulse.
+
+To run from the source checkout instead, run `tools/setup.sh` once, then `tools/launch.sh`.
 
 Choose **Astris / Ryubing** under Settings > General > Game (the default on macOS). macOS lets another program read an
 app's memory only when the app allows debugging, as Astris's releases do; Divine Pulse builds and signs a small
-reader for this (`backend/app/system/macos`) the first time it connects. It only reads.
+reader for this (`backend/app/system/macos`), included in the built app. It only reads.
 
 To import NSP files, download the latest macOS NSTool from
 [its releases page](https://github.com/jakcron/nstool/releases/latest) (`macos_arm64` for Apple silicon), unzip it, and

@@ -1,9 +1,13 @@
-"""Builds Divine Pulse for Windows, into release/ (docs/releasing.md).
+"""Builds Divine Pulse for Windows or macOS, into release/ (docs/releasing.md).
 
     python tools/build.py [--skip-tests] [--no-installer] [--current-env]
 
     Windows  Divine-Pulse-<version>-windows-portable.zip, and Divine-Pulse-<version>-setup.exe with Inno Setup 6
+    macOS    Divine Pulse.app (ready to run or drag to Applications), and Divine-Pulse-<version>-macos-<arch>.zip of it
     and SHA256SUMS.txt.
+
+On macOS it needs Xcode's command-line tools (clang, codesign, iconutil): the app is signed ad hoc, with the memory
+reader helper inside it signed with the debugger entitlement (backend/app/system/macos).
 
 Run it with Python 3.12 or newer. It makes its own build environment (build/venv) with the pinned requirements, so the
 release never picks up anything installed by hand; --current-env builds with the running Python instead. Needs
@@ -16,6 +20,7 @@ import argparse
 import hashlib
 import json
 import os
+import platform
 import re
 import shutil
 import subprocess
@@ -29,6 +34,9 @@ BACKEND, FRONTEND, PACKAGING = ROOT / "backend", ROOT / "frontend", ROOT / "pack
 BUILD, RELEASE = ROOT / "build", ROOT / "release"
 VENV = BUILD / "venv"
 APP_NAME = "Divine Pulse"
+MACOS = sys.platform == "darwin"
+MAC_ICON = ROOT / "branding" / "icons" / "app-icon-rounded-1024.png"
+MAC_HELPER = BACKEND / "app" / "system" / "macos"
 NSTOOL = ROOT / "vendor" / "nstool" / "nstool.exe"
 DEV_PACKAGES = {"_pytest", "pytest", "pluggy", "iniconfig", "pygments", "httpx", "httpcore", "ruff"}  # requirements-dev.txt
 LICENSE_FOLDER = "Third-party licenses"
@@ -56,7 +64,7 @@ def version() -> str:
 
 
 def venv_python() -> Path:
-    return VENV / "Scripts/python.exe"
+    return VENV / ("bin/python" if MACOS else "Scripts/python.exe")
 
 
 def in_build_env() -> bool:
@@ -72,10 +80,24 @@ def venv_version() -> str | None:
     return found.group(1) if found else None
 
 
+def newer_python() -> str | None:
+    """A Python 3.12+ on PATH or where Homebrew and python.org install one (not on PATH for every shell)."""
+    names = [f"python3.{minor}" for minor in range(20, 11, -1)]
+    folders = ["/opt/homebrew/bin", "/usr/local/bin", "/Library/Frameworks/Python.framework/Versions/Current/bin"]
+    for name in names:
+        found = shutil.which(name) or next((f"{d}/{name}" for d in folders if os.access(f"{d}/{name}", os.X_OK)), None)
+        if found:
+            return found
+    return None
+
+
 def make_build_env(args: argparse.Namespace) -> None:
     """Create build/venv with the pinned requirements and run this script again inside it."""
     this = f"{sys.version_info.major}.{sys.version_info.minor}"
     if sys.version_info < (3, 12):  # noqa: UP036 (a guard for whoever runs it with an old Python)
+        if newer := newer_python():  # macOS's own python3 is 3.9: use Homebrew's or python.org's instead
+            print(f"Python {sys.version.split()[0]} is too old to build with: using {newer}", flush=True)
+            os.execv(newer, [newer, __file__, *sys.argv[1:]])
         sys.exit(f"Python 3.12 or newer is needed (this is {sys.version.split()[0]}).")
     step(f"Build environment (Python {this})")
     if not venv_python().exists() or venv_version() != this:
@@ -144,7 +166,7 @@ def dev_modules(toc: str) -> list[str]:
 
 
 def readme(v: str) -> str:
-    text = (PACKAGING / "readme-windows.txt").read_text("utf-8")
+    text = (PACKAGING / ("readme-macos.txt" if MACOS else "readme-windows.txt")).read_text("utf-8")
     return text.replace("{version}", v)
 
 
@@ -243,6 +265,77 @@ def package(made: Path, v: str) -> list[Path]:
     return out
 
 
+def mac_icon() -> Path:
+    """build/Divine Pulse.icns, from the rounded app icon (sips and iconutil come with macOS)."""
+    iconset = BUILD / "Divine Pulse.iconset"
+    shutil.rmtree(iconset, ignore_errors=True)
+    iconset.mkdir(parents=True)
+    for size in (16, 32, 128, 256, 512):
+        for scale in (1, 2):
+            name = f"icon_{size}x{size}{'@2x' if scale == 2 else ''}.png"
+            px = str(size * scale)
+            subprocess.run(["sips", "-z", px, px, str(MAC_ICON), "--out", str(iconset / name)], check=True,
+                           capture_output=True)
+    icns = BUILD / "Divine Pulse.icns"
+    run("iconutil", "-c", "icns", iconset, "-o", icns)
+    return icns
+
+
+def sign(path: Path, entitlements: Path | None = None) -> None:
+    """Sign ad hoc (no developer certificate needed). Not --deep: that would strip the helper's entitlements."""
+    extra = ["--entitlements", str(entitlements)] if entitlements else []
+    run("codesign", "--force", "--sign", "-", "--timestamp=none", *extra, path)
+
+
+def mac_program(v: str) -> Path:
+    """The .app: PyInstaller's bundle, with the notes and licenses in Resources and the memory reader helper beside
+    the program (where memory_macos looks for a bundled one), each signed in turn, the app last."""
+    step("App icon")
+    mac_icon()
+    step("Program (PyInstaller)")
+    run(
+        sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean",
+        "--distpath", BUILD / "dist", "--workpath", BUILD / "work", PACKAGING / "divine_pulse.spec",
+    )
+    app = BUILD / "dist" / f"{APP_NAME}.app"
+    if not app.is_dir():
+        sys.exit(f"PyInstaller didn't produce {app}")
+    leaked = dev_modules((BUILD / "work" / "divine_pulse" / "PYZ-00.toc").read_text("utf-8", "replace"))
+    if leaked:
+        sys.exit(f"Development packages got into the program: {', '.join(leaked)}. Exclude them in {PACKAGING / 'divine_pulse.spec'}.")
+    step("Notes and licenses")
+    notes(app / "Contents" / "Resources", v)
+    step("Memory reader")
+    sys.path.insert(0, str(BACKEND))
+    from app.system import memory_macos
+
+    helper = app / "Contents" / "MacOS" / memory_macos.HELPER_NAME
+    memory_macos.build(helper)  # compiled and signed with the debugger entitlement
+    step("Signing (ad hoc)")
+    sign(helper, MAC_HELPER / "entitlements.plist")
+    sign(app)
+    run("codesign", "--verify", "--strict", app)
+    entitlements = subprocess.run(["codesign", "-d", "--entitlements", "-", str(helper)], capture_output=True, text=True)
+    if "com.apple.security.cs.debugger" not in entitlements.stdout + entitlements.stderr:
+        sys.exit("The memory reader lost its debugger entitlement while signing the app.")
+    step("Packaged desktop")
+    subprocess.run([str(app / "Contents" / "MacOS" / APP_NAME), "--check-desktop"], check=True, timeout=60)
+    return app
+
+
+def mac_package(app: Path, v: str) -> list[Path]:
+    """release/Divine Pulse.app, and a zip of it to share (ditto keeps the bundle's links and signatures)."""
+    step("Release files")
+    RELEASE.mkdir(exist_ok=True)
+    target = RELEASE / app.name
+    shutil.rmtree(target, ignore_errors=True)
+    run("ditto", app, target)
+    archive = RELEASE / f"Divine-Pulse-{v}-macos-{platform.machine()}.zip"
+    archive.unlink(missing_ok=True)
+    run("ditto", "-c", "-k", "--sequesterRsrc", "--keepParent", target, archive)
+    return [archive]
+
+
 def installer(v: str) -> Path | None:
     """The Windows installer, when Inno Setup 6 is installed."""
     candidates = [shutil.which("iscc")] + [
@@ -266,7 +359,7 @@ def checksums(files: list[Path]) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build Divine Pulse for Windows into release/.")
+    parser = argparse.ArgumentParser(description="Build Divine Pulse for Windows or macOS into release/.")
     parser.add_argument("--skip-tests", action="store_true")
     parser.add_argument("--no-installer", action="store_true", help="Windows: only the portable zip")
     parser.add_argument("--current-env", action="store_true", help="build with this Python instead of build/venv")
@@ -274,15 +367,20 @@ def main() -> None:
     if not args.current_env and not in_build_env():
         make_build_env(args)
     v = version()
-    print(f"Divine Pulse {v} for Windows")
+    print(f"Divine Pulse {v} for {'macOS' if MACOS else 'Windows'}")
     web_ui()  # before the tests: the API tests serve frontend/dist
     if not args.skip_tests:
         tests()
-    files = package(program(), v)
-    if not args.no_installer and (setup := installer(v)):
-        files.append(setup)
+    if MACOS:
+        files = mac_package(mac_program(v), v)
+    else:
+        files = package(program(), v)
+        if not args.no_installer and (setup := installer(v)):
+            files.append(setup)
     checksums(files)
     print("\nDone:")
+    if MACOS:
+        print(f"  {(RELEASE / f'{APP_NAME}.app').relative_to(ROOT)}  (open it, or drag it to Applications)")
     for f in files:
         print(f"  {f.relative_to(ROOT)}  ({f.stat().st_size / 2**20:.1f} MB)")
 

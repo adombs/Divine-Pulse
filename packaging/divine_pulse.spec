@@ -1,14 +1,19 @@
-# PyInstaller recipe for Divine Pulse, for Windows. Build with tools/build.py (which builds the web UI first).
+# PyInstaller recipe for Divine Pulse, for Windows and macOS. Build with tools/build.py (which builds the web UI
+# first, and on macOS the app icon and the memory reader helper).
 # One-folder build: starts faster than one-file and antivirus tools flag it less often.
 #   Windows: build/dist/Divine Pulse/Divine Pulse.exe
+#   macOS:   build/dist/Divine Pulse.app
 import re
 import sys
 from pathlib import Path
 
 from PyInstaller.utils.hooks import collect_submodules
-from PyInstaller.utils.win32.versioninfo import (
-    FixedFileInfo, StringFileInfo, StringStruct, StringTable, VarFileInfo, VarStruct, VSVersionInfo,
-)
+
+MACOS = sys.platform == "darwin"
+if not MACOS:
+    from PyInstaller.utils.win32.versioninfo import (
+        FixedFileInfo, StringFileInfo, StringStruct, StringTable, VarFileInfo, VarStruct, VSVersionInfo,
+    )
 
 ROOT = Path(SPECPATH).parent
 BACKEND = ROOT / "backend"
@@ -34,7 +39,7 @@ hiddenimports = [
 ]
 
 nums = tuple(int(n) for n in re.findall(r"\d+", VERSION)[:3]) + (0,)
-version_info = VSVersionInfo(
+version_info = None if MACOS else VSVersionInfo(
     ffi=FixedFileInfo(filevers=nums, prodvers=nums),
     kids=[
         StringFileInfo([StringTable("040904B0", [
@@ -63,9 +68,26 @@ exe = EXE(
     [],
     exclude_binaries=True,
     name=NAME,
-    icon=str(DATA / "icon.ico"),
+    icon=str(ROOT / "build" / "Divine Pulse.icns") if MACOS else str(DATA / "icon.ico"),
     version=version_info,
     console=False,  # a window app: logs go to tracker.log in the data folder
     upx=False,
 )
 coll = COLLECT(exe, a.binaries, a.datas, name=NAME, upx=False)
+if MACOS:
+    app = BUNDLE(
+        coll,
+        name=f"{NAME}.app",
+        icon=str(ROOT / "build" / "Divine Pulse.icns"),
+        bundle_identifier="io.github.adombs.divine-pulse",
+        version=VERSION,
+        info_plist={
+            "CFBundleDisplayName": NAME,
+            "CFBundleShortVersionString": VERSION,
+            "CFBundleVersion": VERSION,
+            "LSApplicationCategoryType": "public.app-category.games",
+            "LSMinimumSystemVersion": "12.0",
+            "NSHighResolutionCapable": True,
+            "NSHumanReadableCopyright": "GPL-3.0. Fan-made; not affiliated with Nintendo, Intelligent Systems or Koei Tecmo.",
+        },
+    )

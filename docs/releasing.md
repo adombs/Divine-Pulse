@@ -1,6 +1,10 @@
 # Releasing Divine Pulse
 
-`tools/build.py` builds Windows release artifacts.
+`tools/build.py` builds Windows release artifacts on Windows, and the macOS app on macOS: `release/Divine Pulse.app`
+and `Divine-Pulse-<version>-macos-<arch>.zip` (the app zipped with `ditto`, signed ad hoc with the memory reader's
+debugger entitlement, not notarized), with `SHA256SUMS.txt`. Run it on macOS with any `python3`; it switches to a
+Python 3.12+ from Homebrew or python.org when the one it was started with is older. The macOS zip is built on its own
+machine, so upload it with its own checksum line.
 
 | File | For |
 |---|---|

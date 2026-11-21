@@ -15,6 +15,7 @@ SPEC.loader.exec_module(build_script)
 
 def test_web_ui_is_built_before_the_tests_that_serve_it(monkeypatch):
     calls = []
+    monkeypatch.setattr(build_script, "MACOS", False)  # the Windows build (macOS's: the test below)
     monkeypatch.setattr(build_script.sys, "argv", ["build.py", "--current-env", "--no-installer"])
     monkeypatch.setattr(build_script, "web_ui", lambda: calls.append("web_ui"))
     monkeypatch.setattr(build_script, "tests", lambda: calls.append("tests"))
@@ -128,3 +129,26 @@ def test_package_fails_if_nstool_licenses_are_missing(tmp_path, monkeypatch):
     with pytest.raises(FileNotFoundError, match="Bundled NSTool licenses are missing"):
         build_script.package(tmp_path / "program", "1.2.3")
     assert not (tmp_path / "release").exists()
+
+
+def test_macos_builds_an_app_instead_of_the_windows_files(monkeypatch):
+    calls = []
+    monkeypatch.setattr(build_script, "MACOS", True)
+    monkeypatch.setattr(build_script.sys, "argv", ["build.py", "--current-env", "--skip-tests"])
+    monkeypatch.setattr(build_script, "web_ui", lambda: calls.append("web_ui"))
+    monkeypatch.setattr(build_script, "mac_program", lambda v: calls.append("mac_program") or Path("app"))
+    monkeypatch.setattr(build_script, "mac_package", lambda app, v: calls.append(("mac_package", app)) or [])
+    monkeypatch.setattr(build_script, "program", lambda: calls.append("program"))
+    monkeypatch.setattr(build_script, "installer", lambda v: calls.append("installer"))
+    monkeypatch.setattr(build_script, "checksums", lambda _: None)
+
+    build_script.main()
+
+    assert calls == ["web_ui", "mac_program", ("mac_package", Path("app"))]
+    assert build_script.venv_python().parts[-2:] == ("bin", "python")
+
+
+def test_spec_bundles_an_app_on_macos():
+    spec = (build_script.PACKAGING / "divine_pulse.spec").read_text(encoding="utf-8")
+    assert "BUNDLE(" in spec and 'f"{NAME}.app"' in spec
+    assert (build_script.PACKAGING / "readme-macos.txt").read_text(encoding="utf-8").count("{version}") == 1
