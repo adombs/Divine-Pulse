@@ -621,7 +621,7 @@ function ReplayExportDialog({ battle, chron: everything, route, runName, units, 
   const exportVideo = async () => {
     const out = [Math.round(width * scale), Math.round(height * scale)] as const;
     if (!(await canEncode(out[0], out[1], fps))) {
-      setStatus({ kind: "error", message: `This window can't encode MP4 video at ${out[0]} × ${out[1]}${fps === 60 ? " and 60 frames a second" : ""}. Try a lower resolution, or update Microsoft Edge WebView2.` });
+      setStatus({ kind: "error", message: `This window can't encode MP4 video at ${out[0]} × ${out[1]}${fps === 60 ? " and 60 frames a second" : ""}. Try a lower resolution, or update ${navigator.userAgent.includes("Windows") ? "Microsoft Edge WebView2" : "macOS"}.` });
       return;
     }
     const controller = new AbortController();

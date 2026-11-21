@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- Export Video works on macOS: it stalled at 0%, and pictures (videos and team images) filled only part of the frame.
 - Importing game files shows its steps (unpacking NSP files, importing, checking), the package and file being unpacked with a file count, and how long the import has run, instead of a bar with no information.
 - Divine Pulse runs on macOS: `python3 tools/build.py` makes Divine Pulse.app (and a zip of it) in release/, or run from source with `tools/setup.sh`, then `tools/launch.sh`. Releases include the app as `Divine-Pulse-<version>-macos-arm64.zip` (Apple silicon): run `tools/release.py finalize` on Windows and on a Mac, and each adds its files to the same draft. It opens in a WebKit window, and its data folder is ~/Library/Application Support/Divine Pulse.
 - Read the game from Astris on macOS, or from Ryubing or Ryujinx. The battle history (Divine Pulse list, replays) is read too.

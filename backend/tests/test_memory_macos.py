@@ -3,6 +3,7 @@
 Builds the helper and a small target program with clang, so it runs only on macOS with Xcode's command-line tools.
 """
 
+import os
 import shutil
 import subprocess
 import sys
@@ -90,6 +91,7 @@ def test_the_helper_reads_searches_and_lists_a_debuggable_process(built):
         child.wait()
 
 
+@pytest.mark.skipif(bool(os.environ.get("CI")), reason="macOS asks for a password to open such a process, and CI has nobody to answer")
 def test_a_process_that_doesn_t_allow_debugging_is_refused(built):
     from app.system.memory import AccessDenied
     from app.system.memory_macos import Process

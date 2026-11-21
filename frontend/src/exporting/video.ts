@@ -17,11 +17,20 @@ export function videoCodec(width: number, height: number, fps: number): string {
   return `avc1.6400${level}`;
 }
 
-/** Whether this browser can encode the video (the desktop app's WebView2 can). */
+/**
+ * Safari's engine (the macOS app's window) never returns a frame from its H.264 High profile encoder in the default
+ * "quality" mode: it takes frames and waits forever, so an export stalls at 0%. Its "realtime" mode encodes every frame,
+ * in order. Other engines (the Windows app's WebView2) keep "quality", which lets the encoder plan ahead.
+ */
+export function encoderLatency(userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent): "quality" | "realtime" {
+  return /AppleWebKit/.test(userAgent) && !/Chrome|Chromium|Edg\//.test(userAgent) ? "realtime" : "quality";
+}
+
+/** Whether this browser can encode the video (the desktop app's WebView2 and WebKit can). */
 export async function canEncode(width: number, height: number, fps: number): Promise<boolean> {
   if (typeof VideoEncoder === "undefined") return false;
   try {
-    const { supported } = await VideoEncoder.isConfigSupported({ codec: videoCodec(width, height, fps), width, height, framerate: fps, bitrate: 8_000_000 });
+    const { supported } = await VideoEncoder.isConfigSupported({ codec: videoCodec(width, height, fps), width, height, framerate: fps, bitrate: 8_000_000, latencyMode: encoderLatency() });
     return !!supported;
   } catch {
     return false;
@@ -100,7 +109,7 @@ export async function encodeVideo({ width, height, fps, frames, draw, onProgress
   // each track can have: a frame each, and for sound an Opus or AAC packet for every 20 ms at most, with some to spare).
   const seconds = frames / fps;
   const output = new Output({ format: new Mp4OutputFormat({ fastStart: spool ? "reserve" : "in-memory" }), target });
-  const source = new CanvasSource(canvas, { codec: "avc", bitrate: QUALITY[quality], keyFrameInterval: 2 });
+  const source = new CanvasSource(canvas, { codec: "avc", bitrate: QUALITY[quality], keyFrameInterval: 2, latencyMode: encoderLatency() });
   output.addVideoTrack(source, { frameRate: fps, maximumPacketCount: frames + 16 });
   let sound: AudioBufferSource | null = null;
   if (audio) {

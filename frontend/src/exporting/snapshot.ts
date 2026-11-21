@@ -280,9 +280,13 @@ export async function snapshotter(): Promise<Snapshotter> {
     // same text as the page: the page's <body> doesn't come along, and the wrapper alone would have the root's.
     const around = getComputedStyle(el.parentElement ?? root);
     const inherited = INHERITED.map((p) => `${p}:${around.getPropertyValue(p)}`).join(";");
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}" viewBox="0 0 ${width} ${height}" style="font-size:${fontSize}">`
-      + `<foreignObject x="0" y="0" width="${width}" height="${height}">`
-      + `<div xmlns="http://www.w3.org/1999/xhtml" class="snapshot-root" style="${escapeAttr(`${rootStyle};width:${width}px;height:${height}px;overflow:hidden;margin:0;${inherited}`)}">`
+    // Drawn `scale` times as big by a CSS transform on the page content, not by the SVG's viewBox: Safari's engine (the
+    // macOS app's window) ignores a viewBox's scaling for HTML in a foreignObject and drew it at its own size, in a
+    // corner of the picture.
+    const zoom = scale === 1 ? "" : `;transform:scale(${scale});transform-origin:0 0`;
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}" style="font-size:${fontSize}">`
+      + `<foreignObject x="0" y="0" width="${width * scale}" height="${height * scale}">`
+      + `<div xmlns="http://www.w3.org/1999/xhtml" class="snapshot-root" style="${escapeAttr(`${rootStyle};width:${width}px;height:${height}px;overflow:hidden;margin:0;${inherited}${zoom}`)}">`
       + `<style>${escapeText(css)}</style>${body}</div></foreignObject></svg>`;
   };
 
