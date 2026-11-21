@@ -71,13 +71,15 @@ def create_app(data_dir: Path = DATA_DIR, background: bool = True, settings: Set
 
     if FRONTEND_DIST.exists():
         app.mount("/assets", StaticFiles(directory=FRONTEND_DIST / "assets"), name="assets")
+        # Resolved, because the macOS app reaches the folder through a symlink (Frameworks -> Resources).
+        frontend_root = FRONTEND_DIST.resolve()
 
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str) -> FileResponse:
             if path == "api" or path.startswith("api/"):
                 raise HTTPException(404, "Not found.")  # unknown API route, not a page
             file = FRONTEND_DIST / path
-            if path and file.is_file() and FRONTEND_DIST in file.resolve().parents:
+            if path and file.is_file() and frontend_root in file.resolve().parents:
                 return FileResponse(file)
             # The page itself must never come from the window's cache, or an updated tracker keeps showing the
             # old UI (its hashed /assets files are safe to cache).

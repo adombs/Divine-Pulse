@@ -256,3 +256,24 @@ def test_runs_saved_before_rulesets_load_with_none(tmp_path):
     store = RunStore(tmp_path)
     (tmp_path / "old.json").write_text('{"schema_version": 1, "id": "old", "name": "Old"}', encoding="utf-8")
     assert store.get("old").ruleset == []
+
+
+def test_frontend_files_served_through_a_symlinked_folder(tmp_path, monkeypatch):
+    """The macOS app reaches its frontend through Frameworks/frontend_dist -> ../Resources/frontend_dist."""
+    import app.main as main
+
+    real = tmp_path / "Resources" / "frontend_dist"
+    (real / "assets").mkdir(parents=True)
+    (real / "brand").mkdir()
+    (real / "index.html").write_text("<html>page</html>")
+    (real / "brand" / "logo.png").write_bytes(b"PNGDATA")
+    (tmp_path / "Frameworks").mkdir()
+    linked = tmp_path / "Frameworks" / "frontend_dist"
+    linked.symlink_to(real, target_is_directory=True)
+    monkeypatch.setattr(main, "FRONTEND_DIST", linked)
+    data = tmp_path / "data"
+    data.mkdir()
+
+    with TestClient(main.create_app(data, background=False)) as c:
+        assert c.get("/brand/logo.png").content == b"PNGDATA"
+        assert "page" in c.get("/settings").text
