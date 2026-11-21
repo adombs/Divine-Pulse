@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- Settings → General → Game has Launch with Game: when it's on, Divine Pulse opens by itself when Eden or FE3H Recomp starts.
+
 ## 1.5.2 (2026-11-18)
 
 - The Mark as Alive button is gone from the Roster card; the game decides who is dead.
