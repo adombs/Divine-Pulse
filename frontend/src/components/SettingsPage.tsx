@@ -14,6 +14,7 @@ import { ToastState } from "./Toasts";
 import { Segmented, Switch } from "./ui";
 import { AppearanceState, FONTS, TEXT_SCALE, loadFont } from "../appearance";
 import { useNav } from "../nav";
+import { IS_MAC } from "../platform";
 import { PageHeader } from "./layout";
 import { Icon, IconName } from "./Icon";
 import { MemoryCheck } from "./MemoryCheck";
@@ -38,7 +39,12 @@ const READER_NOTES: Record<Settings["memory_reader"], string> = {
   recomp: "Requires Windows, FE3H Recomp by onerag90 (fe3hrecomp.exe) running Fire Emblem: Three Houses v1.2.0.",
 };
 
-type SettingsTab = "game-files" | "general" | "ebst" | "spoilers" | "appearance" | "battle-replay" | "about";
+const READERS: [Settings["memory_reader"], string][] = [["auto", "Auto"], ["eden", "Eden"], ["ryujinx", "Astris / Ryubing"], ["recomp", "FE3H Recomp by onerag90"]];
+/** Readers a Mac can't use (Eden is read on Windows only, and FE3H Recomp is a Windows program): left out there,
+ * unless already chosen (settings brought over from a PC). */
+const WINDOWS_ONLY_READERS = new Set<Settings["memory_reader"]>(["eden", "recomp"]);
+
+type SettingsTab ="game-files" | "general" | "ebst" | "spoilers" | "appearance" | "battle-replay" | "about";
 const TABS: { id: SettingsTab; label: string; icon: IconName; blurb: string }[] = [
   { id: "general", label: "General", icon: CONCEPT_ICON.settings, blurb: "Game connection and window" },
   { id: "game-files", label: "Game files", icon: CONCEPT_ICON.item, blurb: "Import from your own game" },
@@ -448,7 +454,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                 <>
                   <Group title="Game" note={READER_NOTES[memoryReader]}>
                     <Row label="Read the game from" hint="Save the setting, then check the connection.">
-                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={[["auto", "Auto"], ["eden", "Eden"], ["ryujinx", "Astris / Ryubing"], ["recomp", "FE3H Recomp by onerag90"]]} />
+                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={READERS.filter(([id]) => !(IS_MAC && WINDOWS_ONLY_READERS.has(id)) || id === settings.memory_reader)} />
                     </Row>
                     <Row label="Connection">
                       <MemoryCheck key={settings.memory_reader} />
@@ -478,7 +484,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                   {desktop && (
                     <Group title="Window">
                       <Row label="Mode">
-                        <Segmented label="Window mode" value={windowMode} onChange={setWindowMode} options={[["windowed", "Windowed"], ["fullscreen", "Borderless Fullscreen"]]} />
+                        <Segmented label="Window mode" value={windowMode} onChange={setWindowMode} options={[["windowed", "Windowed"], ["fullscreen", IS_MAC ? "Full Screen" : "Borderless Fullscreen"]]} />
                       </Row>
                     </Group>
                   )}
@@ -538,8 +544,10 @@ function SaveBackupsGroup({ toasts, id, limit, setLimit, invalid, folder, setFol
           value={limit} onChange={(e) => setLimit(e.target.value)} aria-invalid={invalid} />
       </Row>
       <Row label="Save folder" htmlFor={id + "-folder"} wide
-        hint={folder.trim() ? "Leave empty to find Eden's, Astris's, Ryubing's and FE3H Recomp's saves automatically."
+        // FE3H Recomp only runs on Windows, so a Mac never finds its saves.
+        hint={folder.trim() ? (IS_MAC ? "Leave empty to find Eden's, Astris's and Ryubing's saves automatically." : "Leave empty to find Eden's, Astris's, Ryubing's and FE3H Recomp's saves automatically.")
           : found.length ? <>Found: {found.map((f) => <code key={f} className="path">{f}</code>)}</>
+          : IS_MAC ? "None found yet. Eden's, Astris's and Ryubing's are found automatically. Or paste the folder here."
           : "None found yet. Eden's, Astris's and Ryubing's are found automatically, and FE3H Recomp's once it has run with Divine Pulse open. Or paste the folder here."}>
         <input id={id + "-folder"} type="text" value={folder} placeholder="Automatic" onChange={(e) => setFolder(e.target.value)} />
       </Row>
@@ -566,6 +574,7 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
     api.about().then(setAbout, () => setAbout(null));
   }, []);
   if (!about) return null;
+  const mac = about.platform ? about.platform === "macos" : IS_MAC;
   const open = async () => {
     try {
       await api.openDataFolder();
@@ -577,12 +586,15 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
     <div className="set-about">
       <Group title="This copy">
         <Row label="Version">
-          <span className="set-value">{about.version} · {about.platform === "macos" ? "macOS" : "Windows"}</span>
+          <span className="set-value">{about.version} · {mac ? "macOS" : "Windows"}</span>
         </Row>
         <Row
           label="Data folder"
           wide
-          hint={<>Runs, battles, settings and the log (tracker.log). To move to another PC, copy this folder to the same place there, or put it next to Divine Pulse.exe as a folder named <code>data</code>.</>}
+          hint={mac
+            // The Mac app keeps it in Application Support; there is no folder beside the app to use instead.
+            ? <>Runs, battles, settings and the log (tracker.log). To move to another Mac, copy this folder to the same place there.</>
+            : <>Runs, battles, settings and the log (tracker.log). To move to another PC, copy this folder to the same place there, or put it next to Divine Pulse.exe as a folder named <code>data</code>.</>}
         >
           <span className="with-unit set-path">
             <code className="path">{about.data_dir}</code>
@@ -616,7 +628,9 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
           </ul>
           <p className="credits">Support availability and class-change notes: text from <i>List of supports in Fire Emblem: Three Houses</i> and <i>Class change</i>, <a href="https://fireemblemwiki.org">Fire Emblem Wiki</a>, by Fire Emblem Wiki contributors; page histories: <a href="https://fireemblemwiki.org/w/index.php?title=List_of_supports_in_Fire_Emblem:_Three_Houses&amp;action=history">List of supports</a>, <a href="https://fireemblemwiki.org/w/index.php?title=Class_change&amp;action=history">Class change</a>; licensed under <a href="https://www.gnu.org/licenses/fdl-1.3.txt">GNU Free Documentation License 1.3</a>; modified by reformatting and abridgment.</p>
           <p className="set-hint">
-            The open-source software bundled with the tracker and its licenses are listed in <i>Third-party notices.txt</i> next to the program.
+            The open-source software bundled with the tracker and its licenses are listed in <i>Third-party notices.txt</i>{mac
+              ? <> inside the app: Control-click <i>Divine Pulse.app</i>, choose Show Package Contents, and open Contents › Resources.</>
+              : " next to the program."}
           </p>
         </div>
       </Group>

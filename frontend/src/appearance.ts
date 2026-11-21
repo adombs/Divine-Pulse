@@ -1,6 +1,7 @@
 import { createContext, useEffect, useState } from "react";
 import type { PortraitPhase } from "./portraits";
 import { useSpoilers } from "./spoilers";
+import { IS_MAC } from "./platform";
 import { FACE_LOOKS, type MapLook, UNIT_LOOKS } from "./components/battle/mapIcons";
 
 export const PortraitPhaseContext = createContext<PortraitPhase>("auto");
@@ -87,8 +88,9 @@ export const FONTS: FontOption[] = [
   },
   {
     id: "system",
-    label: "System (Segoe UI)",
-    description: "Windows' own interface font. Nothing to download, works offline.",
+    // system-ui: Segoe UI on Windows, San Francisco on a Mac.
+    label: IS_MAC ? "System (San Francisco)" : "System (Segoe UI)",
+    description: `${IS_MAC ? "macOS's" : "Windows'"} own interface font. Nothing to download, works offline.`,
     heading: SANS_FALLBACK,
     text: SANS_FALLBACK,
     nums: SANS_FALLBACK,
