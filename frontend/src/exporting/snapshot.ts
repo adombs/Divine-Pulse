@@ -221,6 +221,9 @@ export interface Layer {
   styles?: StyleSet;
   /** More rules for this layer (a see-through background, say). */
   css?: string;
+  /** Safari's engine: enlarge it with a CSS transform, much faster than zoom (no layout at the larger size), for a layer
+   * drawn each frame of a video that has none of the borders and inset shadows a transform misplaces there (the map). */
+  quick?: boolean;
 }
 
 /** What makes a picture of an element: the page's styles, and the root element's own look (variables). */
@@ -288,7 +291,7 @@ export async function snapshotter(): Promise<Snapshotter> {
     // content is enlarged with CSS zoom instead (laid out again at that size, so slower to make). A CSS transform
     // enlarges it there too, but then paints borders and inset shadows, like a sheet's frame line, in the wrong places.
     const zoomed = scale !== 1 && safari;
-    const zoom = zoomed ? `;zoom:${scale}` : "";
+    const zoom = !zoomed ? "" : layer.quick ? `;transform:scale(${scale});transform-origin:0 0` : `;zoom:${scale}`;
     const [boxW, boxH] = zoomed ? [width * scale, height * scale] : [width, height];
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}"${zoomed ? "" : ` viewBox="0 0 ${width} ${height}"`} style="font-size:${fontSize}">`
       + `<foreignObject x="0" y="0" width="${boxW}" height="${boxH}">`

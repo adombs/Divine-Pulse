@@ -165,6 +165,7 @@ const MAP_LAYER: Layer = {
   hide: [".replay-stage-title", ".replay-stage-log", ".replay-stage-overlays"],
   styles: "map",
   css: ".replay-stage { background: none !important; box-shadow: none !important; }",
+  quick: true,
 };
 /** What sits in the map's corners (the condensed log, the turn counter, the unit counts): a third layer that changes
  * once a step, like the chrome. */
