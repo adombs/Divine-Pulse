@@ -1,4 +1,4 @@
-"""Locate the Windows Eden process and the game inside its fastmem mapping."""
+"""Locate the Eden process and the game inside its fastmem mapping, and what every emulator's layout provides."""
 
 from __future__ import annotations
 
@@ -17,11 +17,19 @@ class MemoryLayout(Protocol):
     def module_regions(self, process: ProcessMemory) -> Iterable[Region]:
         """Regions the game's main program may start at."""
 
+    def main_candidates(self, process: ProcessMemory, header: bytes) -> Iterable[int]:
+        """Host addresses the game's main program may start at (it starts with `header`)."""
+
     def heap_regions(self, process: ProcessMemory) -> Iterable[Region]:
         """Regions to search for the game's heap data (the units' battle copies)."""
 
     def arena_candidates(self, process: ProcessMemory) -> Iterable[int]:
         """Host addresses where Switch address 0 may be, tried when the game's own pointers don't say."""
+
+
+def region_starts(layout: MemoryLayout, process: ProcessMemory) -> Iterable[int]:
+    """main_candidates for a layout whose main program starts a region."""
+    return (r.base for r in layout.module_regions(process))
 
 
 class Fastmem:
@@ -31,6 +39,9 @@ class Fastmem:
 
     def module_regions(self, process: ProcessMemory) -> Iterable[Region]:
         return (r for r in process.regions() if r.mapped)
+
+    def main_candidates(self, process: ProcessMemory, header: bytes) -> Iterable[int]:
+        return region_starts(self, process)
 
     def heap_regions(self, process: ProcessMemory) -> Iterable[Region]:
         return (r for r in process.regions() if r.mapped and r.size < FOUR_GIB)
@@ -44,7 +55,7 @@ class Fastmem:
 @dataclass(frozen=True)
 class Emulator:
     name: str
-    # Executable names (lower case) on Windows.
+    # Executable names (lower case): Windows' with .exe, macOS's without.
     executables: frozenset[str]
     layout: MemoryLayout
     # What the emulator needs for the tracker to find the game, shown when it isn't found.

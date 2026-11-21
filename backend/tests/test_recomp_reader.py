@@ -7,7 +7,8 @@ from fastapi.testclient import TestClient
 from app.bonuses import BonusTable
 from app.config import BONUSES_FILE, SettingsStore
 from app.gamemem import fe3h
-from app.gamemem.emulators import EMULATORS
+from app.domain.settings import DEFAULT_MEMORY_READER
+from app.gamemem.emulators import EMULATORS, names
 from app.gamemem.fe3h import GameMemory, GameMemoryError
 from app.gamemem.readers import emulators_for
 from app.gamemem.recomp import GUEST_HI, GUEST_LO, MIN_HEAP_REGION, RECOMP, RECOMP_EMULATORS
@@ -110,10 +111,10 @@ def test_each_setting_names_its_reader():
     assert emulators_for("something else") is EMULATORS
 
 
-def test_the_setting_defaults_to_eden_and_is_saved(tmp_path):
+def test_the_setting_defaults_to_the_platform_s_emulator_and_is_saved(tmp_path):
     app = create_app(tmp_path, background=False)
     with TestClient(app) as client:
-        assert client.get("/api/settings").json()["memory_reader"] == "eden"
+        assert client.get("/api/settings").json()["memory_reader"] == DEFAULT_MEMORY_READER
         assert client.put("/api/settings", json={"memory_reader": "recomp"}).json()["memory_reader"] == "recomp"
         assert client.put("/api/settings", json={"memory_reader": "yuzu"}).status_code == 422
         assert client.get("/api/settings").json()["memory_reader"] == "recomp"
@@ -124,7 +125,8 @@ def test_the_connection_check_uses_the_chosen_reader(tmp_path, recomp):
     recomp[7] = recomp_process()
     app = create_app(tmp_path, background=False)
     with TestClient(app) as client:
-        assert client.get("/api/memory/check").json() == {"ok": False, "message": "Eden isn't running."}
+        default = names(emulators_for(DEFAULT_MEMORY_READER)[:1])
+        assert client.get("/api/memory/check").json() == {"ok": False, "message": f"{default} isn't running."}
         client.put("/api/settings", json={"memory_reader": "recomp"})
         check = client.get("/api/memory/check").json()
         assert check["ok"] and "FE3H 1.2.0 in FE3H Recomp" in check["message"]
@@ -133,11 +135,12 @@ def test_the_connection_check_uses_the_chosen_reader(tmp_path, recomp):
 def test_the_scanner_changes_reader_when_the_setting_changes(tmp_path):
     settings = SettingsStore(tmp_path / "settings.json")
     scanner = Scanner(RunStore(tmp_path / "runs"), settings, EventBus(), BonusTable.load(BONUSES_FILE))
-    assert scanner.memory.emulators is EMULATORS
+    default = emulators_for(DEFAULT_MEMORY_READER)
+    assert scanner.memory.emulators is default
     closed = []
     scanner.memory.close = lambda: closed.append(True)
     scanner._tick()
-    assert closed == [] and scanner.memory.emulators is EMULATORS  # nothing changed: the connection is kept
+    assert closed == [] and scanner.memory.emulators is default  # nothing changed: the connection is kept
     settings.update(memory_reader="recomp")
     scanner._tick()
     assert scanner.memory.emulators is RECOMP_EMULATORS and closed == [True]

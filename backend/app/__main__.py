@@ -1,4 +1,4 @@
-"""Launch the Divine Pulse desktop window on Windows."""
+"""Launch the Divine Pulse desktop window (Windows, macOS)."""
 
 from __future__ import annotations
 
@@ -85,7 +85,15 @@ def _any_free_port() -> int:
         return s.getsockname()[1]
 
 
+IDCANCEL, IDYES, IDNO = 2, 6, 7  # MessageBoxW's answers, which prepare_installation expects
+
+
 def _setup_choice(message: str) -> int:
+    if sys.platform == "darwin":
+        from .system import mac_dialog
+
+        answer = mac_dialog(message, "Divine Pulse setup", ("Cancel", "No", "Yes"), "Yes")
+        return {"Yes": IDYES, "No": IDNO}.get(answer or "", IDCANCEL)
     return ctypes.windll.user32.MessageBoxW(None, message, "Divine Pulse setup", 0x23)
 
 
@@ -110,7 +118,8 @@ def main() -> None:
     from . import desktop
 
     if not desktop.available():
-        error_box("Divine Pulse requires Microsoft Edge WebView2 on Windows.")
+        error_box("Divine Pulse requires Microsoft Edge WebView2 on Windows." if sys.platform == "win32"
+                  else "Divine Pulse couldn't open its window (pywebview isn't working).")
         return
 
     if FROZEN:
@@ -129,7 +138,8 @@ def main() -> None:
         handlers.append(logging.StreamHandler(sys.stderr))
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", handlers=handlers)
 
-    log.info("Divine Pulse %s starting (%s, Windows); data folder: %s", __version__, "packaged" if FROZEN else "from source", DATA_DIR)
+    log.info("Divine Pulse %s starting (%s, %s); data folder: %s", __version__, "packaged" if FROZEN else "from source",
+             "macOS" if sys.platform == "darwin" else "Windows", DATA_DIR)
     url = f"http://{HOST}:{settings.get().port}"
     if not _port_free(settings.get().port):
         # Another program has the port: move to a free one and remember it.

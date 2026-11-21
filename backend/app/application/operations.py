@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import sys
+
 from dataclasses import dataclass
 from collections.abc import Callable
 
@@ -399,6 +401,7 @@ class BackendOperations:
             "version": self.version,
             "data_dir": str(self.data_dir),
             "desktop": desktop,
+            "platform": "macos" if sys.platform == "darwin" else "windows",
         }
 
     def open_data_folder(self) -> None:

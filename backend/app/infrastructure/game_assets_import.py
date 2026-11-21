@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import shutil
+import sys
 import threading
 from pathlib import Path
 
@@ -11,6 +12,20 @@ from ..gamefiles.extract import Context, FAMILIES, run
 from ..gamefiles.output import Output
 from .game_assets import game_assets
 from .nsp_workspace import extraction_workspace, validate_destination
+
+
+NSTOOL_NAME = "nstool.exe" if sys.platform == "win32" else "nstool"
+
+
+def nstool_path(install_dir: Path | None, project_root: Path) -> Path | None:
+    """NSTool: bundled with the Windows program (tools/nstool.exe) or vendored for source runs; on macOS and Linux,
+    a build beside the vendored copy (vendor/nstool/nstool) or on PATH. None if there is none."""
+    candidates = [install_dir / "tools" / NSTOOL_NAME] if install_dir is not None else []
+    candidates.append(project_root / "vendor" / "nstool" / NSTOOL_NAME)
+    found = next((c for c in candidates if c.is_file()), None)
+    if found is None and sys.platform != "win32" and (on_path := shutil.which("nstool")):
+        found = Path(on_path)
+    return found
 
 
 class BusyError(RuntimeError):
@@ -115,13 +130,15 @@ class GameAssetsImport:
 
         packages = [Path(name) for name in nsps]
         key_path = Path(keys)
-        tool = (INSTALL_DIR / "tools" / "nstool.exe") if FROZEN else (PROJECT_ROOT / "vendor" / "nstool" / "nstool.exe")
+        tool = nstool_path(INSTALL_DIR if FROZEN else None, PROJECT_ROOT)
         if not packages or any(not path.is_file() or path.suffix.lower() != ".nsp" for path in packages):
             raise ValueError("Choose existing NSP files.")
         if not key_path.is_file():
             raise ValueError("Choose your prod.keys file.")
-        if not tool.is_file():
-            raise ValueError("Bundled NSTool was not found. Reinstall the application.")
+        if tool is None:
+            raise ValueError("Bundled NSTool was not found. Reinstall the application." if sys.platform == "win32" else
+                             "NSTool was not found. Install nstool (github.com/jakcron/nstool) on your PATH, or import "
+                             "a dump folder instead.")
         destination = Path(keep_dumps) if keep_dumps else None
         protected = (DATA_DIR, game_assets().root, INSTALL_DIR) if FROZEN else (DATA_DIR, game_assets().root)
         with self.lock:

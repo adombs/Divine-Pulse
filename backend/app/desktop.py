@@ -1,10 +1,11 @@
-"""Divine Pulse desktop window, hosted in Microsoft Edge WebView2."""
+"""Divine Pulse desktop window: Microsoft Edge WebView2 on Windows, WebKit (WKWebView) on macOS."""
 
 from __future__ import annotations
 
 import ctypes
 import json
 import logging
+import sys
 import threading
 import time
 from pathlib import Path
@@ -20,12 +21,18 @@ ICON_ICO = Path(__file__).parent / "data" / "icon.ico"
 DEFAULT_SIZE = (1500, 940)
 MIN_SIZE = (960, 640)
 BACKGROUND = "#241a15"  # the dark wood behind the sheet, shown while the page loads
+WINDOWS = sys.platform == "win32"
+# pywebview's renderer: WebView2 on Windows, its default (Cocoa's WKWebView) elsewhere.
+GUI = "edgechromium" if WINDOWS else None
 
 
 def available() -> bool:
-    """Whether WebView2 is available."""
+    """Whether the web view is available: WebView2 on Windows; on macOS, WebKit always is."""
     try:
         import webview  # noqa: F401
+
+        if not WINDOWS:
+            return True
 
         from webview.platforms.winforms import _is_chromium
 
@@ -55,7 +62,7 @@ def check_desktop() -> bool:
             window.destroy()
 
         window.events.loaded += on_loaded
-        webview.start(gui="edgechromium")
+        webview.start(gui=GUI)
         return loaded
     except Exception:
         log.exception("Packaged desktop check failed")
@@ -65,6 +72,8 @@ def check_desktop() -> bool:
 def _on_some_monitor(x: int, y: int) -> bool:
     """True if the window's top-left area is visible on a connected monitor."""
     px, py = x + 60, y + 20
+    if not WINDOWS:
+        return True  # the window manager keeps windows on screen
     try:
         class POINT(ctypes.Structure):
             _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
@@ -337,7 +346,7 @@ class DesktopApp:
         self.state.pick_game_keys = self.pick_game_keys
 
         webview.start(
-            gui="edgechromium",
+            gui=GUI,
             private_mode=False,  # keep localStorage (theme, font) between launches
             storage_path=str(DATA_DIR / "webview"),
             icon=str(ICON_ICO),
@@ -368,6 +377,8 @@ class DesktopApp:
         return str(selected[0] if isinstance(selected, (tuple, list)) else selected)
 
     def _hwnd(self) -> int | None:
+        if not WINDOWS:
+            return None
         try:
             return int(self.window.native.Handle.ToInt64())
         except Exception:

@@ -141,8 +141,9 @@ export interface Settings {
   active_run_id: string | null;
   max_recordings: number;
   window_mode: "windowed" | "fullscreen";
-  /** Where the game is read from: the Eden emulator, or FE3H Recomp (the native Windows recompilation). */
-  memory_reader: "eden" | "recomp";
+  /** Where the game is read from: the Eden emulator, FE3H Recomp (the native Windows recompilation), or Ryujinx's
+   * family (Astris on macOS, Ryubing). */
+  memory_reader: "eden" | "recomp" | "ryujinx";
   /** What happens when a one-time battle is fought again: keep the best copy, or ask. */
   duplicate_battles: "keep_best" | "keep_latest" | "ask";
   /** Look for a newer release on GitHub when the app starts. */
@@ -151,7 +152,7 @@ export interface Settings {
   update_dismissed: string | null;
   /** Older versions of each game save to keep (0: no backups). */
   save_backups: number;
-  /** The save folder to back up; null finds Eden's and FE3H Recomp's automatically. Save "" to go back to that. */
+  /** The save folder to back up; null finds Eden's, Ryujinx's family's and FE3H Recomp's automatically. Save "" to go back to that. */
   save_folder: string | null;
 }
 
@@ -573,6 +574,8 @@ export interface About {
   data_dir: string;
   /** Shown in the desktop window (not the browser), where window_mode applies. */
   desktop: boolean;
+  /** The operating system the tracker runs on. */
+  platform: "windows" | "macos";
 }
 
 export interface GameAssetsJob {

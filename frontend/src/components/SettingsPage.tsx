@@ -30,6 +30,13 @@ import "./settings.css";
 
 const TEXT_STOPS = Math.round((TEXT_SCALE.max - TEXT_SCALE.min) / TEXT_SCALE.step) + 1;
 
+/** What each game reader needs, under Settings > General > Game. */
+const READER_NOTES: Record<Settings["memory_reader"], string> = {
+  eden: "Requires Windows, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0.",
+  ryujinx: "Requires Astris on macOS, or Ryubing (or Ryujinx) on Windows or macOS, running Fire Emblem: Three Houses v1.2.0.",
+  recomp: "Requires Windows, FE3H Recomp by onerag90 (fe3hrecomp.exe) running Fire Emblem: Three Houses v1.2.0.",
+};
+
 type SettingsTab = "game-files" | "general" | "ebst" | "spoilers" | "appearance" | "battle-replay" | "about";
 const TABS: { id: SettingsTab; label: string; icon: IconName; blurb: string }[] = [
   { id: "general", label: "General", icon: CONCEPT_ICON.settings, blurb: "Game connection and window" },
@@ -438,11 +445,9 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
               {tab === "game-files" && <GameFilesSection desktop={desktop} heading={false} />}
               {tab === "general" && (
                 <>
-                  <Group title="Game" note={memoryReader === "recomp"
-                    ? "Requires Windows, FE3H Recomp by onerag90 (fe3hrecomp.exe) running Fire Emblem: Three Houses v1.2.0."
-                    : "Requires Windows, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0."}>
+                  <Group title="Game" note={READER_NOTES[memoryReader]}>
                     <Row label="Read the game from" hint="Save the setting, then check the connection.">
-                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={[["eden", "Eden"], ["recomp", "FE3H Recomp by onerag90"]]} />
+                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={[["eden", "Eden"], ["ryujinx", "Astris / Ryubing"], ["recomp", "FE3H Recomp by onerag90"]]} />
                     </Row>
                     <Row label="Connection">
                       <MemoryCheck key={settings.memory_reader} />
@@ -532,9 +537,9 @@ function SaveBackupsGroup({ toasts, id, limit, setLimit, invalid, folder, setFol
           value={limit} onChange={(e) => setLimit(e.target.value)} aria-invalid={invalid} />
       </Row>
       <Row label="Save folder" htmlFor={id + "-folder"} wide
-        hint={folder.trim() ? "Leave empty to find Eden's and FE3H Recomp's saves automatically."
+        hint={folder.trim() ? "Leave empty to find Eden's, Astris's, Ryubing's and FE3H Recomp's saves automatically."
           : found.length ? <>Found: {found.map((f) => <code key={f} className="path">{f}</code>)}</>
-          : "None found yet. Eden's are found automatically, and FE3H Recomp's once it has run with Divine Pulse open. Or paste the folder here."}>
+          : "None found yet. Eden's, Astris's and Ryubing's are found automatically, and FE3H Recomp's once it has run with Divine Pulse open. Or paste the folder here."}>
         <input id={id + "-folder"} type="text" value={folder} placeholder="Automatic" onChange={(e) => setFolder(e.target.value)} />
       </Row>
       {status && (
@@ -571,7 +576,7 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
     <div className="set-about">
       <Group title="This copy">
         <Row label="Version">
-          <span className="set-value">{about.version} · Windows</span>
+          <span className="set-value">{about.version} · {about.platform === "macos" ? "macOS" : "Windows"}</span>
         </Row>
         <Row
           label="Data folder"

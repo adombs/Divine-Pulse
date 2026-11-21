@@ -99,9 +99,11 @@ OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
 | Pillow | MIT-CMU |
 | pywebview | BSD-3-Clause |
 | pythonnet, clr-loader | MIT |
+| PyObjC (pywebview on macOS): pyobjc-core, pyobjc-framework-Cocoa, pyobjc-framework-Quartz, pyobjc-framework-Security, pyobjc-framework-UniformTypeIdentifiers, pyobjc-framework-WebKit | MIT |
 | websockets, python-dotenv, click, colorama, idna, proxy_tools, pycparser (Uvicorn, pywebview and clr-loader dependencies) | BSD-3-Clause |
 | PyYAML, httptools, watchfiles, h11, anyio, setuptools | MIT |
 | OpenTelemetry API (a FastAPI and Starlette dependency) | Apache-2.0 |
+| uvloop (Uvicorn on macOS) | MIT or Apache-2.0 |
 | packaging (the Python package) | Apache-2.0 or BSD-2-Clause |
 | Microsoft WebView2 libraries (included with pywebview) | BSD-3-Clause |
 | PyInstaller bootloader (starts the program) | GPL-2.0 with the bootloader exception, which allows bundling it with programs under any license |

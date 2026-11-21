@@ -1,3 +1,5 @@
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -139,11 +141,15 @@ def test_recording_limit_is_validated(client):
     assert client.put("/api/settings", json={"auto_interval_s": 0.05}).status_code == 422
 
 
-def test_memory_check_requires_eden(client, monkeypatch):
+def test_memory_check_requires_the_emulator(client, monkeypatch):
+    from app.domain.settings import DEFAULT_MEMORY_READER
     from app.gamemem import fe3h
+    from app.gamemem.emulators import names
+    from app.gamemem.readers import emulators_for
 
     monkeypatch.setattr(fe3h, "running", lambda emulators: [])
-    assert client.get("/api/memory/check").json() == {"ok": False, "message": "Eden isn't running."}
+    expected = f"{names(emulators_for(DEFAULT_MEMORY_READER)[:1])} isn't running."  # Eden on Windows, Astris on macOS
+    assert client.get("/api/memory/check").json() == {"ok": False, "message": expected}
 
 
 def test_battle_endpoints(client):
@@ -206,7 +212,8 @@ def test_window_mode_is_saved_and_applied_to_the_desktop_window(client):
 
 def test_about_says_where_the_data_lives(client, tmp_path):
     about = client.get("/api/about").json()
-    assert about == {"version": __version__, "data_dir": str(tmp_path), "desktop": False}
+    platform = "macos" if sys.platform == "darwin" else "windows"
+    assert about == {"version": __version__, "data_dir": str(tmp_path), "desktop": False, "platform": platform}
 
 
 def test_run_ruleset_round_trip(client):

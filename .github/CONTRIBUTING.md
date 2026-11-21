@@ -9,7 +9,9 @@ go through [the security policy](SECURITY.md), not an issue.
 
 ## Prerequisites
 
-- Windows 10/11 for the supported development and release workflow.
+- Windows 10/11 for the supported development and release workflow. macOS (Apple silicon) works for development and
+  for running from source: use `tools/setup.sh` and `tools/launch.sh`, with Xcode's command-line tools installed (the
+  memory reader helper is compiled and signed locally). The release packaging is Windows-only.
 - Python 3.12 or newer and Node.js 24.x on `PATH` (Node 24.15 has been verified). The locked Vite version accepts
   Node `^20.19.0 || >=22.12.0`; the native TypeScript test scripts also need Node's `--experimental-strip-types`,
   so use Node 22.12+ or 24.x rather than an earlier Node 20 release.

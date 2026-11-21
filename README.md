@@ -2,17 +2,30 @@
 
 <img src="branding/icons/app-icon-rounded-1024.png" alt="" width="96" align="right">
 
-Divine Pulse is a free, offline Windows companion for players who emulate **Fire Emblem: Three Houses**. It reads the game while you play and keeps your runs and battles on your PC.
+Divine Pulse is a free, offline companion for players who emulate **Fire Emblem: Three Houses** on Windows or macOS. It reads the game while you play and keeps your runs and battles on your computer.
 
 [Download for Windows](https://github.com/adombs/Divine-Pulse/releases/latest) · [Contributing](.github/CONTRIBUTING.md)
 
 ## Requirements
 
-- Windows 10 or 11, 64-bit, with Microsoft Edge WebView2.
-- **Eden** with fastmem enabled, or **FE3H Recomp by onerag90** (pick one under Settings > General > Game), and **Fire Emblem: Three Houses v1.2.0**.
+- Windows 10 or 11, 64-bit, with Microsoft Edge WebView2; or macOS on Apple silicon, run from source for now (see
+  [macOS](#macos)).
+- One of these, picked under Settings > General > Game: **Eden** with fastmem enabled (Windows), **Astris** (macOS) or
+  **Ryubing**/Ryujinx, or **FE3H Recomp by onerag90** (Windows); and **Fire Emblem: Three Houses v1.2.0**.
 - Your own base game and 1.2.0 update files, with optional DLC.
 
 Divine Pulse reads game memory. It does not write to the emulator or game. It has no accounts, telemetry, update check, or network service beyond its own local window.
+
+## macOS
+
+Divine Pulse runs from a source checkout on macOS. You need Python 3.12 or newer (`brew install python@3.13`),
+Node.js, and Xcode's command-line tools (`xcode-select --install`). Run `tools/setup.sh` once, then `tools/launch.sh`
+to open the window.
+
+Choose **Astris / Ryubing** under Settings > General > Game (the default on macOS). macOS lets another program read an
+app's memory only when the app allows debugging, as Astris's releases do; Divine Pulse builds and signs a small
+reader for this (`backend/app/system/macos`) the first time it connects. It only reads. NSP import needs
+[NSTool](https://github.com/jakcron/nstool) on your PATH; importing a dump folder needs nothing extra.
 
 ## Install and import
 
@@ -29,14 +42,14 @@ To replace, verify or remove an import later, open **Settings → Game files**. 
 
 ## Play with Divine Pulse
 
-Create or load a run from Home before you start playing. The active run is the one that receives the units and battles read from Eden. Choose a different run when you change playthroughs.
+Create or load a run from Home before you start playing. The active run is the one that receives the units and battles read from the emulator. Choose a different run when you change playthroughs.
 
 - **Unit Tracker.** See your army's stats, classes, skills, inventory, abilities and battalions. Switch between the displayed and base stats. eBST compares your units using the offense, defense and other stats you choose.
 - **Battle Companion.** Follow turn order, units, HP, status, supplies, terrain, and the action log. The Battle page opens automatically when a battle starts. The roster automatically filters to deployed units and the app notifies you about departures and Divine Pulse.
 - **Replay Viewer.** Open a battle from History and step through its map and log. Rewinds remain visible as separate branches. Run totals and records use completed battles and the timeline that stood when each battle ended.
 - **Offline Reference.** Archive and Supports use the files you imported for characters, classes, abilities, weapons, spells, items, battalions, support pairings, gifts and other reference information.
 
-If you resume the same battle in Eden, including from a bookmark, Divine Pulse continues its existing record. You can delete individual battles from History. Use the import and export controls on Runs to move run or battle records between installations.
+If you resume the same battle in the emulator, including from a bookmark, Divine Pulse continues its existing record. You can delete individual battles from History. Use the import and export controls on Runs to move run or battle records between installations.
 
 ## Your files and settings
 

@@ -318,7 +318,7 @@ export function Dashboard({ run, units, flashKey, part2, onGoToRuns, toasts }: P
 
         {units.length === 0 ? (
           <EmptyState title="No units yet">
-            Start FE3H in Eden: your army is read from the game and added here by itself.
+            Start FE3H in your emulator: your army is read from the game and added here by itself.
           </EmptyState>
         ) : (
           <div className="table-wrap">

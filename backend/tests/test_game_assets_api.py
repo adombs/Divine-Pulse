@@ -7,6 +7,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from helpers.fake_import import fake_dump
+from app.infrastructure.game_assets_import import NSTOOL_NAME
 from app.infrastructure import game_assets as assets_module
 from app.infrastructure import game_assets_import as importer
 from app.main import create_app
@@ -171,7 +172,7 @@ def test_real_import(tmp_path, assets):
 def test_nsp_import_success_and_picker_routes(tmp_path, assets, monkeypatch):
     from app.infrastructure import nsp_extractor, paths
 
-    tool = tmp_path / "vendor" / "nstool" / "nstool.exe"
+    tool = tmp_path / "vendor" / "nstool" / NSTOOL_NAME
     tool.parent.mkdir(parents=True)
     tool.touch()
     monkeypatch.setattr(paths, "FROZEN", False)
@@ -209,7 +210,7 @@ def test_nsp_extraction_failure_preserves_existing_assets(tmp_path, assets, monk
 
     assets.root.mkdir()
     (assets.root / "old.txt").write_text("old")
-    tool = tmp_path / "vendor" / "nstool" / "nstool.exe"
+    tool = tmp_path / "vendor" / "nstool" / NSTOOL_NAME
     tool.parent.mkdir(parents=True)
     tool.touch()
     monkeypatch.setattr(paths, "FROZEN", False)

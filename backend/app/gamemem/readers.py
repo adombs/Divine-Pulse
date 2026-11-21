@@ -4,8 +4,9 @@ from __future__ import annotations
 
 from .emulators import EMULATORS, Emulator
 from .recomp import RECOMP_EMULATORS
+from .ryujinx import RYUJINX_EMULATORS
 
-READERS: dict[str, tuple[Emulator, ...]] = {"eden": EMULATORS, "recomp": RECOMP_EMULATORS}
+READERS: dict[str, tuple[Emulator, ...]] = {"eden": EMULATORS, "recomp": RECOMP_EMULATORS, "ryujinx": RYUJINX_EMULATORS}
 
 
 def emulators_for(reader: str) -> tuple[Emulator, ...]:

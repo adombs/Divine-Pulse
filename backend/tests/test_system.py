@@ -1,4 +1,4 @@
-"""The Windows system interface."""
+"""The Windows and macOS system interface."""
 
 from pathlib import Path
 
@@ -7,8 +7,15 @@ from app.gamemem.emulators import running
 
 
 def test_data_dir(monkeypatch):
+    monkeypatch.setattr("sys.platform", "win32")
     monkeypatch.setenv("LOCALAPPDATA", "C:/Users/me/AppData/Local")
     assert system.data_dir("Divine Pulse") == Path("C:/Users/me/AppData/Local/Divine Pulse")
+
+
+def test_data_dir_on_macos(monkeypatch, tmp_path):
+    monkeypatch.setattr("sys.platform", "darwin")
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    assert system.data_dir("Divine Pulse") == tmp_path / "Library" / "Application Support" / "Divine Pulse"
 
 
 def test_running_only_looks_for_eden(monkeypatch):

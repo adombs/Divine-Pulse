@@ -242,9 +242,14 @@ class Extractor:
         for folder in folders:
             for path in folder.rglob('*'):
                 if path.suffix.lower() == '.nca':
-                    ncas[path.name.split('.')[0].lower()] = path
+                    key = path.name.split('.')[0].lower()
+                    # A content's own NCA wins over a metadata NCA of the same ID, whatever order the folder
+                    # lists them in (it differs between Windows and macOS).
                     if path.name.lower().endswith('.cnmt.nca'):
                         metas.append(path)
+                        ncas.setdefault(key, path)
+                    else:
+                        ncas[key] = path
         if not metas:
             raise RuntimeError('No .cnmt.nca metadata found. These NSPs may be incomplete or unsupported.')
         titles = []

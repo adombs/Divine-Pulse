@@ -19,6 +19,8 @@ MEM_COMMIT = 0x1000
 MEM_MAPPED = 0x40000
 PAGE_NOACCESS = 0x01
 PAGE_GUARD = 0x100
+# PAGE_READWRITE, PAGE_WRITECOPY, PAGE_EXECUTE_READWRITE, PAGE_EXECUTE_WRITECOPY
+PAGE_WRITABLE = 0x04 | 0x08 | 0x40 | 0x80
 TH32CS_SNAPPROCESS = 0x2
 STILL_ACTIVE = 259
 ERROR_ACCESS_DENIED = 5
@@ -137,7 +139,7 @@ class Process:
         while self._k32.VirtualQueryEx(self._handle, addr, ctypes.byref(mbi), ctypes.sizeof(mbi)):
             readable = mbi.State == MEM_COMMIT and mbi.Protect and not mbi.Protect & (PAGE_NOACCESS | PAGE_GUARD)
             if readable:
-                yield Region(mbi.BaseAddress, mbi.RegionSize, mbi.Type == MEM_MAPPED)
+                yield Region(mbi.BaseAddress, mbi.RegionSize, mbi.Type == MEM_MAPPED, bool(mbi.Protect & PAGE_WRITABLE))
             nxt = mbi.BaseAddress + mbi.RegionSize
             if nxt <= addr:
                 return

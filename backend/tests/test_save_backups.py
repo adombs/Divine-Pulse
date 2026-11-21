@@ -1,6 +1,7 @@
 """Backup Game Saves (infrastructure/save_backups.py): copies of each save, keeping N older versions."""
 
 import os
+from pathlib import Path
 
 from app.domain.settings import Settings
 from app.infrastructure.save_backups import TITLE_ID, SaveBackups, eden_save_folders, program_save_folders
@@ -80,3 +81,50 @@ def test_remembers_save_folders_found_while_the_game_ran(tmp_path):
     running[0] = []  # the game was closed
     assert SaveBackups(FakeSettings(), tmp_path / "backups", lambda: []).sources() == [saves]
     assert copies(tmp_path / "backups" / "FE3H Recomp - save" / "save_0" / "slot00") == [b"s"]
+
+
+def imkvdb(*entries: tuple[int, int]) -> bytes:
+    """A Ryujinx save index with (program ID, save data ID) entries, 0x40-byte keys and values as Ryujinx writes."""
+    import struct
+
+    out = b"IMKV" + struct.pack("<II", 0, len(entries))
+    for program, save in entries:
+        out += b"IMEN" + struct.pack("<II", 0x40, 0x40)
+        out += struct.pack("<Q", program).ljust(0x40, b"\0") + struct.pack("<Q", save).ljust(0x40, b"\0")
+    return out
+
+
+def test_finds_fe3h_in_a_ryujinx_save_index(tmp_path):
+    from app.infrastructure.save_backups import _label, ryujinx_save_folders
+
+    index = tmp_path / "bis/system/save/8000000000000000/0/imkvdb.arc"
+    index.parent.mkdir(parents=True)
+    index.write_bytes(imkvdb((0x0100000000001000, 0x2), (int(TITLE_ID, 16), 0x1)))
+    fe3h = tmp_path / "bis/user/save/0000000000000001/0"
+    fe3h.mkdir(parents=True)
+    (tmp_path / "bis/user/save/0000000000000002/0").mkdir(parents=True)  # another game's
+    assert ryujinx_save_folders(tmp_path) == [fe3h]
+    assert _label(fe3h) == "Ryujinx - 0000000000000001"
+    index.write_bytes(b"IMKV" + b"\0" * 4 + b"\x05\0\0\0" + b"IMEN")  # cut short: nothing, no error
+    assert ryujinx_save_folders(tmp_path) == []
+    assert ryujinx_save_folders(tmp_path / "missing") == []
+
+
+def test_ryujinx_data_folders_on_each_platform(tmp_path, monkeypatch):
+    from app.infrastructure.save_backups import ASTRIS_CONTAINER, ryujinx_roots
+
+    monkeypatch.setattr("sys.platform", "darwin")
+    support = Path("Library") / "Application Support" / "Ryujinx"
+    assert ryujinx_roots(tmp_path) == [tmp_path / support, tmp_path / ASTRIS_CONTAINER / support]
+    monkeypatch.setattr("sys.platform", "win32")
+    assert ryujinx_roots(tmp_path, appdata="C:/Users/me/AppData/Roaming") == [Path("C:/Users/me/AppData/Roaming/Ryujinx")]
+
+
+def test_finds_a_portable_ryujinx_s_saves_beside_it(tmp_path):
+    portable = tmp_path / "Ryubing" / "portable"
+    index = portable / "bis/system/save/8000000000000000/0/imkvdb.arc"
+    index.parent.mkdir(parents=True)
+    index.write_bytes(imkvdb((int(TITLE_ID, 16), 0x7)))
+    saves = portable / "bis/user/save/0000000000000007/0"
+    saves.mkdir(parents=True)
+    assert program_save_folders([str(tmp_path / "Ryubing" / "Ryujinx.exe")]) == [saves]
