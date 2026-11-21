@@ -144,9 +144,13 @@ def test_a_window_goes_back_where_it_was_saved():
         user32.DestroyWindow(ctypes.c_void_p(hwnd))
 
 
-def test_window_mode_switches_fullscreen_once_and_keeps_the_windowed_place(tmp_path):
+def test_window_mode_switches_fullscreen_once_and_keeps_the_windowed_place(tmp_path, monkeypatch):
+    from app import desktop
     from app.config import SettingsStore
     from app.desktop import DesktopApp
+
+    monkeypatch.setattr(desktop, "WINDOWS", True)  # the place saved from pywebview's bounds (Windows without a handle)
+    monkeypatch.setattr(DesktopApp, "_hwnd", lambda self: None)
 
     class FakeWindow:
         x, y, width, height = 100, 80, 1200, 800
@@ -170,3 +174,62 @@ def test_window_mode_switches_fullscreen_once_and_keeps_the_windowed_place(tmp_p
     assert store.get().window == windowed
     app.set_window_mode("windowed")
     assert w.toggles == 2
+
+
+def test_macos_keeps_the_window_place_itself(tmp_path, monkeypatch):
+    """On macOS a place saved by an earlier version is never passed to pywebview (it crashed opening a window off
+    screen), nothing is saved from pywebview's bounds, and macOS's frame autosave restores and remembers it."""
+    from app import desktop
+    from app.config import SettingsStore
+    from app.desktop import DesktopApp, keep_mac_frame
+
+    monkeypatch.setattr(desktop, "WINDOWS", False)
+    store = SettingsStore(tmp_path / "settings.json")
+    store.update(window={"x": -1300, "y": -338, "width": 1300, "height": 850, "maximized": False})
+
+    class FakeWindow:
+        x, y, width, height = 5, 6, 1000, 700
+
+    app = DesktopApp("http://x", store, object(), None)
+    app.window = FakeWindow()
+    app._save_geometry()
+    assert store.get().window == {"x": -1300, "y": -338, "width": 1300, "height": 850, "maximized": False}
+
+    calls = []
+
+    class Native:
+        behavior, mask = 4, 0
+
+        def setFrameUsingName_(self, name):
+            calls.append(("restore", name))
+
+        def setFrameAutosaveName_(self, name):
+            calls.append(("autosave", name))
+
+        def collectionBehavior(self):
+            return self.behavior
+
+        def setCollectionBehavior_(self, value):
+            self.behavior = value
+
+        def styleMask(self):
+            return self.mask
+
+        def toggleFullScreen_(self, _sender):
+            calls.append("toggle")
+            self.mask ^= desktop.NS_FULLSCREEN_MASK
+
+    native = Native()
+    keep_mac_frame(native)
+    assert calls == [("restore", "Divine Pulse"), ("autosave", "Divine Pulse")]
+    assert native.behavior == 4 | desktop.NS_FULLSCREEN_PRIMARY  # its green button can go full screen
+
+    # Full screen follows the window's own state, so asking twice (or after the user left with Esc) is right.
+    calls.clear()
+    desktop.mac_fullscreen(native, True)
+    desktop.mac_fullscreen(native, True)
+    assert calls == ["toggle"]
+    native.mask = 0  # the user left full screen with its green button
+    desktop.mac_fullscreen(native, True)
+    desktop.mac_fullscreen(native, False)
+    assert calls == ["toggle", "toggle", "toggle"]

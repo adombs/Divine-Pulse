@@ -2,6 +2,9 @@
 
 ## Unreleased
 
+- On macOS the window opens where you left it, on whichever monitor, using macOS's own window memory: with two monitors the saved place drifted off screen and the app could fail to open. Settings → Window → Fullscreen (and the window's green button) now go full screen.
+- Quitting and reopening right away keeps the same port instead of moving to a new one (macOS).
+- The update check works on Macs without Homebrew's OpenSSL.
 - Export Video works on macOS: it stalled at 0%, and pictures (videos and team images) filled only part of the frame.
 - Importing game files shows its steps (unpacking NSP files, importing, checking), the package and file being unpacked with a file count, and how long the import has run, instead of a bar with no information.
 - Divine Pulse runs on macOS: `python3 tools/build.py` makes Divine Pulse.app (and a zip of it) in release/, or run from source with `tools/setup.sh`, then `tools/launch.sh`. Releases include the app as `Divine-Pulse-<version>-macos-arm64.zip` (Apple silicon): run `tools/release.py finalize` on Windows and on a Mac, and each adds its files to the same draft. It opens in a WebKit window, and its data folder is ~/Library/Application Support/Divine Pulse.

@@ -24,6 +24,31 @@ BACKGROUND = "#241a15"  # the dark wood behind the sheet, shown while the page l
 WINDOWS = sys.platform == "win32"
 # pywebview's renderer: WebView2 on Windows, its default (Cocoa's WKWebView) elsewhere.
 GUI = "edgechromium" if WINDOWS else None
+# macOS keeps the window's place itself under this name (NSWindow's frame autosave), in the app's preferences: it
+# handles several monitors and screens that have gone. pywebview's own x/y can't be used there: it places a window
+# relative to one screen but reports its place on another, so a window on a second monitor drifted further off
+# screen each launch until pywebview crashed opening it.
+MAC_FRAME_NAME = "Divine Pulse"
+
+
+NS_FULLSCREEN_PRIMARY = 1 << 7  # NSWindowCollectionBehaviorFullScreenPrimary
+NS_FULLSCREEN_MASK = 1 << 14  # NSWindowStyleMaskFullScreen
+
+
+def keep_mac_frame(native_window) -> None:
+    """Put the window where macOS last saw it (if it has), and have macOS remember where it goes from now on; and let
+    it go full screen (its green button, and Settings' window mode). Call on the main thread, before it shows."""
+    native_window.setFrameUsingName_(MAC_FRAME_NAME)
+    native_window.setFrameAutosaveName_(MAC_FRAME_NAME)
+    native_window.setCollectionBehavior_(native_window.collectionBehavior() | NS_FULLSCREEN_PRIMARY)
+
+
+def mac_fullscreen(native_window, want: bool) -> None:
+    """Enter or leave macOS full screen, going by the window's own state (the user can also leave with its green
+    button or Esc). pywebview's toggle can't be used: it marks the window unable to go full screen before toggling."""
+    if bool(native_window.styleMask() & NS_FULLSCREEN_MASK) != want:
+        native_window.setCollectionBehavior_(native_window.collectionBehavior() | NS_FULLSCREEN_PRIMARY)
+        native_window.toggleFullScreen_(None)
 
 
 def available() -> bool:
@@ -302,7 +327,9 @@ class DesktopApp:
         """Blocks until the app quits. Must be called on the main thread."""
         import webview
 
-        geo = self.settings.get().window or {}
+        # Windows: the saved place below. macOS keeps the place itself (keep_mac_frame), so a place saved by an
+        # earlier version is never used there.
+        geo = (self.settings.get().window or {}) if WINDOWS else {}
         width, height = geo.get("width", DEFAULT_SIZE[0]), geo.get("height", DEFAULT_SIZE[1])
         x, y = geo.get("x"), geo.get("y")
         if x is None or y is None or not _on_some_monitor(x, y):
@@ -333,6 +360,8 @@ class DesktopApp:
         self.window.events.closing += self._on_closing
         if placed:
             self.window.events.before_show += lambda: self._place(geo)
+        if not WINDOWS:
+            self.window.events.before_show += self._keep_mac_frame
         # Fullscreen once it's shown (not create_window's fullscreen=True), so the saved place above is where the
         # window goes back to when it's switched to windowed.
         self.window.events.shown += lambda: self.set_window_mode(self.settings.get().window_mode)
@@ -401,10 +430,31 @@ class DesktopApp:
         except Exception:
             log.exception("Could not put the window back where it was")
 
+    def _keep_mac_frame(self) -> None:
+        from PyObjCTools import AppHelper
+
+        def keep() -> None:
+            try:
+                keep_mac_frame(self.window.native)
+            except Exception:
+                log.exception("Could not restore the window's place")
+
+        # pywebview fires before_show on the main thread, as it builds the window: then before it's on screen.
+        if threading.current_thread() is threading.main_thread():
+            keep()
+        else:
+            AppHelper.callAfter(keep)
+
     def set_window_mode(self, mode: str) -> None:
         """Switch the window between "windowed" and "fullscreen" (borderless, over its monitor)."""
         with self._mode_lock:
             want = mode == "fullscreen"
+            if self.window is not None and not WINDOWS:
+                from PyObjCTools import AppHelper
+
+                AppHelper.callAfter(mac_fullscreen, self.window.native, want)
+                self._fullscreen = want
+                return
             if self.window is None or want == self._fullscreen:
                 return
             try:
@@ -426,8 +476,8 @@ class DesktopApp:
 
     def _save_geometry(self) -> None:
         w = self.window
-        if w is None or self._fullscreen:  # keep the windowed place saved before going fullscreen
-            return
+        if w is None or self._fullscreen or not WINDOWS:  # keep the windowed place saved before going fullscreen
+            return  # (macOS saves the place itself)
         try:
             hwnd = self._hwnd()
             if hwnd:  # Windows: its own record, right for any monitor and scaling, even while minimized

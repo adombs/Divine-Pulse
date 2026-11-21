@@ -72,6 +72,11 @@ def quit_running(timeout_s: float = 20.0) -> int:
 
 def _port_free(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if sys.platform != "win32":
+            # As the server binds (uvicorn sets it too): a port this app let go a moment ago, still in TIME_WAIT, is
+            # free, so quitting and opening again keeps the same port. A program listening on it still makes the
+            # bind fail. (On Windows the option would let a bind take a port another program is listening on.)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind((HOST, port))
             return True
