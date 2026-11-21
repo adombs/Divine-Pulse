@@ -23,3 +23,11 @@ test("the H.264 level follows the frame size and rate", () => {
   assert.equal(videoCodec(2560, 1440, 60), "avc1.640033");
   assert.equal(videoCodec(3840, 2160, 60), "avc1.640034");
 });
+
+test("only Safari's engine counts as Safari, though Chromium's user agents also name AppleWebKit", async () => {
+  const { isSafariEngine } = await import("../src/exporting/engine.ts");
+  assert.equal(isSafariEngine(MAC_APP), true);
+  assert.equal(isSafariEngine(SAFARI), true);
+  assert.equal(isSafariEngine(WEBVIEW2), false);
+  assert.equal(isSafariEngine(CHROME_MAC), false);
+});

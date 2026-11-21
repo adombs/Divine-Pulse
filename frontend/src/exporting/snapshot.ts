@@ -11,6 +11,8 @@
  * A data URL, not a blob URL: Chromium marks a canvas painted with a blob URL's `foreignObject` as unreadable.
  */
 
+import { isSafariEngine } from "./engine.ts";
+
 /** Portraits and icons are never drawn bigger than this (CSS pixels; a portrait on the most zoomed-in map), so they're
  * scaled down to it once, times the picture's scale, and kept as WebP: each picture carries them all, so smaller is
  * faster. */
@@ -240,6 +242,7 @@ const INHERITED = [
 /** Gets the page's styles and fonts ready (read once, then kept). */
 export async function snapshotter(): Promise<Snapshotter> {
   await document.fonts.ready;
+  const safari = isSafariEngine();
   const styles: Record<StyleSet, string> = { all: await stylesNow("all"), map: await stylesNow("map") };
   const root = document.documentElement;
   // The root's own variables (fonts, text size, the minimap's tiles), with its images inlined too.
@@ -280,12 +283,15 @@ export async function snapshotter(): Promise<Snapshotter> {
     // same text as the page: the page's <body> doesn't come along, and the wrapper alone would have the root's.
     const around = getComputedStyle(el.parentElement ?? root);
     const inherited = INHERITED.map((p) => `${p}:${around.getPropertyValue(p)}`).join(";");
-    // Drawn `scale` times as big by a CSS transform on the page content, not by the SVG's viewBox: Safari's engine (the
-    // macOS app's window) ignores a viewBox's scaling for HTML in a foreignObject and drew it at its own size, in a
-    // corner of the picture.
-    const zoom = scale === 1 ? "" : `;transform:scale(${scale});transform-origin:0 0`;
-    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}" style="font-size:${fontSize}">`
-      + `<foreignObject x="0" y="0" width="${width * scale}" height="${height * scale}">`
+    // Drawn `scale` times as big by the SVG's viewBox. Safari's engine (the macOS app's window) ignores a viewBox's
+    // scaling for HTML in a foreignObject and drew it at its own size, in a corner of the picture: there the page
+    // content is enlarged with CSS zoom instead (laid out again at that size, so slower to make). A CSS transform
+    // enlarges it there too, but then paints borders and inset shadows, like a sheet's frame line, in the wrong places.
+    const zoomed = scale !== 1 && safari;
+    const zoom = zoomed ? `;zoom:${scale}` : "";
+    const [boxW, boxH] = zoomed ? [width * scale, height * scale] : [width, height];
+    return `<svg xmlns="http://www.w3.org/2000/svg" width="${width * scale}" height="${height * scale}"${zoomed ? "" : ` viewBox="0 0 ${width} ${height}"`} style="font-size:${fontSize}">`
+      + `<foreignObject x="0" y="0" width="${boxW}" height="${boxH}">`
       + `<div xmlns="http://www.w3.org/1999/xhtml" class="snapshot-root" style="${escapeAttr(`${rootStyle};width:${width}px;height:${height}px;overflow:hidden;margin:0;${inherited}${zoom}`)}">`
       + `<style>${escapeText(css)}</style>${body}</div></foreignObject></svg>`;
   };
@@ -373,6 +379,22 @@ export async function elementPng(el: HTMLElement, scale = 2): Promise<Blob> {
   const img = await snap.image(await snap.svg(el, width, height, scale));
   const canvas = document.createElement("canvas");
   [canvas.width, canvas.height] = picturePixels([width, height], scale);
-  canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+  const g = canvas.getContext("2d")!;
+  // Zoomed (snapshotter), Safari's engine lays text out a little shorter than it measured on the page, which left the
+  // last rows of pixels see-through: the picture starts as the element's background instead.
+  if (isSafariEngine() && scale !== 1) {
+    g.fillStyle = backgroundOf(el);
+    g.fillRect(0, 0, canvas.width, canvas.height);
+  }
+  g.drawImage(img, 0, 0, canvas.width, canvas.height);
   return new Promise((resolve, reject) => canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("Couldn't make the image"))), "image/png"));
+}
+
+/** The colour an element is drawn on: its own background, or the nearest one behind it. */
+function backgroundOf(el: Element | null): string {
+  for (let at = el; at; at = at.parentElement) {
+    const color = getComputedStyle(at).backgroundColor;
+    if (color && color !== "transparent" && !/rgba\([^)]*,\s*0\)$/.test(color)) return color;
+  }
+  return "transparent";
 }

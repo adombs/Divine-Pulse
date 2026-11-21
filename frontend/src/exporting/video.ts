@@ -8,6 +8,7 @@
  * storage as it is made (with its metadata space reserved at the start, so it still plays at once from the web)
  * instead of being kept whole in memory. Only where the browser has no such storage is the file built in memory.
  */
+import { isSafariEngine } from "./engine.ts";
 import { AudioBufferSource, BufferTarget, canEncode as canEncodeCodec, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_MEDIUM, QUALITY_VERY_HIGH, StreamTarget, type Target } from "mediabunny";
 
 /** The H.264 High profile level a video needs: 4.0 up to 1080p at 30 frames a second, 4.2 at 60, 5.1 and 5.2 beyond. */
@@ -23,7 +24,7 @@ export function videoCodec(width: number, height: number, fps: number): string {
  * in order. Other engines (the Windows app's WebView2) keep "quality", which lets the encoder plan ahead.
  */
 export function encoderLatency(userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent): "quality" | "realtime" {
-  return /AppleWebKit/.test(userAgent) && !/Chrome|Chromium|Edg\//.test(userAgent) ? "realtime" : "quality";
+  return isSafariEngine(userAgent) ? "realtime" : "quality";
 }
 
 /** Whether this browser can encode the video (the desktop app's WebView2 and WebKit can). */
