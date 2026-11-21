@@ -32,6 +32,7 @@ import { Icon } from "./Icon";
 import { Modal } from "./Modal";
 import { CardBanner, Portrait, RunIcon, Segmented } from "./ui";
 import { StepSlider } from "./Slider";
+import { altKeyName } from "../platform";
 
 /** The run statistics image's least width on the page (CSS pixels); it is saved at its chosen size (SIZES) times its size. */
 const WIDTH = 1500;
@@ -494,7 +495,7 @@ export function UnitSlots({ slots, byKey, left, includeFallen, part2, columns, o
               className="team-order-handle"
               role="button"
               tabIndex={0}
-              aria-label={`Move ${u.name} (slot ${i + 1}); Alt and an arrow key`}
+              aria-label={`Move ${u.name} (slot ${i + 1}); ${altKeyName()} and an arrow key`}
               title="Drag to another slot"
               onPointerDown={(e) => onPointerDown(e, i)}
               onPointerMove={onPointerMove}

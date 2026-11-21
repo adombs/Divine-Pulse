@@ -10,6 +10,7 @@ import { ScopeTag, type CharacterScope } from "./character/CharacterHero";
 import { Accordion, Collapse, NoAccordion, useDisclosure, useInAccordion } from "./disclosure";
 import { Icon, IconName } from "./Icon";
 import { useNav } from "../nav";
+import { IS_MAC, keyLabel } from "../platform";
 import { DuplicateWarning } from "./DuplicateBattles";
 import { PopupActions, useInPopup } from "./CharacterPopup";
 
@@ -59,7 +60,8 @@ export function PageHeader<T extends string>({
   );
 }
 
-/** Back to where you were (also Alt+← and the mouse's back button); at the right end of every page header. */
+/** Back to where you were (also Alt+←, ⌘[ on a Mac, and the mouse's back button); at the right end of every page
+ * header. */
 export function BackButton() {
   const nav = useNav();
   return (
@@ -68,7 +70,7 @@ export function BackButton() {
       className="btn small page-back"
       onClick={nav.back}
       disabled={!nav.canBack}
-      title="Back to where you were (Alt+←)"
+      title={`Back to where you were (${IS_MAC ? keyLabel(["Cmd", "["]) : keyLabel(["Alt", "←"])})`}
     >
       <Icon name={CONCEPT_ICON.back} />
       Back
