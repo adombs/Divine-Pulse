@@ -150,8 +150,11 @@ def test_memory_check_requires_the_emulator(client, monkeypatch):
     monkeypatch.setattr(fe3h, "running", lambda emulators: [])
     assert DEFAULT_MEMORY_READER == "auto"
     message = client.get("/api/memory/check").json()["message"]
-    assert message.startswith("No supported program is running.")
-    assert all(e.name in message for e in emulators_for("auto"))
+    if len(emulators_for("auto")) > 1:
+        assert message.startswith("No supported program is running.")
+        assert all(e.name in message for e in emulators_for("auto"))
+    else:  # macOS: only Ryujinx's family runs there
+        assert message == f"{names(emulators_for('auto'))} isn't running."
     client.put("/api/settings", json={"memory_reader": "eden"})
     assert client.get("/api/memory/check").json() == {"ok": False, "message": f"{names(emulators_for('eden'))} isn't running."}
 

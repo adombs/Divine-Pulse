@@ -1,6 +1,8 @@
 """Reading the game from FE3H Recomp (the native Windows recompilation) instead of Eden, on the made-up army of
 helpers/synthetic_roster.py, and the setting that chooses between the two."""
 
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -110,7 +112,19 @@ def test_only_the_games_own_memory_is_searched_for_battles():
 def test_each_setting_names_its_reader():
     assert emulators_for("eden") is EMULATORS and emulators_for("recomp") is RECOMP_EMULATORS
     assert emulators_for("something else") is emulators_for("auto")
-    assert set(emulators_for("auto")) == {*EMULATORS, *RECOMP_EMULATORS, *RYUJINX_EMULATORS}
+    assert set(emulators_for("auto")) == (
+        {*EMULATORS, *RECOMP_EMULATORS, *RYUJINX_EMULATORS} if sys.platform == "win32" else {*RYUJINX_EMULATORS}
+    )
+
+
+@pytest.mark.parametrize(("platform", "expected"), [("win32", "Eden, Astris or Ryubing, FE3H Recomp"),
+                                                    ("darwin", "Astris or Ryubing"), ("linux", "Astris or Ryubing")])
+def test_auto_looks_only_for_the_programs_that_run_on_this_computer(monkeypatch, platform, expected):
+    """A Mac can't run Eden for Windows (eden.exe) or FE3H Recomp (fe3hrecomp.exe): its message doesn't name them."""
+    monkeypatch.setattr(sys, "platform", platform)
+    assert ", ".join(e.name for e in emulators_for("auto")) == expected
+    assert emulators_for("auto") is emulators_for("auto")
+    assert emulators_for("recomp") is RECOMP_EMULATORS  # a program chosen in Settings is still looked for
 
 
 def test_the_setting_defaults_to_the_platform_s_emulator_and_is_saved(tmp_path):
@@ -154,12 +168,16 @@ def test_the_scanner_changes_reader_when_the_setting_changes(tmp_path):
 
 
 def test_auto_finds_whichever_program_is_running(tmp_path, recomp):
-    """The default reader needs no choice: with FE3H Recomp running, Auto connects to it."""
+    """The default reader needs no choice: with FE3H Recomp running, Auto connects to it (on Windows: elsewhere it
+    can't run, and Auto doesn't look for it)."""
     recomp[7] = recomp_process()
     with TestClient(create_app(tmp_path, background=False)) as client:
         assert client.get("/api/settings").json()["memory_reader"] == "auto"
         check = client.get("/api/memory/check").json()
-        assert check["ok"] and "FE3H 1.2.0 in FE3H Recomp" in check["message"]
+        if sys.platform == "win32":
+            assert check["ok"] and "FE3H 1.2.0 in FE3H Recomp" in check["message"]
+        else:
+            assert check == {"ok": False, "message": "Astris or Ryubing isn't running."}
 
 
 def test_a_scanner_starts_with_the_saved_reader(tmp_path):
