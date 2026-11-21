@@ -28,8 +28,9 @@ def in_os_metadata(path: PurePath, root: PurePath | None = None) -> bool:
 
 
 def user_files(root: Path, pattern: str = "*") -> list[Path]:
-    """root.rglob(pattern)'s files, without the operating system's files and folders."""
-    return [p for p in root.rglob(pattern) if not in_os_metadata(p, root) and p.is_file()]
+    """root.rglob(pattern)'s files, without the operating system's files and folders. The pattern ignores case on
+    every platform, as it does on Windows."""
+    return [p for p in root.rglob(pattern, case_sensitive=False) if not in_os_metadata(p, root) and p.is_file()]
 
 
 def has_entries(folder: Path) -> bool:

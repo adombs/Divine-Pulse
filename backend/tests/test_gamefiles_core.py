@@ -75,6 +75,13 @@ def test_archive_entries_overrides_and_loose_files(tmp_path):
     assert found.resolve("nx/data/missing.bin") is None
 
 
+def test_archive_finds_a_patch_folder_in_any_case(tmp_path):
+    """dump.find accepts "Patch4" (its pattern ignores case); the archive must read it too, on macOS as on Windows."""
+    romfs = make_romfs(tmp_path)
+    (romfs / "patch4").rename(romfs / "Patch4")
+    assert archive.Archive(romfs).patches == [romfs / "Patch4"]
+
+
 def test_archive_combines_separate_update_roots(tmp_path):
     from app.gamefiles.dump import GameDump
     from app.gamefiles.extract import Context

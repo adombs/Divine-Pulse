@@ -80,8 +80,10 @@ class Archive:
 
     @cached_property
     def patches(self) -> list[Path]:
-        """patchN folders, newest first."""
-        found = [p for root in self.roots for p in root.glob("patch*") if p.is_dir() and p.name[5:].isdigit()]
+        """patchN folders, newest first, in any case (as dump.find finds them: macOS's file names are compared
+        case-sensitively by glob, Windows' aren't)."""
+        found = [p for root in self.roots for p in root.glob("patch*", case_sensitive=False)
+                 if p.is_dir() and p.name[5:].isdigit()]
         return sorted(found, key=lambda p: int(p.name[5:]), reverse=True)
 
     @cached_property
