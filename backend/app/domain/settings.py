@@ -45,6 +45,8 @@ class Settings(BaseModel):
     memory_reader: MemoryReader = DEFAULT_MEMORY_READER
     duplicate_battles: DuplicateBattles = "keep_best"
     check_updates: bool = True
+    # Open Divine Pulse when Eden or FE3H Recomp starts (a hidden watcher, started at sign-in).
+    launch_with_game: bool = False
     # How many older versions of each game save to keep (0: no backups), and the save folder to back up
     # (None: found automatically, Eden's and FE3H Recomp's).
     save_backups: int = Field(3, ge=0, le=100)

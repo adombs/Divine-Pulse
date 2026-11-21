@@ -258,3 +258,92 @@ class Window(WindowBehaviour):
 
 def window() -> Window:
     return Window()
+
+
+class GameWatch:
+    """Launch with Game on Windows: a named mutex marks the session's one watcher, a named event asks it to stop, and
+    the user's Run key starts it at sign-in. packaging/installer.iss uses the same names."""
+
+    MUTEX = r"Local\DivinePulseGameWatcher"
+    STOP_EVENT = r"Local\DivinePulseGameWatcherStop"
+    RUN_KEY = r"Software\Microsoft\Windows\CurrentVersion\Run"
+    RUN_VALUE = "Divine Pulse (Launch with Game)"
+    # Hidden, and not ended with the process that started it.
+    DETACHED = HIDDEN_CONSOLE_FLAGS | 0x00000200  # CREATE_NEW_PROCESS_GROUP
+
+    def __init__(self):
+        self._held: list[int] = []  # the claim's handles, kept for this process's life
+
+    @staticmethod
+    def _kernel32():
+        from ctypes import wintypes
+
+        k32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        for name in ("CreateMutexW", "CreateEventW", "OpenMutexW", "OpenEventW"):
+            getattr(k32, name).restype = wintypes.HANDLE
+        k32.CreateMutexW.argtypes = (wintypes.LPVOID, wintypes.BOOL, wintypes.LPCWSTR)
+        k32.CreateEventW.argtypes = (wintypes.LPVOID, wintypes.BOOL, wintypes.BOOL, wintypes.LPCWSTR)
+        k32.OpenMutexW.argtypes = k32.OpenEventW.argtypes = (wintypes.DWORD, wintypes.BOOL, wintypes.LPCWSTR)
+        k32.SetEvent.argtypes = k32.CloseHandle.argtypes = (wintypes.HANDLE,)
+        k32.WaitForSingleObject.argtypes = (wintypes.HANDLE, wintypes.DWORD)
+        return k32
+
+    def claim(self):
+        k32 = self._kernel32()
+        mutex = k32.CreateMutexW(None, False, self.MUTEX)
+        if not mutex:
+            raise ctypes.WinError(ctypes.get_last_error())
+        if ctypes.get_last_error() == 183:  # ERROR_ALREADY_EXISTS
+            k32.CloseHandle(mutex)
+            return None
+        stop = k32.CreateEventW(None, True, False, self.STOP_EVENT)
+        if not stop:
+            k32.CloseHandle(mutex)
+            raise ctypes.WinError(ctypes.get_last_error())
+        self._held = [stop, mutex]
+        return lambda s: k32.WaitForSingleObject(stop, int(s * 1000)) == 0  # WAIT_OBJECT_0
+
+    def release(self) -> None:
+        """End the claim. The event goes first: a watcher started next must not find it still set."""
+        k32 = self._kernel32()
+        for handle in self._held:
+            k32.CloseHandle(handle)
+        self._held = []
+
+    def running(self) -> bool:
+        k32 = self._kernel32()
+        handle = k32.OpenMutexW(0x00100000, False, self.MUTEX)  # SYNCHRONIZE
+        if not handle:
+            return False
+        k32.CloseHandle(handle)
+        return True
+
+    def stop(self) -> None:
+        k32 = self._kernel32()
+        handle = k32.OpenEventW(0x0002, False, self.STOP_EVENT)  # EVENT_MODIFY_STATE
+        if handle:
+            k32.SetEvent(handle)
+            k32.CloseHandle(handle)
+
+    def set_autostart(self, command: list[str] | None) -> None:
+        import subprocess
+        import winreg
+
+        with winreg.CreateKey(winreg.HKEY_CURRENT_USER, self.RUN_KEY) as key:
+            if command is not None:
+                winreg.SetValueEx(key, self.RUN_VALUE, 0, winreg.REG_SZ, subprocess.list2cmdline(command))
+                return
+            try:
+                winreg.DeleteValue(key, self.RUN_VALUE)
+            except FileNotFoundError:
+                pass
+
+    def spawn(self, command: list[str], cwd: Path | None = None) -> None:
+        import subprocess
+
+        subprocess.Popen(command, cwd=cwd, creationflags=self.DETACHED, close_fds=True,
+                         stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+def game_watch() -> GameWatch:
+    return GameWatch()

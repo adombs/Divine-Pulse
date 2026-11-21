@@ -349,3 +349,8 @@ class Window(WindowBehaviour):
 
 def window() -> Window:
     return Window()
+
+
+def game_watch() -> None:
+    """Launch with Game is Windows-only."""
+    return None

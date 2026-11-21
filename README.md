@@ -78,6 +78,8 @@ If you resume the same battle in the emulator, including from a bookmark, Divine
 |---|---|---|---|
 | Data folder | %LOCALAPPDATA%\Divine Pulse, or a `data` folder next to Divine Pulse.exe if you create one (portable) | ~/Library/Application Support/Divine Pulse | ~/.local/share/Divine Pulse (`$XDG_DATA_HOME`), or a `data` folder next to the program (portable) |
 
+Turn on **Launch with Game** under **Settings → General** (Windows) to have Divine Pulse open whenever Eden, Ryubing/Ryujinx or FE3H Recomp starts. A small hidden copy of Divine Pulse starts when you sign in to Windows and waits for the game; turning the setting off stops it.
+
 Appearance and spoiler preferences apply to this installation. **Settings → General** controls how many raw battle recordings to retain, from 0 to 1000. The default is three, and zero turns raw recording off. Saved replays in History are separate from raw recordings.
 
 | | Windows | macOS | Linux |

@@ -86,6 +86,9 @@ class Platform(Protocol):
     def window(self) -> WindowBehaviour:
         """How the desktop window behaves here (see WindowBehaviour)."""
 
+    def game_watch(self) -> GameWatch | None:
+        """What Launch with Game needs from the OS, or None where it isn't supported."""
+
 
 def launch(command: list[str], env: Mapping[str, str] | None = None) -> None:
     """Start a program and don't wait for it."""
@@ -137,6 +140,29 @@ def env_dir(env: Mapping[str, str], name: str, default: Path) -> Path:
     """An XDG-style folder: the variable when it's set to an absolute path, else the default."""
     value = env.get(name, "")
     return Path(value) if value and PurePosixPath(value).is_absolute() else default
+
+
+class GameWatch(Protocol):
+    """Launch with Game's OS services: one hidden watcher per user session, started at sign-in."""
+
+    def claim(self) -> Callable[[float], bool] | None:
+        """Become the watcher: returns `wait(s)`, which sleeps up to `s` seconds and is True once asked to stop, or
+        None when another watcher already runs. The claim lasts until this process ends."""
+
+    def release(self) -> None:
+        """End this process's claim."""
+
+    def running(self) -> bool:
+        """Whether a watcher runs in this session."""
+
+    def stop(self) -> None:
+        """Ask the running watcher to stop now. Doesn't wait for it."""
+
+    def set_autostart(self, command: list[str] | None) -> None:
+        """Run `command` when the user signs in, or (None) stop doing so. Raises OSError if it can't."""
+
+    def spawn(self, command: list[str], cwd: Path | None = None) -> None:
+        """Start a program hidden and on its own, not ended with this one."""
 
 
 class WindowBehaviour:

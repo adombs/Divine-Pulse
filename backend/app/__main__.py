@@ -103,6 +103,11 @@ def main() -> None:
         sys.exit(0 if check_desktop() else 1)
     if "--quit" in sys.argv[1:]:
         sys.exit(quit_running())
+    if "--watch-game" in sys.argv[1:]:
+        from .infrastructure.launch_with_game import run_watcher
+
+        # No logging setup: the watcher must not share tracker.log with the app it opens.
+        sys.exit(run_watcher(DATA_DIR / "settings.json", lambda: _already_running(f"http://{HOST}:{_saved_port()}")))
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
     except OSError as exc:

@@ -12,6 +12,7 @@ from .infrastructure.battle_data import quest_battles
 from .infrastructure.events import EventBus
 from .infrastructure.game_assets_import import GameAssetsImport
 from .infrastructure.json_files import take_notices
+from .infrastructure.launch_with_game import LaunchWithGame
 from .gamemem.recorder import BattleRecorder
 from .infrastructure.paths import BONUSES_FILE
 from .infrastructure.persistence import BattleStore, RunStore
@@ -34,6 +35,7 @@ class AppRuntime(RuntimeView):
     game_import: GameAssetsImport = field(kw_only=True)
     updates: UpdateCheck = field(kw_only=True)
     save_backups: SaveBackups = field(kw_only=True)
+    launch_with_game: LaunchWithGame = field(kw_only=True)
 
     def close(self) -> None:
         try:
@@ -63,6 +65,7 @@ def build_runtime(data_dir: Path, settings: SettingsStore | None = None) -> AppR
         recorder=BattleRecorder(data_dir / "battle-recordings"),
     )
     save_backups = SaveBackups(settings, settings.path.parent / "save-backups")
+    launch_with_game = LaunchWithGame(settings)
     operations = BackendOperations(
         runs=runs,
         battles=battles,
@@ -77,6 +80,8 @@ def build_runtime(data_dir: Path, settings: SettingsStore | None = None) -> AppR
         quest_battles=quest_battles(),
         updates=updates,
         save_backups=save_backups,
+        launch_with_game=launch_with_game,
     )
     return AppRuntime(operations, events, settings, runs, battles, scanner,
-                      game_import=GameAssetsImport(settings, events), updates=updates, save_backups=save_backups, take_notices=take_notices)
+                      game_import=GameAssetsImport(settings, events), updates=updates, save_backups=save_backups,
+                      launch_with_game=launch_with_game, take_notices=take_notices)

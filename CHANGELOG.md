@@ -21,6 +21,7 @@
 - Settings → General → Game has a new **Auto** choice, the default for new installs: Divine Pulse finds the game in whichever of Eden, Astris, Ryubing/Ryujinx or FE3H Recomp is running. Choosing one program still works as before.
 - Backup Game Saves finds Astris's, Ryubing's and Ryujinx's FE3H saves automatically, including a portable Ryubing's, and Eden's on macOS.
 - Importing NSP files on macOS uses NSTool: download the latest macOS release from https://github.com/jakcron/nstool/releases/latest and put it in Applications or Downloads (unzipped). If macOS blocks it, the import says how to allow it. Importing a dump folder needs nothing extra.
+- Launch with Game (Windows), in Settings → General → Game: when it's on, Divine Pulse opens by itself when Eden, Ryubing/Ryujinx or FE3H Recomp starts.
 
 ## 1.5.2 (2026-11-18)
 

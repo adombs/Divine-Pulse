@@ -157,6 +157,7 @@ class SettingsIn(Body):
     memory_reader: MemoryReader | None = None
     duplicate_battles: DuplicateBattles | None = None
     check_updates: bool | None = None
+    launch_with_game: bool | None = None
     save_backups: int | None = Field(None, ge=0, le=100)
     # "" goes back to finding the save folder automatically.
     save_folder: str | None = Field(None, max_length=1024)
