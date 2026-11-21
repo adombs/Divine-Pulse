@@ -281,3 +281,14 @@ def test_frontend_files_served_through_a_symlinked_folder(tmp_path, monkeypatch)
     with TestClient(main.create_app(data, background=False)) as c:
         assert c.get("/brand/logo.png").content == b"PNGDATA"
         assert "page" in c.get("/settings").text
+
+
+def test_appledouble_files_beside_runs_are_skipped(tmp_path):
+    """A data folder on an exFAT drive or a network share gets a "._<name>" twin beside each file macOS writes."""
+    from app.infrastructure.persistence import RunStore
+
+    store = RunStore(tmp_path)
+    run = store.create("Mine")
+    (tmp_path / f"._{run.id}.json").write_bytes(b"\0\5\x16\7")
+    assert [r.id for r in store.list()] == [run.id]
+    assert [r.id for r in store.save_lineages()] == [run.id]

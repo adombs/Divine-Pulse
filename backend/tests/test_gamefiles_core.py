@@ -191,3 +191,16 @@ def test_maybe_unchunk_leaves_plain_files_alone():
     assert archive.maybe_unchunk(b"GT1G" + b"\0" * 60).startswith(b"GT1G")
     data = b"chunked" * 40
     assert archive.maybe_unchunk(chunked(data, 0x40, {4})) == data
+
+
+def test_verify_ignores_files_macos_adds_to_folders(tmp_path):
+    out = Output(tmp_path / "out")
+    out.json("data/b.json", {"x": 1}, source="test")
+    out.write_manifest(dump={"version": "1.2.0"}, families={})
+    for name in (".DS_Store", "data/.DS_Store", "data/._b.json", ".localized", "Icon\r", "__MACOSX/data/._b.json"):
+        (out.root / name).parent.mkdir(parents=True, exist_ok=True)
+        (out.root / name).write_bytes(b"\0\0\0\1Bud1")
+    (out.root / "data" / "extra.json").write_text("{}")
+    report = verify.check(out.root)
+    assert report.ok and report.checked == 1
+    assert report.warnings == ["data/extra.json: not in the manifest"]

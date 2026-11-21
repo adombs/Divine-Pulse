@@ -25,6 +25,7 @@ from .saved_models import Run as SavedRun, decode_battle, decode_battles
 import json
 from .route_inference import route_of
 from ..application.ports import MissingRecord
+from ..system.files import is_os_metadata
 from .json_files import atomic_write_bytes, atomic_write_text, preserve_original, read_with_backup
 
 _BATTLES = TypeAdapter(list[Battle])
@@ -164,6 +165,8 @@ class RunStore:
         with self._lock:
             runs = []
             for path in self.dir.glob("*.json"):
+                if is_os_metadata(path.name):
+                    continue
                 try:
                     runs.append(self.get(path.stem))
                 except (OSError, ValueError, TypeError):
@@ -286,6 +289,8 @@ class RunStore:
         with self._lock:
             out = []
             for path in self.dir.glob("*.json"):
+                if is_os_metadata(path.name):
+                    continue
                 try:
                     self.get(path.stem)
                 except (OSError, ValueError, TypeError, NotFound):

@@ -8,6 +8,8 @@ import hashlib
 import os
 import re
 
+from ..system.files import is_os_metadata
+
 BASE_TITLE = "010055D009F78000"
 DLC_TITLES = {
     "010055D009F79001": "cindered_shadows",
@@ -116,6 +118,7 @@ def find(root: Path) -> GameDump:
         raise FileNotFoundError(f"{root} is not a folder")
     bases, updates, executables, dlc = [], [], [], {}
     for current, dirs, files in os.walk(root, followlinks=False):
+        dirs[:] = [name for name in dirs if not is_os_metadata(name)]
         folder = Path(current)
         names = set(files)
         patch_dirs = [name for name in dirs if PATCH.fullmatch(name)]

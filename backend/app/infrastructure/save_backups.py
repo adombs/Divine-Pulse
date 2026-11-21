@@ -25,6 +25,8 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..system.files import in_os_metadata, is_os_metadata
+
 log = logging.getLogger(__name__)
 
 # Fire Emblem: Three Houses' title ID: its saves are in a folder of this name.
@@ -246,7 +248,7 @@ class SaveBackups:
         made = 0
         for file in sorted(source.rglob("*")):
             try:
-                if not file.is_file():
+                if in_os_metadata(file, source) or not file.is_file():
                     continue
                 stat = file.stat()
                 versions = dest / file.relative_to(source)
@@ -271,7 +273,8 @@ class SaveBackups:
     @staticmethod
     def _versions(versions: Path) -> list[Path]:
         try:
-            return sorted((p for p in versions.iterdir() if p.is_file() and not p.name.endswith(".partial")), key=lambda p: (p.stat().st_mtime_ns, p.name))
+            return sorted((p for p in versions.iterdir()
+                           if p.is_file() and not p.name.endswith(".partial") and not is_os_metadata(p.name)), key=lambda p: (p.stat().st_mtime_ns, p.name))
         except OSError:
             return []
 

@@ -14,6 +14,7 @@ from pathlib import Path
 
 from PIL import Image
 
+from ..system.files import user_files
 from .extract import FAMILIES
 from .msgdata import LANGUAGES
 from .output import MANIFEST, pixel_hash
@@ -93,8 +94,8 @@ def check(root: Path, *, require_complete: bool = False) -> Report:
             report.errors.append(f"{rel}: unreadable file or invalid manifest entry ({error})")
         report.checked += 1
     listed = set(files) | {MANIFEST}
-    for path in root.rglob("*"):
-        if path.is_file() and path.relative_to(root).as_posix() not in listed:
+    for path in user_files(root):
+        if path.relative_to(root).as_posix() not in listed:
             report.warnings.append(f"{path.relative_to(root).as_posix()}: not in the manifest")
     families = manifest.get("families", {})
     if not isinstance(families, dict) or any(not isinstance(info, dict) for info in families.values()):

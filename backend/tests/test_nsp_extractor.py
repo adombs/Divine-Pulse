@@ -152,3 +152,26 @@ class ExtractionTests(unittest.TestCase):
         runner.cancelled.set()
         with self.assertRaisesRegex(RuntimeError, 'Cancelled'):
             runner.extract([runner.add('base.nsp', 0x1000, 0x80)])
+
+    def test_files_macos_adds_are_ignored(self):
+        """An output folder Finder has shown holds only a .DS_Store; on an exFAT drive every file NSTool writes may
+        get an AppleDouble "._" twin, which isn't a ticket or an NCA."""
+        runner = FakeExtractor(self.root)
+        runner.output.mkdir()
+        (runner.output / '.DS_Store').write_bytes(b'Bud1')
+        real_run = runner.run
+
+        def run(args, source, *, partition=False, on_tick=None):
+            text = real_run(args, source, partition=partition, on_tick=on_tick)
+            if '--fstree' not in args:
+                target = Path(args[-1])
+                for path in list(target.iterdir()):
+                    if path.is_file():
+                        (target / f'._{path.name}').write_bytes(b'\0\5\x16\7')
+            return text
+
+        runner.run = run
+        runner.extract([runner.add('base.nsp', 0x1000, 0x80)])
+        self.assertTrue((runner.output / 'exefs/main').is_file())
+        self.assertEqual([t.name for t in runner.tickets], [f'{1:032x}.tik'])
+        self.assertFalse(any(source.name.startswith('._') for _, source in runner.calls))

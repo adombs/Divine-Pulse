@@ -4,6 +4,7 @@ import shutil
 from collections.abc import Callable
 from pathlib import Path
 
+from ..system.files import has_entries
 from .settings import SettingsStore
 
 YES, NO = 6, 7
@@ -32,7 +33,7 @@ def prepare_installation(settings: SettingsStore, assets: Path, version: str, as
     data = settings.path.parent
     records = (data / "runs", data / "battles")
     retain_records = True
-    if any(path.is_dir() and any(path.iterdir()) for path in records):
+    if any(path.is_dir() and has_entries(path) for path in records):
         choice = ask("Keep your existing runs and battle history?\n\nYes keeps your records. No deletes them. Cancel exits setup.")
         if choice not in {YES, NO}:
             return False

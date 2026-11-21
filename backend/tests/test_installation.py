@@ -50,3 +50,11 @@ def test_cancelling_asset_choice_also_cancels_record_cleanup(tmp_path):
     assert (runs / "saved.json").is_file()
     assert assets.is_dir()
     assert settings.get().installation_version is None
+
+
+def test_folders_holding_only_finders_files_are_not_records(tmp_path):
+    settings = SettingsStore(tmp_path / "settings.json")
+    for name in ("runs", "battles"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / ".DS_Store").write_bytes(b"Bud1")
+    assert prepare_installation(settings, tmp_path / "game-assets", "new", lambda _: pytest.fail("nothing to keep"))

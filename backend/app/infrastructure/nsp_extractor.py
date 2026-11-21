@@ -15,6 +15,8 @@ import tempfile
 import threading
 from dataclasses import dataclass
 
+from ..system.files import has_entries, user_files
+
 
 @dataclass
 class Content:
@@ -214,7 +216,7 @@ class Extractor:
             args += ['--basenca', base.path]
         label = 'ExeFS' if destination.name == 'exefs' else 'RomFS'
         self.extract_files(content.path, destination, f'{label} - {destination.parent.name}', args, number)
-        if not any(p.is_file() for p in destination.rglob('*')):
+        if not user_files(destination):
             raise RuntimeError(f'No files extracted to {destination}. Check keys and selected content.')
 
     def extract(self, inputs: list[Path]):
@@ -225,7 +227,7 @@ class Extractor:
                 raise ValueError(f'File not found: {path}')
         if any(path.suffix.lower() != '.nsp' for path in inputs):
             raise ValueError('All inputs must be .nsp files (compressed .nsz files are unsupported).')
-        if self.output.exists() and (not self.output.is_dir() or any(self.output.iterdir())):
+        if self.output.exists() and (not self.output.is_dir() or has_entries(self.output)):
             raise ValueError('Choose a new or empty output folder to avoid mixing dumps.')
         self.output.mkdir(parents=True, exist_ok=True)
         self.work = Path(tempfile.mkdtemp(prefix='_nsp_work_', dir=self.output))
@@ -236,11 +238,11 @@ class Extractor:
             folder = self.work / f'nsp-{i}'
             self.extract_files(source, folder, f'NSP {i}/{len(inputs)} - {source.name}')
             folders.append(folder)
-        self.tickets = [ticket for folder in folders for ticket in folder.rglob('*.tik')]
+        self.tickets = [ticket for folder in folders for ticket in user_files(folder, '*.tik')]
         ncas: dict[str, Path] = {}
         metas = []
         for folder in folders:
-            for path in folder.rglob('*'):
+            for path in user_files(folder):
                 if path.suffix.lower() == '.nca':
                     key = path.name.split('.')[0].lower()
                     # A content's own NCA wins over a metadata NCA of the same ID, whatever order the folder
@@ -258,7 +260,7 @@ class Extractor:
             self.progress({'stage': f'Reading metadata {i + 1}/{len(metas)}', 'total': None})
             folder = self.work / f'meta-{i}'
             self.run(['-x', folder], meta, partition=True)
-            cnmts = list(folder.rglob('*.cnmt'))
+            cnmts = user_files(folder, '*.cnmt')
             if not cnmts:
                 raise RuntimeError(f'No readable CNMT in {meta.name}. Check prod.keys.')
             titles.extend(parse_cnmt(path, ncas) for path in cnmts)

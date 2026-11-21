@@ -128,3 +128,26 @@ def test_finds_a_portable_ryujinx_s_saves_beside_it(tmp_path):
     saves = portable / "bis/user/save/0000000000000007/0"
     saves.mkdir(parents=True)
     assert program_save_folders([str(tmp_path / "Ryubing" / "Ryujinx.exe")]) == [saves]
+
+
+def test_finders_files_are_not_backed_up_and_dont_count_as_versions(tmp_path):
+    saves, out = tmp_path / "saves", tmp_path / "backups"
+    saves.mkdir()
+    backups = SaveBackups(FakeSettings(save_backups=1), out, lambda: [saves])
+    write(saves / ".DS_Store", b"Bud1", 1_000_000)
+    write(saves / "._data00.bin", b"\0\5\x16\7", 1_000_000)
+    write(saves / "data00.bin", b"v1", 1_000_000)
+    assert backups.back_up() == 1
+    dest = out / f"{tmp_path.name} - saves"
+    assert sorted(p.name for p in dest.iterdir()) == ["data00.bin"]
+    # Finder shows the copies: its .DS_Store is newer than every copy, and mustn't look like the latest version.
+    write(dest / "data00.bin" / ".DS_Store", b"Bud1", 2_000_000)
+    write(saves / "data00.bin", b"v1", 1_000_100)  # touched, not changed
+    assert backups.back_up() == 0
+    write(saves / "data00.bin", b"v2", 1_000_200)
+    assert backups.back_up() == 1
+    write(saves / "data00.bin", b"v3", 1_000_300)
+    assert backups.back_up() == 1
+    kept = dest / "data00.bin"
+    assert sorted(p.read_bytes() for p in kept.iterdir() if p.name != ".DS_Store") == [b"v2", b"v3"]
+    assert (kept / ".DS_Store").read_bytes() == b"Bud1"
