@@ -2,11 +2,11 @@
 
     python tools/release.py prepare 1.2.10
     python tools/release.py finalize 1.2.10
-    python tools/release.py macos 1.2.10
 
 Preparation commits version and changelog changes on the matching release or hotfix branch.
-Finalization checks the clean current main against origin, builds, pushes only the tag, and creates a draft.
-`macos`, on a Mac at the pushed tag, builds the macOS app and adds its zip (and checksum line) to that draft.
+Finalization checks the clean current main against origin and builds this computer's release files (Windows: the
+installer and portable zip; macOS: the app zip). Run it on each: the first pushes only the tag and creates a draft
+with its files, the next adds its files to that draft. Either may go first.
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import game_content  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
+MACOS = sys.platform == "darwin"
 VERSION_FILES = (
     ROOT / "backend/app/__init__.py",
     ROOT / "backend/pyproject.toml",
@@ -83,33 +84,53 @@ def run(*command: str | Path, cwd: Path = ROOT) -> None:
     subprocess.run([str(part) for part in command], cwd=cwd, check=True)
 
 
-def preflight_push(tag: str) -> None:
-    if sys.platform != "win32":
-        fail("--push creates the supported Windows release and must run on Windows")
-    if subprocess.run(["gh", "auth", "status"], cwd=ROOT).returncode:
+def preflight(tag: str) -> list[str] | None:
+    """None when `tag` is new: nothing on origin and no release yet. When the other computer already finalized, the
+    names of the files on its draft (the tag must be this commit and the release still a draft)."""
+    if sys.platform not in {"win32", "darwin"}:
+        fail("finalize builds the Windows or macOS release files and must run on one of them")
+    if subprocess.run(["gh", "auth", "status"], cwd=ROOT, capture_output=True).returncode:
         fail("GitHub CLI is not authenticated; run 'gh auth login' and try again")
     remote_tag = subprocess.run(
-        ["git", "ls-remote", "--exit-code", "--tags", "origin", f"refs/tags/{tag}"], cwd=ROOT,
-    ).returncode
-    if remote_tag == 0:
-        fail(f"{tag} already exists on origin")
-    if remote_tag != 2:
+        ["git", "ls-remote", "--exit-code", "--tags", "origin", f"refs/tags/{tag}", f"refs/tags/{tag}^{{}}"],
+        cwd=ROOT, capture_output=True, text=True,
+    )
+    if remote_tag.returncode not in {0, 2}:
         fail("couldn't check tags on origin")
-    if subprocess.run(["gh", "release", "view", tag], cwd=ROOT, stdout=subprocess.DEVNULL,
-                      stderr=subprocess.DEVNULL).returncode == 0:
-        fail(f"a GitHub release for {tag} already exists")
+    found = subprocess.run(["gh", "release", "view", tag, "--json", "isDraft,assets"], cwd=ROOT,
+                           capture_output=True, text=True, encoding="utf-8")
+    if remote_tag.returncode == 2:
+        if found.returncode == 0:
+            fail(f"a GitHub release for {tag} already exists")
+        if git("tag", "--list", tag):
+            fail(f"{tag} already exists locally")
+        return None
+    if found.returncode:
+        fail(f"{tag} exists on origin but has no GitHub release; inspect it before retrying")
+    draft = json.loads(found.stdout)
+    if not draft["isDraft"]:
+        fail(f"{tag} is already published")
+    commits = {line.split()[1]: line.split()[0] for line in remote_tag.stdout.splitlines()}
+    commit = commits.get(f"refs/tags/{tag}^{{}}", commits.get(f"refs/tags/{tag}"))
+    if commit != git("rev-parse", "HEAD"):
+        fail(f"{tag} on origin isn't this commit; its draft must get files built from the same commit")
+    return [asset["name"] for asset in draft["assets"]]
+
+
+def artifact_names(version: str) -> list[str]:
+    """This computer's release files, without the checksum file."""
+    if MACOS:
+        return [f"Divine-Pulse-{version}-macos-{platform.machine()}.zip"]
+    return [f"Divine-Pulse-{version}-windows-portable.zip", f"Divine-Pulse-{version}-setup.exe"]
 
 
 def release_files(version: str) -> list[Path]:
     release = ROOT / "release"
-    expected = [
-        release / f"Divine-Pulse-{version}-windows-portable.zip",
-        release / f"Divine-Pulse-{version}-setup.exe",
-        release / "SHA256SUMS.txt",
-    ]
+    expected = [*(release / name for name in artifact_names(version)), release / "SHA256SUMS.txt"]
     missing = [path.name for path in expected if not path.is_file()]
     if missing:
-        raise RuntimeError("local build did not create " + ", ".join(missing) + "; install Inno Setup 6 and try again")
+        hint = "" if MACOS else "; install Inno Setup 6 and try again"
+        raise RuntimeError("local build did not create " + ", ".join(missing) + hint)
     try:
         checksums = expected[-1].read_text("ascii")
     except UnicodeDecodeError as error:
@@ -182,7 +203,7 @@ def app_version() -> str | None:
 
 def build_and_check(version: str) -> list[Path]:
     run(sys.executable, ROOT / "tools/build.py")
-    python = ROOT / "build/venv/Scripts/python.exe"
+    python = ROOT / ("build/venv/bin/python" if MACOS else "build/venv/Scripts/python.exe")
     run(python, "-m", "ruff", "check", "--config", "pyproject.toml", ".", "../tools", "../packaging", cwd=ROOT / "backend")
     files = release_files(version)
     problems = game_content.check_zip(files[0])
@@ -261,16 +282,21 @@ def finalize(version: str) -> None:
     tag = f"v{version}"
     check_current_main()
     check_versions(version)
-    if git("tag", "--list", tag):
-        fail(f"{tag} already exists locally")
-    preflight_push(tag)
-    notes = release_notes(version)  # before the build and tag: a patch version's notes need the previous release's
+    existing = preflight(tag)
+    # Before the build and tag: a patch version's notes need the previous release's.
+    notes = release_notes(version) if existing is None else ""
     try:
         files = build_and_check(version)
     except (subprocess.CalledProcessError, RuntimeError) as error:
-        fail(f"local checks or build failed ({error}); no tag was created")
+        fail(f"local checks or build failed ({error}); nothing was tagged or uploaded")
     check_current_main()
     check_versions(version)
+    if existing is not None:
+        try:
+            add_to_draft(tag, files)
+        except (subprocess.CalledProcessError, RuntimeError) as error:
+            fail(f"adding the files to the {tag} draft failed ({error}); run finalize again")
+        return
     git("tag", "-a", tag, "-m", f"Divine Pulse {version}")
     try:
         git("push", "origin", f"refs/tags/{tag}")
@@ -278,98 +304,46 @@ def finalize(version: str) -> None:
         fail(f"tag {tag} exists locally but push failed; inspect remote and local state before retrying")
     try:
         create_draft(tag, version, files, notes)
-    except subprocess.CalledProcessError:
-        fail(f"tag {tag} was pushed, but draft creation failed; do not reuse the tag; follow docs/releasing.md")
-
-
-def mac_zip(version: str) -> Path:
-    return ROOT / "release" / f"Divine-Pulse-{version}-macos-{platform.machine()}.zip"
-
-
-def checksum_lines(text: str, skip: str) -> list[str]:
-    """The checksum lines in `text`, minus any for the file named `skip`."""
-    return [line for line in text.splitlines() if line.strip() and line.split("  ", 1)[-1] != skip]
+        check_uploaded(tag, files[:-1])
+    except (subprocess.CalledProcessError, RuntimeError):
+        fail(f"tag {tag} was pushed, but the draft wasn't created or its files don't match; follow docs/releasing.md")
 
 
 def sha256(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
 
 
-def mac_release_files(version: str) -> Path:
-    """The built macOS zip, checked against release/SHA256SUMS.txt and for game content."""
-    archive = mac_zip(version)
-    if not archive.is_file():
-        raise RuntimeError(f"the build did not create release/{archive.name}")
-    sums = (ROOT / "release" / "SHA256SUMS.txt").read_text("ascii")
-    listed = [line.split("  ", 1)[0].lower() for line in sums.splitlines() if line.endswith(f"  {archive.name}")]
-    if listed != [sha256(archive)]:
-        raise RuntimeError(f"release/SHA256SUMS.txt has no matching checksum for {archive.name}")
-    problems = game_content.check_zip(archive)
-    if problems:
-        raise RuntimeError("the macOS zip holds game content or lacks a license file:\n  " + "\n  ".join(problems))
-    return archive
-
-
-def draft_assets(tag: str) -> list[str]:
-    """The names of a draft release's files. Fails when the release is missing or already published."""
-    found = subprocess.run(["gh", "release", "view", tag, "--json", "isDraft,assets"], cwd=ROOT,
-                           capture_output=True, text=True, encoding="utf-8")
-    if found.returncode:
-        fail(f"no GitHub release for {tag}; run finalize on Windows first")
-    release = json.loads(found.stdout)
-    if not release["isDraft"]:
-        fail(f"{tag} is already published; add macOS files only to a draft")
-    return [asset["name"] for asset in release["assets"]]
-
-
-def upload_mac(tag: str, archive: Path) -> None:
-    """Add the zip to the draft and its line to the draft's SHA256SUMS.txt, then download the zip back and compare
-    it byte for byte with the one built here."""
+def check_uploaded(tag: str, artifacts: list[Path]) -> None:
+    """Download the draft's copies of `artifacts` and compare them byte for byte with the files built here."""
     with tempfile.TemporaryDirectory() as folder:
-        work = Path(folder)
-        sums = work / "SHA256SUMS.txt"
-        if "SHA256SUMS.txt" in draft_assets(tag):
-            run("gh", "release", "download", tag, "--pattern", "SHA256SUMS.txt", "--dir", work)
-            lines = checksum_lines(sums.read_text("ascii"), archive.name)
-        else:
-            lines = []
-        sums.write_text("\n".join([*lines, f"{sha256(archive)}  {archive.name}"]) + "\n", "ascii", newline="\n")
-        run("gh", "release", "upload", tag, archive, sums, "--clobber")
-        back = work / "uploaded"
-        run("gh", "release", "download", tag, "--pattern", archive.name, "--dir", back)
-        if sha256(back / archive.name) != sha256(archive):
-            fail(f"the uploaded {archive.name} differs from release/{archive.name}; upload it again")
-    print(f"Added {archive.name} to the {tag} draft; it matches release/{archive.name}.")
+        for artifact in artifacts:
+            run("gh", "release", "download", tag, "--pattern", artifact.name, "--dir", folder, "--clobber")
+            if sha256(Path(folder) / artifact.name) != sha256(artifact):
+                raise RuntimeError(f"the draft's {artifact.name} differs from release/{artifact.name}")
 
 
-def macos(version: str) -> None:
-    tag = f"v{version}"
-    if sys.platform != "darwin":
-        fail("macos must run on a Mac")
-    if subprocess.run(["gh", "auth", "status"], cwd=ROOT).returncode:
-        fail("GitHub CLI is not authenticated; run 'gh auth login' and try again")
-    if git("status", "--porcelain"):
-        fail("uncommitted changes")
-    if not git("tag", "--list", tag) or not tag_is_head(tag):
-        fail(f"check out the release tag first: git fetch --tags && git switch --detach {tag}")
-    check_versions(version)
-    draft_assets(tag)
-    try:
-        run(sys.executable, ROOT / "tools/build.py")
-        run(ROOT / "build/venv/bin/python", "-m", "ruff", "check", "--config", "pyproject.toml", ".", "../tools",
-            "../packaging", cwd=ROOT / "backend")
-        archive = mac_release_files(version)
-    except (subprocess.CalledProcessError, RuntimeError) as error:
-        fail(f"local checks or build failed ({error}); nothing was uploaded")
-    if not tag_is_head(tag) or git("status", "--porcelain"):
-        fail("the checkout changed during the build; nothing was uploaded")
-    upload_mac(tag, archive)
-
+def add_to_draft(tag: str, files: list[Path]) -> None:
+    """Upload this computer's files to the other computer's draft (replacing earlier copies of them), with their lines
+    merged into the draft's SHA256SUMS.txt, then check the uploaded copies."""
+    artifacts, local_sums = files[:-1], files[-1]
+    names = {artifact.name for artifact in artifacts}
+    ours = [line for line in local_sums.read_text("ascii").splitlines() if line.split("  ", 1)[-1] in names]
+    with tempfile.TemporaryDirectory() as folder:
+        sums = Path(folder) / "SHA256SUMS.txt"
+        assets = preflight(tag) or []
+        lines = []
+        if sums.name in assets:
+            run("gh", "release", "download", tag, "--pattern", sums.name, "--dir", folder)
+            lines = [line for line in sums.read_text("ascii").splitlines()
+                     if line.strip() and line.split("  ", 1)[-1] not in names]
+        sums.write_text("\n".join([*lines, *ours]) + "\n", "ascii", newline="\n")
+        run("gh", "release", "upload", tag, *artifacts, sums, "--clobber")
+    check_uploaded(tag, artifacts)
+    print(f"Added {', '.join(sorted(names))} to the {tag} draft.")
 
 def main() -> None:
-    parser = argparse.ArgumentParser(
-        description="Prepare a release branch, finalize a merged release on main, or add the macOS app to its draft.")
-    parser.add_argument("action", choices=("prepare", "finalize", "macos"))
+    parser = argparse.ArgumentParser(description="Prepare a release branch or finalize a merged release on main.")
+    parser.add_argument("action", choices=("prepare", "finalize"))
     parser.add_argument("version", help="e.g. 1.2.10")
     args = parser.parse_args()
     version = args.version.removeprefix("v")
@@ -377,8 +351,6 @@ def main() -> None:
         fail("version must look like 1.2.3")
     if args.action == "prepare":
         prepare(version)
-    elif args.action == "macos":
-        macos(version)
     else:
         finalize(version)
 

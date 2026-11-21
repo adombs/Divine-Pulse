@@ -16,6 +16,12 @@ release_script = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(release_script)
 
 
+@pytest.fixture(autouse=True)
+def windows_release(monkeypatch: pytest.MonkeyPatch) -> None:
+    """These tests use the Windows file names, whichever computer runs them."""
+    monkeypatch.setattr(release_script, "MACOS", False)
+
+
 def _release_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
     release_dir = tmp_path / "release"
     release_dir.mkdir()
@@ -155,53 +161,53 @@ def test_an_annotated_tag_on_head_counts_as_on_head(tmp_path: Path, monkeypatch:
     assert not release_script.tag_is_head("v1.2.3")
 
 
-def test_checksum_lines_replace_only_the_named_file() -> None:
-    text = "a" * 64 + "  Divine-Pulse-1.2.3-setup.exe\n" + "b" * 64 + "  Divine-Pulse-1.2.3-macos-arm64.zip\n\n"
-    assert release_script.checksum_lines(text, "Divine-Pulse-1.2.3-macos-arm64.zip") == [
-        "a" * 64 + "  Divine-Pulse-1.2.3-setup.exe"]
 
-
-def test_mac_release_files_requires_a_matching_checksum(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_release_files_on_macos_is_the_app_zip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(release_script, "ROOT", tmp_path)
+    monkeypatch.setattr(release_script, "MACOS", True)
     monkeypatch.setattr(release_script.platform, "machine", lambda: "arm64")
-    monkeypatch.setattr(release_script.game_content, "check_zip", lambda path: [])
     (tmp_path / "release").mkdir()
     archive = tmp_path / "release" / "Divine-Pulse-1.2.3-macos-arm64.zip"
     archive.write_bytes(b"app")
     sums = tmp_path / "release" / "SHA256SUMS.txt"
     sums.write_text("0" * 64 + f"  {archive.name}\n", encoding="ascii")
-    with pytest.raises(RuntimeError, match="no matching checksum"):
-        release_script.mac_release_files("1.2.3")
-    sums.write_text(f"{hashlib.sha256(b'app').hexdigest()}  {archive.name}\n", encoding="ascii")
-    assert release_script.mac_release_files("1.2.3") == archive
+    with pytest.raises(RuntimeError, match="SHA256 mismatch"):
+        release_script.release_files("1.2.3")
+    _write_manifest({archive.name: archive}, sums)
+    assert release_script.release_files("1.2.3") == [archive, sums]
 
 
-def test_upload_mac_merges_the_checksum_and_checks_the_upload(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    """The draft's checksum file keeps the Windows lines and gains the macOS one; the zip is downloaded back and
-    compared."""
+def test_add_to_draft_merges_the_checksums_and_checks_the_upload(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The draft keeps the other computer's checksum lines, gains this one's (replacing an earlier upload's), and
+    the uploaded files are downloaded back and compared."""
     archive = tmp_path / "Divine-Pulse-1.2.3-macos-arm64.zip"
     archive.write_bytes(b"app")
+    local_sums = tmp_path / "SHA256SUMS.txt"
+    _write_manifest({archive.name: archive}, local_sums)
     windows = "a" * 64 + "  Divine-Pulse-1.2.3-setup.exe"
-    uploaded: dict[str, bytes] = {}
-    calls: list[list[str]] = []
-    monkeypatch.setattr(release_script, "draft_assets", lambda tag: ["SHA256SUMS.txt"])
+    draft = {"SHA256SUMS.txt": (windows + "\n" + "0" * 64 + f"  {archive.name}\n").encode()}
+    monkeypatch.setattr(release_script, "preflight", lambda tag: list(draft))
 
     def fake_run(*command, cwd=None):
         command = [str(part) for part in command]
-        calls.append(command)
         if command[:3] == ["gh", "release", "download"]:
-            folder = Path(command[command.index("--dir") + 1])
-            folder.mkdir(parents=True, exist_ok=True)
             pattern = command[command.index("--pattern") + 1]
-            data = uploaded.get(pattern, (windows + "\n" + "0" * 64 + f"  {archive.name}\n").encode())
-            (folder / pattern).write_bytes(data)
+            (Path(command[command.index("--dir") + 1]) / pattern).write_bytes(draft[pattern])
         elif command[:3] == ["gh", "release", "upload"]:
+            assert command[-1] == "--clobber"
             for path in command[4:-1]:
-                uploaded[Path(path).name] = Path(path).read_bytes()
+                draft[Path(path).name] = Path(path).read_bytes()
 
     monkeypatch.setattr(release_script, "run", fake_run)
-    release_script.upload_mac("v1.2.3", archive)
-    assert uploaded["SHA256SUMS.txt"].decode("ascii").splitlines() == [
+    release_script.add_to_draft("v1.2.3", [archive, local_sums])
+    assert draft["SHA256SUMS.txt"].decode("ascii").splitlines() == [
         windows, f"{hashlib.sha256(b'app').hexdigest()}  {archive.name}"]
-    assert uploaded[archive.name] == b"app"
-    assert "--clobber" in calls[1]
+    assert draft[archive.name] == b"app"
+
+    draft[archive.name] = b"something else"
+    monkeypatch.setattr(release_script, "run", lambda *command, cwd=None: fake_run(*command) if "upload" not in
+                        [str(part) for part in command] else None)
+    with pytest.raises(RuntimeError, match="differs"):
+        release_script.add_to_draft("v1.2.3", [archive, local_sums])
