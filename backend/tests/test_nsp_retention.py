@@ -71,7 +71,7 @@ def test_app_retains_only_opted_in_verified_extraction(tmp_path, monkeypatch, re
 
     runner.run = tool_io
 
-    def extractor(tool, keys, output, log, cancelled):
+    def extractor(tool, keys, output, log, cancelled, progress=None):
         assert tool == tool_path and keys == runner.keys
         runner.output = output
         return runner
@@ -120,7 +120,7 @@ def test_failed_import_cleans_only_owned_raw_workspace(tmp_path, monkeypatch, re
     (old / "previous.txt").write_text("previous")
     workspaces = []
 
-    def extract(_inputs, _tool, _keys, output, *, cancelled):
+    def extract(_inputs, _tool, _keys, output, *, cancelled, progress=None):
         workspaces.append(output)
         (output / "partial.txt").write_text("partial")
         if stage in ("extract", "cancel"):
@@ -198,7 +198,7 @@ def test_app_shutdown_cancels_import_and_cleans_the_extraction(tmp_path, monkeyp
     keys.touch()
     workspaces = []
 
-    def extract(_inputs, _tool, _keys, output, *, cancelled):
+    def extract(_inputs, _tool, _keys, output, *, cancelled, progress=None):
         workspaces.append(output)
         (output / "partial").touch()
         assert cancelled.wait(5)

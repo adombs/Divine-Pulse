@@ -581,6 +581,14 @@ export interface About {
 export interface GameAssetsJob {
   state: "idle" | "running" | "done" | "failed";
   phase: string | null; done: number; total: number; error: string | null;
+  /** Where the files come from; NSP files are unpacked first. */
+  source?: "dump" | "nsp";
+  /** When the import started (seconds since 1970). */
+  started?: number;
+  /** Files written so far by the import step. */
+  files?: number;
+  /** While NSP files are unpacked: the part being unpacked and how many of its files are written. */
+  step?: { label: string; done: number; total: number; current: string };
 }
 export interface GameFilesStatus {
   available: boolean; version?: string | null; dlc?: string[];

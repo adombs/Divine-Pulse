@@ -189,11 +189,15 @@ def test_nsp_import_success_and_picker_routes(tmp_path, assets, monkeypatch):
     for file in [*packages, keys]:
         file.touch()
     extraction = []
+    steps = []
 
-    def extract(inputs, executable, key_path, output, *, cancelled):
+    def extract(inputs, executable, key_path, output, *, cancelled, progress=None):
         extraction.append(output)
         assert inputs == packages and executable == tool and key_path == keys
         assert not cancelled.is_set()
+        progress({"stage": "NSP 1/2 - base.nsp", "completed": 3, "total": 9, "current": "a/b/data.nca",
+                  "current_bytes": 10})
+        steps.append(client.get("/api/game-assets/status").json()["job"])
 
     monkeypatch.setattr(nsp_extractor, "extract_nsps", extract)
     monkeypatch.setattr(importer.dump, "find", lambda _: fake_dump(tmp_path))
@@ -210,6 +214,24 @@ def test_nsp_import_success_and_picker_routes(tmp_path, assets, monkeypatch):
         assert response.status_code == 202
         assert wait_job(client)["state"] == "done"
     assert extraction and not extraction[0].exists()
+    assert steps[0]["source"] == "nsp" and steps[0]["phase"] == "extracting" and steps[0]["started"] > 0
+    assert steps[0]["step"] == {"label": "Unpacking base.nsp (1 of 2)", "done": 3, "total": 9, "current": "data.nca"}
+
+
+@pytest.mark.parametrize(("stage", "label"), [
+    ("Counting files: NSP 2/3 - Update v1.2.0.nsp", "Unpacking Update v1.2.0.nsp (2 of 3)"),
+    ("Reading metadata 1/4", "Reading package details (1 of 4)"),
+    ("ExeFS - nsp-extract-abc", "Extracting the game program"),
+    ("RomFS - nsp-extract-abc", "Extracting game files (the longest part)"),
+    ("Counting files: RomFS - 01005E5013863001", "Extracting DLC files"),
+    ("RomFS - content-2", "Extracting DLC files"),
+    ("Finishing and removing temporary NCAs", "Removing temporary files"),
+    ("Complete", "Unpacking NSP files"),
+])
+def test_nsp_stages_read_as_plain_steps(stage, label):
+    from app.infrastructure.game_assets_import import describe_extraction
+
+    assert describe_extraction(stage) == label
 
 
 def test_nsp_extraction_failure_preserves_existing_assets(tmp_path, assets, monkeypatch):

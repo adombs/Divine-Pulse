@@ -319,9 +319,11 @@ class Extractor:
 
 
 
-def extract_nsps(inputs: list[Path], tool: Path, keys: Path, output: Path, *, cancelled: threading.Event) -> None:
-    """Extract selected packages into a new or empty folder using NSTool."""
-    Extractor(tool, keys, output, lambda _: None, cancelled).extract(inputs)
+def extract_nsps(inputs: list[Path], tool: Path, keys: Path, output: Path, *, cancelled: threading.Event,
+                 progress=None) -> None:
+    """Extract selected packages into a new or empty folder using NSTool. `progress` gets the Extractor's events:
+    {'stage', 'total', and while files are written 'completed', 'current', 'current_bytes'}."""
+    Extractor(tool, keys, output, lambda _: None, cancelled, progress).extract(inputs)
 
 
 # NSP Unpacker license:

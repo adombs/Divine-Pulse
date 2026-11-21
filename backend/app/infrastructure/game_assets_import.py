@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import os
+import re
 import shutil
 import subprocess
 import sys
 import threading
+import time
 from pathlib import Path
 
 from ..gamefiles import dump, verify
@@ -125,6 +127,28 @@ def scan(folder: str) -> dict:
                     for name in dump.DLC_TITLES.values()}}
 
 
+_NSP_STAGE = re.compile(r"^(?:Counting files: )?NSP (\d+)/(\d+) - (.+)$")
+_METADATA_STAGE = re.compile(r"^Reading metadata (\d+)/(\d+)$")
+_PARTITION_STAGE = re.compile(r"^(?:Counting files: )?(ExeFS|RomFS) - (.+)$")
+_DLC_FOLDER = re.compile(r"^(?:[0-9A-Fa-f]{16}|content-\d+)$")
+
+
+def describe_extraction(stage: str) -> str:
+    """The NSP extractor's stage name in plain words."""
+    if found := _NSP_STAGE.match(stage):
+        return f"Unpacking {found.group(3)} ({found.group(1)} of {found.group(2)})"
+    if found := _METADATA_STAGE.match(stage):
+        return f"Reading package details ({found.group(1)} of {found.group(2)})"
+    if found := _PARTITION_STAGE.match(stage):
+        dlc = _DLC_FOLDER.match(found.group(2))
+        if found.group(1) == "ExeFS":
+            return "Extracting the game program"
+        return "Extracting DLC files" if dlc else "Extracting game files (the longest part)"
+    if stage.startswith("Finishing"):
+        return "Removing temporary files"
+    return "Unpacking NSP files"
+
+
 class GameAssetsImport:
     def __init__(self, settings, events):
         self.settings, self.events = settings, events
@@ -132,6 +156,7 @@ class GameAssetsImport:
         self.cancelled = threading.Event()
         self.worker: threading.Thread | None = None
         self.job = {"state": "idle", "phase": None, "done": 0, "total": len(FAMILIES) + 1, "error": None}
+        self._emitted = 0.0
 
     def close(self) -> None:
         with self.lock:
@@ -163,7 +188,7 @@ class GameAssetsImport:
             if found.problems:
                 raise ValueError(" ".join(found.problems))
             self.job = {"state": "running", "phase": "starting", "done": 0, "total": len(FAMILIES) + 1,
-                        "error": None}
+                        "error": None, "source": "dump", "started": time.time()}
             job = self.status()["job"]
             self.worker = threading.Thread(target=self._run, args=(found,), daemon=True, name="game-assets-import")
             self.worker.start()
@@ -193,7 +218,8 @@ class GameAssetsImport:
             if destination is not None:
                 validate_destination(destination, protected)
             self.job = {"state": "running", "phase": "extracting", "done": 0, "total": 0,
-                        "error": None}
+                        "error": None, "source": "nsp", "started": time.time(),
+                        "step": {"label": "Unpacking NSP files", "done": 0, "total": 0, "current": ""}}
             job = self.status()["job"]
             self.worker = threading.Thread(target=self._run_nsps, args=(packages, key_path, tool, destination, protected),
                                            daemon=True, name="game-assets-nsp-import")
@@ -207,17 +233,30 @@ class GameAssetsImport:
 
         try:
             with extraction_workspace(destination, protected=protected) as workspace:
-                extract_nsps(packages, tool, keys, workspace, cancelled=self.cancelled)
+                extract_nsps(packages, tool, keys, workspace, cancelled=self.cancelled, progress=self._extracting)
                 found = dump.find(workspace)
                 if found.problems:
                     raise ValueError(" ".join(found.problems))
                 with self.lock:
-                    self.job.update(total=len(FAMILIES) + 1, done=0)
+                    self.job.update(phase="starting", total=len(FAMILIES) + 1, done=0)
+                    self.job.pop("step", None)
                 self._extract(found)
         except Exception as exc:
             self._failed(exc)
         else:
             self._completed()
+
+    def _extracting(self, event: dict) -> None:
+        """The NSP extractor's progress: which package or part it is on, and how many of its files are written."""
+        step = {"label": describe_extraction(str(event.get("stage", ""))), "done": int(event.get("completed") or 0),
+                "total": int(event.get("total") or 0), "current": Path(str(event.get("current") or "")).name}
+        with self.lock:
+            changed = self.job.get("step", {}).get("label") != step["label"]
+            self.job["step"] = step
+        # The extractor reports several times a second; a new part shows at once, file counts at most twice a second.
+        if changed or time.monotonic() - self._emitted >= 0.5:
+            self._emitted = time.monotonic()
+            self.emit()
 
     def _run(self, found) -> None:
         try:
