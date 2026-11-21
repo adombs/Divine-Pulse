@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- No more "sync this save?" questions before a save is loaded: at the game's title screen (and while it plays its cutscenes) the tracker waits for a save, and a question already showing goes away there.
 - On macOS the window opens where you left it, on whichever monitor, using macOS's own window memory: with two monitors the saved place drifted off screen and the app could fail to open. Settings → Window → Fullscreen (and the window's green button) now go full screen.
 - Quitting and reopening right away keeps the same port instead of moving to a new one (macOS).
 - The update check works on Macs without Homebrew's OpenSSL.

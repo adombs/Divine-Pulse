@@ -136,6 +136,10 @@ BATTLE_COPY_READ = GAMBIT_USES + 1
 BATTLE_SCANS = 3
 BATTLE_RESCAN_S = 10.0
 NO_SCENARIO = 0xFF  # the scenario id outside a battle (seen at the title screen)
+# The story's scenarios (chapters, paralogues, Cindered Shadows) are 0-97. From this id up, no save is being played: the
+# game reads 0xFF as it starts and 210-213 while the title screen plays its cutscenes, with a stand-in Byleth in the
+# roster whose battle count even changes between them.
+TITLE_SCENARIOS = 200
 QUESTS = 151  # the quest table's rows; the battle's quest field reads this (or more) when the battle is not for a quest
 
 STAT_ORDER = ("str", "mag", "dex", "spd", "lck", "def", "res", "mv", "cha")
@@ -389,6 +393,8 @@ class Snapshot:
     scenario: int | None = None
     # (character ID, gambit uses left) for the units in the battle in progress that have a battalion.
     gambit_uses: tuple[tuple[int, int], ...] = ()
+    # The game is at its title screen (or starting): no save is loaded, whatever the roster holds (TITLE_SCENARIOS).
+    on_title: bool = False
 
 
 class GameMemory:
@@ -497,7 +503,7 @@ class GameMemory:
                 start.append((character, *struct.unpack_from("<HH", slot, _COMBATS)))
         return Snapshot(
             merged, snapshot.player_name, used, fighting, key, tuple(start), snapshot.scenario,
-            battle_gambit_uses(roster, copies),
+            battle_gambit_uses(roster, copies), snapshot.on_title,
         )
 
     def battle_units(self) -> list:
@@ -788,16 +794,22 @@ class GameMemory:
         data = p.read(self._main + v.roster_offset, ROSTER_SIZE + PLAYER_NAME_SIZE)
         if data is None or len(data) != ROSTER_SIZE + PLAYER_NAME_SIZE:
             return None
-        return Snapshot(data[:ROSTER_SIZE], data[ROSTER_SIZE:], scenario=self._scenario())
+        raw = self._scenario_id()
+        return Snapshot(data[:ROSTER_SIZE], data[ROSTER_SIZE:], scenario=raw if raw is not None and raw < NO_SCENARIO else None,
+                        on_title=raw is not None and raw >= TITLE_SCENARIOS)
 
     def _scenario(self) -> int | None:
+        scenario = self._scenario_id()
+        return scenario if scenario is not None and scenario < NO_SCENARIO else None
+
+    def _scenario_id(self) -> int | None:
+        """The scenario id as the game holds it, None when it can't be read."""
         from .battle import fields
 
         at = fields().scenario
         if self._process is None or at is None or not (data := self._process.read(self._main + self.GLOBALS[0] + at, 2)):
             return None
-        scenario = struct.unpack("<H", data)[0]
-        return scenario if scenario < NO_SCENARIO else None
+        return struct.unpack("<H", data)[0]
 
     def _connect(self) -> None:
         try:

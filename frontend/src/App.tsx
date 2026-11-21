@@ -61,7 +61,8 @@ function statusText(a: AutoStatus | null): string {
     case "no_run": return "No active run";
     case "error": return "Tracking unavailable";
     case "off": return "Tracking off";
-    case "watching": return a.seeing ? `Tracking · ${a.seeing}` : "Tracking game";
+    // At the game's title screen the tracker says so (no save loaded yet), with nothing seen.
+    case "watching": return a.seeing ? `Tracking · ${a.seeing}` : a.message ? "Waiting for a save" : "Tracking game";
     case "held": return "Paused · save from another run";
   }
 }

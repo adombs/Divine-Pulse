@@ -61,6 +61,7 @@ log = logging.getLogger(__name__)
 
 NEEDS_IMPORT = "Import your game files first"
 HELD_MESSAGE = "The game has a save from another run loaded: nothing is synced until you choose."
+TITLE_MESSAGE = "Waiting for a save to be loaded in the game."
 
 
 @dataclass(frozen=True)
@@ -345,6 +346,13 @@ class Scanner:
         if self._holding(run_id, snapshot):
             return
         self._track_battle(snapshot, run_id)
+        if snapshot.on_title and not snapshot.in_battle and not self._battles.active:
+            # The title screen: no save is loaded, whatever its stand-in roster holds (it changes as the title plays its
+            # cutscenes). Nothing to sync and nothing to ask about, even for a run that follows any save.
+            self._mem_pending, self._mem_applied = None, (run_id, snapshot)
+            self._set_save_prompt(None)
+            self._publish_status("watching", MEMORY_TITLE, message=TITLE_MESSAGE)
+            return
         if self._mem_applied == (run_id, snapshot):
             self._publish_status("watching", MEMORY_TITLE, self._mem_seeing)
             return
@@ -890,6 +898,11 @@ class Scanner:
         held = self._held
         if held is None:
             return False
+        if snapshot.on_title and not snapshot.in_battle:
+            # Back at the title screen: the save asked about isn't loaded any more. Ask again if one is loaded.
+            self._held, self._mem_applied = None, (run_id, snapshot)
+            self._set_save_prompt(None)
+            return True
         if held.run_id != run_id or (snapshot.in_battle and not held.save.blank):
             if held.run_id == run_id:
                 self._forced = run_id  # a battle started with the save: the run follows it
