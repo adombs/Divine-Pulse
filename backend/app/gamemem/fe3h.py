@@ -805,7 +805,10 @@ class GameMemory:
         except OSError as exc:
             raise GameMemoryError(str(exc)) from exc
         if not found:
-            raise GameMemoryError(f"{names(self.emulators[:1])} isn't running.")
+            if len(self.emulators) > 1:
+                listed = ", ".join(e.name for e in self.emulators)
+                raise GameMemoryError(f"No supported program is running. Start the game in one of: {listed}.")
+            raise GameMemoryError(f"{names(self.emulators)} isn't running.")
         denied: Emulator | None = None
         for emulator, pid in found:
             try:

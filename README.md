@@ -10,8 +10,9 @@ Divine Pulse is a free, offline companion for players who emulate **Fire Emblem:
 
 - Windows 10 or 11, 64-bit, with Microsoft Edge WebView2; or macOS 12 or newer on Apple silicon (see
   [macOS](#macos)).
-- One of these, picked under Settings > General > Game: **Eden** with fastmem enabled (Windows), **Astris** (macOS) or
-  **Ryubing**/Ryujinx, or **FE3H Recomp by onerag90** (Windows); and **Fire Emblem: Three Houses v1.2.0**.
+- One of these, found automatically (or picked under Settings > General > Game): **Eden** with fastmem enabled
+  (Windows), **Astris** (macOS) or **Ryubing**/Ryujinx, or **FE3H Recomp by onerag90** (Windows); and
+  **Fire Emblem: Three Houses v1.2.0**.
 - Your own base game and 1.2.0 update files, with optional DLC.
 
 Divine Pulse reads game memory. It does not write to the emulator or game. It has no accounts, telemetry, update check, or network service beyond its own local window.
@@ -26,7 +27,7 @@ Settings > Privacy & Security. Its data folder is ~/Library/Application Support/
 
 To run from the source checkout instead, run `tools/setup.sh` once, then `tools/launch.sh`.
 
-Choose **Astris / Ryubing** under Settings > General > Game (the default on macOS). macOS lets another program read an
+Divine Pulse finds Astris on its own (Settings > General > Game is **Auto** by default). macOS lets another program read an
 app's memory only when the app allows debugging, as Astris's releases do; Divine Pulse builds and signs a small
 reader for this (`backend/app/system/macos`), included in the built app. It only reads.
 

@@ -143,7 +143,7 @@ export interface Settings {
   window_mode: "windowed" | "fullscreen";
   /** Where the game is read from: the Eden emulator, FE3H Recomp (the native Windows recompilation), or Ryujinx's
    * family (Astris on macOS, Ryubing). */
-  memory_reader: "eden" | "recomp" | "ryujinx";
+  memory_reader: "auto" | "eden" | "recomp" | "ryujinx";
   /** What happens when a one-time battle is fought again: keep the best copy, or ask. */
   duplicate_battles: "keep_best" | "keep_latest" | "ask";
   /** Look for a newer release on GitHub when the app starts. */

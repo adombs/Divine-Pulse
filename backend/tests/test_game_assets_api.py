@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import threading
 import time
 
@@ -274,6 +275,7 @@ def test_nstool_is_found_where_mac_downloads_go(tmp_path, monkeypatch):
     assert "releases/latest" in gi.NSTOOL_MISSING
 
 
+@pytest.mark.skipif(sys.platform == "win32", reason="runs a shell script as the stand-in NSTool")
 def test_a_gatekeeper_blocked_nstool_says_how_to_allow_it(tmp_path, monkeypatch):
     from app.infrastructure import game_assets_import as gi
 

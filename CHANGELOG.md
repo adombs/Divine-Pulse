@@ -4,7 +4,8 @@
 
 - Importing game files shows its steps (unpacking NSP files, importing, checking), the package and file being unpacked with a file count, and how long the import has run, instead of a bar with no information.
 - Divine Pulse runs on macOS: `python3 tools/build.py` makes Divine Pulse.app (and a zip of it) in release/, or run from source with `tools/setup.sh`, then `tools/launch.sh`. Releases include the app as `Divine-Pulse-<version>-macos-arm64.zip` (Apple silicon): run `tools/release.py finalize` on Windows and on a Mac, and each adds its files to the same draft. It opens in a WebKit window, and its data folder is ~/Library/Application Support/Divine Pulse.
-- Read the game from Astris on macOS, or from Ryubing or Ryujinx: choose Astris / Ryubing under Settings → General → Game. It's the default on macOS, where Eden doesn't run the game. The battle history (Divine Pulse list, replays) is read too.
+- Read the game from Astris on macOS, or from Ryubing or Ryujinx. The battle history (Divine Pulse list, replays) is read too.
+- Settings → General → Game has a new **Auto** choice, the default for new installs: Divine Pulse finds the game in whichever of Eden, Astris, Ryubing/Ryujinx or FE3H Recomp is running. Choosing one program still works as before.
 - Backup Game Saves finds Astris's, Ryubing's and Ryujinx's FE3H saves automatically, including a portable Ryubing's, and Eden's on macOS.
 - Importing NSP files on macOS uses NSTool: download the latest macOS release from https://github.com/jakcron/nstool/releases/latest and put it in Applications or Downloads (unzipped). If macOS blocks it, the import says how to allow it. Importing a dump folder needs nothing extra.
 

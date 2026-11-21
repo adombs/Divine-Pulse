@@ -148,8 +148,12 @@ def test_memory_check_requires_the_emulator(client, monkeypatch):
     from app.gamemem.readers import emulators_for
 
     monkeypatch.setattr(fe3h, "running", lambda emulators: [])
-    expected = f"{names(emulators_for(DEFAULT_MEMORY_READER)[:1])} isn't running."  # Eden on Windows, Astris on macOS
-    assert client.get("/api/memory/check").json() == {"ok": False, "message": expected}
+    assert DEFAULT_MEMORY_READER == "auto"
+    message = client.get("/api/memory/check").json()["message"]
+    assert message.startswith("No supported program is running.")
+    assert all(e.name in message for e in emulators_for("auto"))
+    client.put("/api/settings", json={"memory_reader": "eden"})
+    assert client.get("/api/memory/check").json() == {"ok": False, "message": f"{names(emulators_for('eden'))} isn't running."}
 
 
 def test_battle_endpoints(client):

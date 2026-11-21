@@ -32,6 +32,7 @@ const TEXT_STOPS = Math.round((TEXT_SCALE.max - TEXT_SCALE.min) / TEXT_SCALE.ste
 
 /** What each game reader needs, under Settings > General > Game. */
 const READER_NOTES: Record<Settings["memory_reader"], string> = {
+  auto: "Finds the game in whichever supported program is running: Eden (Windows, with fastmem enabled), Astris (macOS), Ryubing or Ryujinx, or FE3H Recomp by onerag90 (Windows). Fire Emblem: Three Houses must be v1.2.0.",
   eden: "Requires Windows, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0.",
   ryujinx: "Requires Astris on macOS, or Ryubing (or Ryujinx) on Windows or macOS, running Fire Emblem: Three Houses v1.2.0.",
   recomp: "Requires Windows, FE3H Recomp by onerag90 (fe3hrecomp.exe) running Fire Emblem: Three Houses v1.2.0.",
@@ -314,7 +315,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const [settings, setSettings] = useState<Settings | null>(null);
   const [recordingLimit, setRecordingLimit] = useState("3");
   const [windowMode, setWindowMode] = useState<Settings["window_mode"]>("windowed");
-  const [memoryReader, setMemoryReader] = useState<Settings["memory_reader"]>("eden");
+  const [memoryReader, setMemoryReader] = useState<Settings["memory_reader"]>("auto");
   const [duplicates, setDuplicates] = useState<Settings["duplicate_battles"]>("keep_best");
   const [checkUpdates, setCheckUpdates] = useState(true);
   const [backupLimit, setBackupLimit] = useState("3");
@@ -447,7 +448,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                 <>
                   <Group title="Game" note={READER_NOTES[memoryReader]}>
                     <Row label="Read the game from" hint="Save the setting, then check the connection.">
-                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={[["eden", "Eden"], ["ryujinx", "Astris / Ryubing"], ["recomp", "FE3H Recomp by onerag90"]]} />
+                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={[["auto", "Auto"], ["eden", "Eden"], ["ryujinx", "Astris / Ryubing"], ["recomp", "FE3H Recomp by onerag90"]]} />
                     </Row>
                     <Row label="Connection">
                       <MemoryCheck key={settings.memory_reader} />

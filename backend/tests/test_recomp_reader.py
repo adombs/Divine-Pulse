@@ -8,10 +8,11 @@ from app.bonuses import BonusTable
 from app.config import BONUSES_FILE, SettingsStore
 from app.gamemem import fe3h
 from app.domain.settings import DEFAULT_MEMORY_READER
-from app.gamemem.emulators import EMULATORS, names
+from app.gamemem.emulators import EMULATORS
 from app.gamemem.fe3h import GameMemory, GameMemoryError
 from app.gamemem.readers import emulators_for
 from app.gamemem.recomp import GUEST_HI, GUEST_LO, MIN_HEAP_REGION, RECOMP, RECOMP_EMULATORS
+from app.gamemem.ryujinx import RYUJINX_EMULATORS
 from app.infrastructure.events import EventBus
 from app.infrastructure.polling import Scanner
 from app.infrastructure.persistence import RunStore
@@ -57,7 +58,7 @@ def recomp(monkeypatch):
             raise process
         return process
 
-    monkeypatch.setattr(fe3h, "running", lambda emulators: [(emulators[0], pid) for pid in processes] if emulators[0] is RECOMP else [])
+    monkeypatch.setattr(fe3h, "running", lambda emulators: [(RECOMP, pid) for pid in processes] if RECOMP in emulators else [])
     monkeypatch.setattr(fe3h, "open_process", open_process)
     return processes
 
@@ -108,7 +109,8 @@ def test_only_the_games_own_memory_is_searched_for_battles():
 
 def test_each_setting_names_its_reader():
     assert emulators_for("eden") is EMULATORS and emulators_for("recomp") is RECOMP_EMULATORS
-    assert emulators_for("something else") is EMULATORS
+    assert emulators_for("something else") is emulators_for("auto")
+    assert set(emulators_for("auto")) == {*EMULATORS, *RECOMP_EMULATORS, *RYUJINX_EMULATORS}
 
 
 def test_the_setting_defaults_to_the_platform_s_emulator_and_is_saved(tmp_path):
@@ -125,8 +127,8 @@ def test_the_connection_check_uses_the_chosen_reader(tmp_path, recomp):
     recomp[7] = recomp_process()
     app = create_app(tmp_path, background=False)
     with TestClient(app) as client:
-        default = names(emulators_for(DEFAULT_MEMORY_READER)[:1])
-        assert client.get("/api/memory/check").json() == {"ok": False, "message": f"{default} isn't running."}
+        client.put("/api/settings", json={"memory_reader": "eden"})
+        assert client.get("/api/memory/check").json() == {"ok": False, "message": "Eden isn't running."}
         client.put("/api/settings", json={"memory_reader": "recomp"})
         check = client.get("/api/memory/check").json()
         assert check["ok"] and "FE3H 1.2.0 in FE3H Recomp" in check["message"]
@@ -149,6 +151,15 @@ def test_the_scanner_changes_reader_when_the_setting_changes(tmp_path):
     settings.update(memory_reader="eden")
     scanner._tick()
     assert scanner.memory.emulators is EMULATORS and closed == [True, True]
+
+
+def test_auto_finds_whichever_program_is_running(tmp_path, recomp):
+    """The default reader needs no choice: with FE3H Recomp running, Auto connects to it."""
+    recomp[7] = recomp_process()
+    with TestClient(create_app(tmp_path, background=False)) as client:
+        assert client.get("/api/settings").json()["memory_reader"] == "auto"
+        check = client.get("/api/memory/check").json()
+        assert check["ok"] and "FE3H 1.2.0 in FE3H Recomp" in check["message"]
 
 
 def test_a_scanner_starts_with_the_saved_reader(tmp_path):
