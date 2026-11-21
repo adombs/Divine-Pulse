@@ -42,6 +42,8 @@ If you resume the same battle in Eden, including from a bookmark, Divine Pulse c
 
 **Settings → About** opens the app's data folder. Installed copies normally use %LOCALAPPDATA%\Divine Pulse. A portable copy uses a data folder next to the executable if you create one.
 
+Turn on **Launch with Game** under **Settings → General** to have Divine Pulse open whenever Eden or FE3H Recomp starts. A small hidden copy of Divine Pulse starts when you sign in to Windows and waits for the game; turning the setting off stops it.
+
 Appearance and spoiler preferences apply to this installation. **Settings → General** controls how many raw battle recordings to retain, from 0 to 1000. The default is three, and zero turns raw recording off. Saved replays in History are separate from raw recordings.
 
 To update, run the newer installer over your installation or uninstall and reinstall. For a portable copy, replace the program files. On first launch with existing records and during an interactive uninstall, you can choose whether to keep your runs and battle history. Uninstall also removes the application's imported assets, settings, and raw recordings. Use the export command to back up runs separately.

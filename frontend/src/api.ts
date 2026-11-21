@@ -147,6 +147,8 @@ export interface Settings {
   duplicate_battles: "keep_best" | "keep_latest" | "ask";
   /** Look for a newer release on GitHub when the app starts. */
   check_updates: boolean;
+  /** Open Divine Pulse when Eden or FE3H Recomp starts. */
+  launch_with_game: boolean;
   /** The version whose banner was dismissed (e.g. "1.4.4"); save "" to clear it. */
   update_dismissed: string | null;
   /** Older versions of each game save to keep (0: no backups). */
@@ -161,7 +163,7 @@ export interface SaveBackupStatus {
   folder: string;
 }
 
-export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader" | "duplicate_battles" | "check_updates" | "update_dismissed" | "save_backups">> & { save_folder?: string };
+export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader" | "duplicate_battles" | "check_updates" | "launch_with_game" | "update_dismissed" | "save_backups">> & { save_folder?: string };
 
 /** The startup check for a newer release (GET /api/update, SSE `update`). */
 export interface UpdateStatus {
