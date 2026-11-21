@@ -53,7 +53,8 @@ run `tools\\launch.bat`. Windows, Eden, and FE3H v1.2.0 are required.
 
 ## Optional test inputs
 
-The two Windows CI jobs use synthetic data and project files. To run additional local tests, set the appropriate
+CI runs the checks on Windows and macOS, each with Python 3.12 and 3.14, and a release build on each (kept for a week as
+the run's artifacts); all use synthetic data and project files. To run additional local tests, set the appropriate
 PowerShell environment variable and run pytest from the backend directory with the project virtual environment.
 
 | Variable | Points at |

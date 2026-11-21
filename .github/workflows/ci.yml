@@ -1,4 +1,5 @@
-# The checks from .github/CONTRIBUTING.md, on the oldest and the recommended supported versions. No game files needed.
+# The checks from .github/CONTRIBUTING.md, on the oldest and the recommended supported versions, on Windows and macOS,
+# and a release build on each (the files tools/release.py finalize would upload). No game files needed.
 # Pull requests from forks run with a read-only token and no secrets. Don't switch this to pull_request_target, which
 # would run contributors' code with access to this repository.
 name: CI
@@ -6,7 +7,7 @@ name: CI
 on:
   pull_request:
   push:
-    branches: [main]
+    branches: [main, "release/**", "hotfix/**"]
 
 permissions:
   contents: read
@@ -17,16 +18,30 @@ concurrency:
 
 jobs:
   checks:
-    name: checks (Python ${{ matrix.python }}, Node ${{ matrix.node }})
-    runs-on: windows-latest
-    timeout-minutes: 10
+    # The Windows names stay as they are: main's ruleset requires "checks (Python 3.12, Node 22.12.0)" and
+    # "checks (Python 3.14, Node 24)".
+    name: checks (${{ matrix.label }}Python ${{ matrix.python }}, Node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       fail-fast: false
       matrix:
         include:
-          - python: "3.12"
+          - os: windows-latest
+            label: ""
+            python: "3.12"
             node: "22.12.0"
-          - python: "3.14"
+          - os: windows-latest
+            label: ""
+            python: "3.14"
+            node: "24"
+          - os: macos-latest
+            label: "macOS, "
+            python: "3.12"
+            node: "22.12.0"
+          - os: macos-latest
+            label: "macOS, "
+            python: "3.14"
             node: "24"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -59,3 +74,59 @@ jobs:
       - name: Backend tests
         working-directory: backend
         run: python -m pytest -q
+
+  release-build:
+    # tools/build.py as tools/release.py finalize runs it (the tests ran above): the Windows installer and portable
+    # zip, or the signed macOS app and its zip, each opened once with --check-desktop. Then the release's game-content
+    # scan, and the files kept for a week to try out.
+    name: release build (${{ matrix.label }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows
+          - os: macos-latest
+            label: macOS
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+      - name: Build
+        run: python tools/build.py --skip-tests
+      - name: Release checks
+        shell: python
+        run: |
+          import hashlib, sys
+          from pathlib import Path
+          sys.path.insert(0, "tools")
+          import game_content
+          release = Path("release")
+          zips = sorted(release.glob("Divine-Pulse-*-windows-portable.zip")) + sorted(release.glob("Divine-Pulse-*-macos-*.zip"))
+          assert zips, "the build made no release zip"
+          sums = (release / "SHA256SUMS.txt").read_text("ascii")
+          problems = []
+          for path in [*zips, *release.glob("Divine-Pulse-*-setup.exe")]:
+              if f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}" not in sums.splitlines():
+                  problems.append(f"{path.name}: no matching line in SHA256SUMS.txt")
+          for path in zips:
+              problems += game_content.check_zip(path)
+          print("\n".join(problems) or "Release files OK: " + ", ".join(p.name for p in zips))
+          sys.exit(1 if problems else 0)
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: divine-pulse-${{ matrix.label }}
+          path: |
+            release/Divine-Pulse-*.zip
+            release/Divine-Pulse-*-setup.exe
+            release/SHA256SUMS.txt
+          retention-days: 7
+          if-no-files-found: error
