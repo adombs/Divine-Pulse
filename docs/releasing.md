@@ -3,27 +3,29 @@
 `tools/build.py` builds Windows release artifacts on Windows, and the macOS app on macOS: `release/Divine Pulse.app`
 and `Divine-Pulse-<version>-macos-<arch>.zip` (the app zipped with `ditto`, signed ad hoc with the memory reader's
 debugger entitlement, not notarized), with `SHA256SUMS.txt`. Run it on macOS with any `python3`; it switches to a
-Python 3.12+ from Homebrew or python.org when the one it was started with is older. The macOS zip is built on its own
-machine, so upload it with its own checksum line.
+Python 3.12+ from Homebrew or python.org when the one it was started with is older. A release's macOS zip is the one
+`tools/release.py macos` builds and uploads (step 5), never a zip from an ordinary build.
 
 | File | For |
 |---|---|
 | `Divine-Pulse-<version>-setup.exe` | Windows, most people: installs for the current user (no administrator prompt), adds Start menu and optional desktop shortcuts, and an uninstaller. |
 | `Divine-Pulse-<version>-windows-portable.zip` | Windows: unzip and run `Divine Pulse.exe`, nothing installed. |
+| `Divine-Pulse-<version>-macos-arm64.zip` | macOS on Apple silicon: unzip and move `Divine Pulse.app` to Applications. Not notarized, so the first launch needs System Settings → Privacy & Security → Open Anyway. |
 | `SHA256SUMS.txt` | Checksums of the files built. |
 
 Each build writes checksums only for the artifacts it produced. Old artifacts for other versions can remain in
 `release/`; only the current
-version's Windows portable zip, installer, and `SHA256SUMS.txt` should be uploaded.
+version's Windows portable zip, installer, macOS zip and `SHA256SUMS.txt` should be uploaded.
 
-Both packages require Windows 10 or 11 (64-bit) with Microsoft Edge WebView2. They bundle their Python and frontend runtimes.
+The Windows packages require Windows 10 or 11 (64-bit) with Microsoft Edge WebView2; the macOS app requires macOS 12
+or later on Apple silicon. All bundle their Python and frontend runtimes.
 
 ## Checklist
 
 1. **Authorization and changelog.** A maintainer must authorize a release before starting. Ordinary code and docs
    changes go through a release branch and a pull request to `main`. Write what changed under `## Unreleased`
    in `CHANGELOG.md` (pull requests can add to it as they go).
-2. **Prerequisites.** Releases are built on Windows. Install Python 3.12+, Node.js 22.12+ (24.x recommended), Inno
+2. **Prerequisites.** Releases are built on Windows (the macOS zip on a Mac, step 5). Install Python 3.12+, Node.js 22.12+ (24.x recommended), Inno
    Setup 6, and the GitHub CLI; authenticate it with `gh auth login`. The installer step needs
    [Inno Setup 6](https://jrsoftware.org/isinfo.php) (without it you get the zip only):
 
@@ -68,13 +70,30 @@ Both packages require Windows 10 or 11 (64-bit) with Microsoft Edge WebView2. Th
 
    **Screenshots.** A release's notes may carry screenshots, as 1.4.0's do. Never link a file that is not in the
    repository at the release tag (the 1.5.0 notes linked a `planner-screenshot.webp` that was never uploaded and
-   broke). Never upload one as a release asset: assets are only the installer, the portable ZIP and the checksums.
+   broke). Never upload one as a release asset: assets are only the installer, the portable ZIP, the macOS ZIP and the
+   checksums.
    To add one, open the release's edit page on GitHub in a signed-in browser, attach the image to the description box
    (the file input beside it, not the release-assets one) so GitHub returns a `github.com/user-attachments/assets/…`
    link, copy that link into the notes with a short alt text, and set the notes with `gh release edit`; leave the
-   web form unsaved. After editing, check that `gh release view vX.Y.Z --json assets` lists only the three build files.
+   web form unsaved. After editing, check that `gh release view vX.Y.Z --json assets` lists only the four build files.
    Ask for the screenshot if the release needs one and none was provided.
-5. **Test and publish.** Try the installer and portable ZIP on a clean PC (or fresh Windows user account). Inspect
+5. **Add the macOS app.** On a Mac with Python 3.12+, Node.js, Xcode's command-line tools and an authenticated
+   GitHub CLI, check out the tag `finalize` pushed and run:
+
+   ```bash
+   git fetch --tags
+   git switch --detach v0.2.0
+   python tools/release.py macos 0.2.0
+   ```
+
+   It checks that the checkout is clean and at the tag, that the version files match and that the draft exists and
+   is unpublished, then runs the full build (with tests) and lint, checks `release/Divine-Pulse-<version>-macos-arm64.zip`
+   against `release/SHA256SUMS.txt` and scans it for game content. It uploads the zip to the draft, adds its line to the
+   draft's `SHA256SUMS.txt` (keeping the Windows lines), then downloads the zip back and confirms it is byte for byte
+   the one in `release/`. Running it again replaces the macOS zip and its checksum line. Use `python` from an
+   environment with 3.12+, not macOS's own `python3` (3.9). Run `git switch -` afterwards to return to your branch.
+6. **Test and publish.** Try the installer and portable ZIP on a clean PC (or fresh Windows user account), and the
+   macOS zip on a Mac (downloaded from the draft, so macOS treats it as a download). Inspect
    the draft's version, notes, files, and checksums before publishing it manually on GitHub.
 
    The build also runs the packaged executable with `--check-desktop`: it opens and closes a hidden WebView2

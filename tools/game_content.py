@@ -74,12 +74,37 @@ def bundled_path(name: str) -> str | None:
     return None
 
 
+def mac_bundled_path(name: str) -> str | None:
+    """A macOS app zip entry (Divine Pulse.app/Contents/...) as the repository path it came from, or None for the
+    bundled third-party packages, the launcher and macOS's own metadata. Contents/Frameworks only links to
+    Contents/Resources, so the files are checked there."""
+    parts = name.split("/")
+    if parts[0] == "__MACOSX" or parts[1:3] != ["Contents", "Resources"]:
+        return None
+    parts = parts[3:]
+    if len(parts) == 1:
+        return parts[0]  # the notes and licenses beside the program
+    if parts[0] == "frontend_dist":
+        return "/".join(["frontend/dist", *parts[1:]])
+    if parts[0] == "app":
+        return "/".join(["backend/app", *parts[1:]])
+    return None
+
+
 def check_zip(path: Path) -> list[str]:
-    """Game content in the program's own files in a release zip, and any missing license file."""
+    """Game content in the program's own files in a release zip (Windows portable or macOS app), and any missing
+    license file."""
     with zipfile.ZipFile(path) as archive:
         infos = [i for i in archive.infolist() if not i.is_dir()]
-    found = [(p, i.file_size) for i in infos if (p := bundled_path(i.filename))]
-    top = {i.filename.split("/", 1)[1] for i in infos if "/" in i.filename}
+    mac = any(i.filename.split("/", 1)[0].endswith(".app") for i in infos)
+    if mac:
+        found = [(p, i.file_size) for i in infos if (p := mac_bundled_path(i.filename))]
+        prefix = next(i.filename.split("/", 1)[0] for i in infos if i.filename.split("/", 1)[0].endswith(".app"))
+        resources = f"{prefix}/Contents/Resources/"
+        top = {i.filename.removeprefix(resources) for i in infos if i.filename.startswith(resources)}
+    else:
+        found = [(p, i.file_size) for i in infos if (p := bundled_path(i.filename))]
+        top = {i.filename.split("/", 1)[1] for i in infos if "/" in i.filename}
     missing = [f"{path.name}: missing {name}" for name in LICENSE_FILES if name not in top]
     if not any(name.startswith(LICENSE_FOLDER) for name in top):
         missing.append(f"{path.name}: missing {LICENSE_FOLDER}")

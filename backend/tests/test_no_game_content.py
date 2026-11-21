@@ -157,3 +157,28 @@ def test_zip_check_rejects_private_dump_metadata(tmp_path: Path) -> None:
     names = [*LICENSES, LICENSE_TEXT, "Divine Pulse/game-dump/extraction.json"]
     found = game_content.check_zip(make_zip(tmp_path / "dump.zip", names))
     assert found == ["game-dump/extraction.json: private game dump or import directory"]
+
+
+MAC = "Divine Pulse.app/Contents"
+MAC_LICENSES = [f"{MAC}/Resources/{name}" for name in game_content.LICENSE_FILES]
+MAC_LICENSE_TEXT = f"{MAC}/Resources/{game_content.LICENSE_FOLDER}python.txt"
+
+
+def test_zip_check_passes_a_clean_macos_app(tmp_path: Path) -> None:
+    names = [
+        *MAC_LICENSES, MAC_LICENSE_TEXT, f"{MAC}/MacOS/Divine Pulse", f"{MAC}/MacOS/dp-memreader",
+        f"{MAC}/Resources/Divine Pulse.icns", f"{MAC}/Resources/frontend_dist/index.html",
+        f"{MAC}/Resources/frontend_dist/brand/mark.png", f"{MAC}/Resources/PIL/data/sample.png",
+        f"{MAC}/Frameworks/frontend_dist", f"__MACOSX/{MAC}/Resources/._LICENSE.txt",
+    ]
+    assert game_content.check_zip(make_zip(tmp_path / "ok.zip", names)) == []
+
+
+def test_zip_check_names_game_content_in_a_macos_app(tmp_path: Path) -> None:
+    names = [*MAC_LICENSES[:2], f"{MAC}/Resources/frontend_dist/assets/face.png", f"{MAC}/Resources/app/data/x.g1t"]
+    found = game_content.check_zip(make_zip(tmp_path / "bad.zip", names))
+    assert len(found) == 4
+    assert any("frontend/dist/assets/face.png" in line for line in found)
+    assert any("backend/app/data/x.g1t" in line for line in found)
+    assert any("missing GFDL-1.3.txt" in line for line in found)
+    assert any(f"missing {game_content.LICENSE_FOLDER}" in line for line in found)
