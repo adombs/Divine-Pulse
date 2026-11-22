@@ -75,11 +75,9 @@ export default function App() {
   useEffect(() => {
     let live = true;
     const unsubscribe = onGameAssetsChange((status) => { setAssetsVersion((v) => v + 1); setAssetsAvailable(status.available); });
+    // useEvents reloads the status when an import finishes or the files are removed.
     void loadGameAssetsStatus().then((status) => { if (live) setAssetsAvailable(status.available); });
-    const events = new EventSource("/api/events");
-    const refresh = () => { void loadGameAssetsStatus(true); };
-    events.addEventListener("game_assets", refresh);
-    return () => { live = false; events.close(); unsubscribe(); };
+    return () => { live = false; unsubscribe(); };
   }, []);
   useEffect(() => {
     let generation = 0;

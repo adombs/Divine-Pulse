@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import * as sources from "../src/components/gameImageSources.ts";
 import { bundledPortrait, importedPortrait, importedMapImage, maskStyle } from "../src/components/gameImageSources.ts";
 import { gameAssetsAvailable, loadGameAssetsStatus, onGameAssetsChange, gameAssetUrl } from "../src/gameAssets.ts";
-import { loadGameJson, loadGameText } from "../src/gameAssets.ts";
+import { gameAssetsChanged, loadGameJson, loadGameText } from "../src/gameAssets.ts";
 import { assertAssetPath, assetIssues, clearAssetIssues, onAssetIssuesChange } from "../src/requiredAssets.ts";
 
 test("images have no bundled fallback", () => {
@@ -30,6 +30,35 @@ test("availability toggles candidates and notifies subscribers", async () => {
     assert.deepEqual(seen, [false, true, false]); // Explicit refresh also retries pending/failed asset consumers.
     assert.equal(gameAssetsAvailable(), false);
   } finally { off(); globalThis.fetch = original; }
+});
+
+test("an older status reply that lands after a newer one doesn't overwrite it", async () => {
+  const original = globalThis.fetch;
+  const replies = [];
+  globalThis.fetch = () => new Promise((resolve) => replies.push(resolve));
+  const reply = (i, available) => replies[i]({ ok: true, json: async () => ({ available }) });
+  try {
+    const older = loadGameAssetsStatus(true);
+    const newer = loadGameAssetsStatus(true);
+    reply(1, true);
+    assert.equal((await newer).available, true);
+    reply(0, false);
+    assert.equal((await older).available, true, "the older request resolves to the newer answer");
+    assert.equal(gameAssetsAvailable(), true);
+  } finally {
+    globalThis.fetch = async () => ({ ok: true, json: async () => ({ available: false }) });
+    await loadGameAssetsStatus(true);
+    globalThis.fetch = original;
+  }
+});
+
+test("only a finished import or removed files count as a change of the game files", () => {
+  assert.equal(gameAssetsChanged({ available: true, job: { state: "running" } }), false);
+  assert.equal(gameAssetsChanged({ available: false, job: { state: "running" } }), false);
+  assert.equal(gameAssetsChanged({ available: true, job: { state: "done" } }), true);
+  assert.equal(gameAssetsChanged({ available: false, job: { state: "idle" } }), true);
+  assert.equal(gameAssetsChanged({ available: true, job: { state: "failed" } }), false);
+  assert.equal(gameAssetsChanged(null), false);
 });
 
 test("portrait keys resolve through the imported index", () => {

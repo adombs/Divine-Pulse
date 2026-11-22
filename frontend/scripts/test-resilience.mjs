@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { createStartupController } from "../src/startup.ts";
 import { createBattleSync } from "../src/battleSync.ts";
-import { subscribeToEvents } from "../src/eventStream.ts";
+import { createEventHub, EVENT_NAMES, subscribeToEvents } from "../src/eventStream.ts";
 import { createUnitsLoader } from "../src/requestGate.ts";
 
 function deferred() {
@@ -182,8 +182,40 @@ test("SSE parse and async failures are contained, reconnect stays native, and cl
   source.onerror();
   assert.deepEqual(connections, [true, false]);
   assert.equal(source.closed, false);
-  assert.equal(source.listeners.size, 8);
+  assert.equal(source.listeners.size, EVENT_NAMES.length);
   cleanup();
   assert.equal(source.closed, true);
   assert.equal(source.listeners.size, 0);
+});
+
+test("the event hub shares one connection, tells late subscribers the state, and closes after the last leaves", async () => {
+  const sources = [];
+  const always = [];
+  const hub = createEventHub(() => { const s = new FakeEventSource(); sources.push(s); return s; }, {
+    game_assets: (data) => { always.push(data); },
+  }, () => {});
+  const a = { got: [], connected: [] };
+  const b = { got: [], connected: [] };
+  const offA = hub.subscribe({ battle: (d) => { a.got.push(d); }, units_changed: () => { throw new Error("one bad handler"); } }, (c) => a.connected.push(c));
+  sources[0].onopen();
+  const offB = hub.subscribe({ battle: (d) => { b.got.push(d); }, units_changed: (d) => { b.got.push(d); } }, (c) => b.connected.push(c));
+  assert.equal(sources.length, 1, "the second subscriber reuses the open connection");
+  assert.deepEqual(a.connected, [false, true]);
+  assert.deepEqual(b.connected, [true], "a late subscriber hears it is already connected");
+
+  sources[0].emit("battle", JSON.stringify({ id: 1 }));
+  sources[0].emit("units_changed", JSON.stringify({ id: 2 }));
+  sources[0].emit("game_assets", JSON.stringify({ job: { state: "running" } }));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.deepEqual(a.got, [{ id: 1 }]);
+  assert.deepEqual(b.got, [{ id: 1 }, { id: 2 }], "one failing handler does not stop the others");
+  assert.deepEqual(always, [{ job: { state: "running" } }], "the hub's own handlers run once, not per subscriber");
+
+  offA();
+  offA();
+  assert.equal(sources[0].closed, false, "still open while someone listens");
+  offB();
+  assert.equal(sources[0].closed, true);
+  hub.subscribe({}, () => {});
+  assert.equal(sources.length, 2, "a new subscriber opens a fresh connection");
 });
