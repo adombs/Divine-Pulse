@@ -221,6 +221,8 @@ def test_ci_checks_the_frontend_and_backend_on_every_system() -> None:
         assert f"run: {command}" in job, command
     # The macOS memory reader's tests need developer tools allowed, before they run.
     assert job.index("sudo DevToolsSecurity -enable") < job.index("python -m pytest -q")
+    # The Linux reader's must pass where the system refuses to read other programs' memory.
+    assert job.index("kernel.yama.ptrace_scope=1") < job.index("python -m pytest -q")
 
 
 def test_ci_actions_are_pinned_to_commits() -> None:

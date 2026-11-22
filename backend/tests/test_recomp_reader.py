@@ -177,6 +177,9 @@ def test_auto_finds_whichever_program_is_running(tmp_path, recomp):
         check = client.get("/api/memory/check").json()
         if sys.platform == "win32":
             assert check["ok"] and "FE3H 1.2.0 in FE3H Recomp" in check["message"]
+        elif sys.platform == "linux":
+            assert check == {"ok": False, "message": "No supported program is running. Start the game in one of: Eden, "
+                                                     "Astris or Ryubing."}
         else:
             assert check == {"ok": False, "message": "Astris or Ryubing isn't running."}
 

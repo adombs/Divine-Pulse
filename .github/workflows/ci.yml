@@ -1,6 +1,6 @@
 # The checks from .github/CONTRIBUTING.md, on the oldest and the recommended supported versions, on Windows, macOS
 # and Linux, and a release build on each (the files tools/release.py finalize would upload). They run the same steps;
-# the only system-specific ones are allowing developer tools on macOS, and on Linux installing the libraries Qt uses
+# the only system-specific ones are allowing developer tools on macOS, and on Linux restricting ptrace, installing the libraries Qt uses
 # and giving the window a display (xvfb-run). No game files needed.
 # Pull requests from forks run with a read-only token and no secrets. Don't switch this to pull_request_target, which
 # would run contributors' code with access to this repository.
@@ -88,6 +88,10 @@ jobs:
       - name: Allow developer tools (macOS)
         if: runner.os == 'macOS'
         run: sudo DevToolsSecurity -enable
+      # What most distributions ship: a program can't read another's memory. The Linux reader must work all the same.
+      - name: Restrict reading other programs' memory (Linux)
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.yama.ptrace_scope=1
       # After the build: the API tests serve frontend/dist. Includes the game-content guard.
       - name: Backend tests
         working-directory: backend
