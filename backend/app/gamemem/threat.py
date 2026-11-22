@@ -2,8 +2,9 @@
 together, and the chance it falls (for the outlook, domain/outlook.py).
 
 For each unit of yours:
-- Reach is walked: another unit moves up to its Mv (paying each tile's cost for how it moves: MOVE_COST; past its own
-  side but never through other units) to a free tile from which its equipped weapon reaches the unit.
+- Reach is walked: another unit moves as far as it can now (Fighter.movement: its own Mv, nothing for a boss holding its
+  tile or a rattled unit; paying each tile's cost for how it moves: MOVE_COST; past its own side but never through other
+  units) to a free tile from which its equipped weapon reaches the unit.
 - Each tile around a unit holds one attacker, so the most that can strike it is a matching of attackers to free tiles
   (a unit boxed in by others can't be hit by melee at all). The strongest attackers that fit are taken: the worst case.
 - Each attack is the game's own forecast (combat.forecast_from: Atk against Def or Res with terrain, doubling, the unit's
@@ -11,8 +12,8 @@ For each unit of yours:
   attack to the next, strongest first. The chance it falls is the chance its HP runs out somewhere along the way; the
   most damage is every hit landing as a critical.
 
-Not modelled: gambits, combat arts, chance-based skills, and the enemy AI (some units hold their ground or pick other
-targets: this is what they *could* do, not what they will).
+Not modelled: gambits, combat arts, chance-based skills, and the rest of the enemy AI (some units wait or pick
+other targets: this is what they *could* do, not what they will).
 """
 
 from __future__ import annotations
@@ -87,7 +88,7 @@ def _cost(tile_id: int | None, kind: int) -> int | None:
 
 def _stops(f: Fighter, units: list[BattleUnit], grid: list[list[int]] | None, kind: int = INFANTRY) -> set[tuple[int, int]]:
     """The tiles `f` (moving as `kind`) can end its move on."""
-    u = f.unit
+    u, mv = f.unit, f.movement
     blocked = {(o.x, o.y) for o in units if o.team != u.team}
     taken = {(o.x, o.y) for o in units if o is not u}
     w = max((len(r) for r in grid), default=MAP) if grid else MAP
@@ -97,14 +98,14 @@ def _stops(f: Fighter, units: list[BattleUnit], grid: list[list[int]] | None, ki
     todo = [(0, start)]
     while todo:
         spent, (x, y) = heapq.heappop(todo)
-        if spent > best.get((x, y), f.mv + 1):
+        if spent > best.get((x, y), mv + 1):
             continue
         for nxt in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
             if not (0 <= nxt[0] < w and 0 <= nxt[1] < h) or nxt in blocked:
                 continue
             row = grid[nxt[1]] if grid else None
             step = _cost(row[nxt[0]] if row is not None and nxt[0] < len(row) else None, kind)
-            if step is None or spent + step > f.mv or spent + step >= best.get(nxt, f.mv + 1):
+            if step is None or spent + step > mv or spent + step >= best.get(nxt, mv + 1):
                 continue
             best[nxt] = spent + step
             heapq.heappush(todo, (spent + step, nxt))

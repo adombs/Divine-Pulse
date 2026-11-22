@@ -856,6 +856,7 @@ class BattleTracker:
                 stats.x,
                 stats.y,
                 stats.weapon,
+                stats.movement,
                 stats.class_id,
                 stats.female,
                 stats.side,
@@ -885,6 +886,7 @@ class BattleTracker:
             stats.on_map, stats.left = e.alive, False
             if e.weapon:
                 stats.weapon = e.weapon
+            stats.movement = e.movement
             if e.items or e.spells:
                 stats.inventory = self.support.inventory(
                     e.items,

@@ -229,6 +229,7 @@ class EnemyStats(BaseModel):
     # villagers fleeing), or it escaped. Not drawn on the map.
     left: bool = False
     weapon: str = ""  # what it fights with (combat.weapon_kind), for its map icon
+    movement: int | None = None  # spaces it can move now (combat.movement), as last read; None: not known
     x: int | None = None  # map position, as last read (a defeated unit keeps the tile it fell on)
     y: int | None = None
     # For its sprite on the map: the game's class ID (None: not read), whether it's female, its army, and for a
@@ -600,6 +601,7 @@ class EnemySample:
     spell_ids: tuple[int | None, ...] = ()
     equipped_weapon: bool = False
     equipped_item_id: int | None = None
+    movement: int | None = None  # as for EnemyStats
 
     @property
     def alive(self) -> bool:

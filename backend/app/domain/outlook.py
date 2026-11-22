@@ -38,10 +38,11 @@ CRITICAL_WEIGHT = 6.0  # enough to take any battle to the bottom of the scale
 
 # Units at risk of falling: low on HP with other units in reach. One whose loss loses the battle (CRITICAL) weighs
 # almost as much as having lost it; the others cost less, since the battle goes on without them.
-# "In reach" is walked, not measured: another unit reaches one of yours when it can move (MOVE, through terrain and
-# past its own side, never through yours) to a free tile from which its weapon hits it (melee 1, bows 2, magic 1-2).
+# "In reach" is walked, not measured: another unit reaches one of yours when it can move (its own movement,
+# EnemyStats.movement, through terrain and past its own side, never through yours) to a free tile from which its weapon
+# hits it (melee 1, bows 2, magic 1-2).
 # A unit boxed in by others can't be hit by melee at all.
-MOVE = 5  # most units move 4-6
+MOVE = 5  # where a unit's movement wasn't read (older battles): most units move 4-6
 WEAPON_RANGE = {"bow": (2, 2), "reason": (1, 2), "faith": (1, 2), "dark": (1, 2)}  # anything else: (1, 1)
 # On foot (the Fire Emblem Wiki's Three Houses terrain table, infantry; gamemem/threat.py has every kind of unit).
 MOVE_COST = {"Forest": 2, "Sand": 2, "Shoal / snow": 2, "Thicket": 2}
@@ -120,17 +121,18 @@ def _threats(battle: Battle, spent: set[str] | None = None) -> dict[tuple[int, i
     hits: dict[tuple[int, int], int] = {}
     for e in others:
         start = (e.x, e.y)
+        mv = MOVE if e.movement is None else e.movement
         best = {start: 0}
         todo = [(0, start)]
         while todo:
             spent, (x, y) = heapq.heappop(todo)
-            if spent > best.get((x, y), MOVE + 1):
+            if spent > best.get((x, y), mv + 1):
                 continue
             for nxt in ((x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)):
                 if not (0 <= nxt[0] < w and 0 <= nxt[1] < h) or nxt in mine:
                     continue
                 step = 1 if costs is None else costs.get(nxt)
-                if step is None or spent + step > MOVE or spent + step >= best.get(nxt, MOVE + 1):
+                if step is None or spent + step > mv or spent + step >= best.get(nxt, mv + 1):
                     continue
                 best[nxt] = spent + step
                 heapq.heappush(todo, (spent + step, nxt))

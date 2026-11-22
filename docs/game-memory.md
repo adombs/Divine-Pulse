@@ -103,7 +103,10 @@ re-read cheaply. Cleared when the battle ends (level 0).
 | `0xF0` | u8 | Pool index (the history names units by it) |
 | `0xF1` | u8 | **Team**: 0 yours, 1 enemy, 2 ally, 3 third army, 4 objects (breakable walls) |
 | `0xF2` / `0xF3` | u8 / u8 | Map x / y |
+| `0xE0` | 96 bits | Status effects, a bit per ID (`fixed_data.bin` section 10). Rattled is ID 7 |
 | `0xF5` | u8 | Gambit uses left (battle copies only) |
+| `0xF6` | u8 | **Order** (how the AI plays it): a row of the AI order table. See below |
+| `0xF7` | 6 × u8 | The order's target: a unit (order 18) or tiles (order 11); `0xFF` = none |
 | `0x100` | u8 | On an adjutant: the pool index of the unit it's attached to |
 | `0x109` | u8 | Allegiance (an ID in `data/factions.json`: 0 Church, 1 Empire, 2 Kingdom, 3 Alliance, 9 Thieves…) |
 
@@ -116,6 +119,24 @@ The tracker logs any on-map team-0 record that is not an army/roster unit as a g
 (`BattleUnitStats.guest`, `a:<key>` ids), by the rule alone: team 0 and not in the roster. Its key is the run unit's
 whose `game_id` is the character, else the name's key, so its stats carry over if the character joins later or
 leaves and comes back. Guests never create or change run units, the roster or deaths. Teams 1-4 are unchanged.
+
+### How far a unit can move
+
+The game's Mv is stat 7 of the function at main + `0xB0240` (unit, stat, in battle, with statuses), which the movement
+range, the AI and the unit screens all call:
+
+- 0 if its order doesn't move (main + `0x405180`: byte `+4` of the order's row is 0 or 2): orders **0, 3, 19, 20, 21, 23
+  and 24**. The order table is DATA entry 14, section 0: 25 rows of `0x14` bytes. Order 1 advances, 2 waits until it
+  can reach someone, 3 holds its tile, 5 is on your units, 11 goes to a tile, 18 goes for a unit.
+- 0 with status 7 (Rattled), 15 or 78.
+- Otherwise raw Mv + the class's boost (+ the mounted one, unless bit 5 of `0xAC` is set: dismounted) + abilities + the
+  best and the worst Mv status (4: -5, 13: +5, 26: +1, 35: -1, 79: -3), from 0 to 19.
+
+A unit's order starts as `+0x1F` of its 44-byte row in the map's starting units (DATA entries 83, 85, 87… for each
+story map; `+0x00` character + 1, `+0x04` class + 1, `+0x19` / `+0x1A` x / y, `+0x1D` team) and scripts change it (the
+map's next DATA entry, command `0xA0`). Kostas has 3 in The Red Canyon (entry 87) and 2 in the prologue (entry 83);
+Lonato, Miklan and Cornelia have 3. Seen live (3 recordings of the Mock Battle): every unit's `0xF6` matched its row,
+orders 1, 11 and 18 moved, and 2 stayed put until the script changed it. Order 3 wasn't seen live.
 
 ## Battle globals (offsets from main + `0x19E4000`)
 

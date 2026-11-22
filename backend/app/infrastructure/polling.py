@@ -37,7 +37,7 @@ from ..events import EventBus
 from .game_assets import game_assets
 from . import game_tables
 from ..gamemem.battle import FlagWatch
-from ..gamemem.combat import weapon_kind
+from ..gamemem.combat import movement, weapon_kind
 from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_dead, decode_player_birthday, decode_player_name, decode_roster, save_fingerprint
 from ..gamemem.readers import emulators_for
 from ..gamemem.recorder import BattleRecorder
@@ -750,6 +750,7 @@ class Scanner:
                     spell_ids=other.spells,
                     equipped_weapon=other.equipped == EQUIPPED_WEAPON,
                     equipped_item_id=other.item_slot_0,
+                    movement=_movement(other),
                 )
             )
         terrain_of = getattr(self.memory, "battle_terrain", None)
@@ -1039,6 +1040,14 @@ def _other_name(character: int, data: GameData) -> tuple[str, int | None]:
     if character in data.npc_names:
         return data.npc_names[character], character
     return data.generic_names.get(character, ""), None
+
+
+def _movement(unit) -> int | None:
+    """How many spaces a unit can move now (combat.movement), None if the game data can't say."""
+    try:
+        return movement(unit)
+    except Exception:
+        return None
 
 
 def _weapon(unit) -> str:
