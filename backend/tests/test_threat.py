@@ -1,12 +1,14 @@
 """What the other armies can do to your units before your next turn (gamemem/threat.py), and the outlook it drives."""
 
+from dataclasses import replace
+
 import pytest
 
 from app.battle import Battle, BattleUnitStats, EnemyStats
 from app.domain.battle import UnitThreat
 from app.domain.combat import BattleUnit
 from app.domain.outlook import outlook
-from app.gamemem.combat import CombatData, Weapon
+from app.gamemem.combat import CombatData, GameClassInfo, Weapon, movement
 from app.gamemem.threat import threats
 from test_battle import STATS, T0
 
@@ -54,6 +56,24 @@ def test_out_of_reach_and_already_acted_dont_count():
     near = unit(11, 5, 8, 1)
     assert threats([me(), far, near], data=DATA)[1].attackers == (11,)
     assert threats([me(), far, near], data=DATA, spent=frozenset({11}))[1].attackers == ()
+
+
+def test_movement_is_the_units_own_not_its_classs():
+    # A boss ordered to hold its tile (Kostas in The Red Canyon): its Mv of 5 takes it nowhere.
+    data = CombatData(DATA.weapons, {}, {}, {0: GameClassInfo("Mercenary", {"mv": 1}, {}, ())}, {})
+    boss = unit(10, 5, 8, 1, mv=4)
+    assert threats([me(), boss], data=data)[1].attackers == (10,)
+    for held in (replace(boss, order=3), replace(boss, statuses=frozenset({7}))):  # holding its tile, rattled
+        assert movement(held, data) == 0
+        t = threats([me(), held], data=data)[1]
+        assert (t.attackers, t.max_damage, t.death) == ((), 0, 0)
+    # It still strikes whoever stands in its weapon's range.
+    assert threats([me(), replace(boss, order=3, y=6)], data=data)[1].attackers == (10,)
+    # Units that advance (1) or wait for someone in reach (2) move as far as their Mv; statuses add to it.
+    assert [movement(replace(boss, order=o), data) for o in (1, 2, 11, 18)] == [5, 5, 5, 5]
+    assert movement(replace(boss, statuses=frozenset({26})), data) == 6  # Mv +1
+    assert movement(replace(boss, statuses=frozenset({4, 35})), data) == 0  # the worst one counts: Mv -5
+    assert movement(replace(boss, class_id=9), data) is None  # a class that isn't known
 
 
 def test_avoid_and_crits_change_the_chance_to_fall():
@@ -108,7 +128,7 @@ def test_outlook_is_the_chance_of_getting_through_the_turn():
 
 def test_how_a_unit_moves_sets_what_terrain_costs_it(monkeypatch):
     from app.gamemem import threat as th
-    from app.gamemem.combat import Fighter, GameClassInfo
+    from app.gamemem.combat import Fighter
     from app.gamemem.terrain import TerrainInfo
 
     forest = TerrainInfo("Forest", "forest", 30, 1, 0, 0, "all", "Forest")

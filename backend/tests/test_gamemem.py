@@ -509,3 +509,14 @@ def test_a_battle_record_carries_its_allegiance():
     record = bytearray(RECORD_SIZE)
     record[ALLEGIANCE] = 18  # Bandits
     assert decode_record(bytes(record), 0, set()).allegiance == 18
+
+
+def test_a_battle_record_carries_its_order_and_statuses():
+    from app.gamemem.battle import ORDER, RECORD_SIZE, STATUSES, decode_record
+
+    record = bytearray(RECORD_SIZE)
+    record[ORDER] = 3  # holds its tile
+    record[STATUSES] |= fe3h.RATTLED_BIT
+    record[STATUSES + 3] |= 0x04
+    unit = decode_record(bytes(record), 0, set())
+    assert (unit.order, unit.statuses, unit.rattled) == (3, frozenset({7, 26}), True)

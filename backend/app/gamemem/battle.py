@@ -125,6 +125,15 @@ ATTACHED_TO = 0x100
 # 3 recordings of a Verdant Wind run (16 characters): every unit's byte matched its persondata allegiance and none
 # changed during a battle. Byleth's is 0 (the Church) whatever house the run chose.
 ALLEGIANCE = 0x109
+# How the game plays the unit (u8, a row of its AI order table, DATA entry 14): 1 advances, 2 waits until it can
+# reach someone, 3 holds its tile. The map's starting units have it at +0x1F of their 44-byte rows (DATA entries 83,
+# 85, 87...) and scripts change it during a battle. Seen live in 3 recordings of the Mock Battle: 1 on Hubert and
+# Ferdinand, who come at once, 2 on the rest until something sets them off (then 1, 11 or 18, and they move), 5 on your
+# units, 0 on walls, as in the map's rows. Kostas in The Red Canyon has 3 in his row (not seen live).
+ORDER = 0xF6
+# The status effects on the unit: a bit for each of the game's 96 (fixed_data.bin section 10). Rattled is ID 7
+# (fe3h.RATTLED).
+STATUSES, STATUS_COUNT = 0xE0, 96
 SPELL_USES = 0x94
 SPELL_SLOTS = 12  # seen live: a 12th slot (+0x9E) dropped when Lysithea cast
 # The spell in each of those slots (u8 spell ID, as in data/spells.json; NO_SPELL = empty). Seen: Lysithea's
@@ -183,7 +192,15 @@ def decode_record(data: bytes, offset: int, army_ids: set[int], located: BattleF
         battalion=battalion, battalion_exp=battalion_exp, battalion_endurance=battalion_endurance,
         gambit_uses=gambit_uses(record, owned=army),
         rattled=rattled(record),
+        order=at(ORDER),
+        statuses=_statuses(record),
     )
+
+
+def _statuses(record: bytes) -> frozenset[int]:
+    """The IDs of the status effects on a battle record's unit."""
+    bits = int.from_bytes(record[STATUSES : STATUSES + STATUS_COUNT // 8], "little")
+    return frozenset(n for n in range(STATUS_COUNT) if bits >> n & 1)
 
 
 def decode_pool(data: bytes, first_record: int, army_ids: set[int], located: BattleFields | None = None, base: int = 0) -> list[BattleUnit]:
