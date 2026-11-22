@@ -1,10 +1,11 @@
 /** Pieces the Battle page's tabs share: unit links, the log's rows, chips, the outlook card and chart. */
 import { CONCEPT_ICON } from "../../icons/concepts";
-import { createContext, Fragment, ReactNode, useContext, useEffect, useRef, useState } from "react";
+import { createContext, Fragment, ReactNode, type RefObject, useContext, useEffect, useRef, useState } from "react";
 import type { Battle, BattleEvent, BattleUnit, Outlook, TrendPoint, Usage, ValueKey } from "../../api";
 import type { EbstConfig } from "../../ebst";
 import type { CameraPan } from "./camera";
 import { type FaceLook, type MapLook, spriteLayers, UnitSprite, useSprites } from "./mapIcons";
+import { followsAfterScroll } from "./logFollow";
 import { armySprite, isObject, spriteOf } from "./map";
 import { clock, plural } from "../../format";
 import { AffiliationIcon } from "../AffiliationIcon";
@@ -359,32 +360,91 @@ function StartText({ text }: { text: string }) {
   );
 }
 
-/** A list of log rows in action order. */
-export function ItemList({
-  items,
-  empty = "Nothing yet.",
-  current,
-  onSelect,
-}: {
-  items: Item[];
-  empty?: string;
-  current?: number | null;
-  /** Makes rows pickable (the Overview: show the battle at that row); the row at `current` scrolls into view. */
-  onSelect?: (item: Item) => void;
-}) {
-  const list = useRef<HTMLOListElement>(null);
+/** Scrolls the log's scroller (.log-scroll) with the battle: to the replay's row as it moves, and with no replay
+ * (`current` null) to the newest row as rows come in, unless the log was scrolled up by hand; scrolling back down to the
+ * bottom follows again. */
+function useLogFollow(list: RefObject<HTMLOListElement | null>, current: number | null | undefined, live: boolean, empty: boolean) {
+  // A battle being fought opens on its newest row, a finished one on its first.
+  const following = useRef(live);
+  const replaying = useRef(false);
+  replaying.current = current != null;
   useEffect(() => {
-    // Follows the replay; scrolling the list by hand is left alone until the replay moves on.
-    const row = list.current?.querySelector<HTMLElement>("li.current");
+    if (live) following.current = true;
+  }, [live]);
+
+  useEffect(() => {
+    const el = list.current;
+    const box = el?.closest<HTMLElement>(".log-scroll");
+    if (!el || !box) return;
+    let before = box.scrollTop;
+    const onScroll = () => {
+      if (!replaying.current) following.current = followsAfterScroll(following.current, before, box);
+      before = box.scrollTop;
+    };
+    // The wheel itself too: during a glide down, its scroll up can come as one event that ends further down than before.
+    const onWheel = (e: WheelEvent) => {
+      if (e.deltaY < 0 && !e.ctrlKey && box.scrollTop > 0) following.current = false;
+    };
+    box.addEventListener("scroll", onScroll, { passive: true });
+    box.addEventListener("wheel", onWheel, { passive: true });
+    // Rows coming in or growing (a fight's numbers) change the list's height, and the window's size the scroller's.
+    // Called once when it starts, which places the log at once.
+    let placed = false;
+    const seen = new ResizeObserver(() => {
+      if (following.current && !replaying.current) box.scrollTo({ top: box.scrollHeight, behavior: placed ? "smooth" : "instant" });
+      placed = true;
+    });
+    seen.observe(el);
+    seen.observe(box);
+    return () => {
+      box.removeEventListener("scroll", onScroll);
+      box.removeEventListener("wheel", onWheel);
+      seen.disconnect();
+    };
+  }, [list, empty]);
+
+  const was = useRef(current ?? null);
+  useEffect(() => {
+    const left = was.current !== null && current == null;
+    was.current = current ?? null;
     const box = list.current?.closest<HTMLElement>(".log-scroll");
-    if (!row || !box) return;
+    if (!box) return;
+    if (left) {
+      // The replay went back to now (or ran to the end): to the newest row.
+      following.current = true;
+      box.scrollTo({ top: box.scrollHeight, behavior: "smooth" });
+      return;
+    }
+    // Scrolling the list by hand is left alone until the replay moves on.
+    const row = list.current?.querySelector<HTMLElement>("li.current");
+    if (!row) return;
     const r = row.getBoundingClientRect();
     const b = box.getBoundingClientRect();
     // The sticky "Log" header covers the top of the scroller, so the visible area starts below it.
     const top = b.top + (box.querySelector<HTMLElement>(".sec-head")?.offsetHeight ?? 0);
     const mid = (top + b.bottom) / 2;
     if (r.top < top || r.bottom > b.bottom) box.scrollTo({ top: box.scrollTop + (r.top + r.height / 2 - mid), behavior: "smooth" });
-  }, [current, items.length]);
+  }, [list, current]);
+}
+
+/** A list of log rows in action order. */
+export function ItemList({
+  items,
+  empty = "Nothing yet.",
+  current,
+  live = false,
+  onSelect,
+}: {
+  items: Item[];
+  empty?: string;
+  current?: number | null;
+  /** Whether the battle is being fought: the log opens on its newest row. */
+  live?: boolean;
+  /** Makes rows pickable (the Overview: show the battle at that row); the row at `current` scrolls into view. */
+  onSelect?: (item: Item) => void;
+}) {
+  const list = useRef<HTMLOListElement>(null);
+  useLogFollow(list, current, live, !items.length);
   if (!items.length) return <p className="muted">{empty}</p>;
   const shown = mergeHits(items);
   // The chronology (chronicle.ts) is by replay beat, and a row is undone once the replay is at or past the Divine Pulse

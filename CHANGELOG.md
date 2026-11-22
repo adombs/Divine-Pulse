@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The battle log follows the battle: each new action scrolls into view as it happens. Scroll up to read and it stays where you are; scroll back to the bottom to follow again.
 - The outlook uses how far each enemy can really move, read from the unit as the game works it out. A boss that holds its tile (Kostas in The Red Canyon, Lonato, Miklan…) only threatens what its weapon reaches from there, where it used to count as walking up to Byleth with its class's Mv; it counts as moving again when the game sets it off. Rattled units don't move either, and Mv bonuses and penalties count. The simpler estimate without the game files imported follows it too, and assumes 5 only where it isn't known.
 - Experimental: Divine Pulse runs on Linux. Reading the game from the real emulators there hasn't been confirmed yet: please report how it goes, with tracker.log (Settings → About → Open). It needs a 64-bit PC (x86-64, glibc 2.35 or newer: Ubuntu 22.04, Debian 12, SteamOS 3.5 and later). Unpack `Divine-Pulse-<version>-linux-x86_64.tar.gz` and run it, or run its `install.sh` to add it to your applications menu. Or run from source with `tools/setup.sh`, then `tools/launch.sh`. Its data folder is ~/.local/share/Divine Pulse.
 - Experimental: on Linux the game is read from Eden (with fastmem enabled) and from Ryubing or Ryujinx (in the default Host memory manager modes), installed as an AppImage, a Flatpak, an unpacked folder or a distribution's package. It needs no root access and no change to ptrace_scope.

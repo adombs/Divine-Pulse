@@ -67,7 +67,7 @@ export function LogView({ battle, items: timeline, shown, current, onSelect, pul
       {asTree ? (
         <Timelines columns={columns} current={standing} jump={jumps} />
       ) : (
-        <ItemList items={shown} current={current} empty="Nothing logged yet." onSelect={onSelect} />
+        <ItemList items={shown} current={current} live={battle.active} empty="Nothing logged yet." onSelect={onSelect} />
       )}
     </Section>
   );
