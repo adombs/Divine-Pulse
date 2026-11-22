@@ -23,7 +23,7 @@ export function videoCodec(width: number, height: number, fps: number): string {
  * "quality" mode: it takes frames and waits forever, so an export stalls at 0%. Its "realtime" mode encodes every frame,
  * in order. Other engines (the Windows app's WebView2) keep "quality", which lets the encoder plan ahead.
  */
-export function encoderLatency(userAgent = typeof navigator === "undefined" ? "" : navigator.userAgent): "quality" | "realtime" {
+export function encoderLatency(userAgent?: string): "quality" | "realtime" {
   return isSafariEngine(userAgent) ? "realtime" : "quality";
 }
 
