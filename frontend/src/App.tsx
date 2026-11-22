@@ -38,6 +38,9 @@ const HistoryPage = lazy(() => import("./components/HistoryPage").then((module) 
 const ArchivePage = lazy(() => import("./components/reference/ArchivePage").then((module) => ({ default: module.ArchivePage })));
 const SupportsPage = lazy(() => import("./components/reference/SupportsPage").then((module) => ({ default: module.SupportsPage })));
 
+/** How long a unit's row on the Roster flashes after the tracker changes it (tr.flash in styles.css). */
+const FLASH_MS = 1600;
+
 /** Units whose loss ends the battle in defeat (as CRITICAL in backend/app/domain/battle.py). */
 const CRITICAL_UNITS = new Set(["byleth", "edelgard", "dimitri", "claude"]);
 
@@ -128,6 +131,8 @@ export default function App() {
   const { loadRuns, loadUnits, loadAuto, retryStartup } = bootstrap;
   const peopleFilters = usePeopleFiltersState(loaded);
   const [flashKey, setFlashKey] = useState<string | null>(null);
+  const flashTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(flashTimer.current), []);
   const appearance = useAppearance();
   const toasts = useToasts();
   const { push: pushToast } = toasts;
@@ -230,8 +235,10 @@ export default function App() {
         loadRuns(),
       ]).then(() => undefined);
       if (d?.unit_key) {
+        // A second change restarts the flash: the first one's timer mustn't end the new one early.
         setFlashKey(d.unit_key);
-        window.setTimeout(() => setFlashKey(null), 1600);
+        window.clearTimeout(flashTimer.current);
+        flashTimer.current = window.setTimeout(() => setFlashKey(null), FLASH_MS);
       }
       return refresh;
     },
