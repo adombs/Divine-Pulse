@@ -307,6 +307,11 @@ def test_a_units_plan_is_saved_whole_and_kept(tmp_path):
         assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"supports": [{"partner": "x", "rank": "Z"}]}).status_code == 422
         assert client.put(f"/api/runs/{run_id}/units/felix/plan", json={"extra": 1}).status_code == 422
 
+        # Deleting a plan saves an empty one.
+        deleted = client.put(f"/api/runs/{run_id}/units/felix/plan", json=unit["plan"])
+        assert deleted.status_code == 200 and deleted.json()["plan"] == unit["plan"]
+        assert app.state.store.get(run_id).units["felix"].plan == type(stored.plan)()
+
 
 def test_a_plan_for_a_character_off_the_roster_is_kept_until_they_join(tmp_path):
     app = create_app(tmp_path, background=False)
