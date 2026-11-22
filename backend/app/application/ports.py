@@ -92,4 +92,6 @@ class GameMemoryCheck(Protocol):
 
 
 class SystemInformation(Protocol):
+    platform: str  # "windows", "macos", "linux"
+
     def open_folder(self, folder: Path) -> None: ...

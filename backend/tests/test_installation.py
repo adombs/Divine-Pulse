@@ -8,7 +8,8 @@ from app.infrastructure.settings import SettingsStore
     ("answers", "keep_records", "keep_assets", "replace"),
     [([YES, YES], True, True, False), ([YES, NO, NO], True, True, True), ([NO, NO, YES], False, False, False)],
 )
-def test_first_launch_retains_only_selected_data(tmp_path, answers, keep_records, keep_assets, replace):
+def test_first_launch_retains_only_selected_data(tmp_path, answers, keep_records, keep_assets, replace, as_platform):
+    as_platform("win32")  # WebView2's caches, in the data folder
     settings = SettingsStore(tmp_path / "settings.json")
     settings.update(active_run_id="saved", max_recordings=8)
     assets = tmp_path / "game-assets"

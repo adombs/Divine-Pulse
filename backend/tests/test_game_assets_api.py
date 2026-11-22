@@ -8,7 +8,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from helpers.fake_import import fake_dump
-from app.infrastructure.game_assets_import import NSTOOL_NAME
+from app.infrastructure.game_assets_import import nstool_name
 from app.infrastructure import game_assets as assets_module
 from app.infrastructure import game_assets_import as importer
 from app.main import create_app
@@ -180,7 +180,7 @@ def test_real_import(tmp_path, assets):
 def test_nsp_import_success_and_picker_routes(tmp_path, assets, monkeypatch):
     from app.infrastructure import nsp_extractor, paths
 
-    tool = tmp_path / "vendor" / "nstool" / NSTOOL_NAME
+    tool = tmp_path / "vendor" / "nstool" / nstool_name()
     tool.parent.mkdir(parents=True)
     tool.touch()
     monkeypatch.setattr(paths, "FROZEN", False)
@@ -240,7 +240,7 @@ def test_nsp_extraction_failure_preserves_existing_assets(tmp_path, assets, monk
 
     assets.root.mkdir()
     (assets.root / "old.txt").write_text("old")
-    tool = tmp_path / "vendor" / "nstool" / NSTOOL_NAME
+    tool = tmp_path / "vendor" / "nstool" / nstool_name()
     tool.parent.mkdir(parents=True)
     tool.touch()
     monkeypatch.setattr(paths, "FROZEN", False)
@@ -259,28 +259,38 @@ def test_nsp_extraction_failure_preserves_existing_assets(tmp_path, assets, monk
     assert (assets.root / "old.txt").read_text() == "old"
 
 
-def test_nstool_is_found_where_mac_downloads_go(tmp_path, monkeypatch):
+def test_nstool_is_found_where_mac_downloads_go(tmp_path, monkeypatch, as_platform):
     from app.infrastructure import game_assets_import as gi
 
-    monkeypatch.setattr("sys.platform", "darwin")
-    monkeypatch.setattr(gi.shutil, "which", lambda name: None)
+    mac = as_platform("darwin")
+    monkeypatch.setattr(mac.shutil, "which", lambda name: None)
     unzipped = tmp_path / "Downloads" / "nstool-v1.9.2-macos_arm64" / "nstool"
     unzipped.parent.mkdir(parents=True)
     # (only this test's home: not the /Applications or Homebrew copy this computer may have)
-    monkeypatch.setattr(gi, "_mac_download_spots", lambda home, real=gi._mac_download_spots: [
+    monkeypatch.setattr(mac, "download_spots", lambda home, real=mac.download_spots: [
         p for p in real(home) if str(p).startswith(str(tmp_path))])
     assert gi.nstool_path(None, tmp_path, home=tmp_path) is None
     unzipped.write_bytes(b"")
     assert gi.nstool_path(None, tmp_path, home=tmp_path) == unzipped
-    assert "releases/latest" in gi.NSTOOL_MISSING
+    assert "releases/latest" in gi.nstool_missing()
+
+
+def test_each_os_says_where_nstool_comes_from(as_platform):
+    from app.infrastructure import game_assets_import as gi
+
+    as_platform("win32")
+    assert gi.nstool_name() == "nstool.exe" and "Reinstall" in gi.nstool_missing()
+    for name in ("darwin", "linux"):
+        as_platform(name)
+        assert gi.nstool_name() == "nstool" and gi.NSTOOL_DOWNLOAD in gi.nstool_missing()
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="runs a shell script as the stand-in NSTool")
-def test_a_gatekeeper_blocked_nstool_says_how_to_allow_it(tmp_path, monkeypatch):
+def test_a_gatekeeper_blocked_nstool_says_how_to_allow_it(tmp_path, monkeypatch, as_platform):
     from app.infrastructure import game_assets_import as gi
 
     monkeypatch.undo()  # the real check, not this file's stand-in
-    monkeypatch.setattr("sys.platform", "darwin")
+    as_platform("darwin")
     tool = tmp_path / "nstool"
     tool.write_text("#!/bin/sh\nkill -9 $$\n")  # what Gatekeeper does to an unapproved download
     tool.chmod(0o755)

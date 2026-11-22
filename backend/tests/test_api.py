@@ -1,4 +1,3 @@
-import sys
 
 import pytest
 from fastapi.testclient import TestClient
@@ -219,7 +218,9 @@ def test_window_mode_is_saved_and_applied_to_the_desktop_window(client):
 
 def test_about_says_where_the_data_lives(client, tmp_path):
     about = client.get("/api/about").json()
-    platform = "macos" if sys.platform == "darwin" else "windows"
+    from app.system.platform import current
+
+    platform = current().ID
     assert about == {"version": __version__, "data_dir": str(tmp_path), "desktop": False, "platform": platform}
 
 

@@ -32,6 +32,24 @@ def test_finds_fe3h_saves_in_edens_user_folder(tmp_path):
     assert eden_save_folders(str(tmp_path / "missing")) == []
 
 
+def test_finds_eden_s_saves_where_each_os_keeps_them(tmp_path, monkeypatch, as_platform):
+    """macOS: Eden's own folder in Application Support, or the XDG data folder older builds used."""
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    as_platform("darwin")
+    profile = "nand/user/save/0000000000000000/5E31A69F7D0B95C5E5DFF1BC99BB27C7"
+    mac = tmp_path / "Library/Application Support/eden" / profile / TITLE_ID
+    xdg = tmp_path / ".local/share/eden" / profile / TITLE_ID
+    mac.mkdir(parents=True)
+    xdg.mkdir(parents=True)
+    assert eden_save_folders() == [mac, xdg]
+    as_platform("linux")
+    assert eden_save_folders() == [xdg]
+    monkeypatch.setenv("APPDATA", str(tmp_path / "Roaming"))
+    as_platform("win32")
+    assert eden_save_folders() == []
+
+
 def test_keeps_the_current_save_and_n_older_versions(tmp_path):
     saves, out = tmp_path / "saves", tmp_path / "backups"
     saves.mkdir()
@@ -110,13 +128,14 @@ def test_finds_fe3h_in_a_ryujinx_save_index(tmp_path):
     assert ryujinx_save_folders(tmp_path / "missing") == []
 
 
-def test_ryujinx_data_folders_on_each_platform(tmp_path, monkeypatch):
-    from app.infrastructure.save_backups import ASTRIS_CONTAINER, ryujinx_roots
+def test_ryujinx_data_folders_on_each_platform(tmp_path, as_platform):
+    from app.infrastructure.save_backups import ryujinx_roots
+    from app.system.platform.macos import ASTRIS_CONTAINER
 
-    monkeypatch.setattr("sys.platform", "darwin")
+    as_platform("darwin")
     support = Path("Library") / "Application Support" / "Ryujinx"
     assert ryujinx_roots(tmp_path) == [tmp_path / support, tmp_path / ASTRIS_CONTAINER / support]
-    monkeypatch.setattr("sys.platform", "win32")
+    as_platform("win32")
     assert ryujinx_roots(tmp_path, appdata="C:/Users/me/AppData/Roaming") == [Path("C:/Users/me/AppData/Roaming/Ryujinx")]
 
 

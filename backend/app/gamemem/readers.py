@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import sys
-
+from ..system import platform
 from .emulators import EMULATORS, Emulator
 from .recomp import RECOMP_EMULATORS
 from .ryujinx import RYUJINX_EMULATORS
@@ -19,7 +18,7 @@ _AUTO: dict[str, tuple[Emulator, ...]] = {}
 
 def runs_here(emulator: Emulator) -> bool:
     """Whether the program can run on this computer: a Windows-only one (only an .exe) can't on macOS or Linux."""
-    return sys.platform == "win32" or any(not name.endswith(".exe") for name in emulator.executables)
+    return any(platform.current().runs_program(name) for name in emulator.executables)
 
 
 def emulators_for(reader: str) -> tuple[Emulator, ...]:
@@ -28,6 +27,7 @@ def emulators_for(reader: str) -> tuple[Emulator, ...]:
     Windows or FE3H Recomp."""
     if reader in READERS and reader != "auto":
         return READERS[reader]
-    if sys.platform not in _AUTO:  # (one tuple per platform, so a reader's emulators can be compared with `is`)
-        _AUTO[sys.platform] = tuple(e for e in ALL_EMULATORS if runs_here(e)) or ALL_EMULATORS
-    return _AUTO[sys.platform]
+    here = platform.current().ID
+    if here not in _AUTO:  # (one tuple per platform, so a reader's emulators can be compared with `is`)
+        _AUTO[here] = tuple(e for e in ALL_EMULATORS if runs_here(e)) or ALL_EMULATORS
+    return _AUTO[here]

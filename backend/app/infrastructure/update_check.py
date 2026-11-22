@@ -5,8 +5,6 @@ from __future__ import annotations
 import json
 import logging
 import ssl
-import subprocess
-import sys
 import threading
 import urllib.request
 from collections.abc import Callable
@@ -14,6 +12,7 @@ from typing import Any
 
 from ..application.ports import EventPublisher, SettingsRepository
 from ..domain.updates import is_newer, parse_version, release_url
+from ..system import platform
 
 log = logging.getLogger(__name__)
 
@@ -21,23 +20,17 @@ LATEST_RELEASE_API = "https://api.github.com/repos/adombs/Divine-Pulse/releases/
 TIMEOUT_S = 5
 
 Fetcher = Callable[[str], dict[str, Any]]
-# macOS's own trusted roots, for a Python that has no certificate file of its own (see https_context).
-MAC_ROOTS = "/System/Library/Keychains/SystemRootCertificates.keychain"
-
-
-def https_context(platform: str = sys.platform) -> ssl.SSLContext:
-    """A context that can check GitHub's certificate. The macOS app's Python looks for certificates only where the
-    build machine's OpenSSL kept them (Homebrew's folder), which most Macs don't have; then macOS's own trusted roots
-    are used. Windows' Python reads the system's certificate store itself."""
+def https_context(roots: Callable[[], str | None] | None = None) -> ssl.SSLContext:
+    """A context that can check GitHub's certificate. When Python has no certificates of its own (the macOS app's
+    Python looks only where the build machine's OpenSSL kept them), the platform's trusted roots are used."""
     context = ssl.create_default_context()
-    if platform == "darwin" and not context.get_ca_certs():
-        try:
-            roots = subprocess.run(["/usr/bin/security", "find-certificate", "-a", "-p", MAC_ROOTS],
-                                   capture_output=True, text=True, timeout=10, check=True).stdout
-            if "BEGIN CERTIFICATE" in roots:
-                context.load_verify_locations(cadata=roots)
-        except (OSError, subprocess.SubprocessError, ssl.SSLError) as exc:
-            log.info("Couldn't read macOS's trusted certificates (%s).", exc)
+    if not context.get_ca_certs():
+        pem = (roots or platform.current().trusted_roots)()
+        if pem:
+            try:
+                context.load_verify_locations(cadata=pem)
+            except ssl.SSLError as exc:
+                log.info("Couldn't load the system's trusted certificates (%s).", exc)
     return context
 
 

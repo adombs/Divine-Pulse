@@ -5,7 +5,6 @@ Vendored from nsp-unpacker fddf01efbb6e9cf28a447ff73adf5a8334c2acfa.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -15,6 +14,7 @@ import tempfile
 import threading
 from dataclasses import dataclass
 
+from ..system import platform
 from ..system.files import has_entries, user_files
 
 
@@ -156,7 +156,7 @@ class Extractor:
         for ticket in self.tickets:
             command += ['--tik', str(ticket)]
         command += [str(a) for a in args] + [str(source)]
-        flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+        flags = platform.current().HIDDEN_CONSOLE_FLAGS
         # Poll without blocking the GUI; no shell and no keys in command output.
         with tempfile.TemporaryFile(mode='w+b') as capture:
             with subprocess.Popen(command, stdout=capture, stderr=subprocess.STDOUT,

@@ -1,8 +1,8 @@
 """Keep copies of the game's save files (Settings > General > Backup Game Saves).
 
-The save folders are found automatically: Eden's (%APPDATA%/eden, ~/.local/share/eden, or a portable Eden's `user`
-folder), Ryujinx's family's (Ryubing's and Ryujinx's Ryujinx folder, Astris's inside its macOS container, or a portable
-one beside Ryujinx.exe) and FE3H Recomp's (the `save` folder beside fe3hrecomp.exe, found while it runs and
+The save folders are found automatically (where each OS keeps them: system/platform/): Eden's (%APPDATA%/eden;
+~/Library/Application Support/eden or ~/.local/share/eden; or a portable Eden's `user` folder), Ryujinx's family's
+(Ryubing's and Ryujinx's Ryujinx folder, Astris's inside its macOS container, or a portable one beside Ryujinx.exe) and FE3H Recomp's (the `save` folder beside fe3hrecomp.exe, found while it runs and
 remembered), unless one is set in Settings.
 
 Every save file in the save folder is copied as soon as it is seen, so when the game overwrites it the version it
@@ -17,7 +17,6 @@ import json
 import logging
 import os
 import struct
-import sys
 import threading
 import time
 from collections.abc import Callable
@@ -25,6 +24,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any
 
+from ..system import platform
 from ..system.files import in_os_metadata, is_os_metadata
 
 log = logging.getLogger(__name__)
@@ -39,12 +39,14 @@ RYUJINX_PROGRAMS = frozenset({"ryujinx.exe", "ryujinx", "astris", "astris.exe"})
 
 
 def eden_save_folders(appdata: str | None = None) -> list[Path]:
-    """FE3H's save folders in Eden's user folder (%APPDATA%/eden; ~/.local/share/eden on macOS and Linux), one per
-    emulated user profile."""
-    if appdata is None and sys.platform != "win32":
-        return _eden_saves(Path.home() / ".local" / "share" / "eden")
-    appdata = appdata if appdata is not None else os.environ.get("APPDATA")
-    return _eden_saves(Path(appdata) / "eden") if appdata else []
+    """FE3H's save folders in Eden's user folder (platform.eden_user_dirs: %APPDATA%/eden on Windows; on macOS
+    ~/Library/Application Support/eden and ~/.local/share/eden; on Linux ~/.local/share/eden), one per emulated user
+    profile. `appdata`: a Windows %APPDATA% folder to look in instead."""
+    users = [Path(appdata) / "eden"] if appdata is not None else platform.current().eden_user_dirs()
+    found: list[Path] = []
+    for user in users:
+        found += [f for f in _eden_saves(user) if f not in found]
+    return found
 
 
 # Ryujinx's save index (bis/system/save/8000000000000000/0/imkvdb.arc): "IMKV", u32 reserved, u32 entry count,
@@ -52,21 +54,14 @@ def eden_save_folders(appdata: str | None = None) -> list[Path]:
 # value (u64 save data ID first). A save's files are in bis/user/save/<save data ID as 16 hex digits>/0 (the
 # committed copy; Ryujinx writes to 1 and then swaps).
 _IMKVDB = Path("bis") / "system" / "save" / "8000000000000000" / "0" / "imkvdb.arc"
-ASTRIS_CONTAINER = Path("Library") / "Containers" / "V380-Ori.Astris" / "Data"
 
 
 def ryujinx_roots(home: Path | None = None, appdata: str | None = None) -> list[Path]:
-    """Where Ryujinx and its forks keep their data on this computer: %APPDATA%/Ryujinx (Ryubing, Ryujinx) on Windows;
-    ~/Library/Application Support/Ryujinx (Ryubing) and Astris's sandbox container's on macOS; ~/.config/Ryujinx on
-    Linux."""
-    home = home if home is not None else Path.home()
-    if sys.platform == "win32":
-        appdata = appdata if appdata is not None else os.environ.get("APPDATA")
-        return [Path(appdata) / "Ryujinx"] if appdata else []
-    if sys.platform == "darwin":
-        support = Path("Library") / "Application Support" / "Ryujinx"
-        return [home / support, home / ASTRIS_CONTAINER / support]
-    return [home / ".config" / "Ryujinx"]
+    """Where Ryujinx and its forks keep their data on this computer (platform.ryujinx_roots): %APPDATA%/Ryujinx
+    (Ryubing, Ryujinx) on Windows; ~/Library/Application Support/Ryujinx (Ryubing) and Astris's sandbox container's
+    on macOS; ~/.config/Ryujinx on Linux."""
+    env = {"APPDATA": appdata} if appdata is not None else None
+    return platform.current().ryujinx_roots(env=env, home=home)
 
 
 def ryujinx_save_folders(root: Path) -> list[Path]:

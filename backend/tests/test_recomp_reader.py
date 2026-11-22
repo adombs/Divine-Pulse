@@ -119,9 +119,9 @@ def test_each_setting_names_its_reader():
 
 @pytest.mark.parametrize(("platform", "expected"), [("win32", "Eden, Astris or Ryubing, FE3H Recomp"),
                                                     ("darwin", "Astris or Ryubing"), ("linux", "Astris or Ryubing")])
-def test_auto_looks_only_for_the_programs_that_run_on_this_computer(monkeypatch, platform, expected):
+def test_auto_looks_only_for_the_programs_that_run_on_this_computer(as_platform, platform, expected):
     """A Mac can't run Eden for Windows (eden.exe) or FE3H Recomp (fe3hrecomp.exe): its message doesn't name them."""
-    monkeypatch.setattr(sys, "platform", platform)
+    as_platform(platform)
     assert ", ".join(e.name for e in emulators_for("auto")) == expected
     assert emulators_for("auto") is emulators_for("auto")
     assert emulators_for("recomp") is RECOMP_EMULATORS  # a program chosen in Settings is still looked for

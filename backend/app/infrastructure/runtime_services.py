@@ -33,6 +33,10 @@ class MemoryCheck:
 
 
 class SystemAdapter:
+    """The operating system's services for the application layer (system/platform/ picks the OS's)."""
+
+    platform: str = system.platform.current().ID
+
     @staticmethod
     def open_folder(folder: Path) -> None:
         folder.mkdir(parents=True, exist_ok=True)

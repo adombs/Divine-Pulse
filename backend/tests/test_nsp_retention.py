@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.infrastructure.game_assets_import import NSTOOL_NAME
+from app.infrastructure.game_assets_import import nstool_name
 from app.main import create_app
 from app.infrastructure.game_assets import GameAssets
 
@@ -36,7 +36,7 @@ def configure(tmp_path, monkeypatch):
     monkeypatch.setattr(paths, "PROJECT_ROOT", tmp_path)
     monkeypatch.setattr(paths, "FROZEN", False)
     monkeypatch.setattr(game_assets, "_shared", GameAssets(data / "game-assets"))
-    tool = tmp_path / "vendor" / "nstool" / NSTOOL_NAME
+    tool = tmp_path / "vendor" / "nstool" / nstool_name()
     tool.parent.mkdir(parents=True)
     tool.touch()
     return data, tool

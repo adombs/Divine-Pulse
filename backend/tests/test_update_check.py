@@ -180,10 +180,13 @@ def test_https_uses_macos_roots_when_python_has_no_certificates(monkeypatch):
     monkeypatch.setattr(update_check.ssl, "create_default_context", lambda: Bare())
     pem = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
     calls = []
-    monkeypatch.setattr(update_check.subprocess, "run",
+    from app.system.platform import linux, macos, windows
+
+    monkeypatch.setattr(macos.subprocess, "run",
                         lambda command, **kw: calls.append(command) or subprocess.CompletedProcess(command, 0, pem, ""))
-    update_check.https_context("darwin")
+    update_check.https_context(macos.trusted_roots)
     assert loaded == [pem] and calls[0][:3] == ["/usr/bin/security", "find-certificate", "-a"]
     loaded.clear()
-    update_check.https_context("win32")  # Windows' Python reads the system store itself
+    update_check.https_context(windows.trusted_roots)  # Windows' Python reads the system store itself
+    update_check.https_context(linux.trusted_roots)  # Linux's uses the distribution's bundle
     assert loaded == [] and len(calls) == 1

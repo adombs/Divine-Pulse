@@ -1,16 +1,14 @@
-"""First launch choices for a Windows installation with existing data."""
+"""First launch choices for a packaged installation (Windows installer, macOS app) with existing data."""
 
 import shutil
 from collections.abc import Callable
 from pathlib import Path
 
+from ..system import platform
 from ..system.files import has_entries
 from .settings import SettingsStore
 
 YES, NO = 6, 7
-# The WebView2 profile's caches (in DATA_DIR/webview/EBWebView/Default): cleared on a new installation, unlike its
-# Local Storage.
-WINDOW_CACHES = ("Cache", "Code Cache", "GPUCache", "Service Worker")
 
 
 def _remove(path: Path) -> None:
@@ -62,7 +60,7 @@ def prepare_installation(settings: SettingsStore, assets: Path, version: str, as
         _remove(data / name)
     # The window's caches go, so the new version's page loads fresh; its storage (Appearance, Export Video's options,
     # filters: the page's own settings) stays.
-    for cache in WINDOW_CACHES:
-        _remove(data / "webview" / "EBWebView" / "Default" / cache)
+    for cache in platform.current().webview_caches(data):
+        _remove(cache)
     settings.reset_installation(version, replace_import, saved.active_run_id if retain_records else None)
     return True
