@@ -6,7 +6,7 @@
 
 Preparation commits version and changelog changes on the matching release or hotfix branch.
 Finalization checks the clean current main against origin and builds this computer's release files (Windows: the
-installer and portable zip; macOS: the app zip). Run it on each: the first pushes only the tag and creates a draft
+installer and portable zip; macOS: the app zip; Linux: the tar.gz). Run it on each: the first pushes only the tag and creates a draft
 with its files, the next adds its files to that draft. Either may go first. Check only validates this computer's
 built release files (names, checksums, the zip's game-content scan), as finalize does before uploading.
 
@@ -39,7 +39,7 @@ import tomllib  # noqa: E402
 import game_content  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-RELEASED_ON = {"win32": "Windows", "darwin": "macOS"}  # each finalizes its own files onto the same draft
+RELEASED_ON = {"win32": "Windows", "darwin": "macOS", "linux": "Linux"}  # each finalizes its own files onto the same draft
 VERSION_FILES = (
     ROOT / "backend/app/__init__.py",
     ROOT / "backend/pyproject.toml",
@@ -105,7 +105,7 @@ def preflight(tag: str) -> list[str] | None:
     """None when `tag` is new: nothing on origin and no release yet. When the other computer already finalized, the
     names of the files on its draft (the tag must be this commit and the release still a draft)."""
     if sys.platform not in RELEASED_ON:
-        fail(f"finalize builds the {' or '.join(RELEASED_ON.values())} release files and must run on one of them")
+        fail(f"finalize builds the {', '.join(list(RELEASED_ON.values())[:-1])} or {list(RELEASED_ON.values())[-1]} release files and must run on one of them")
     if subprocess.run(["gh", "auth", "status"], cwd=ROOT, capture_output=True).returncode:
         fail("GitHub CLI is not authenticated; run 'gh auth login' and try again")
     remote_tag = subprocess.run(
@@ -135,7 +135,7 @@ def preflight(tag: str) -> list[str] | None:
 
 
 def artifact_names(version: str) -> list[str]:
-    """This computer's release files, without the checksum file, the zip first."""
+    """This computer's release files, without the checksum file, the zip (Linux: the tar.gz) first."""
     return target().artifact_names(version, ROOT / "release")
 
 
@@ -228,7 +228,7 @@ def check_release(version: str) -> list[Path]:
     files = release_files(version)
     problems = game_content.check_zip(files[0])
     if problems:
-        raise RuntimeError("the release zip holds game content or lacks a license file:\n  " + "\n  ".join(problems))
+        raise RuntimeError(f"{files[0].name} holds game content or lacks a license file:\n  " + "\n  ".join(problems))
     return files
 
 

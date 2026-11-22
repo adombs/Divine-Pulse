@@ -154,11 +154,11 @@ def test_release_zip_is_this_platforms(tmp_path: Path, monkeypatch: pytest.Monke
 
 
 def test_the_platform_is_chosen_from_the_system(monkeypatch: pytest.MonkeyPatch) -> None:
-    for system, kind in (("win32", smoke.Windows), ("darwin", smoke.MacOS)):
+    for system, kind in (("win32", smoke.Windows), ("darwin", smoke.MacOS), ("linux", smoke.Linux)):
         monkeypatch.setattr(smoke.sys, "platform", system)
         assert type(smoke.current()) is kind
-    monkeypatch.setattr(smoke.sys, "platform", "linux")
-    with pytest.raises(smoke.SmokeFailure, match="isn't built for linux yet"):
+    monkeypatch.setattr(smoke.sys, "platform", "freebsd14")
+    with pytest.raises(smoke.SmokeFailure, match="isn't built for freebsd14 yet"):
         smoke.current()
 
 
@@ -202,16 +202,21 @@ def test_ci_smoke_tests_each_release_build() -> None:
     text = WORKFLOW.read_text("utf-8")
     job = _job(text, "release-build")
     assert "os: windows-latest" in job and "os: macos-latest" in job
+    assert "os: ubuntu-22.04" in job  # the oldest: the Linux program runs where glibc is at least as new
     assert job.index("python tools/build.py --skip-tests") < job.index("python tools/release.py check") < job.index(
         "python tools/smoke_app.py") < job.index("actions/upload-artifact")
-    assert "if: runner.os" not in job  # the same steps on both systems
+    # The same steps on each system; Linux's runner only lacks the libraries Qt uses and a display.
+    assert job.count("if: runner.os") == 1 and "if: runner.os == 'Linux'" in job
+    elsewhere = _job(text, "linux-release-elsewhere")
+    assert "needs: release-build" in elsewhere and "xvfb-run -a python3 tools/smoke_app.py" in elsewhere
 
 
-def test_ci_checks_the_frontend_and_backend_on_both_systems() -> None:
+def test_ci_checks_the_frontend_and_backend_on_every_system() -> None:
     text = WORKFLOW.read_text("utf-8")
     job = _job(text, "checks")
     assert "runs-on: ${{ matrix.os }}" in job
     assert job.count("os: windows-latest") == 2 and job.count("os: macos-latest") == 2
+    assert job.count("os: ubuntu-latest") == 2
     for command in ("npm test", "npx tsc --noEmit", "npm run build", "python -m pytest -q"):
         assert f"run: {command}" in job, command
     # The macOS memory reader's tests need developer tools allowed, before they run.

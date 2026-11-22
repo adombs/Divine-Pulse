@@ -153,6 +153,25 @@ def test_zip_check_names_game_content_and_missing_licenses(tmp_path: Path) -> No
     assert any(f"missing {game_content.LICENSE_FOLDER}" in line for line in found)
 
 
+def test_linux_archive_is_checked_like_the_zips(tmp_path: Path) -> None:
+    import io
+    import tarfile
+
+    def archive(name: str, names: list[str]) -> Path:
+        with tarfile.open(tmp_path / name, "w:gz") as tar:
+            for entry in names:
+                info = tarfile.TarInfo(entry)
+                info.size = 1
+                tar.addfile(info, io.BytesIO(b"x"))
+        return tmp_path / name
+
+    fine = [*LICENSES, LICENSE_TEXT, "Divine Pulse/Divine Pulse", "Divine Pulse/install.sh",
+            "Divine Pulse/_internal/frontend_dist/brand/mark.png", "Divine Pulse/_internal/PyQt6/Qt6/resources/x.bin"]
+    assert game_content.check_zip(archive("ok.tar.gz", fine)) == []
+    found = game_content.check_zip(archive("bad.tar.gz", [*fine[1:], "Divine Pulse/_internal/app/data/x.g1t"]))
+    assert len(found) == 2 and any("backend/app/data/x.g1t" in line for line in found)
+
+
 def test_zip_check_rejects_private_dump_metadata(tmp_path: Path) -> None:
     names = [*LICENSES, LICENSE_TEXT, "Divine Pulse/game-dump/extraction.json"]
     found = game_content.check_zip(make_zip(tmp_path / "dump.zip", names))

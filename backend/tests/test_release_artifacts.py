@@ -323,6 +323,6 @@ def test_check_validates_the_built_files_with_the_apps_version_by_default(
 
 
 def test_finalize_runs_only_where_releases_are_built(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(release_script.sys, "platform", "linux")
-    with pytest.raises(SystemExit, match="Windows or macOS release files"):
+    monkeypatch.setattr(release_script.sys, "platform", "freebsd14")
+    with pytest.raises(SystemExit, match="Windows, macOS or Linux release files"):
         release_script.preflight("v1.2.3")

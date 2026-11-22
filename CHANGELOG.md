@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Divine Pulse runs on Linux (x86-64, glibc 2.35 or newer: Ubuntu 22.04, Debian 12, SteamOS 3.5 and later). Unpack `Divine-Pulse-<version>-linux-x86_64.tar.gz` and run it, or run its `install.sh` to add it to your applications menu. Or run from source with `tools/setup.sh`, then `tools/launch.sh`. Its data folder is ~/.local/share/Divine Pulse.
+- On Linux the game is read from Eden (with fastmem enabled) and from Ryubing or Ryujinx (in the default Host memory manager modes), installed as an AppImage, a Flatpak, an unpacked folder or a distribution's package. It needs no root access and no change to ptrace_scope.
+- Backup Game Saves finds Eden's, Ryubing's and Ryujinx's saves on Linux, including Flatpaks' and a portable Eden's.
+- Export Video makes VP9 videos where the window can't encode H.264 (the Linux app).
 - No more "sync this save?" questions before a save is loaded: at the game's title screen (and while it plays its cutscenes) the tracker waits for a save, and a question already showing goes away there.
 - On macOS the window opens where you left it, on whichever monitor, using macOS's own window memory: with two monitors the saved place drifted off screen and the app could fail to open. Settings → Window → Fullscreen (and the window's green button) now go full screen.
 - Quitting and reopening right away keeps the same port instead of moving to a new one (macOS).

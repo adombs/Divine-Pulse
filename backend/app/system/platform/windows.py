@@ -86,6 +86,10 @@ def webview_caches(data_dir: Path, home: Path | None = None) -> list[Path]:
     return [profile / name for name in ("Cache", "Code Cache", "GPUCache", "Service Worker")]
 
 
+def child_env() -> dict[str, str] | None:
+    return None
+
+
 def trusted_roots() -> str | None:
     return None  # Windows' Python reads the system's certificate store itself
 

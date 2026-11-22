@@ -1,6 +1,6 @@
 # One-time setup on Windows: Python venv + dependencies, the memory reader, the frontend build, a desktop shortcut.
 # Run again any time to update after pulling changes. Then start the app with the shortcut or tools\launch.bat.
-# The same steps, in the same order and with the same messages, as tools/setup.sh on macOS.
+# The same steps, in the same order and with the same messages, as tools/setup.sh on macOS and Linux.
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent (Split-Path -Parent $MyInvocation.MyCommand.Path)
 $backend = Join-Path $root "backend"

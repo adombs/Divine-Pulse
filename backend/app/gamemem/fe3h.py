@@ -835,6 +835,9 @@ class GameMemory:
                 self._process, (self.version, self._main), self.emulator = process, main, emulator
                 log.info("Reading FE3H %s from %s (process %d)", self.version.name, emulator.name, pid)
                 return
+            hidden = getattr(emulator.layout, "hidden", None)
+            if hidden is not None and hidden(process):  # its memory is there, but the system keeps it from us
+                denied = denied or emulator
             process.close()
         if denied is not None:
             raise GameMemoryError(MEMORY_ACCESS_HELP.format(emulator=denied.name))

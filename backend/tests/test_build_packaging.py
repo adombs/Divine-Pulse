@@ -1,9 +1,10 @@
-"""tools/build.py: the shared steps in order, and each system's Target (Windows, macOS, the Linux stub)."""
+"""tools/build.py: the shared steps in order, and each system's Target (Windows, macOS, Linux)."""
 
 import argparse
 import importlib.util
 import re
 import subprocess
+import sys
 import zipfile
 from pathlib import Path
 
@@ -73,11 +74,41 @@ def test_the_target_is_chosen_from_the_system():
         build_script.target("freebsd14")
 
 
-def test_linux_is_a_stub_that_stops_before_building():
-    with pytest.raises(SystemExit, match="Linux is not supported yet"):
-        build_script.Linux().require_tools()
-    with pytest.raises(RuntimeError, match="not supported yet"):
-        build_script.Linux().artifact_names("1.2.3")
+def test_linux_needs_the_libraries_it_bundles(monkeypatch):
+    linux = build_script.Linux()
+    monkeypatch.setattr(build_script.shutil, "which", lambda name: None)
+    with pytest.raises(SystemExit, match="binutils"):
+        linux.require_tools()
+    monkeypatch.setattr(build_script.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(build_script.ctypes.util, "find_library", lambda name: None if name == "xcb-cursor" else name)
+    with pytest.raises(SystemExit, match="sudo apt install libxcb-cursor0$"):
+        linux.require_tools()
+    monkeypatch.setattr(build_script.ctypes.util, "find_library", lambda name: name)
+    linux.require_tools()
+
+
+def test_linux_archive_keeps_the_program_s_permissions(tmp_path, monkeypatch):
+    import tarfile
+
+    release, program = tmp_path / "release", tmp_path / "dist" / "Divine Pulse"
+    program.mkdir(parents=True)
+    release.mkdir()
+    (release / "Divine-Pulse-1.2.3-linux-old.tar.gz").write_bytes(b"")
+    monkeypatch.setattr(build_script, "RELEASE", release)
+    monkeypatch.setattr(build_script.platform, "machine", lambda: "x86_64")
+    linux = build_script.Linux()
+    linux.executable(program).write_bytes(b"program")
+    linux.executable(program).chmod(0o755)
+    assert linux.package(program, "1.2.3", argparse.Namespace()) == [release / "Divine-Pulse-1.2.3-linux-x86_64.tar.gz"]
+    assert linux.artifact_names("1.2.3", release) == ["Divine-Pulse-1.2.3-linux-x86_64.tar.gz"]
+    assert linux.artifact_names("1.2.4", release) == ["Divine-Pulse-1.2.4-linux-x86_64.tar.gz"]
+    with tarfile.open(release / "Divine-Pulse-1.2.3-linux-x86_64.tar.gz") as tar:
+        member = tar.getmember("Divine Pulse/Divine Pulse")
+    if sys.platform != "win32":
+        assert member.mode & 0o111
+    (release / "Divine-Pulse-1.2.3-linux-aarch64.tar.gz").write_bytes(b"")
+    with pytest.raises(RuntimeError, match="more than one"):
+        linux.artifact_names("1.2.3", release)
 
 
 def test_build_environment_python_per_system(tmp_path):
@@ -96,9 +127,9 @@ def test_program_paths_per_system(tmp_path):
 
 
 def test_each_system_has_a_readme_with_the_same_sections():
-    """Both read-mes cover installing, the first launch, importing, the data folder, updating and removing."""
-    texts = {t.key: (build_script.PACKAGING / t.readme).read_text("utf-8") for t in (build_script.Windows(),
-                                                                                    build_script.MacOS())}
+    """The read-mes cover installing, the first launch, importing, the data folder, updating and removing."""
+    texts = {t.key: (build_script.PACKAGING / t.readme).read_text("utf-8") for t in (build_script.Windows(), build_script.MacOS(),
+                                                                                    build_script.Linux())}
     for key, text in texts.items():
         assert text.count("{version}") == 1, key
         for heading in ("Install", "First launch", "Import your game", "Your data", "Updating", "Removing",
@@ -144,8 +175,8 @@ def test_pyinstaller_returns_the_targets_program_and_rejects_dev_packages(tmp_pa
     toc.write_text("[]", encoding="utf-8")
     monkeypatch.setattr(build_script, "BUILD", tmp_path)
     monkeypatch.setattr(build_script, "run", lambda *_: None)
-    for target in (build_script.Windows(), build_script.MacOS()):
-        target.program_path().mkdir(parents=True)
+    for target in (build_script.Windows(), build_script.MacOS(), build_script.Linux()):
+        target.program_path().mkdir(parents=True, exist_ok=True)
         assert build_script.pyinstaller(target) == target.program_path()
     toc.write_text("[('pytest', 'x', 'PYMODULE')]", encoding="utf-8")
     with pytest.raises(SystemExit, match="Development packages"):

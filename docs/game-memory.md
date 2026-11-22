@@ -17,11 +17,21 @@ Conventions: offsets are hex. "Seen live" means checked against the running game
 | Main program | Starts with `00000000 08000000 "MOD0"`; not at a fixed address (Switch `0x80004000` one session, `0x8077B000` another). Version is matched by GNU build-id at main + `0x19E3840`. | `_find_main`, `VERSIONS` in `gamemem/fe3h.py` |
 | Global data | main + `0x19E4000` to main + `0x1BCC000` (`.data`/`.bss`). Offsets below marked "globals" are from main + `0x19E4000`. | `GameMemory.GLOBALS` |
 
+On Linux (from Eden's `host_memory.cpp`; checked against test programs that map memory the same way, not yet seen live
+with the game):
+
+| What | Where | Code |
+| --- | --- | --- |
+| Process | `eden` or `eden-cli`, by executable, argument or process name (an AppImage's loader hides the executable) | `system/memory_linux.py` |
+| Switch memory | One memfd, `HostMemory`: mapped whole (the 4 GiB or larger block, skipped) and as shared views at `arena + a`. Read through `/proc/<pid>/fd`, read-only: that isn't limited by `ptrace_scope`, as `process_vm_readv` is. | `memory_linux.Process` |
+| Main program | As on Windows; searched for in the views too, as Linux may list a module's view together with the one before it. | `Fastmem.main_candidates` |
+
 ### Ryujinx's family (Astris on macOS, Ryubing, Ryujinx)
 
 | What | Where | Code |
 | --- | --- | --- |
 | Process | `Astris` (macOS), `Ryujinx.exe` / `Ryujinx` (Ryubing, Ryujinx). On macOS through a helper signed with the debugger entitlement (`system/macos/dp_memreader.c`); the emulator must allow debugging (`get-task-allow`, as Astris 1.0.32 does). | `system/memory_macos.py`, `gamemem/ryujinx.py` |
+| On Linux | The RAM block is one mapping of an unlinked `/dev/shm/Ryujinx-*` file in the Host memory manager modes (the default), read through `/proc/<pid>/fd` as Eden's. In Software mode it is private memory, readable only where `ptrace_scope` is 0. (From Ryubing's `MemoryManagementUnix.cs` and test programs, not yet seen live with the game.) | `system/memory_linux.py` |
 | Switch memory | No single arena. The emulated RAM is one block (4 GiB, or 6/8/12 with expanded DRAM): physical address `pa` at `ram + pa`. Seen on Astris 1.0.32 (Hypervisor): `ram` = `0x7000000000`, listed by macOS as 128 MiB regions whose share mode varies (copy-on-write where untouched). | `GuestRam` |
 | Main program | Searched for in the largest stretch of writable memory first (page-aligned `MOD0` header, then the build-id). Not at a region start: seen at `ram + 0x34004000` for virtual `0x8004000`. Physically contiguous, so the roster and globals are read at the same offsets as on Eden. | `GuestRam.main_candidates` |
 | Battle copies | Searched for in the RAM block, as on Eden. | `GuestRam.heap_regions` |

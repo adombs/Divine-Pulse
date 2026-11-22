@@ -17,6 +17,10 @@ fastmem, so the tracker works from the RAM block alone, which every mode has:
 Seen live on Astris 1.0.32 (macOS, Hypervisor): the RAM block at host 0x7000000000 (4 GiB, in 128 MiB regions whose
 macOS share mode varies with use), FE3H 1.2.0's main program at RAM + 0x34004000 for virtual 0x8004000, history
 entries at virtual 0x21_4510_xxxx.
+
+On Linux the RAM block is one mapping of an unlinked /dev/shm/Ryujinx-* file (the default "host" memory modes; from
+Ryubing's MemoryManagementUnix.cs), read through the file (memory_linux.py). The modes' second views of it, at the
+game's virtual addresses, are smaller, so the block is found first.
 """
 
 from __future__ import annotations
@@ -38,13 +42,16 @@ LARGEST_REGION = 64 * GIB
 
 
 def runs(regions: Iterable[Region]) -> list[tuple[int, int]]:
-    """(start, end) of each stretch of back-to-back regions."""
+    """(start, end) of each stretch of back-to-back regions that are parts of the same memory. (Linux places unrelated
+    memory right beside the RAM block, whose start `locate` counts from: Region.continues tells them apart.)"""
     out: list[tuple[int, int]] = []
+    before: Region | None = None
     for r in regions:
-        if out and out[-1][1] == r.base:
+        if before is not None and r.continues(before):
             out[-1] = (out[-1][0], r.base + r.size)
         else:
             out.append((r.base, r.base + r.size))
+        before = r
     return out
 
 
@@ -117,6 +124,12 @@ class GuestRam:
                 if data is not None and check(data):
                     return host
         return None
+
+    def hidden(self, process: ProcessMemory) -> bool:
+        """Whether the RAM block seems to be there but can't be read: memory as large as a Switch's that the system
+        keeps from this program (Linux, with Ryujinx's "software" memory mode: its RAM isn't shared memory)."""
+        regions = getattr(process, "hidden_regions", None)
+        return regions is not None and any(r.writable and 4 * GIB <= r.size <= LARGEST_REGION for r in regions())
 
     def forget(self, process: ProcessMemory) -> None:
         with self._lock:

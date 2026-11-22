@@ -1,5 +1,5 @@
 #!/bin/sh
-# Starts Divine Pulse from the source checkout on macOS, after tools/setup.sh (the same checks as tools/launch.bat).
+# Starts Divine Pulse from the source checkout on macOS and Linux, after tools/setup.sh (the same checks as tools/launch.bat).
 set -eu
 root="$(cd "$(dirname "$0")/.." && pwd)"
 backend="$root/backend"

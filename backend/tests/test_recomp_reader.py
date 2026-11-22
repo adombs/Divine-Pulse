@@ -113,12 +113,13 @@ def test_each_setting_names_its_reader():
     assert emulators_for("eden") is EMULATORS and emulators_for("recomp") is RECOMP_EMULATORS
     assert emulators_for("something else") is emulators_for("auto")
     assert set(emulators_for("auto")) == (
-        {*EMULATORS, *RECOMP_EMULATORS, *RYUJINX_EMULATORS} if sys.platform == "win32" else {*RYUJINX_EMULATORS}
+        {"win32": {*EMULATORS, *RECOMP_EMULATORS, *RYUJINX_EMULATORS}, "linux": {*EMULATORS, *RYUJINX_EMULATORS}}
+        .get(sys.platform, {*RYUJINX_EMULATORS})
     )
 
 
 @pytest.mark.parametrize(("platform", "expected"), [("win32", "Eden, Astris or Ryubing, FE3H Recomp"),
-                                                    ("darwin", "Astris or Ryubing"), ("linux", "Astris or Ryubing")])
+                                                    ("darwin", "Astris or Ryubing"), ("linux", "Eden, Astris or Ryubing")])
 def test_auto_looks_only_for_the_programs_that_run_on_this_computer(as_platform, platform, expected):
     """A Mac can't run Eden for Windows (eden.exe) or FE3H Recomp (fe3hrecomp.exe): its message doesn't name them."""
     as_platform(platform)

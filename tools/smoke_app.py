@@ -2,14 +2,15 @@
 
     python tools/smoke_app.py [--zip release/Divine-Pulse-1.5.3-macos-arm64.zip] [--port 8799] [--keep]
 
-Without --zip it takes this version's release zip from release/ (tools/build.py's output). The same steps run on
-each system; a Platform (Windows, MacOS) supplies the system's part, as tools/build.py's Targets do:
+Without --zip it takes this version's release zip (Linux: tar.gz) from release/ (tools/build.py's output). The same steps run on
+each system; a Platform (Windows, MacOS, Linux) supplies the system's part, as tools/build.py's Targets do:
 
 - unzips it into a temporary folder the way a download ends up (Windows: with Internet-zone markers on the DLLs, as
   Explorer leaves them; macOS: with ditto, as Finder and Archive Utility do, then read-only, as App Translocation
-  runs a downloaded app);
+  runs a downloaded app; Linux: with tar, then read-only);
 - checks the program's own files (Windows: the CLR settings beside the executable and the bundled NSTool; macOS: the
-  app's signature, codesign --verify --deep --strict, and the memory reader helper's debugger entitlement);
+  app's signature, codesign --verify --deep --strict, and the memory reader helper's debugger entitlement;
+  Linux: what must be able to run);
 - starts the app with a new, empty data folder (DIVINE_PULSE_DATA_DIR) set to use --port, which opens its window;
 - checks /api/health, /api/about (this platform, that data folder), the page (GET /) and a picture the page loads
   (/brand/home-lockup-cream.png, which must be a PNG, not the page served in its place);
@@ -140,12 +141,44 @@ class MacOS(Platform):
         subprocess.run(["chmod", "-R", "u+w", str(program)], check=False)
 
 
-PLATFORMS = {"win32": Windows, "darwin": MacOS}  # Linux: not built yet (tools/build.py)
+class Linux(Platform):
+    key = "linux"
+
+    def zip_pattern(self, v: str) -> str:
+        return f"Divine-Pulse-{v}-linux-*.tar.gz"
+
+    def unzip(self, archive: Path, into: Path) -> Path:
+        into.mkdir(parents=True)
+        subprocess.run(["tar", "-xzf", str(archive), "-C", str(into)], check=True)
+        folder = into / APP_NAME
+        if not self.executable(folder).is_file():
+            raise SmokeFailure(f"{archive.name} has no {APP_NAME}/{APP_NAME}")
+        subprocess.run(["chmod", "-R", "a-w", str(folder)], check=True)  # as from /opt
+        return folder
+
+    def executable(self, program: Path) -> Path:
+        return program / APP_NAME
+
+    def check_program(self, program: Path) -> None:
+        step("Program files")
+        engine = sorted(program.rglob("QtWebEngineProcess"))
+        if not engine:
+            raise SmokeFailure("QtWebEngineProcess is missing: the window can't open")
+        for path in (self.executable(program), program / "install.sh", engine[0]):
+            if not os.access(path, os.X_OK):
+                raise SmokeFailure(f"{path.relative_to(program)} can't run")
+            ok(str(path.relative_to(program)))
+
+    def cleanup(self, program: Path) -> None:
+        subprocess.run(["chmod", "-R", "u+w", str(program)], check=False)
+
+
+PLATFORMS = {"win32": Windows, "darwin": MacOS, "linux": Linux}
 
 
 def current() -> Platform:
     if sys.platform not in PLATFORMS:
-        raise SmokeFailure(f"the release isn't built for {sys.platform} yet; it runs on Windows or macOS")
+        raise SmokeFailure(f"the release isn't built for {sys.platform} yet; it runs on Windows, macOS or Linux")
     return PLATFORMS[sys.platform]()
 
 

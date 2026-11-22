@@ -1,4 +1,4 @@
-# Building the release program on Windows or macOS (tools/build.py). Not needed to run from source.
+# Building the release program on Windows, macOS or Linux (tools/build.py). Not needed to run from source.
 -r requirements.txt
 pyinstaller==6.22.3
 pyinstaller-hooks-contrib==2026.8

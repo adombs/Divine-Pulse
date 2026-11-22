@@ -14,6 +14,7 @@ test("the platform comes from the browser's own report", () => {
   assert.equal(detectPlatform({}), "windows");
   // Linux's WebKitGTK and Qt web views (pywebview's renderers there).
   assert.equal(detectPlatform({ platform: "Linux x86_64", userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko)" }), "linux");
+  assert.equal(detectPlatform({ platform: "Linux x86_64", userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) QtWebEngine/6.140.0 Chrome/140.0.0.0 Safari/537.36" }), "linux");
 });
 
 test("only the macOS app's window is Safari's engine without Safari's Back menu", () => {
@@ -21,6 +22,7 @@ test("only the macOS app's window is Safari's engine without Safari's Back menu"
   assert.equal(isSafariEngine(SAFARI), true);
   assert.equal(isSafariEngine(WEBVIEW2), false);
   assert.equal(isSafariEngine(CHROME_MAC), false);
+  assert.equal(isSafariEngine("Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) QtWebEngine/6.140.0 Chrome/140.0.0.0 Safari/537.36"), false);
   assert.equal(isMacAppWindow(WKWEBVIEW), true);
   assert.equal(isMacAppWindow(SAFARI), false);
   assert.equal(isMacAppWindow(WEBVIEW2), false);

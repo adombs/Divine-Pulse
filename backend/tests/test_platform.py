@@ -78,14 +78,15 @@ def test_emulator_folders():
 def test_which_programs_run_where():
     assert windows.runs_program("eden.exe") and windows.runs_program("ryujinx")
     for module in (macos, linux):
-        assert not module.runs_program("fe3hrecomp.exe") and module.runs_program("astris")
+        assert not module.runs_program("fe3hrecomp.exe") and module.runs_program("ryujinx")
+    assert linux.runs_program("eden") and not macos.runs_program("eden")  # Eden's game isn't read on a Mac
 
 
 def test_texts_name_their_os():
     for module in platform.ALL:
         assert module.NAME in module.MEMORY_ACCESS_HELP.format(emulator="Eden")
         assert "{emulator}" in module.MEMORY_ACCESS_HELP
-    assert "WebView2" in windows.WEBVIEW_MISSING and "WebKit" in macos.WEBVIEW_MISSING and "GTK" in linux.WEBVIEW_MISSING
+    assert "WebView2" in windows.WEBVIEW_MISSING and "WebKit" in macos.WEBVIEW_MISSING and "Qt" in linux.WEBVIEW_MISSING
     assert (windows.NSTOOL_NAME, macos.NSTOOL_NAME, linux.NSTOOL_NAME) == ("nstool.exe", "nstool", "nstool")
 
 
@@ -99,7 +100,7 @@ def test_web_view_caches_cleared_on_a_new_installation(tmp_path):
     assert windows.webview_caches(tmp_path)[0] == tmp_path / "webview" / "EBWebView" / "Default" / "Cache"
     assert all("Local Storage" not in str(p) for p in windows.webview_caches(tmp_path))
     assert macos.webview_caches(tmp_path, HOME) == [HOME / "Library" / "Caches" / macos.BUNDLE_ID / "WebKit"]
-    assert linux.webview_caches(tmp_path, HOME) == []
+    assert linux.webview_caches(tmp_path / "Divine Pulse", HOME) == [HOME / ".cache" / "Divine Pulse" / "QtWebEngine"]
 
 
 def test_flags():
@@ -129,13 +130,86 @@ def test_setup_questions_map_to_the_installer_s_answers(monkeypatch, as_platform
         assert launcher._setup_choice("Keep?") == expected
 
 
-def test_linux_says_what_it_doesnt_support_yet():
-    with pytest.raises(base.NotSupported, match="Linux"):
-        linux.ask("Keep?", "Divine Pulse setup")
-    from app.system import memory_linux
+@pytest.mark.parametrize(("code", "output", "answer"), [
+    (0, "", "yes"), (1, "No\n", "no"), (1, "", "cancel"),  # closed, or its Cancel button
+    (5, "", "cancel"), (255, "", "cancel"),  # zenity failed: never No, which can delete records
+])
+def test_linux_setup_questions_without_qt(monkeypatch, code, output, answer):
+    import subprocess
 
-    with pytest.raises(base.NotSupported, match="Linux"):
-        memory_linux.Process(1)
+    asked = []
+    monkeypatch.setattr(linux, "_qt_message", lambda *a, **k: None)
+    monkeypatch.setattr(linux.shutil, "which", lambda name: f"/usr/bin/{name}")
+    monkeypatch.setattr(linux.subprocess, "run",
+                        lambda command, **k: asked.append(command) or subprocess.CompletedProcess(command, code, output, ""))
+    assert linux.ask("Keep?", "Divine Pulse setup") == answer
+    assert asked[0][0] == "zenity" and "--text=Keep?" in asked[0]
+
+
+def test_linux_asks_with_qt_first_and_says_when_nothing_can_ask(monkeypatch):
+    monkeypatch.setattr(linux, "_qt_message", lambda *a, **k: "no")
+    assert linux.ask("Keep?", "Divine Pulse setup") == "no"
+    monkeypatch.setattr(linux, "_qt_message", lambda *a, **k: None)
+    monkeypatch.setattr(linux.shutil, "which", lambda name: None)
+    with pytest.raises(base.NotSupported, match="zenity"):
+        linux.ask("Keep?", "Divine Pulse setup")
+
+
+def test_linux_starts_other_programs_with_the_environment_it_was_given(monkeypatch):
+    """The packaged program's own libraries (PyInstaller's LD_LIBRARY_PATH, Qt's plugins) would break them."""
+    assert linux.child_env() is None  # from source
+    monkeypatch.setattr(linux.sys, "frozen", True, raising=False)
+    monkeypatch.setenv("LD_LIBRARY_PATH", "/opt/Divine Pulse/_internal")
+    monkeypatch.setenv("QT_PLUGIN_PATH", "/opt/Divine Pulse/_internal/PyQt6")
+    monkeypatch.setenv("KEPT", "1")
+    env = linux.child_env()
+    assert env["KEPT"] == "1" and "LD_LIBRARY_PATH" not in env and "QT_PLUGIN_PATH" not in env
+    monkeypatch.setenv("LD_LIBRARY_PATH_ORIG", "/usr/local/lib")
+    assert linux.child_env()["LD_LIBRARY_PATH"] == "/usr/local/lib" and "LD_LIBRARY_PATH_ORIG" not in linux.child_env()
+
+
+def test_linux_window_needs_a_display():
+    assert linux.has_display({"WAYLAND_DISPLAY": "wayland-0"}) and linux.has_display({"DISPLAY": ":0"})
+    assert not linux.has_display({})
+
+
+@pytest.mark.parametrize(("settings", "blocked"), [
+    ({}, False), ({"kernel.apparmor_restrict_unprivileged_userns": "1"}, True),
+    ({"kernel.apparmor_restrict_unprivileged_userns": "0", "kernel.unprivileged_userns_clone": "1"}, False),
+    ({"kernel.unprivileged_userns_clone": "0"}, True), ({"user.max_user_namespaces": "0"}, True),
+])
+def test_linux_runs_the_window_without_a_sandbox_only_where_it_cant_start(monkeypatch, settings, blocked):
+    monkeypatch.setattr(linux, "_sysctl", lambda name: settings.get(name, ""))
+    monkeypatch.setattr(linux.os, "geteuid", lambda: 1000, raising=False)
+    monkeypatch.delenv("QTWEBENGINE_DISABLE_SANDBOX", raising=False)
+    monkeypatch.setenv("QT_API", "pyqt6")
+    assert linux.sandbox_blocked() is blocked
+    linux.prepare_qt()
+    assert ("QTWEBENGINE_DISABLE_SANDBOX" in linux.os.environ) is blocked
+    monkeypatch.delenv("QTWEBENGINE_DISABLE_SANDBOX", raising=False)
+    monkeypatch.setattr(linux.os, "geteuid", lambda: 0, raising=False)
+    assert linux.sandbox_blocked()
+
+
+def test_linux_finds_a_downloaded_nstool(tmp_path, monkeypatch):
+    monkeypatch.setattr(linux.shutil, "which", lambda name: None)
+    unzipped = tmp_path / "Downloads" / "nstool-v1.9.2-ubuntu_x86_64"
+    unzipped.mkdir(parents=True)
+    (unzipped / "nstool").write_bytes(b"")
+    (unzipped / "nstool").chmod(0o644)
+    assert next(c for c in linux.nstool_candidates(tmp_path) if c.is_file()) == unzipped / "nstool"
+    if sys.platform != "win32":
+        with pytest.raises(ValueError, match="chmod"):
+            linux.check_nstool(unzipped / "nstool", "https://example.invalid")
+
+
+def test_linux_finds_flatpak_emulators_folders(tmp_path):
+    eden = tmp_path / ".var/app/dev.eden_emu.eden/data/eden"
+    ryubing = tmp_path / ".var/app/io.github.ryubing.Ryujinx/config/Ryujinx"
+    eden.mkdir(parents=True)
+    ryubing.mkdir(parents=True)
+    assert linux.eden_user_dirs({}, tmp_path) == [tmp_path / ".local/share/eden", eden]
+    assert linux.ryujinx_roots({}, tmp_path) == [tmp_path / ".config/Ryujinx", ryubing]
 
 
 @pytest.mark.skipif(sys.platform == "win32", reason="makes symbolic links")
@@ -147,7 +221,6 @@ def test_linux_lists_processes_from_proc(tmp_path, monkeypatch):
     (tmp_path / "43").mkdir()  # another user's: its exe can't be read
     (tmp_path / "self").mkdir()
     monkeypatch.setattr(memory_linux, "PROC", tmp_path)
-    monkeypatch.setattr(memory_linux._all_processes, "__defaults__", (tmp_path,))
     assert memory_linux.find_processes({"ryujinx"}) == [(42, "ryujinx")]
     assert memory_linux.process_paths({"ryujinx", "eden"}) == ["/opt/Ryubing/Ryujinx"]
 
@@ -173,10 +246,10 @@ def test_memory_goes_through_the_current_platform(as_platform, monkeypatch):
     from app.system import memory, memory_linux
 
     as_platform("linux")
-    monkeypatch.setattr(memory_linux, "_all_processes", lambda: [(7, "/usr/bin/Ryujinx")])
+    monkeypatch.setattr(memory_linux, "_all_processes", lambda: [(7, "/usr/bin/Ryujinx", {"ryujinx"})])
     assert memory.find_processes({"Ryujinx"}) == [(7, "ryujinx")]
-    with pytest.raises(OSError):
-        memory.open_process(7)
+    monkeypatch.setattr(memory_linux, "Process", lambda pid: ("opened", pid))
+    assert memory.open_process(7) == ("opened", 7)
 
 
 def test_about_reports_the_platform(tmp_path):
@@ -188,11 +261,13 @@ def test_about_reports_the_platform(tmp_path):
         assert client.get("/api/about").json()["platform"] == platform.current().ID
 
 
-def test_running_only_looks_for_eden(monkeypatch):
+def test_running_only_looks_for_eden(monkeypatch, as_platform):
+    as_platform("win32")
+
     from app.gamemem.emulators import running
 
     def processes(names):
-        assert names == {"eden.exe"}
+        assert names == {"eden.exe", "eden", "eden-cli"}
         return [(42, "eden.exe")]
 
     monkeypatch.setattr("app.gamemem.emulators.find_processes", processes)

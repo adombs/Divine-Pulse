@@ -16,7 +16,7 @@ import { flushSync } from "react-dom";
 import type { Battle, RunRoute, Unit } from "../../api";
 import { clock } from "../../format";
 import { Icon, IconButton } from "../Icon";
-import { IS_MAC } from "../../platform";
+import { PLATFORM } from "../../platform";
 import { Modal } from "../Modal";
 import { ExportActions, type ExportStatus } from "../ExportActions";
 import { NotchedRange, RangeSlider } from "../Slider";
@@ -623,7 +623,7 @@ function ReplayExportDialog({ battle, chron: everything, route, runName, units, 
   const exportVideo = async () => {
     const out = [Math.round(width * scale), Math.round(height * scale)] as const;
     if (!(await canEncode(out[0], out[1], fps))) {
-      setStatus({ kind: "error", message: `This window can't encode MP4 video at ${out[0]} × ${out[1]}${fps === 60 ? " and 60 frames a second" : ""}. Try a lower resolution, or update ${IS_MAC ? "macOS" : "Microsoft Edge WebView2"}.` });
+      setStatus({ kind: "error", message: `This window can't encode MP4 video at ${out[0]} × ${out[1]}${fps === 60 ? " and 60 frames a second" : ""}. Try a lower resolution, or update ${{ macos: "macOS", windows: "Microsoft Edge WebView2", linux: "Divine Pulse" }[PLATFORM]}.` });
       return;
     }
     const controller = new AbortController();
