@@ -100,6 +100,17 @@ a = Analysis(
     excludes=excludes,
     noarchive=False,
 )
+# Linux: libraries that belong to the system it runs on, which every desktop has, not to the one it's built on. The
+# graphics driver's own (libgbm), what the system's drivers load with it (a newer Mesa needs a newer libstdc++), and
+# those that read the system's own settings and plugins (sound, fonts). And Qt's GTK theme, which would bring an old GTK
+# to load the system's GTK modules into: file dialogs come from the desktop's portal without it.
+SYSTEM_LIBRARIES = re.compile(
+    r"lib(gbm|drm|stdc\+\+|gcc_s|X11|X11-xcb|asound|fontconfig|freetype|expat|z|qgtk3|gtk-3|gdk-3|gdk_pixbuf-2\.0|atk-1\.0"
+    r"|atk-bridge-2\.0|atspi|cairo-gobject|epoxy)\.so(\.\d+)*$"
+)
+if sys.platform == "linux":
+    for found in (a.binaries, a.datas):
+        found[:] = [entry for entry in found if not SYSTEM_LIBRARIES.match(Path(entry[0]).name)]
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,

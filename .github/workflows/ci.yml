@@ -162,7 +162,7 @@ jobs:
 
   linux-release-elsewhere:
     # The Linux release, built on Ubuntu 22.04, started on the newest Ubuntu: newer system libraries, and AppArmor's
-    # rule that stops Chromium's sandbox (app/system/platform/linux.py, sandbox_blocked). Only a display is installed.
+    # rule that stops Chromium's sandbox (app/system/platform/linux.py, sandbox_blocked). Only a display and what every desktop has are installed.
     name: Linux release on a newer distribution
     needs: release-build
     runs-on: ubuntu-26.04
@@ -175,5 +175,5 @@ jobs:
         with:
           name: divine-pulse-Linux
           path: release
-      - run: sudo apt-get update && sudo apt-get install -y xvfb libegl1 libgl1 libnss3 libasound2t64
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libegl1 libgl1 libgbm1 libasound2t64 libfontconfig1
       - run: xvfb-run -a python3 tools/smoke_app.py --port 8799

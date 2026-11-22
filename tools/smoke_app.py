@@ -42,6 +42,8 @@ ROOT = Path(__file__).resolve().parents[1]
 RELEASE = ROOT / "release"
 APP_NAME = "Divine Pulse"
 HELPER = "dp-memreader"  # app.system.memory_macos.HELPER_NAME
+# Libraries the Linux program must take from the system it runs on (packaging/divine_pulse.spec, SYSTEM_LIBRARIES).
+SYSTEM_LIBRARIES = ("libgbm.so.1", "libstdc++.so.6", "libgcc_s.so.1", "libasound.so.2", "libfontconfig.so.1", "libgtk-3.so.0")
 DEBUGGER_ENTITLEMENT = "com.apple.security.cs.debugger"
 PICTURE = "/brand/home-lockup-cream.png"
 PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -168,6 +170,10 @@ class Linux(Platform):
             if not os.access(path, os.X_OK):
                 raise SmokeFailure(f"{path.relative_to(program)} can't run")
             ok(str(path.relative_to(program)))
+        bundled = [name for name in SYSTEM_LIBRARIES if any(program.rglob(name))]
+        if bundled:
+            raise SmokeFailure(f"the system's own libraries are bundled: {', '.join(bundled)}")
+        ok("the graphics, sound and font libraries are the system's")
 
     def cleanup(self, program: Path) -> None:
         subprocess.run(["chmod", "-R", "u+w", str(program)], check=False)
