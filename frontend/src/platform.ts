@@ -6,7 +6,7 @@
  * browser's own platform is the tracker's.
  */
 
-export type Platform = "macos" | "windows";
+export type Platform = "macos" | "windows" | "linux";
 
 interface NavigatorLike {
   platform?: string;
@@ -15,10 +15,15 @@ interface NavigatorLike {
 
 const here = (): NavigatorLike => (typeof navigator === "undefined" ? {} : navigator);
 
-/** The platform from the browser's own report: a Mac's says MacIntel (Apple silicon too) and Macintosh. */
+/** The platform from the browser's own report: a Mac's says MacIntel (Apple silicon too) and Macintosh, Linux's Linux. */
 export function detectPlatform(nav: NavigatorLike = here()): Platform {
-  return /^Mac/.test(nav.platform ?? "") || /Macintosh|Mac OS X/.test(nav.userAgent ?? "") ? "macos" : "windows";
+  if (/^Mac/.test(nav.platform ?? "") || /Macintosh|Mac OS X/.test(nav.userAgent ?? "")) return "macos";
+  if (/Linux/.test(nav.platform ?? "") || /Linux|X11/.test(nav.userAgent ?? "")) return "linux";
+  return "windows";
 }
+
+/** The platform's name, as the app shows it. */
+export const PLATFORM_NAME: Record<Platform, string> = { macos: "macOS", windows: "Windows", linux: "Linux" };
 
 export const PLATFORM: Platform = detectPlatform();
 export const IS_MAC = PLATFORM === "macos";

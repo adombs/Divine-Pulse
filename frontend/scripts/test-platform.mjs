@@ -12,6 +12,8 @@ test("the platform comes from the browser's own report", () => {
   assert.equal(detectPlatform({ platform: "", userAgent: SAFARI }), "macos");
   assert.equal(detectPlatform({ platform: "Win32", userAgent: WEBVIEW2 }), "windows");
   assert.equal(detectPlatform({}), "windows");
+  // Linux's WebKitGTK and Qt web views (pywebview's renderers there).
+  assert.equal(detectPlatform({ platform: "Linux x86_64", userAgent: "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/605.1.15 (KHTML, like Gecko)" }), "linux");
 });
 
 test("only the macOS app's window is Safari's engine without Safari's Back menu", () => {

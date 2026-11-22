@@ -575,7 +575,7 @@ export interface About {
   /** Shown in the desktop window (not the browser), where window_mode applies. */
   desktop: boolean;
   /** The operating system the tracker runs on. */
-  platform: "windows" | "macos";
+  platform: "windows" | "macos" | "linux";
 }
 
 export interface GameAssetsJob {

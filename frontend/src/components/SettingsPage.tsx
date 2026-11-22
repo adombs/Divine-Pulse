@@ -14,7 +14,7 @@ import { ToastState } from "./Toasts";
 import { Segmented, Switch } from "./ui";
 import { AppearanceState, FONTS, TEXT_SCALE, loadFont } from "../appearance";
 import { useNav } from "../nav";
-import { IS_MAC } from "../platform";
+import { IS_MAC, PLATFORM, PLATFORM_NAME } from "../platform";
 import { PageHeader } from "./layout";
 import { Icon, IconName } from "./Icon";
 import { MemoryCheck } from "./MemoryCheck";
@@ -601,7 +601,7 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
     <div className="set-about">
       <Group title="This copy">
         <Row label="Version">
-          <span className="set-value">{about.version} · {mac ? "macOS" : "Windows"}</span>
+          <span className="set-value">{about.version} · {PLATFORM_NAME[PLATFORM]}</span>
         </Row>
         <Row
           label="Data folder"
