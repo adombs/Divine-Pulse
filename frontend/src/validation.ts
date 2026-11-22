@@ -19,16 +19,6 @@ export function textError(value: string, what: string, max: number, required = t
   return null;
 }
 
-/** A decimal number in [lo, hi] (e.g. seconds), or an error message. */
-export function numberError(value: string, what: string, [lo, hi]: [number, number], unit = ""): string | null {
-  const t = value.trim();
-  if (!t) return `${what} is missing.`;
-  const n = Number(t);
-  if (!Number.isFinite(n)) return `${what} must be a number.`;
-  if (n < lo || n > hi) return `${what} must be between ${lo} and ${hi}${unit}.`;
-  return null;
-}
-
 /** Another item already using this name (case, spacing and punctuation ignored). */
 export function duplicateName<T>(name: string, items: T[], nameOf: (t: T) => string, skip?: T): T | undefined {
   const n = normalizeName(name);

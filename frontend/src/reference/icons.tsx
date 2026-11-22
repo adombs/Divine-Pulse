@@ -1,11 +1,8 @@
 import { crestLabel, crestName, isMysteryCrest } from "./crests";
-import { SkillIcon } from "../components/SkillIcon";
-import { SKILL_LABEL, type SkillKey } from "./types";
 import "./icons.css";
 import { loadGameJson, loadGameText } from "../gameAssets";
 import { gameLanguage } from "../gameLanguage";
 import { GameImage, MissingGameAsset } from "../components/GameImage";
-import { RankIcon } from "../components/RankIcon";
 import { artWeapon } from "./gameData";
 
 type Manifest = {
@@ -163,11 +160,6 @@ export function AbilityIcon({ name }: { name: string }) {
   return <Group icons={[[abilityIconUrl(name), ""]]} />;
 }
 
-/** A crest's icon, Major or Minor (they differ in the game), or nothing. */
-export function CrestIcon({ name, major = true }: { name: string; major?: boolean }) {
-  return <Group icons={[[crestIconUrl(name, major), "crest-icon"]]} />;
-}
-
 /** An item's icon (weapon, shield, ring, staff, gem, consumable, key), or nothing. */
 export function ItemIcon({ name }: { name: string }) {
   return <Group icons={[[itemIconUrl(name), ""]]} />;
@@ -220,24 +212,3 @@ export function CrestMark({ name, major = true }: { name: string; major?: boolea
   return <span role="img" aria-label={label} title={label}><RefIcon className="crest-icon" src={src} /></span>;
 }
 
-/**
- * Skills as their in-game icons (weapons) with the name on hover, in a row; `ranks` adds a letter after each.
- */
-export function SkillIcons({
-  skills,
-  ranks,
-}: {
-  skills: readonly SkillKey[];
-  ranks?: Partial<Record<SkillKey, string>>;
-}) {
-  return (
-    <span className="ref-skills">
-      {skills.map((s) => (
-        <span key={s} className="ref-skill" title={ranks?.[s] ? `${SKILL_LABEL[s]} ${ranks[s]}` : undefined}>
-          <SkillIcon skill={s} />
-          {ranks?.[s] && <span className="ref-skill-rank"><RankIcon rank={ranks[s]} title="" /></span>}
-        </span>
-      ))}
-    </span>
-  );
-}

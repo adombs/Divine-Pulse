@@ -49,20 +49,3 @@
   vertical-align: -0.25em;
   flex: none;
 }
-
-/* Skills as a row of icons, each with an optional rank letter. */
-.ref-skills {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0.15rem 0.55rem;
-  vertical-align: middle;
-}
-.ref-skill {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.2em;
-}
-.ref-skill-rank {
-  font: 600 0.9em var(--nums);
-}

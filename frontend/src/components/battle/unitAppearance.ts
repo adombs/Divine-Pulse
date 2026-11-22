@@ -24,5 +24,3 @@ export function mapSpan(unit: Pick<Unit, "class_id" | "class_name"> | undefined)
   return /^(?:Exp\. )?Demonic Beast$/i.test(unit?.class_name ?? "") ? 2 : 1;
 }
 
-/** Older imports already contain this native Crest Stone Shard icon. */
-export const CRYSTAL_ITEM_ICON = "images/icons/items-native/204.png";

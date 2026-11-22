@@ -4,7 +4,7 @@
  */
 import type { Battle, BattleUnit, EnemyStats, MapStep, TerrainTile } from "../../api";
 import type { Sprite } from "./mapIcons";
-import { armyId, enemyId, LOW_HP, people } from "./model";
+import { armyId, enemyId, people } from "./model";
 import { battleWeapon, mapSpan } from "./unitAppearance";
 
 /** Battle maps are at most this many tiles across and down. */
@@ -291,8 +291,6 @@ export function share(p: Piece): number | null {
   return p.hp === null || !p.max ? null : Math.max(0, Math.min(1, p.hp / p.max));
 }
 
-export const isLow = (p: Piece): boolean => !p.down && (share(p) ?? 1) <= LOW_HP;
-
 /** "Byleth · Enlightened One · 40/52 HP · tile 3, 25 · Forest (Avo +30, Def +1)": a piece's tooltip. */
 export function describe(p: Piece, tile?: TerrainTile | null): string {
   const hp = p.hp === null ? null : p.max ? `${p.hp}/${p.max} HP` : `${p.hp} HP`;
@@ -325,17 +323,6 @@ export interface Action {
 export const allActions = (action: Action | null | undefined): Action[] => (action ? [...(action.with ?? []), action] : []);
 
 export type StepKinds = Map<number, "attack" | "heal">;
-
-/** The kind of each step's action, from the log (history position -> "attack" / "heal"). */
-export function stepKinds(battle: Battle): StepKinds {
-  const out: StepKinds = new Map();
-  for (const e of battle.log ?? []) {
-    if (e.step === null || e.step === undefined) continue;
-    if (e.kind === "attack") out.set(e.step, "attack");
-    else if ((e.kind === "heal" || e.kind === "item") && !out.has(e.step)) out.set(e.step, "heal");
-  }
-  return out;
-}
 
 export function stepAction(steps: MapStep[], all: Frame[], i: number, kinds?: StepKinds): Action | null {
   const step = steps[i];
