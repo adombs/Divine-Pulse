@@ -603,24 +603,48 @@ export interface GameFilesPart { id: string; name: string; found: boolean; detai
 export interface GameFilesVerify { ok: boolean; checked: number; errors: string[]; warnings: string[] }
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status?: number) { super(message); }
+  readonly status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/** Said when the tracker can't be reached at all. The engines word it differently ("Failed to fetch" in WebView2,
+ * "Load failed" in WKWebView), so the app says it one way on both. */
+export const UNREACHABLE = "The tracker isn't responding. Check that Divine Pulse is still running.";
+
+/** The message for a failed reply: the server's `detail` (a string, or FastAPI's list of validation errors), else
+ * the status text, else the status code. */
+export function errorDetail(data: unknown, status: number, statusText: string): string {
+  const detail = (data as { detail?: unknown } | null)?.detail;
+  if (typeof detail === "string" && detail) return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail.map((d) => (d as { msg?: unknown })?.msg).filter((m): m is string => typeof m === "string" && !!m);
+    if (messages.length) return messages.join("; ");
+  }
+  return statusText || `Request failed (${status})`;
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      method,
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(UNREACHABLE);
+  }
   if (!res.ok) {
-    let detail = res.statusText;
+    let data: unknown = null;
     try {
-      const data = await res.json();
-      detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+      data = await res.json();
     } catch {
-      /* keep statusText */
+      /* not JSON: the status text says it */
     }
-    throw new ApiError(res.status === 404 && path.startsWith("/game-assets") ? "Not available" : detail, res.status);
+    throw new ApiError(res.status === 404 && path.startsWith("/game-assets") ? "Not available" : errorDetail(data, res.status, res.statusText), res.status);
   }
   const text = await res.text();
   return (text ? JSON.parse(text) : null) as T;
