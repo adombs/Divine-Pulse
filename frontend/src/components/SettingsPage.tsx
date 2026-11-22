@@ -343,10 +343,16 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
     setSaveFolder(s.save_folder ?? "");
   };
 
+  // A failed read used to leave the page on "Loading…" for good, with an unhandled rejection.
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [loadAttempt, setLoadAttempt] = useState(0);
   useEffect(() => {
-    api.settings().then(apply);
-    api.about().then((a) => setDesktop(a.desktop), () => setDesktop(false));
-  }, []);
+    let live = true;
+    setLoadError(null);
+    api.settings().then((s) => { if (live) apply(s); }, (err: Error) => { if (live) setLoadError(err.message); });
+    api.about().then((a) => { if (live) setDesktop(a.desktop); }, () => { if (live) setDesktop(false); });
+    return () => { live = false; };
+  }, [loadAttempt]);
   // A new section starts at its top.
   useEffect(() => { panelRef.current?.scrollTo({ top: 0 }); }, [tab]);
 
@@ -377,7 +383,11 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
     }
   };
 
-  if (!settings) return <p className="muted">Loading…</p>;
+  if (!settings) {
+    return loadError
+      ? <div className="startup-error" role="alert"><span>Couldn't read the settings: {loadError}</span><button type="button" className="btn" onClick={() => setLoadAttempt((n) => n + 1)}>Retry</button></div>
+      : <p className="muted">Loading…</p>;
+  }
 
   const changed: Partial<Record<SettingsTab, boolean>> = {
     general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader || duplicates !== (settings.duplicate_battles ?? "keep_best") || checkUpdates !== (settings.check_updates ?? true)
@@ -525,7 +535,9 @@ function SaveBackupsGroup({ toasts, id, limit, setLimit, invalid, folder, setFol
 }) {
   const [status, setStatus] = useState<SaveBackupStatus | null>(null);
   useEffect(() => {
-    api.saveBackups().then(setStatus, () => setStatus(null));
+    let live = true;
+    api.saveBackups().then((s) => { if (live) setStatus(s); }, () => { if (live) setStatus(null); });
+    return () => { live = false; };
   }, []);
   const open = async () => {
     try {
@@ -571,10 +583,13 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
   const reference = useReference();
   const [about, setAbout] = useState<About | null>(null);
   useEffect(() => {
-    api.about().then(setAbout, () => setAbout(null));
+    let live = true;
+    api.about().then((a) => { if (live) setAbout(a); }, () => { if (live) setAbout(null); });
+    return () => { live = false; };
   }, []);
   if (!about) return null;
-  const mac = about.platform ? about.platform === "macos" : IS_MAC;
+  // platform.ts is the one source for which computer this is (the tracker's, as the page is only shown there).
+  const mac = IS_MAC;
   const open = async () => {
     try {
       await api.openDataFolder();
