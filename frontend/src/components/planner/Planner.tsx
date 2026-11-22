@@ -80,7 +80,11 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
   const [offRoster, setOffRoster] = useState<Record<string, UnitPlan> | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [status, setStatus] = useState<SaveStatus>("idle");
-  const reset = useRef<() => void>(() => {});
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  // Deleting a plan starts the body over, so it shows what a new plan would.
+  const [generation, setGeneration] = useState(0);
+  const body = useRef<BodyHandle | null>(null);
   useEffect(() => {
     if (!open) return;
     setSubject({ kind: "unit", key: start.key });
@@ -138,9 +142,33 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
     const u = rosterByCharacter.get(e.id);
     go(u ? { kind: "unit", key: u.key } : { kind: "character", key: e.id });
   };
-  const save = useCallback((plan: UnitPlan) => (subject.kind === "unit"
-    ? api.setUnitPlan(runId, subject.key, plan).then(() => { savedPlans.set(`${runId}:${subject.key}`, plan); })
-    : api.setPlan(runId, subject.key, plan).then(() => setOffRoster((p) => ({ ...p, [subject.key]: plan })))), [runId, subject]);
+  // One save at a time, in order: an edit still on its way can't land after the plan is deleted.
+  const lastSave = useRef<Promise<unknown>>(Promise.resolve());
+  const save = useCallback((plan: UnitPlan) => {
+    const send = () => (subject.kind === "unit"
+      ? api.setUnitPlan(runId, subject.key, plan).then(() => { savedPlans.set(`${runId}:${subject.key}`, plan); })
+      : api.setPlan(runId, subject.key, plan).then(() => setOffRoster((p) => ({ ...p, [subject.key]: plan }))));
+    const sent = lastSave.current.then(send, send);
+    lastSave.current = sent;
+    return sent;
+  }, [runId, subject]);
+  // An empty plan is no plan (the server forgets it).
+  const deletePlan = async () => {
+    const from = body.current;
+    const unsaved = from?.cancel() ?? null;
+    setDeleting(true);
+    try {
+      await save({ ...EMPTY_PLAN });
+      setGeneration((g) => g + 1);
+      setConfirmDelete(false);
+      toasts.push({ kind: "ok", title: `Deleted ${name}’s plan` });
+    } catch (error) {
+      if (unsaved) from?.queue(unsaved);
+      toasts.push({ kind: "error", title: "Couldn't delete the plan", body: (error as Error).message });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <>
@@ -178,18 +206,28 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
               <Icon name={CONCEPT_ICON.reset} />
             </button>
           )}
+          <button type="button" className="plan-nav-step plan-delete" aria-label="Delete plan" title="Delete plan" onClick={() => setConfirmDelete(true)} disabled={planIsEmpty(initial)}>
+            <Icon name={CONCEPT_ICON.delete} />
+          </button>
         </>}
       >
         {open && shown && (unit || offRoster) && (
-          <PlannerBody key={`${runId}:${subject.kind}:${subject.key}`} unit={shown} units={units} onRoster={!!unit} initial={initial} toasts={toasts}
-            onStatus={setStatus} resetRef={reset} save={save} />
+          <PlannerBody key={`${runId}:${subject.kind}:${subject.key}:${generation}`} unit={shown} units={units} onRoster={!!unit} initial={initial} toasts={toasts}
+            onStatus={setStatus} handle={body} save={save} />
         )}
       </Modal>
       <Modal open={confirm} onClose={() => setConfirm(false)} title="Reset plan?" className="planner-confirm">
         <p>Replace {name}’s plan with what they have now? Notes are kept.</p>
         <div className="planner-confirm-actions">
           <button type="button" className="btn" onClick={() => setConfirm(false)}>Cancel</button>
-          <button type="button" className="btn primary" onClick={() => { reset.current(); setConfirm(false); }}>Reset</button>
+          <button type="button" className="btn primary" onClick={() => { body.current?.reset(); setConfirm(false); }}>Reset</button>
+        </div>
+      </Modal>
+      <Modal open={confirmDelete} onClose={() => { if (!deleting) setConfirmDelete(false); }} title="Delete plan?" className="planner-confirm">
+        <p>Delete {name}’s plan, notes included? This can’t be undone.</p>
+        <div className="planner-confirm-actions">
+          <button type="button" className="btn" disabled={deleting} onClick={() => setConfirmDelete(false)}>Cancel</button>
+          <button type="button" className="btn danger" disabled={deleting} onClick={() => void deletePlan()}>{deleting ? "Deleting…" : "Delete"}</button>
         </div>
       </Modal>
     </>
@@ -210,9 +248,17 @@ export function currentKit(unit: Unit): UnitPlan {
   };
 }
 
-function PlannerBody({ unit, units, onRoster, initial, toasts, onStatus, resetRef, save: send }: {
+/** What the window's own buttons ask of the plan it shows. */
+interface BodyHandle {
+  reset: () => void;
+  /** Drops the change waiting to be saved, and returns it. */
+  cancel: () => UnitPlan | null;
+  queue: (plan: UnitPlan) => void;
+}
+
+function PlannerBody({ unit, units, onRoster, initial, toasts, onStatus, handle, save: send }: {
   unit: Unit; units: Unit[]; onRoster: boolean; initial: UnitPlan | undefined; toasts: ToastState; onStatus: (s: SaveStatus) => void;
-  resetRef: React.MutableRefObject<() => void>; save: (plan: UnitPlan) => Promise<unknown>;
+  handle: React.MutableRefObject<BodyHandle | null>; save: (plan: UnitPlan) => Promise<unknown>;
 }) {
   const { ref, entries } = useArchiveEntries();
   // A character off the Roster has nothing yet to start from.
@@ -224,11 +270,15 @@ function PlannerBody({ unit, units, onRoster, initial, toasts, onStatus, resetRe
     save.queue(next);
     return next;
   }), [save]);
-  resetRef.current = () => setPlan((p) => {
-    const next = { ...currentKit(unit), notes: p.notes };
-    save.queue(next);
-    return next;
-  });
+  handle.current = {
+    reset: () => setPlan((p) => {
+      const next = { ...currentKit(unit), notes: p.notes };
+      save.queue(next);
+      return next;
+    }),
+    cancel: save.cancel,
+    queue: save.queue,
+  };
 
   const byKind = useMemo(() => {
     const m = new Map<LinkKind, ArchiveEntry[]>();
@@ -341,10 +391,16 @@ function useSaver(send: (plan: UnitPlan) => Promise<unknown>, toasts: ToastState
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(flush, SAVE_MS);
   }, [flush]);
+  const cancel = useCallback(() => {
+    window.clearTimeout(timer.current);
+    const plan = pending.current;
+    pending.current = null;
+    return plan;
+  }, []);
   const flushRef = useRef(flush);
   flushRef.current = flush;
   useEffect(() => () => flushRef.current(), []);
-  return useMemo(() => ({ state, queue }), [state, queue]);
+  return useMemo(() => ({ state, queue, cancel }), [state, queue, cancel]);
 }
 
 function SaveState({ state }: { state: SaveStatus }) {
