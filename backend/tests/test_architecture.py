@@ -27,6 +27,20 @@ def test_prohibited_dependencies_are_detected(module, source):
     assert violations_for(source, module)
 
 
+@pytest.mark.parametrize(
+    "source",
+    ["import sys\nWINDOWS = sys.platform == 'win32'", "import os\nif os.name == 'nt': pass",
+     "import ctypes\nctypes.windll.user32.MessageBoxW(None, 'x', 'y', 0)"],
+)
+def test_os_checks_belong_to_the_platform_layer(source):
+    from architecture import platform_checks
+
+    assert platform_checks(source, "app.desktop")
+    assert platform_checks(source, "app.infrastructure.save_backups")
+    assert not platform_checks(source, "app.system.platform.windows")
+    assert not platform_checks(source, "app.system.memory_windows")
+
+
 def test_valid_inward_and_relative_imports_are_allowed():
     assert (
         violations_for(
