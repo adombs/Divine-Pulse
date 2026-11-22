@@ -244,6 +244,10 @@ def test_outlook_weighs_units_at_risk_by_whether_losing_them_loses_the_battle():
     b = battle(army_power=1000, enemy_power=1000, enemies_start=10, enemies_now=10, units=[BattleUnitStats(key="byleth", name="Byleth", start_level=10, level=10, start=STATS, now=STATS, hp=8, x=0, y=0)])
     b.enemy_stats = {1: EnemyStats(slot=1, label="Bandit 1", x=20, y=20)}
     assert outlook(b)["at_risk"] == []
+    # How far it moves is the unit's own (5 where that wasn't read): a boss holding its tile reaches nobody from afar.
+    for movement, near in ((None, 1), (3, 1), (2, None), (0, None)):
+        b.enemy_stats = {1: EnemyStats(slot=1, label="Boss", x=4, y=0, movement=movement)}
+        assert [r["near"] for r in outlook(b)["at_risk"]] == ([near] if near else [])
 
 
 def test_units_on_your_side_dont_put_yours_at_risk():
