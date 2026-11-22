@@ -10,7 +10,7 @@ import { api, EMPTY_PLAN, PLAN_MAX, type PlanSupportRank, type Unit, type UnitPl
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { useNav } from "../../nav";
 import { planIsEmpty } from "../../planTransfer";
-import { linkRoute, rankIndex, reaches, targetsForClasses, type ArchiveEntry, type LinkKind } from "../../planner";
+import { canTakeClass, linkRoute, rankIndex, reaches, targetsForClasses, type ArchiveEntry, type LinkKind } from "../../planner";
 import { characterKeyOfUnit, portraitKey } from "../../portraits";
 import { SKILL_KEYS, SKILL_LABEL, type Aptitude, type Character, type ReferenceData, type SkillKey } from "../../reference/types";
 import { WEAPON_RANKS } from "../../reference/weaponRanks";
@@ -22,6 +22,7 @@ import { Icon, IconButton, type IconName } from "../Icon";
 import { Modal } from "../Modal";
 import { SkillIcon } from "../SkillIcon";
 import { RankIcon, RankPicker } from "../RankIcon";
+import { useSpoiler } from "../../spoilers";
 import type { ToastState } from "../Toasts";
 import { EntryIcon, EntryPicker, useArchiveEntries } from "./entries";
 import { NotesEditor } from "./NotesEditor";
@@ -298,7 +299,7 @@ function PlannerBody({ unit, units, onRoster, initial, toasts, onStatus, handle,
     <div className="planner-body">
       <div className="planner-grid">
         <div className="planner-col">
-          <ClassTargets unit={unit} plan={plan} update={update} entries={byKind.get("class") ?? []} data={ref} />
+          <ClassTargets unit={unit} plan={plan} update={update} entries={byKind.get("class") ?? []} data={ref} character={character} />
           <SkillTargets unit={unit} plan={plan} update={update} data={ref} character={character} />
         </div>
         <div className="planner-col">
@@ -553,8 +554,25 @@ function EntryList({
   );
 }
 
-function ClassTargets({ unit, plan, update, entries, data }: { unit: Unit; plan: UnitPlan; update: Update; entries: ArchiveEntry[]; data: ReferenceData | null }) {
+function ClassTargets({ unit, plan, update, entries, data, character }: { unit: Unit; plan: UnitPlan; update: Update; entries: ArchiveEntry[]; data: ReferenceData | null; character: Character | undefined }) {
   const mastered = new Set(unit.mastered_classes ?? []);
+  const [identities] = useSpoiler("identities");
+  // Opened empty, the list leaves out classes the unit can never take; typing still finds them. While hidden
+  // identities are, whose class Death Knight is isn't told either.
+  const suggested = useMemo(() => {
+    const who = {
+      key: characterKeyOfUnit(unit),
+      gender: unit.gender || (character && character.gender !== "Either" ? character.gender : ""),
+      house: character?.house,
+      startClass: character?.start_class,
+      has: [unit.class_name, ...(unit.mastered_classes ?? [])],
+    };
+    return entries.filter((e) => {
+      const c = data?.classes.find((x) => x.name === e.id);
+      if (e.id === "Death Knight" && !identities && !who.has.includes(e.id)) return false;
+      return !c || canTakeClass(who, c);
+    }).map((entry) => ({ entry, note: "" }));
+  }, [unit, character, entries, data, identities]);
   return (
     <section className="plan-block">
       <Head icon={CONCEPT_ICON.classes} count={plan.classes.length}>Classes</Head>
@@ -590,7 +608,7 @@ function ClassTargets({ unit, plan, update, entries, data }: { unit: Unit; plan:
           }}
         />
       )}
-      <EntryPicker entries={entries} placeholder="Add class" exclude={plan.classes} onPick={(e) => update({ classes: [...plan.classes, e.id] })} />
+      <EntryPicker entries={entries} suggested={suggested} placeholder="Add class" exclude={plan.classes} onPick={(e) => update({ classes: [...plan.classes, e.id] })} />
     </section>
   );
 }

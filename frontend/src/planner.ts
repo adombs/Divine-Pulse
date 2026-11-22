@@ -3,6 +3,7 @@
  * written in the saved text (@[label](kind:id)), where it opens, and the plan's skill-rank arithmetic.
  */
 import type { Route } from "./routes";
+import { EXCLUSIVE_CLASS_OWNERS } from "./reference/classSprites.ts";
 import { WEAPON_RANKS } from "./reference/weaponRanks.ts";
 
 export type LinkKind = "unit" | "class" | "art" | "ability" | "spell" | "weapon" | "item" | "battalion" | "crest";
@@ -119,4 +120,38 @@ export function targetsForClasses<K extends string>(
     for (const r of c.requirements) if (rankIndex(r.rank) > rankIndex(out[r.skill])) out[r.skill] = r.rank;
   }
   return out;
+}
+
+const LORDS = new Set(["edelgard", "dimitri", "claude"]);
+const STUDENT_HOUSES = new Set(["Black Eagles", "Blue Lions", "Golden Deer", "Ashen Wolves"]);
+
+/** Who is being planned for, as far as it's known. */
+export interface ClassCandidate {
+  /** Characters page key; null for a unit no character is known for. */
+  key: string | null;
+  /** "Male" or "Female"; "" when not known (Byleth before joining). */
+  gender: string;
+  house?: string;
+  startClass?: string;
+  /** Classes it is in or has mastered: those it can take, whatever the rules say. */
+  has?: readonly string[];
+}
+
+/**
+ * Whether a unit could ever take a class: one for the other gender, another character's own, the lords' Lord, the
+ * students' Dancer and the other of Noble and Commoner are out. Skill ranks, level and earlier certifications don't
+ * count, as those can be worked towards. What isn't known rules nothing out.
+ */
+export function canTakeClass(who: ClassCandidate, c: { name: string; gender: string | null }): boolean {
+  if (who.has?.includes(c.name)) return true;
+  if (c.gender && who.gender && c.gender !== who.gender) return false;
+  const owner = EXCLUSIVE_CLASS_OWNERS[c.name];
+  if (owner) return !who.key || who.key === owner;
+  switch (c.name) {
+    case "Lord": return !who.key || LORDS.has(who.key);
+    case "Dancer": return !who.house || STUDENT_HOUSES.has(who.house);
+    case "Noble": return who.startClass !== "Commoner";
+    case "Commoner": return who.startClass !== "Noble";
+    default: return true;
+  }
 }
