@@ -1,8 +1,8 @@
-"""Read-only access to the emulator process (Windows: memory_windows.py, macOS: memory_macos.py)."""
+"""Read-only access to the emulator process: memory_windows.py, memory_macos.py, memory_linux.py (listing only), as
+platform.current().memory() picks."""
 
 from __future__ import annotations
 
-import sys
 from collections.abc import Iterator
 from dataclasses import dataclass
 from typing import Protocol
@@ -58,13 +58,9 @@ def search(process: ProcessMemory, base: int, size: int, pattern: bytes, alignme
 
 
 def _platform():
-    if sys.platform == "win32":
-        from . import memory_windows as platform
-    elif sys.platform == "darwin":
-        from . import memory_macos as platform
-    else:
-        raise OSError("Reading the emulator's memory is supported on Windows and macOS.")
-    return platform
+    from .platform import current
+
+    return current().memory()
 
 
 def find_processes(exe_names: set[str]) -> list[tuple[int, str]]:
@@ -73,9 +69,7 @@ def find_processes(exe_names: set[str]) -> list[tuple[int, str]]:
 
 
 def process_paths(exe_names: set[str]) -> list[str]:
-    """Full executable paths of running programs whose executable name is in `exe_names` (none elsewhere)."""
-    if sys.platform not in ("win32", "darwin"):
-        return []
+    """Full executable paths of running programs whose executable name is in `exe_names`."""
     return _platform().process_paths({n.lower() for n in exe_names})
 
 
