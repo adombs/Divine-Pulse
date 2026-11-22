@@ -1,11 +1,13 @@
-"""Divine Pulse desktop window: Microsoft Edge WebView2 on Windows, WebKit (WKWebView) on macOS."""
+"""Divine Pulse desktop window: pywebview with Microsoft Edge WebView2 on Windows, WebKit (WKWebView) on macOS.
+
+What the window does differently on each OS (the web view check, where it reopens, full screen, coming to the front)
+is the platform's WindowBehaviour (system/platform/).
+"""
 
 from __future__ import annotations
 
-import ctypes
 import json
 import logging
-import sys
 import threading
 import time
 from pathlib import Path
@@ -13,6 +15,8 @@ from pathlib import Path
 import uvicorn
 
 from .config import DATA_DIR, SettingsStore
+from .system import platform
+from .system.platform import WindowBehaviour
 
 log = logging.getLogger(__name__)
 
@@ -21,60 +25,26 @@ ICON_ICO = Path(__file__).parent / "data" / "icon.ico"
 DEFAULT_SIZE = (1500, 940)
 MIN_SIZE = (960, 640)
 BACKGROUND = "#241a15"  # the dark wood behind the sheet, shown while the page loads
-WINDOWS = sys.platform == "win32"
-# pywebview's renderer: WebView2 on Windows, its default (Cocoa's WKWebView) elsewhere.
-GUI = "edgechromium" if WINDOWS else None
-# macOS keeps the window's place itself under this name (NSWindow's frame autosave), in the app's preferences: it
-# handles several monitors and screens that have gone. pywebview's own x/y can't be used there: it places a window
-# relative to one screen but reports its place on another, so a window on a second monitor drifted further off
-# screen each launch until pywebview crashed opening it.
-MAC_FRAME_NAME = "Divine Pulse"
 
 
-NS_FULLSCREEN_PRIMARY = 1 << 7  # NSWindowCollectionBehaviorFullScreenPrimary
-NS_FULLSCREEN_MASK = 1 << 14  # NSWindowStyleMaskFullScreen
-
-
-def keep_mac_frame(native_window) -> None:
-    """Put the window where macOS last saw it (if it has), and have macOS remember where it goes from now on; and let
-    it go full screen (its green button, and Settings' window mode). Call on the main thread, before it shows."""
-    native_window.setFrameUsingName_(MAC_FRAME_NAME)
-    native_window.setFrameAutosaveName_(MAC_FRAME_NAME)
-    native_window.setCollectionBehavior_(native_window.collectionBehavior() | NS_FULLSCREEN_PRIMARY)
-
-
-def mac_fullscreen(native_window, want: bool) -> None:
-    """Enter or leave macOS full screen, going by the window's own state (the user can also leave with its green
-    button or Esc). pywebview's toggle can't be used: it marks the window unable to go full screen before toggling."""
-    if bool(native_window.styleMask() & NS_FULLSCREEN_MASK) != want:
-        native_window.setCollectionBehavior_(native_window.collectionBehavior() | NS_FULLSCREEN_PRIMARY)
-        native_window.toggleFullScreen_(None)
-
-
-def available() -> bool:
-    """Whether the web view is available: WebView2 on Windows; on macOS, WebKit always is."""
+def available(behaviour: WindowBehaviour | None = None) -> bool:
+    """Whether the web view is available: WebView2 on Windows, WebKit on macOS, GTK or Qt on Linux."""
     try:
-        import webview  # noqa: F401
-
-        if not WINDOWS:
-            return True
-
-        from webview.platforms.winforms import _is_chromium
-
-        return bool(_is_chromium())  # WebView2 is installed
+        return bool((behaviour or platform.current().window()).available())
     except Exception:
-        log.exception("WebView2 is unavailable")
+        log.exception("The web view is unavailable")
         return False
 
 
 def check_desktop() -> bool:
-    """Open and close a hidden WebView2 window for the packaged build check.
+    """Open and close a hidden window for the packaged build check.
 
     No server, saved settings or game reader is involved. Importing webview
-    alone misses .NET assembly failures that only happen while creating the window.
+    alone misses failures (Windows: .NET assemblies) that only happen while creating the window.
     """
     try:
-        if not available():
+        behaviour = platform.current().window()
+        if not available(behaviour):
             return False
         import webview
 
@@ -87,81 +57,11 @@ def check_desktop() -> bool:
             window.destroy()
 
         window.events.loaded += on_loaded
-        webview.start(gui=GUI)
+        webview.start(gui=behaviour.gui)
         return loaded
     except Exception:
         log.exception("Packaged desktop check failed")
         return False
-
-
-def _on_some_monitor(x: int, y: int) -> bool:
-    """True if the window's top-left area is visible on a connected monitor."""
-    px, py = x + 60, y + 20
-    if not WINDOWS:
-        return True  # the window manager keeps windows on screen
-    try:
-        class POINT(ctypes.Structure):
-            _fields_ = [("x", ctypes.c_long), ("y", ctypes.c_long)]
-
-        return bool(ctypes.windll.user32.MonitorFromPoint(POINT(px, py), 0))  # 0: MONITOR_DEFAULTTONULL
-    except Exception:
-        return True  # can't tell; trust the saved position
-
-
-# On Windows the window's place is saved as Windows itself keeps it (GetWindowPlacement): the normal (restored) bounds
-# in physical pixels, kept while it's maximized or minimized. pywebview's x/y/width/height can't be used for this:
-# it divides them by the scaling of the monitor the window is on, but multiplies them by the scaling of the monitor
-# it's created on, so a window left on a 125% monitor came back smaller and on the other monitor. Geometry saved this
-# way has "physical": True.
-SW_HIDE, SW_SHOWNORMAL, SW_SHOWMINIMIZED, SW_SHOWMAXIMIZED = 0, 1, 2, 3
-WPF_RESTORETOMAXIMIZED = 0x2
-
-
-def geometry_from_placement(show_cmd: int, flags: int, rect: tuple[int, int, int, int]) -> dict:
-    """The geometry to save from a window placement: its normal bounds, and whether it's maximized (also when it
-    was minimized from maximized)."""
-    left, top, right, bottom = rect
-    maximized = show_cmd == SW_SHOWMAXIMIZED or (show_cmd == SW_SHOWMINIMIZED and bool(flags & WPF_RESTORETOMAXIMIZED))
-    return {"x": left, "y": top, "width": right - left, "height": bottom - top, "maximized": maximized, "physical": True}
-
-
-def _placement_struct():
-    from ctypes import wintypes
-
-    class WINDOWPLACEMENT(ctypes.Structure):
-        _fields_ = [
-            ("length", wintypes.UINT),
-            ("flags", wintypes.UINT),
-            ("showCmd", wintypes.UINT),
-            ("ptMinPosition", wintypes.POINT),
-            ("ptMaxPosition", wintypes.POINT),
-            ("rcNormalPosition", wintypes.RECT),
-        ]
-
-    wp = WINDOWPLACEMENT()
-    wp.length = ctypes.sizeof(WINDOWPLACEMENT)
-    return wp
-
-
-def window_geometry(hwnd: int) -> dict:
-    """Where a window is, as Windows keeps it (see geometry_from_placement)."""
-    wp = _placement_struct()
-    if not ctypes.windll.user32.GetWindowPlacement(hwnd, ctypes.byref(wp)):
-        raise ctypes.WinError()
-    r = wp.rcNormalPosition
-    return geometry_from_placement(wp.showCmd, wp.flags, (r.left, r.top, r.right, r.bottom))
-
-
-def place_window(hwnd: int, geo: dict, show_cmd: int = SW_HIDE) -> None:
-    """Give a window the normal bounds saved by window_geometry. Done twice: when the move takes the window to a
-    monitor with another scaling, Windows resizes it for that scaling, and the second time the bounds stick."""
-    wp = _placement_struct()
-    wp.showCmd = show_cmd
-    r = wp.rcNormalPosition
-    r.left, r.top, r.right, r.bottom = geo["x"], geo["y"], geo["x"] + geo["width"], geo["y"] + geo["height"]
-    for _ in range(2):
-        if not ctypes.windll.user32.SetWindowPlacement(hwnd, ctypes.byref(wp)):
-            raise ctypes.WinError()
 
 
 MEDIA_TYPES = {
@@ -309,15 +209,17 @@ class ExportDialogs:
 
 
 class DesktopApp:
-    def __init__(self, url: str, settings: SettingsStore, app_state, server: uvicorn.Server):
+    def __init__(self, url: str, settings: SettingsStore, app_state, server: uvicorn.Server,
+                 behaviour: WindowBehaviour | None = None):
         self.url = url
         self.settings = settings
         self.state = app_state
         self.server = server
+        self.behaviour = behaviour or platform.current().window()
         self.window = None
         self._quitting = False
-        # Borderless fullscreen (settings.window_mode): pywebview's fullscreen, which on Windows is a frameless
-        # window over the whole monitor rather than the exclusive kind.
+        # Settings' window mode "fullscreen": pywebview's fullscreen (on Windows a frameless window over the whole
+        # monitor rather than the exclusive kind), or the OS's own (macOS).
         self._fullscreen = False
         self._mode_lock = threading.Lock()
 
@@ -327,22 +229,22 @@ class DesktopApp:
         """Blocks until the app quits. Must be called on the main thread."""
         import webview
 
-        # Windows: the saved place below. macOS keeps the place itself (keep_mac_frame), so a place saved by an
-        # earlier version is never used there.
-        geo = (self.settings.get().window or {}) if WINDOWS else {}
+        # The saved place, as far as this OS uses it (macOS keeps the place itself, so a place saved by an earlier
+        # version is never used there).
+        geo = self.behaviour.saved_place(self.settings.get().window or {})
         width, height = geo.get("width", DEFAULT_SIZE[0]), geo.get("height", DEFAULT_SIZE[1])
         x, y = geo.get("x"), geo.get("y")
-        if x is None or y is None or not _on_some_monitor(x, y):
-            x = y = None  # let Windows centre it
-        # Saved by window_geometry (Windows): put the window there before it shows. The x/y passed to pywebview below
-        # only keep it from centring the window when it shows.
-        placed = x is not None and bool(geo.get("physical"))
+        if x is None or y is None or not self.behaviour.on_screen(x, y):
+            x = y = None  # let the OS centre it
+        # Saved by the OS's own record (Windows' placement): put the window there before it shows. The x/y passed to
+        # pywebview below only keep it from centring the window when it shows.
+        place = geo if x is not None and geo.get("physical") else None
 
         exports = ExportDialogs()
         import_route = "&replace_import=1#/settings/game-files" if self.settings.get().replace_import else ""
         self.window = webview.create_window(
             "Divine Pulse",
-            # A new address every launch, so WebView2 always fetches the current page instead of a copy cached
+            # A new address every launch, so the web view always fetches the current page instead of a copy cached
             # by an older version of the tracker (its script and style files are content-hashed, so those stay
             # cached until they change).
             f"{self.url}/?launch={int(time.time())}{import_route}",
@@ -358,10 +260,7 @@ class DesktopApp:
         )
         exports._window = self.window
         self.window.events.closing += self._on_closing
-        if placed:
-            self.window.events.before_show += lambda: self._place(geo)
-        if not WINDOWS:
-            self.window.events.before_show += self._keep_mac_frame
+        self.window.events.before_show += lambda: self.behaviour.before_show(self.window, place)
         # Fullscreen once it's shown (not create_window's fullscreen=True), so the saved place above is where the
         # window goes back to when it's switched to windowed.
         self.window.events.shown += lambda: self.set_window_mode(self.settings.get().window_mode)
@@ -375,11 +274,12 @@ class DesktopApp:
         self.state.pick_game_keys = self.pick_game_keys
 
         webview.start(
-            gui=GUI,
+            gui=self.behaviour.gui,
             private_mode=False,  # keep localStorage (theme, font) between launches
             storage_path=str(DATA_DIR / "webview"),
             icon=str(ICON_ICO),
         )
+
     def pick_game_dump(self) -> str | None:
         import webview
 
@@ -405,59 +305,18 @@ class DesktopApp:
             return None
         return str(selected[0] if isinstance(selected, (tuple, list)) else selected)
 
-    def _hwnd(self) -> int | None:
-        if not WINDOWS:
-            return None
-        try:
-            return int(self.window.native.Handle.ToInt64())
-        except Exception:
-            return None
-
-    def _is(self, check: str) -> bool:
-        """Ask Windows directly: "IsIconic" (minimized) or "IsZoomed" (maximized). False elsewhere."""
-        hwnd = self._hwnd()
-        return bool(hwnd and getattr(ctypes.windll.user32, check)(hwnd))
-
-    def _place(self, geo: dict) -> None:
-        """before_show (Windows): put the window back where it was. It's still hidden here; pywebview shows it
-        (maximized if it was) right after."""
-        hwnd = self._hwnd()
-        if not hwnd:
-            return
-        try:
-            place_window(hwnd, geo)
-            log.info("Window placed at %s (asked for %s)", window_geometry(hwnd), geo)
-        except Exception:
-            log.exception("Could not put the window back where it was")
-
-    def _keep_mac_frame(self) -> None:
-        from PyObjCTools import AppHelper
-
-        def keep() -> None:
-            try:
-                keep_mac_frame(self.window.native)
-            except Exception:
-                log.exception("Could not restore the window's place")
-
-        # pywebview fires before_show on the main thread, as it builds the window: then before it's on screen.
-        if threading.current_thread() is threading.main_thread():
-            keep()
-        else:
-            AppHelper.callAfter(keep)
-
     def set_window_mode(self, mode: str) -> None:
-        """Switch the window between "windowed" and "fullscreen" (borderless, over its monitor)."""
+        """Switch the window between "windowed" and "fullscreen"."""
         with self._mode_lock:
             want = mode == "fullscreen"
-            if self.window is not None and not WINDOWS:
-                from PyObjCTools import AppHelper
-
-                AppHelper.callAfter(mac_fullscreen, self.window.native, want)
-                self._fullscreen = want
-                return
-            if self.window is None or want == self._fullscreen:
+            if self.window is None:
                 return
             try:
+                if self.behaviour.native_fullscreen(self.window, want):  # the OS's own, which knows its state
+                    self._fullscreen = want
+                    return
+                if want == self._fullscreen:
+                    return
                 if want:
                     self._save_geometry()  # the windowed place, to go back to
                     self.window.toggle_fullscreen()
@@ -465,34 +324,17 @@ class DesktopApp:
                     return
                 self.window.toggle_fullscreen()
                 self._fullscreen = False
-                geo = self.settings.get().window or {}
-                hwnd = self._hwnd()
-                if hwnd and geo.get("physical"):
-                    place_window(hwnd, geo, SW_SHOWMAXIMIZED if geo.get("maximized") else SW_SHOWNORMAL)
-                elif geo.get("maximized"):
-                    self.window.maximize()
+                self.behaviour.restore_place(self.window, self.settings.get().window or {})
             except Exception:
                 log.exception("Could not switch the window to %s", mode)
 
     def _save_geometry(self) -> None:
-        w = self.window
-        if w is None or self._fullscreen or not WINDOWS:  # keep the windowed place saved before going fullscreen
-            return  # (macOS saves the place itself)
+        if self.window is None or self._fullscreen:  # keep the windowed place saved before going fullscreen
+            return
         try:
-            hwnd = self._hwnd()
-            if hwnd:  # Windows: its own record, right for any monitor and scaling, even while minimized
-                self.settings.update(window=window_geometry(hwnd))
-                return
-            previous = self.settings.get().window or {}
-            # A minimized window reports a placeholder position (-32000, -32000, 160×28).
-            if self._is("IsIconic") or w.x <= -30000 or w.width < MIN_SIZE[0] // 2:
-                return
-            if self._is("IsZoomed"):
-                # Keep the normal-size bounds; just remember it was maximized.
-                geo = {**previous, "maximized": True}
-            else:
-                geo = {"x": w.x, "y": w.y, "width": w.width, "height": w.height, "maximized": False}
-            self.settings.update(window=geo)
+            geo = self.behaviour.current_place(self.window, self.settings.get().window or {}, MIN_SIZE)
+            if geo is not None:
+                self.settings.update(window=geo)
         except Exception:
             log.exception("Could not save window position")
 
@@ -505,16 +347,8 @@ class DesktopApp:
 
     def show(self) -> None:
         """Focus the window when the application is launched a second time."""
-        if self.window is None:
-            return
-        self.window.show()
-        hwnd = self._hwnd()
-        if hwnd and self._is("IsIconic"):
-            # SW_RESTORE returns to the previous state, so a maximized window comes back maximized.
-            ctypes.windll.user32.ShowWindow(hwnd, 9)
-        # Nudge it to the front: Windows won't always let a background process steal focus.
-        self.window.on_top = True
-        self.window.on_top = False
+        if self.window is not None:
+            self.behaviour.focus(self.window)
 
     def quit(self) -> None:
         self._quitting = True
