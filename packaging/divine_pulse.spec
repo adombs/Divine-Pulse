@@ -4,7 +4,7 @@
 # One-folder build: starts faster than one-file and antivirus tools flag it less often.
 #   Windows: build/dist/Divine Pulse/Divine Pulse.exe
 #   macOS:   build/dist/Divine Pulse.app
-#   Linux:   not supported yet (tools/build.py's Linux target stops before PyInstaller runs)
+#   Linux:   build/dist/Divine Pulse/Divine Pulse
 import re
 import sys
 from pathlib import Path
@@ -36,6 +36,7 @@ hiddenimports = [
     *collect_submodules("app"),
     *collect_submodules("uvicorn"),  # picks its loop / protocol modules at runtime
 ]
+excludes = ["tkinter", "pytest", "_pytest", "matplotlib", "IPython"]
 
 # Per system: the icon, the version information the system shows, and how the program folder is wrapped.
 
@@ -77,6 +78,15 @@ if sys.platform == "win32":
     ICON, VERSION_INFO = str(DATA / "icon.ico"), windows_version_info()
 elif sys.platform == "darwin":
     ICON, VERSION_INFO = str(ROOT / "build" / "Divine Pulse.icns"), None  # made by tools/build.py
+elif sys.platform == "linux":
+    ICON, VERSION_INFO = None, None  # Linux programs carry neither: the .desktop file (linux/install.sh) has the icon
+    # The window: pywebview picks its renderer, and QtPy its Qt, at runtime.
+    hiddenimports += [
+        "webview.platforms.qt", "qtpy", "qtpy.QtWebChannel", "qtpy.QtWebEngineCore", "qtpy.QtWebEngineWidgets",
+        "PyQt6.QtNetwork", "PyQt6.QtPrintSupport", "PyQt6.QtWebChannel", "PyQt6.QtWebEngineCore",
+        "PyQt6.QtWebEngineWidgets",
+    ]
+    excludes += ["gi", "PyQt5", "PySide2", "PySide6"]
 else:
     raise SystemExit(f"Packaging Divine Pulse for {sys.platform} is not supported yet (see tools/build.py).")
 
@@ -87,9 +97,20 @@ a = Analysis(
     pathex=[str(BACKEND)],
     datas=datas,
     hiddenimports=hiddenimports,
-    excludes=["tkinter", "pytest", "_pytest", "matplotlib", "IPython"],
+    excludes=excludes,
     noarchive=False,
 )
+# Linux: libraries that belong to the system it runs on, which every desktop has, not to the one it's built on. The
+# graphics driver's own (libgbm), what the system's drivers load with it (a newer Mesa needs a newer libstdc++), and
+# those that read the system's own settings and plugins (sound, fonts). And Qt's GTK theme, which would bring an old GTK
+# to load the system's GTK modules into: file dialogs come from the desktop's portal without it.
+SYSTEM_LIBRARIES = re.compile(
+    r"lib(gbm|drm|stdc\+\+|gcc_s|X11|X11-xcb|asound|fontconfig|freetype|expat|z|qgtk3|gtk-3|gdk-3|gdk_pixbuf-2\.0|atk-1\.0"
+    r"|atk-bridge-2\.0|atspi|cairo-gobject|epoxy)\.so(\.\d+)*$"
+)
+if sys.platform == "linux":
+    for found in (a.binaries, a.datas):
+        found[:] = [entry for entry in found if not SYSTEM_LIBRARIES.match(Path(entry[0]).name)]
 pyz = PYZ(a.pure)
 exe = EXE(
     pyz,
@@ -104,7 +125,7 @@ exe = EXE(
 )
 coll = COLLECT(exe, a.binaries, a.datas, name=NAME, upx=False)
 
-# macOS: the program folder wrapped as Divine Pulse.app. Windows ships the folder itself.
+# macOS: the program folder wrapped as Divine Pulse.app. Windows and Linux ship the folder itself.
 if sys.platform == "darwin":
     app = BUNDLE(
         coll,

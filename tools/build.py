@@ -4,23 +4,28 @@
 
     Windows  Divine-Pulse-<version>-windows-portable.zip, and Divine-Pulse-<version>-setup.exe with Inno Setup 6
     macOS    Divine Pulse.app (ready to run or drag to Applications), and Divine-Pulse-<version>-macos-<arch>.zip of it
+    Linux    Divine-Pulse-<version>-linux-<arch>.tar.gz
     and SHA256SUMS.txt.
 
-Every system goes through the same steps (main()); what differs is a Target (Windows, MacOS, and a Linux stub),
+Every system goes through the same steps (main()); what differs is a Target (Windows, MacOS, Linux),
 chosen once from sys.platform:
 
     build env      build/venv with the pinned requirements, and the system's own tools
     web UI, tests  shared
     program        Target.before_program (macOS: the icon), PyInstaller (shared), Target.finish_program (the notes
                    and licenses where the system keeps them, and what the system bundles beside the program)
-    sign           Target.sign: Windows ships unsigned; macOS signs ad hoc and checks the memory reader's entitlement
+    sign           Target.sign: Windows and Linux ship unsigned; macOS signs ad hoc and checks the memory reader's entitlement
     desktop check  the packaged window opened once with --check-desktop, from a copy treated the way the system
-                   treats a downloaded one (Windows: Internet-zone markers; macOS: read-only, as App Translocation)
+                   treats a downloaded one (Windows: Internet-zone markers; macOS: read-only, as App Translocation; Linux: read-only)
     package        Target.package: the release files
     checksums      shared
 
 On macOS it needs Xcode's command-line tools (clang, codesign, iconutil): the app is signed ad hoc, with the memory
 reader helper inside it signed with the debugger entitlement (backend/app/system/macos).
+
+On Linux the program runs where the C library is at least as new as this computer's, so releases are built on an older
+distribution (CI: Ubuntu 22.04). It needs a display for the desktop check (xvfb-run python3 tools/build.py without one)
+and the X11 libraries Qt uses, which are bundled (LINUX_LIBRARIES).
 
 Run it with Python 3.12 or newer; started with an older one, it looks for a newer one (Windows: the py launcher;
 macOS: Homebrew's or python.org's) and runs itself with that. It makes its own build environment (build/venv) with
@@ -31,6 +36,7 @@ running Python instead. Needs Node.js 22.12+ for the desktop UI. See the release
 from __future__ import annotations
 
 import argparse
+import ctypes.util
 import hashlib
 import json
 import os
@@ -52,6 +58,11 @@ MAC_ICON = ROOT / "branding" / "icons" / "app-icon-rounded-1024.png"
 MAC_HELPER = BACKEND / "app" / "system" / "macos"
 DEBUGGER_ENTITLEMENT = "com.apple.security.cs.debugger"
 NSTOOL = ROOT / "vendor" / "nstool" / "nstool.exe"
+LINUX_INSTALL = PACKAGING / "linux" / "install.sh"
+# Libraries Qt's X11 support loads that not every desktop has (Debian and Ubuntu package names): bundled, so they must
+# be on the computer that builds.
+LINUX_LIBRARIES = {"xcb-cursor": "libxcb-cursor0", "xkbcommon-x11": "libxkbcommon-x11-0", "xcb-icccm": "libxcb-icccm4",
+                   "xcb-image": "libxcb-image0", "xcb-keysyms": "libxcb-keysyms1", "xcb-render-util": "libxcb-render-util0"}
 DEV_PACKAGES = {"_pytest", "pytest", "pluggy", "iniconfig", "pygments", "httpx", "httpcore", "ruff"}  # requirements-dev.txt
 LICENSE_FOLDER = "Third-party licenses"
 LICENSE_NAME = re.compile(r"(licen[cs]e|copying|notice)", re.I)
@@ -331,17 +342,56 @@ class MacOS(Target):
 
 
 class Linux(Target):
-    """Not built yet. To add it: the program folder (program_path, executable, notes_folder; the spec's Linux part),
-    downloaded_copy for the desktop check, package (for example a tar.gz or AppImage) with artifact_names, and the
-    matching parts of tools/smoke_app.py, the setup and launch scripts, and CI."""
-
     name, key, readme = "Linux", "linux", "readme-linux.txt"
+    downloaded_label = "read-only, as from a place only an administrator can change"
 
     def require_tools(self) -> None:
-        sys.exit("Building Divine Pulse for Linux is not supported yet: see the Linux target in tools/build.py.")
+        if not shutil.which("objdump"):
+            sys.exit("objdump not found: PyInstaller needs binutils (sudo apt install binutils).")
+        missing = [package for name, package in LINUX_LIBRARIES.items() if not ctypes.util.find_library(name)]
+        if missing:
+            sys.exit(f"Libraries Qt needs on X11, to be bundled, aren't installed: sudo apt install {' '.join(missing)}")
+        if not LINUX_INSTALL.is_file():
+            raise FileNotFoundError(f"The Linux install script is missing: {LINUX_INSTALL}")
+
+    def program_path(self) -> Path:
+        return BUILD / "dist" / APP_NAME
+
+    def executable(self, program: Path) -> Path:
+        return program / APP_NAME
+
+    def notes_folder(self, program: Path) -> Path:
+        return program
+
+    def finish_program(self, program: Path, v: str) -> None:
+        super().finish_program(program, v)
+        installed = program / "install.sh"
+        shutil.copy2(LINUX_INSTALL, installed)
+        installed.chmod(0o755)
+
+    def sign(self, program: Path) -> None:
+        """Linux programs aren't signed: the checksums say what was built."""
+
+    def downloaded_copy(self, copy: Path) -> None:
+        subprocess.run(["chmod", "-R", "a-w", str(copy)], check=True)
+
+    def after_desktop_check(self, copy: Path) -> None:
+        subprocess.run(["chmod", "-R", "u+w", str(copy)], check=False)
+
+    def package(self, program: Path, v: str, args: argparse.Namespace) -> list[Path]:
+        """A tar.gz of the program folder: it keeps the links and which files can run, as a zip doesn't everywhere."""
+        step("Release files")
+        RELEASE.mkdir(exist_ok=True)
+        for old in RELEASE.glob(f"Divine-Pulse-{v}-linux-*.tar.gz"):  # this version's, another architecture's too
+            old.unlink()
+        name = RELEASE / f"Divine-Pulse-{v}-linux-{platform.machine()}"
+        return [Path(shutil.make_archive(str(name), "gztar", program.parent, program.name, owner="root", group="root"))]
 
     def artifact_names(self, v: str, release: Path = RELEASE) -> list[str]:
-        raise RuntimeError("release files for Linux are not supported yet")
+        found = sorted(path.name for path in release.glob(f"Divine-Pulse-{v}-linux-*.tar.gz"))
+        if len(found) > 1:
+            raise RuntimeError(f"more than one Linux archive for {v} in release/: {', '.join(found)}")
+        return found or [f"Divine-Pulse-{v}-linux-{platform.machine()}.tar.gz"]
 
 
 TARGETS: dict[str, type[Target]] = {"win32": Windows, "darwin": MacOS, "linux": Linux}
@@ -473,6 +523,8 @@ def runtime_distributions() -> dict[str, metadata.Distribution]:
     extras: dict[str, set[str]] = {}
     while todo:
         wanted = todo.pop()
+        if wanted.marker is not None and "extra" not in str(wanted.marker) and not wanted.marker.evaluate():
+            continue  # another system's
         name = normalize(wanted.name)
         if name in found and wanted.extras <= extras[name]:
             continue
@@ -605,7 +657,7 @@ def codesign(path: Path, entitlements: Path | None = None) -> None:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Build Divine Pulse for this system (Windows or macOS) into release/.")
+    parser = argparse.ArgumentParser(description="Build Divine Pulse for this system (Windows, macOS or Linux) into release/.")
     parser.add_argument("--skip-tests", action="store_true")
     parser.add_argument("--no-installer", action="store_true", help="Windows: only the portable zip")
     parser.add_argument("--current-env", action="store_true", help="build with this Python instead of build/venv")

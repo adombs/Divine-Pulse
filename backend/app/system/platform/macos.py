@@ -99,14 +99,22 @@ def folder_name_problem(parts: tuple[str, ...]) -> str | None:
     return None  # any name but "/" (which can't be in a part) works
 
 
+# Programs that run on a Mac but whose game the tracker doesn't read there: Eden.
+UNREADABLE_PROGRAMS = frozenset({"eden", "eden-cli"})
+
+
 def runs_program(executable: str) -> bool:
-    return not executable.endswith(".exe")
+    return not executable.endswith(".exe") and executable not in UNREADABLE_PROGRAMS
 
 
 def webview_caches(data_dir: Path, home: Path | None = None) -> list[Path]:
     """WKWebView's caches (pywebview uses WebKit's default data store, whose page storage is in
     ~/Library/WebKit/<bundle id> and stays)."""
     return [_home(home) / "Library" / "Caches" / BUNDLE_ID / "WebKit"]
+
+
+def child_env() -> dict[str, str] | None:
+    return None
 
 
 def trusted_roots() -> str | None:

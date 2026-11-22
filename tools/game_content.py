@@ -1,11 +1,13 @@
 """What the repository and the release must never hold: game images, game file formats, bulk game data.
 
-One rule set for backend/tests/test_no_game_content.py (the files in git) and tools/release.py (the release zip).
+One rule set for backend/tests/test_no_game_content.py (the files in git) and tools/release.py (the release zip, or
+Linux's tar.gz).
 """
 
 from __future__ import annotations
 
 import re
+import tarfile
 import zipfile
 from collections.abc import Iterable
 from pathlib import Path, PurePosixPath
@@ -91,20 +93,27 @@ def mac_bundled_path(name: str) -> str | None:
     return None
 
 
-def check_zip(path: Path) -> list[str]:
-    """Game content in the program's own files in a release zip (Windows portable or macOS app), and any missing
-    license file."""
+def archive_files(path: Path) -> list[tuple[str, int]]:
+    """(name, size) of each file in a zip or tar.gz."""
+    if path.name.endswith(".tar.gz"):
+        with tarfile.open(path, "r:gz") as tar:
+            return [(m.name, m.size) for m in tar.getmembers() if not m.isdir()]
     with zipfile.ZipFile(path) as archive:
-        infos = [i for i in archive.infolist() if not i.is_dir()]
-    mac = any(i.filename.split("/", 1)[0].endswith(".app") for i in infos)
-    if mac:
-        found = [(p, i.file_size) for i in infos if (p := mac_bundled_path(i.filename))]
-        prefix = next(i.filename.split("/", 1)[0] for i in infos if i.filename.split("/", 1)[0].endswith(".app"))
-        resources = f"{prefix}/Contents/Resources/"
-        top = {i.filename.removeprefix(resources) for i in infos if i.filename.startswith(resources)}
+        return [(i.filename, i.file_size) for i in archive.infolist() if not i.is_dir()]
+
+
+def check_zip(path: Path) -> list[str]:
+    """Game content in the program's own files in a release archive (Windows portable or macOS app zip, Linux
+    tar.gz), and any missing license file."""
+    infos = archive_files(path)
+    apps = [name.split("/", 1)[0] for name, _ in infos if name.split("/", 1)[0].endswith(".app")]
+    if apps:
+        found = [(p, size) for name, size in infos if (p := mac_bundled_path(name))]
+        resources = f"{apps[0]}/Contents/Resources/"
+        top = {name.removeprefix(resources) for name, _ in infos if name.startswith(resources)}
     else:
-        found = [(p, i.file_size) for i in infos if (p := bundled_path(i.filename))]
-        top = {i.filename.split("/", 1)[1] for i in infos if "/" in i.filename}
+        found = [(p, size) for name, size in infos if (p := bundled_path(name))]
+        top = {name.split("/", 1)[1] for name, _ in infos if "/" in name}
     missing = [f"{path.name}: missing {name}" for name in LICENSE_FILES if name not in top]
     if not any(name.startswith(LICENSE_FOLDER) for name in top):
         missing.append(f"{path.name}: missing {LICENSE_FOLDER}")

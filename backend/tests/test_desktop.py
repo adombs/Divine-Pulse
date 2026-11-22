@@ -244,11 +244,18 @@ def test_macos_tab_reaches_links_and_buttons():
     assert set_to == [True]
 
 
-def test_each_os_window_uses_its_own_web_view():
+def test_each_os_window_uses_its_own_web_view(monkeypatch):
     from app.system.platform import linux
 
     assert windows.Window().gui == "edgechromium"
-    assert macos.Window().gui is None and linux.Window().gui is None  # pywebview's default: WKWebView, GTK or Qt
+    assert macos.Window().gui is None  # pywebview's default: WKWebView
+    monkeypatch.setattr(linux, "has_qt", lambda: True)
+    assert linux.Window().gui == "qt"
+    monkeypatch.setattr(linux, "has_qt", lambda: False)
+    for installed, gui in ((object(), "gtk"), (None, None)):
+        monkeypatch.setattr(linux.importlib.util, "find_spec", lambda name, installed=installed: installed)
+        assert linux.Window().gui == gui
+    monkeypatch.undo()
 
 
 def test_a_second_launch_brings_the_window_to_the_front():

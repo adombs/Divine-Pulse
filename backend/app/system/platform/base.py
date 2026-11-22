@@ -19,7 +19,7 @@ Answer = Literal["yes", "no", "cancel"]
 
 
 class NotSupported(OSError):
-    """Something this platform doesn't do yet (Linux: reading the emulator's memory, setup prompts)."""
+    """Something this computer can't do (Linux: ask a question without zenity, kdialog or Qt)."""
 
 
 class Platform(Protocol):
@@ -57,10 +57,13 @@ class Platform(Protocol):
         """Why these path parts can't name a new folder here (Windows' reserved names), or None."""
 
     def runs_program(self, executable: str) -> bool:
-        """Whether a program with this executable name (lower case) can run on this computer."""
+        """Whether a program with this executable name (lower case) can run, and its game be read, on this computer."""
 
     def webview_caches(self, data_dir: Path, home: Path | None = None) -> list[Path]:
         """The web view's caches, cleared when a new version is installed (its page storage is kept)."""
+
+    def child_env(self) -> dict[str, str] | None:
+        """The environment for another program started from here, or None to pass on this one's as it is."""
 
     def trusted_roots(self) -> str | None:
         """PEM certificates to trust when Python has none of its own, or None."""
@@ -84,10 +87,10 @@ class Platform(Protocol):
         """How the desktop window behaves here (see WindowBehaviour)."""
 
 
-def launch(command: list[str]) -> None:
+def launch(command: list[str], env: Mapping[str, str] | None = None) -> None:
     """Start a program and don't wait for it."""
     try:
-        subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(command, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, env=env)
     except FileNotFoundError as exc:
         raise OSError(f"{command[0]} isn't available on this computer.") from exc
 
@@ -114,13 +117,13 @@ def signal_says_gone(pid: int) -> bool | None:
     return None
 
 
-def check_executable(tool: Path, download: str, blocked: str | None = None) -> None:
+def check_executable(tool: Path, download: str, blocked: str | None = None, env: Mapping[str, str] | None = None) -> None:
     """For macOS and Linux: raise ValueError when `tool` isn't executable or can't start. `blocked` is the message
     for a tool killed by a signal on its first run (macOS's Gatekeeper does that to an unapproved download)."""
     if not os.access(tool, os.X_OK):
         raise ValueError(f"NSTool ({tool}) isn't executable. Download it again from {download} and unzip it.")
     try:
-        result = subprocess.run([str(tool)], capture_output=True, timeout=30)
+        result = subprocess.run([str(tool)], capture_output=True, timeout=30, env=env)
     except OSError as exc:
         raise ValueError(f"NSTool ({tool}) couldn't start: {exc}. Download it again from {download}.") from exc
     except subprocess.TimeoutExpired:
@@ -176,6 +179,10 @@ class WindowBehaviour:
         """After leaving pywebview's fullscreen: go back to the saved windowed place."""
         if place.get("maximized"):
             window.maximize()
+
+    def closed(self, window) -> None:
+        """After the window has closed and pywebview's loop has ended, on the main thread: nothing it started may keep
+        the program running."""
 
     def focus(self, window) -> None:
         """Bring the window to the front (a second launch asks for it)."""

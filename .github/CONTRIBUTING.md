@@ -9,15 +9,15 @@ go through [the security policy](SECURITY.md), not an issue.
 
 ## Prerequisites
 
-Windows 10/11 and macOS 12+ (Apple silicon) are both supported for development, running from source and building
+Windows 10/11, macOS 12+ (Apple silicon) and Linux (glibc 2.35+) are supported for development, running from source and building
 releases, with the same steps. Each needs:
 
-| | Windows | macOS |
-|---|---|---|
-| Python | 3.12 or newer (python.org; the `py` launcher finds it) | 3.12 or newer (`brew install python@3.13`; macOS's own `python3` is 3.9) |
-| Node.js | 22.12+ or 24.x (24.15 has been verified) | the same (`brew install node`) |
-| System tools | none; [Inno Setup 6](https://jrsoftware.org/isinfo.php) only for building the installer | Xcode's command-line tools (`xcode-select --install`): the memory reader helper is compiled and signed locally |
-| Git, and the GitHub CLI for releases | yes | yes |
+| | Windows | macOS | Linux |
+|---|---|---|---|
+| Python | 3.12 or newer (python.org; the `py` launcher finds it) | 3.12 or newer (`brew install python@3.13`; macOS's own `python3` is 3.9) | 3.12 or newer with venv |
+| Node.js | 22.12+ or 24.x (24.15 has been verified) | the same (`brew install node`) | the same |
+| System tools | none; [Inno Setup 6](https://jrsoftware.org/isinfo.php) only for building the installer | Xcode's command-line tools (`xcode-select --install`): the memory reader helper is compiled and signed locally | none to run; a build needs binutils and the X11 libraries it names |
+| Git, and the GitHub CLI for releases | yes | yes | yes |
 
 The locked Vite version accepts Node `^20.19.0 || >=22.12.0`; the native TypeScript test scripts also need Node's
 `--experimental-strip-types`, so use Node 22.12+ or 24.x rather than an earlier Node 20 release. Without Inno Setup,
@@ -27,16 +27,16 @@ App builds contain no game data and fetch none. Installing Python and Node depen
 
 ## Local setup
 
-The setup scripts take the same steps, in the same order, on both systems: they find Python 3.12+ and Node.js 22.12+,
-create `backend/.venv` with the runtime dependencies, build the macOS memory reader (Windows needs nothing), build the
+The setup scripts take the same steps, in the same order, on every system: they find Python 3.12+ and Node.js 22.12+,
+create `backend/.venv` with the runtime dependencies, build the macOS memory reader (Windows and Linux need nothing), build the
 frontend, and put a *Divine Pulse (source)* shortcut on the desktop. Run them again after pulling changes. The launch
 scripts check that setup ran and the frontend is built, then start the app from `backend/`.
 
-| | Windows | macOS |
-|---|---|---|
-| Set up | `tools\setup.bat` | `tools/setup.sh` |
-| Start | the desktop shortcut, or `tools\launch.bat` | the desktop shortcut, or `tools/launch.sh` |
-| The project's Python | `backend\.venv\Scripts\python` | `backend/.venv/bin/python` |
+| | Windows | macOS | Linux |
+|---|---|---|---|
+| Set up | `tools\setup.bat` | `tools/setup.sh` | `tools/setup.sh` |
+| Start | the desktop shortcut, or `tools\launch.bat` | the desktop shortcut, or `tools/launch.sh` | the shortcut, or `tools/launch.sh` |
+| The project's Python | `backend\.venv\Scripts\python` | `backend/.venv/bin/python` | `backend/.venv/bin/python` |
 
 Setup doesn't install the development test and lint dependencies; install those as below before running checks. To
 set up by hand (`<python>` is the project's Python from the table):
@@ -66,11 +66,11 @@ rows.
 
 Keep personal dumps, NSPs, keys, captures and imported assets outside Git. Use the app's **Game files** screen to
 import for local testing. To run the desktop app from the source checkout, use the shortcut created by setup or the
-launch script. Tracking needs FE3H v1.2.0 in Eden (Windows) or Astris (macOS).
+launch script. Tracking needs FE3H v1.2.0 in Eden (Windows, Linux), Ryubing or Astris (macOS).
 
 ## Optional test inputs
 
-CI runs the checks on Windows and macOS, each with Python 3.12 and 3.14, and a release build on each, which it unzips,
+CI runs the checks on Windows, macOS and Linux, each with Python 3.12 and 3.14, and a release build on each, which it unzips,
 starts and quits (`tools/smoke_app.py`) and keeps for a week as the run's artifacts; all use synthetic data and project
 files. To run additional local tests, set the appropriate
 environment variable and run pytest from the backend directory with the project's Python.
@@ -83,7 +83,7 @@ environment variable and run pytest from the backend directory with the project'
 | DIVINE_PULSE_TEST_PACKAGED_DIR | A built Windows program folder. Inno Setup 6 is required for these tests. |
 
 To try a release build as CI does, build it and run `python tools/release.py check` (the files, their checksums and
-the game-content scan) and `python tools/smoke_app.py` (unzips, starts and quits it) on either system.
+the game-content scan) and `python tools/smoke_app.py` (unzips, starts and quits it) on any of them.
 
 Use DIVINE_PULSE_DATA_DIR to keep source experiments away from your real runs.
 
@@ -121,7 +121,7 @@ branches are named `release/<version>` and urgent hotfix branches `hotfix/<versi
 3. Run the local checks before opening a pull request. CI runs the same ones on every pull request, with no game files.
    A first-time contributor's run starts once a maintainer has read the change and approved it. Use the project venv
    explicitly so the commands do not depend on whichever Python happens to be on `PATH` (`<python>` is
-   `.venv\Scripts\python` on Windows, `.venv/bin/python` on macOS):
+   `.venv\Scripts\python` on Windows, `.venv/bin/python` on macOS and Linux):
 
 ```
 cd backend
@@ -142,4 +142,4 @@ for that check alone.
 
 Only a maintainer runs a release. Merge the reviewed release or hotfix branch into `main` through a pull request,
 then follow [the release guide](../docs/releasing.md) to tag and publish the tested commit: `tools/release.py
-finalize` runs on Windows and on a Mac, each building and adding its own files to the same draft.
+finalize` runs on Windows, on a Mac and on Linux, each building and adding its own files to the same draft.

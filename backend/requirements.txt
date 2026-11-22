@@ -3,3 +3,7 @@ uvicorn[standard]==0.54.0
 pydantic==2.14.1
 pillow==13.0.0
 pywebview==6.2.1
+# The desktop window on Linux: Qt's Chromium engine (Windows uses WebView2, macOS WebKit).
+PyQt6==6.12.1; sys_platform == "linux"
+PyQt6-WebEngine==6.140.1; sys_platform == "linux"
+QtPy==2.4.3; sys_platform == "linux"

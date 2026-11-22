@@ -170,3 +170,10 @@ def test_finders_files_are_not_backed_up_and_dont_count_as_versions(tmp_path):
     kept = dest / "data00.bin"
     assert sorted(p.read_bytes() for p in kept.iterdir() if p.name != ".DS_Store") == [b"v2", b"v3"]
     assert (kept / ".DS_Store").read_bytes() == b"Bud1"
+
+
+def test_a_portable_eden_on_linux_is_found_once(tmp_path):
+    saves = tmp_path / "start" / "user/nand/user/save/0000000000000000/ABCD" / TITLE_ID
+    saves.mkdir(parents=True)
+    programs = [str(tmp_path / "mount" / "eden"), str(tmp_path / "start" / "eden"), str(tmp_path / "start" / "eden")]
+    assert program_save_folders(programs) == [saves]

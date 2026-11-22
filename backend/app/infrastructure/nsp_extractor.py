@@ -160,7 +160,7 @@ class Extractor:
         # Poll without blocking the GUI; no shell and no keys in command output.
         with tempfile.TemporaryFile(mode='w+b') as capture:
             with subprocess.Popen(command, stdout=capture, stderr=subprocess.STDOUT,
-                                  creationflags=flags) as process:
+                                  creationflags=flags, env=platform.current().child_env()) as process:
                 while process.poll() is None:
                     if on_tick:
                         try:

@@ -1,6 +1,7 @@
-# The checks from .github/CONTRIBUTING.md, on the oldest and the recommended supported versions, on Windows and macOS,
-# and a release build on each (the files tools/release.py finalize would upload). Both systems run the same steps;
-# the only system-specific one is allowing developer tools on macOS. No game files needed.
+# The checks from .github/CONTRIBUTING.md, on the oldest and the recommended supported versions, on Windows, macOS
+# and Linux, and a release build on each (the files tools/release.py finalize would upload). They run the same steps;
+# the only system-specific ones are allowing developer tools on macOS, and on Linux restricting ptrace, installing the libraries Qt uses
+# and giving the window a display (xvfb-run). No game files needed.
 # Pull requests from forks run with a read-only token and no secrets. Don't switch this to pull_request_target, which
 # would run contributors' code with access to this repository.
 name: CI
@@ -44,6 +45,14 @@ jobs:
             label: "macOS, "
             python: "3.14"
             node: "24"
+          - os: ubuntu-latest
+            label: "Linux, "
+            python: "3.12"
+            node: "22.12.0"
+          - os: ubuntu-latest
+            label: "Linux, "
+            python: "3.14"
+            node: "24"
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -79,6 +88,10 @@ jobs:
       - name: Allow developer tools (macOS)
         if: runner.os == 'macOS'
         run: sudo DevToolsSecurity -enable
+      # What most distributions ship: a program can't read another's memory. The Linux reader must work all the same.
+      - name: Restrict reading other programs' memory (Linux)
+        if: runner.os == 'Linux'
+        run: sudo sysctl -w kernel.yama.ptrace_scope=1
       # After the build: the API tests serve frontend/dist. Includes the game-content guard.
       - name: Backend tests
         working-directory: backend
@@ -86,9 +99,10 @@ jobs:
 
   release-build:
     # The same steps on each system, as tools/release.py finalize runs them (the tests ran above): tools/build.py
-    # (Windows: the portable zip and the installer; macOS: the signed app and its zip, each opened once with
-    # --check-desktop from a copy made to look downloaded), release.py's checks of the files, a smoke test of the
-    # zip (tools/smoke_app.py), and the files kept for a week to try out.
+    # (Windows: the portable zip and the installer; macOS: the signed app and its zip; Linux: the tar.gz; each opened
+    # once with --check-desktop from a copy made to look downloaded), release.py's checks of the files, a smoke test
+    # of the zip (tools/smoke_app.py), and the files kept for a week to try out. Linux builds on the oldest Ubuntu
+    # there is, so the program runs on any distribution at least as new.
     name: release build (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -100,6 +114,9 @@ jobs:
             label: Windows
           - os: macos-latest
             label: macOS
+          - os: ubuntu-22.04
+            label: Linux
+            display: xvfb-run -a
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -110,20 +127,26 @@ jobs:
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
           node-version: "24"
+      - name: Install the libraries Qt uses (Linux)
+        if: runner.os == 'Linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y xvfb libegl1 libgl1 libxcb-cursor0 libxkbcommon-x11-0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libnss3 libasound2 libxcomposite1 libxdamage1 libxrandr2 libxtst6 libxkbfile1
       - name: Build
-        run: python tools/build.py --skip-tests
+        run: ${{ matrix.display }} python tools/build.py --skip-tests
       # What finalize checks before uploading: this system's release files (Windows: the portable zip and the
-      # installer; macOS: the app zip), their lines in SHA256SUMS.txt, and the zip's game-content scan.
+      # installer; macOS: the app zip; Linux: the tar.gz), their lines in SHA256SUMS.txt, and the zip's game-content scan.
       - name: Release checks
         run: python tools/release.py check
       # The release zip unzipped as a download ends up (Windows: Internet-zone markers on the DLLs; macOS: read-only,
-      # as App Translocation runs it) and started with a new data folder: the program's own files (Windows: the CLR
+      # as App Translocation runs it; Linux: read-only) and started with a new data folder: the program's own files (Windows: the CLR
       # settings and NSTool; macOS: the signature and the memory reader's entitlement), the server, the page and a
       # picture, the window loading the page, and a clean quit. The runners have a desktop session, so the window
-      # really opens.
+      # really opens
+      # (Linux's has none: xvfb).
       - name: Smoke test the release
         id: smoke
-        run: python tools/smoke_app.py --port 8799
+        run: ${{ matrix.display }} python tools/smoke_app.py --port 8799
       # Kept when only the smoke test failed too, to try the build by hand.
       - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: success() || steps.smoke.outcome == 'failure'
@@ -131,7 +154,26 @@ jobs:
           name: divine-pulse-${{ matrix.label }}
           path: |
             release/Divine-Pulse-*.zip
+            release/Divine-Pulse-*.tar.gz
             release/Divine-Pulse-*-setup.exe
             release/SHA256SUMS.txt
           retention-days: 7
           if-no-files-found: error
+
+  linux-release-elsewhere:
+    # The Linux release, built on Ubuntu 22.04, started on the newest Ubuntu: newer system libraries, and AppArmor's
+    # rule that stops Chromium's sandbox (app/system/platform/linux.py, sandbox_blocked). Only a display and what every desktop has are installed.
+    name: Linux release on a newer distribution
+    needs: release-build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+        with:
+          name: divine-pulse-Linux
+          path: release
+      - run: sudo apt-get update && sudo apt-get install -y xvfb libegl1 libgl1 libgbm1 libasound2t64 libfontconfig1
+      - run: xvfb-run -a python3 tools/smoke_app.py --port 8799

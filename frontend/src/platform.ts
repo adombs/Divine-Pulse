@@ -1,6 +1,6 @@
 /**
  * Which computer the app runs on, for what differs there: shortcut names (⌥ and ⌘ on a Mac, Alt and Ctrl on
- * Windows), the words for files and folders, and the history keys the macOS window lacks.
+ * Windows and Linux), the words for files and folders, and the history keys the macOS window lacks.
  *
  * The page is always shown on the computer the tracker runs on (the server only listens on 127.0.0.1), so the
  * browser's own platform is the tracker's.
@@ -27,6 +27,7 @@ export const PLATFORM_NAME: Record<Platform, string> = { macos: "macOS", windows
 
 export const PLATFORM: Platform = detectPlatform();
 export const IS_MAC = PLATFORM === "macos";
+export const IS_LINUX = PLATFORM === "linux";
 
 /** Whether this is Safari's engine (the macOS app's WKWebView, or Safari), not a Chromium one (the Windows app's
  * WebView2, Chrome, Edge), whose user agents also name AppleWebKit. */

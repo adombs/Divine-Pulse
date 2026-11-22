@@ -14,7 +14,7 @@ import { ToastState } from "./Toasts";
 import { Segmented, Switch } from "./ui";
 import { AppearanceState, FONTS, TEXT_SCALE, loadFont } from "../appearance";
 import { useNav } from "../nav";
-import { IS_MAC, PLATFORM, PLATFORM_NAME } from "../platform";
+import { IS_LINUX, IS_MAC, PLATFORM, PLATFORM_NAME, type Platform } from "../platform";
 import { PageHeader } from "./layout";
 import { Icon, IconName } from "./Icon";
 import { MemoryCheck } from "./MemoryCheck";
@@ -33,16 +33,22 @@ const TEXT_STOPS = Math.round((TEXT_SCALE.max - TEXT_SCALE.min) / TEXT_SCALE.ste
 
 /** What each game reader needs, under Settings > General > Game. */
 const READER_NOTES: Record<Settings["memory_reader"], string> = {
-  auto: "Finds the game in whichever supported program is running: Eden (Windows, with fastmem enabled), Astris (macOS), Ryubing or Ryujinx, or FE3H Recomp by onerag90 (Windows). Fire Emblem: Three Houses must be v1.2.0.",
-  eden: "Requires Windows, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0.",
-  ryujinx: "Requires Astris on macOS, or Ryubing (or Ryujinx) on Windows or macOS, running Fire Emblem: Three Houses v1.2.0.",
+  auto: "Finds the game in whichever supported program is running: Eden (Windows or Linux, with fastmem enabled), Astris (macOS), Ryubing or Ryujinx, or FE3H Recomp by onerag90 (Windows). Fire Emblem: Three Houses must be v1.2.0.",
+  eden: "Requires Windows or Linux, Eden with fastmem enabled, and Fire Emblem: Three Houses v1.2.0.",
+  ryujinx: "Requires Astris on macOS, or Ryubing (or Ryujinx) on Windows, macOS or Linux, running Fire Emblem: Three Houses v1.2.0.",
   recomp: "Requires Windows, FE3H Recomp by onerag90 (fe3hrecomp.exe) running Fire Emblem: Three Houses v1.2.0.",
 };
 
 const READERS: [Settings["memory_reader"], string][] = [["auto", "Auto"], ["eden", "Eden"], ["ryujinx", "Astris / Ryubing"], ["recomp", "FE3H Recomp by onerag90"]];
-/** Readers a Mac can't use (Eden is read on Windows only, and FE3H Recomp is a Windows program): left out there,
- * unless already chosen (settings brought over from a PC). */
-const WINDOWS_ONLY_READERS = new Set<Settings["memory_reader"]>(["eden", "recomp"]);
+/** Readers a computer can't use (Eden is read on Windows and Linux, and FE3H Recomp is a Windows program): left out
+ * there, unless already chosen (settings brought over from another computer). */
+const UNAVAILABLE_READERS: Record<Platform, Settings["memory_reader"][]> = { windows: [], macos: ["eden", "recomp"], linux: ["recomp"] };
+/** Not yet tried with the real emulators and the game. */
+const LINUX_NOTE = " Linux support is experimental: if the game isn't found, please report it with tracker.log (About > Data folder > Open).";
+/** Whose game saves are found without being asked for. */
+const SAVES_FOUND = IS_LINUX ? "Eden's and Ryubing's" : "Eden's, Astris's and Ryubing's";
+/** Astris only runs on macOS. */
+const readerName = (id: Settings["memory_reader"], name: string) => (id === "ryujinx" && IS_LINUX ? "Ryubing / Ryujinx" : name);
 
 type SettingsTab ="game-files" | "general" | "ebst" | "spoilers" | "appearance" | "battle-replay" | "about";
 const TABS: { id: SettingsTab; label: string; icon: IconName; blurb: string }[] = [
@@ -462,9 +468,9 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
               {tab === "game-files" && <GameFilesSection desktop={desktop} heading={false} />}
               {tab === "general" && (
                 <>
-                  <Group title="Game" note={READER_NOTES[memoryReader]}>
+                  <Group title="Game" note={READER_NOTES[memoryReader] + (IS_LINUX ? LINUX_NOTE : "")}>
                     <Row label="Read the game from" hint="Save the setting, then check the connection.">
-                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={READERS.filter(([id]) => !(IS_MAC && WINDOWS_ONLY_READERS.has(id)) || id === settings.memory_reader)} />
+                      <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={READERS.filter(([id]) => !UNAVAILABLE_READERS[PLATFORM].includes(id) || id === settings.memory_reader).map(([id, name]) => [id, readerName(id, name)])} />
                     </Row>
                     <Row label="Connection">
                       <MemoryCheck key={settings.memory_reader} />
@@ -556,11 +562,10 @@ function SaveBackupsGroup({ toasts, id, limit, setLimit, invalid, folder, setFol
           value={limit} onChange={(e) => setLimit(e.target.value)} aria-invalid={invalid} />
       </Row>
       <Row label="Save folder" htmlFor={id + "-folder"} wide
-        // FE3H Recomp only runs on Windows, so a Mac never finds its saves.
-        hint={folder.trim() ? (IS_MAC ? "Leave empty to find Eden's, Astris's and Ryubing's saves automatically." : "Leave empty to find Eden's, Astris's, Ryubing's and FE3H Recomp's saves automatically.")
+        // FE3H Recomp only runs on Windows, and Astris only on a Mac.
+        hint={folder.trim() ? `Leave empty to find ${SAVES_FOUND}${PLATFORM === "windows" ? " and FE3H Recomp's" : ""} saves automatically.`
           : found.length ? <>Found: {found.map((f) => <code key={f} className="path">{f}</code>)}</>
-          : IS_MAC ? "None found yet. Eden's, Astris's and Ryubing's are found automatically. Or paste the folder here."
-          : "None found yet. Eden's, Astris's and Ryubing's are found automatically, and FE3H Recomp's once it has run with Divine Pulse open. Or paste the folder here."}>
+          : `None found yet. ${SAVES_FOUND} are found automatically${PLATFORM === "windows" ? ", and FE3H Recomp's once it has run with Divine Pulse open" : ""}. Or paste the folder here.`}>
         <input id={id + "-folder"} type="text" value={folder} placeholder="Automatic" onChange={(e) => setFolder(e.target.value)} />
       </Row>
       {status && (
@@ -590,6 +595,7 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
   if (!about) return null;
   // platform.ts is the one source for which computer this is (the tracker's, as the page is only shown there).
   const mac = IS_MAC;
+  const program = IS_LINUX ? "the Divine Pulse program" : "Divine Pulse.exe";
   const open = async () => {
     try {
       await api.openDataFolder();
@@ -609,7 +615,7 @@ export function AboutSection({ toasts }: { toasts: ToastState }) {
           hint={mac
             // The Mac app keeps it in Application Support; there is no folder beside the app to use instead.
             ? <>Runs, battles, settings and the log (tracker.log). To move to another Mac, copy this folder to the same place there.</>
-            : <>Runs, battles, settings and the log (tracker.log). To move to another PC, copy this folder to the same place there, or put it next to Divine Pulse.exe as a folder named <code>data</code>.</>}
+            : <>Runs, battles, settings and the log (tracker.log). To move to another PC, copy this folder to the same place there, or put it next to {program} as a folder named <code>data</code>.</>}
         >
           <span className="with-unit set-path">
             <code className="path">{about.data_dir}</code>

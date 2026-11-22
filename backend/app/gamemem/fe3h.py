@@ -25,7 +25,7 @@ from dataclasses import dataclass, field
 
 from ..domain.combat import EQUIPPED_SPELL as EQUIPPED_SPELL
 from ..system import MEMORY_ACCESS_HELP
-from ..system.memory import AccessDenied, ProcessMemory, open_process, search
+from ..system.memory import AccessDenied, ProcessMemory, open_process, search, similar_processes
 from ..domain.battalions import valid_endurance, valid_exp, valid_uses
 from ..domain.units import SkillProgress
 from .emulators import EMULATORS, Emulator, MemoryLayout, names, running
@@ -406,6 +406,7 @@ class GameMemory:
 
     def __init__(self, emulators: tuple[Emulator, ...] = EMULATORS) -> None:
         self.emulators = emulators
+        self._noted: set[str] = set()  # connection details already in the log
         self._process: ProcessMemory | None = None
         self._main = 0
         self.version: GameVersion | None = None
@@ -811,12 +812,21 @@ class GameMemory:
             return None
         return struct.unpack("<H", data)[0]
 
+    def _note(self, details: str) -> None:
+        """Log connection details a report of a problem needs, once each and not without end (they change as the
+        emulator starts up)."""
+        if details not in self._noted and len(self._noted) < 50:
+            self._noted.add(details)
+            log.info("%s", details)
+
     def _connect(self) -> None:
         try:
             found = running(self.emulators)
         except OSError as exc:
             raise GameMemoryError(str(exc)) from exc
         if not found:
+            for names_found in similar_processes({exe for e in self.emulators for exe in e.executables}):
+                self._note(f"Not recognised as an emulator: {names_found}")
             if len(self.emulators) > 1:
                 listed = ", ".join(e.name for e in self.emulators)
                 raise GameMemoryError(f"No supported program is running. Start the game in one of: {listed}.")
@@ -825,8 +835,9 @@ class GameMemory:
         for emulator, pid in found:
             try:
                 process = open_process(pid)
-            except AccessDenied:
+            except AccessDenied as exc:
                 denied = denied or emulator
+                self._note(f"{emulator.name}: {exc}")
                 continue
             except OSError:
                 continue
@@ -835,6 +846,15 @@ class GameMemory:
                 self._process, (self.version, self._main), self.emulator = process, main, emulator
                 log.info("Reading FE3H %s from %s (process %d)", self.version.name, emulator.name, pid)
                 return
+            hidden = getattr(emulator.layout, "hidden", None)
+            if hidden is not None and hidden(process):  # its memory is there, but the system keeps it from us
+                denied = denied or emulator
+            describe = getattr(process, "describe", None)
+            if describe is not None:
+                try:
+                    self._note(f"FE3H wasn't found in {emulator.name}: {describe()}")
+                except OSError:  # it has just ended
+                    pass
             process.close()
         if denied is not None:
             raise GameMemoryError(MEMORY_ACCESS_HELP.format(emulator=denied.name))

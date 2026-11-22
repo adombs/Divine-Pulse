@@ -35,13 +35,14 @@ INTERVAL = 10.0
 # A file written this recently may still be being written: it's copied on a later pass.
 SETTLE_SECONDS = 2.0
 # Ryujinx's family's executables (gamemem/ryujinx.py), whose portable data folder is beside them.
+EDEN_PROGRAMS = frozenset({"eden.exe", "eden", "eden-cli"})
 RYUJINX_PROGRAMS = frozenset({"ryujinx.exe", "ryujinx", "astris", "astris.exe"})
 
 
 def eden_save_folders(appdata: str | None = None) -> list[Path]:
     """FE3H's save folders in Eden's user folder (platform.eden_user_dirs: %APPDATA%/eden on Windows; on macOS
-    ~/Library/Application Support/eden and ~/.local/share/eden; on Linux ~/.local/share/eden), one per emulated user
-    profile. `appdata`: a Windows %APPDATA% folder to look in instead."""
+    ~/Library/Application Support/eden and ~/.local/share/eden; on Linux ~/.local/share/eden, and the Flatpak's), one per
+    emulated user profile. `appdata`: a Windows %APPDATA% folder to look in instead."""
     users = [Path(appdata) / "eden"] if appdata is not None else platform.current().eden_user_dirs()
     found: list[Path] = []
     for user in users:
@@ -59,7 +60,7 @@ _IMKVDB = Path("bis") / "system" / "save" / "8000000000000000" / "0" / "imkvdb.a
 def ryujinx_roots(home: Path | None = None, appdata: str | None = None) -> list[Path]:
     """Where Ryujinx and its forks keep their data on this computer (platform.ryujinx_roots): %APPDATA%/Ryujinx
     (Ryubing, Ryujinx) on Windows; ~/Library/Application Support/Ryujinx (Ryubing) and Astris's sandbox container's
-    on macOS; ~/.config/Ryujinx on Linux."""
+    on macOS; ~/.config/Ryujinx and the Flatpaks' on Linux."""
     env = {"APPDATA": appdata} if appdata is not None else None
     return platform.current().ryujinx_roots(env=env, home=home)
 
@@ -91,7 +92,7 @@ def ryujinx_save_folders(root: Path) -> list[Path]:
 
 def program_save_folders(programs: list[str]) -> list[Path]:
     """The save folders of running programs, given their executable paths: a portable Eden's (a `user` folder beside
-    eden.exe), a portable Ryujinx's or Ryubing's (a `portable` folder beside Ryujinx.exe), and FE3H Recomp's (the `save`
+    eden.exe, or on Linux beside its AppImage or in the folder it was started from), a portable Ryujinx's or Ryubing's (a `portable` folder beside Ryujinx.exe), and FE3H Recomp's (the `save`
     folder beside fe3hrecomp.exe, one `save_N` folder per profile)."""
     found: list[Path] = []
     for program in programs:
@@ -102,7 +103,7 @@ def program_save_folders(programs: list[str]) -> list[Path]:
             found += ryujinx_save_folders(exe.parent / "portable")
         else:
             found += _eden_saves(exe.parent / "user")
-    return found
+    return list(dict.fromkeys(found))
 
 
 def _eden_saves(user: Path) -> list[Path]:
@@ -125,7 +126,7 @@ def running_save_folders() -> list[Path]:
     from ..system.memory import process_paths
 
     try:
-        return program_save_folders(sorted(set(process_paths({"eden.exe", "fe3hrecomp.exe", *RYUJINX_PROGRAMS}))))
+        return program_save_folders(sorted(set(process_paths({"fe3hrecomp.exe", *EDEN_PROGRAMS, *RYUJINX_PROGRAMS}))))
     except OSError:
         return []
 
