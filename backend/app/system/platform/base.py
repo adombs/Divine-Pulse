@@ -180,6 +180,10 @@ class WindowBehaviour:
         if place.get("maximized"):
             window.maximize()
 
+    def closed(self, window) -> None:
+        """After the window has closed and pywebview's loop has ended, on the main thread: nothing it started may keep
+        the program running."""
+
     def focus(self, window) -> None:
         """Bring the window to the front (a second launch asks for it)."""
         window.show()

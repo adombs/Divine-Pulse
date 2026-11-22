@@ -191,6 +191,32 @@ def test_linux_runs_the_window_without_a_sandbox_only_where_it_cant_start(monkey
     assert linux.sandbox_blocked()
 
 
+def test_linux_window_closing_during_a_load_ends_pywebview_s_waiting_threads():
+    """pywebview's evaluate_js waits on a semaphore that only the page's answer releases, in a thread that isn't a
+    daemon: a window closed meanwhile would keep the program running for good."""
+    import threading
+    from types import SimpleNamespace
+
+    asked = [threading.Semaphore(0) for _ in range(2)]
+    native = SimpleNamespace(_js_results={})
+    started = threading.Event()
+
+    def generate_js_object():  # two scripts in turn, as pywebview's
+        for i, semaphore in enumerate(asked):
+            native._js_results[str(i)] = {"semaphore": semaphore}
+            started.set()
+            semaphore.acquire()
+            del native._js_results[str(i)]
+
+    thread = threading.Thread(target=generate_js_object, daemon=False)
+    thread.start()
+    started.wait(5)
+    linux.Window().closed(SimpleNamespace(native=native))
+    thread.join(5)
+    assert not thread.is_alive() and native._js_results == {}
+    linux.Window().closed(SimpleNamespace(native=None))  # GTK's window, or none
+
+
 def test_linux_finds_a_downloaded_nstool(tmp_path, monkeypatch):
     monkeypatch.setattr(linux.shutil, "which", lambda name: None)
     unzipped = tmp_path / "Downloads" / "nstool-v1.9.2-ubuntu_x86_64"

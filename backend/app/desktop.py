@@ -58,6 +58,7 @@ def check_desktop() -> bool:
 
         window.events.loaded += on_loaded
         webview.start(gui=behaviour.gui)
+        behaviour.closed(window)
         return loaded
     except Exception:
         log.exception("Packaged desktop check failed")
@@ -279,6 +280,7 @@ class DesktopApp:
             storage_path=str(DATA_DIR / "webview"),
             icon=str(ICON_ICO),
         )
+        self.behaviour.closed(self.window)
 
     def pick_game_dump(self) -> str | None:
         import webview

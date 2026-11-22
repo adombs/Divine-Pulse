@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import threading
+import time
 import webbrowser
 from collections.abc import Mapping
 from pathlib import Path
@@ -265,6 +266,24 @@ def prepare_qt() -> None:
         os.environ.setdefault("QTWEBENGINE_DISABLE_SANDBOX", "1")
 
 
+def release_page_waits(native, timeout_s: float = 5.0) -> bool:
+    """End pywebview's threads that wait for the page to answer. Each load starts one (its generate_js_object, not a
+    daemon), and a window closed before the answer came would leave it waiting, and the program running, for good.
+    True once none is left."""
+    deadline = time.monotonic() + timeout_s
+    while True:
+        waiting = [t for t in threading.enumerate()
+                   if not t.daemon and t is not threading.main_thread() and t is not threading.current_thread()]
+        if not waiting:
+            return True
+        if time.monotonic() >= deadline:
+            log.warning("Still running after the window closed: %s", ", ".join(t.name for t in waiting))
+            return False
+        for result in list(getattr(native, "_js_results", {}).values()):
+            result["semaphore"].release()
+        time.sleep(0.02)
+
+
 class _Browser(webbrowser.BaseBrowser):
     """Opens links with the environment other programs need (child_env)."""
 
@@ -306,6 +325,10 @@ class Window(WindowBehaviour):
             if native.isMaximized():
                 return {**previous, "maximized": True}  # keep the normal bounds
         return super().current_place(window, previous, min_size)
+
+    def closed(self, window) -> None:
+        if (native := getattr(window, "native", None)) is not None and hasattr(native, "_js_results"):  # Qt's window
+            release_page_waits(native)
 
     def focus(self, window) -> None:
         native = getattr(window, "native", None)
