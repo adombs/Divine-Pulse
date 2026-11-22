@@ -25,7 +25,7 @@ finalize's checks of the built files (names, checksums, game-content scan) witho
 | `Divine-Pulse-<version>-setup.exe` | Windows, most people: installs for the current user (no administrator prompt), adds Start menu and optional desktop shortcuts, and an uninstaller. |
 | `Divine-Pulse-<version>-windows-portable.zip` | Windows: unzip and run `Divine Pulse.exe`, nothing installed. |
 | `Divine-Pulse-<version>-macos-arm64.zip` | macOS on Apple silicon: unzip and move `Divine Pulse.app` to Applications. Not notarized, so the first launch needs System Settings → Privacy & Security → Open Anyway. |
-| `Divine-Pulse-<version>-linux-x86_64.tar.gz` | Linux: unpack and run `Divine Pulse`, or `./install.sh` to add it to the applications menu. |
+| `Divine-Pulse-<version>-linux-x86_64.tar.gz` | Linux (experimental): unpack and run `Divine Pulse`, or `./install.sh` to add it to the applications menu. |
 | `SHA256SUMS.txt` | Checksums of the files built. |
 
 Each build writes checksums only for the artifacts it produced. Old artifacts for other versions can remain in

@@ -95,6 +95,13 @@ def process_paths(exe_names: set[str]) -> list[str]:
     return _platform().process_paths({n.lower() for n in exe_names})
 
 
+def similar_processes(exe_names: set[str]) -> list[str]:
+    """Running programs that may be these under another name, for the log (Linux, where they're installed in many
+    ways)."""
+    similar = getattr(_platform(), "similar_processes", None)
+    return similar({n.lower() for n in exe_names}) if similar is not None else []
+
+
 def open_process(pid: int) -> ProcessMemory:
     """Open a process for reading. Raises AccessDenied if the OS refuses, OSError if it's gone."""
     return _platform().Process(pid)

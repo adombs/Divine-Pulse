@@ -35,6 +35,12 @@ Requirements
   SteamOS 3.5 or newer) and a desktop session (X11 or Wayland), and Eden with
   fastmem enabled, or Ryubing (or Ryujinx), running Fire Emblem: Three Houses
   v1.2.0. The game is read without root and without changing any system setting.
-  AppImage, Flatpak and native copies of the emulators work.
+
+Experimental
+  Linux support is new, and reading the game from the real emulators hasn't been
+  confirmed yet. If the game isn't found, please report it at
+  https://github.com/adombs/Divine-Pulse/issues with your distribution, the
+  emulator's version and how it was installed (AppImage, Flatpak and so on), and
+  tracker.log from the data folder (Settings > About > Open).
 
 Player guide: https://github.com/adombs/Divine-Pulse#readme

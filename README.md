@@ -2,14 +2,14 @@
 
 <img src="branding/icons/app-icon-rounded-1024.png" alt="" width="96" align="right">
 
-Divine Pulse is a free, offline companion for players who emulate **Fire Emblem: Three Houses** on Windows, macOS or Linux. It reads the game while you play and keeps your runs and battles on your computer.
+Divine Pulse is a free, offline companion for players who emulate **Fire Emblem: Three Houses** on Windows, macOS or Linux (experimental). It reads the game while you play and keeps your runs and battles on your computer.
 
 [Download for Windows, macOS or Linux](https://github.com/adombs/Divine-Pulse/releases/latest) · [Contributing](.github/CONTRIBUTING.md)
 
 ## Requirements
 
 - Windows 10 or 11, 64-bit, with Microsoft Edge WebView2; macOS 12 or newer on Apple silicon; or
-  64-bit Linux with glibc 2.35 or newer (Ubuntu 22.04, Debian 12, SteamOS 3.5 and later). See [Install](#install).
+  64-bit Linux with glibc 2.35 or newer (Ubuntu 22.04, Debian 12, SteamOS 3.5 and later; experimental). See [Install](#install).
 - One of these, found automatically (or picked under Settings > General > Game): **Eden** with fastmem enabled
   (Windows or Linux), **Astris** (macOS), **Ryubing**/Ryujinx (Windows, macOS or Linux), or **FE3H Recomp by onerag90** (Windows); and
   **Fire Emblem: Three Houses v1.2.0**.
@@ -32,9 +32,15 @@ it as a download; allow it in System Settings > Privacy & Security, then import 
 
 **Linux.** Unpack `Divine-Pulse-<version>-linux-x86_64.tar.gz` and run **Divine Pulse** in its folder, or run
 `./install.sh` there to copy it to `~/.local/opt` and add it to your applications menu (no administrator rights).
-Eden and Ryubing are found however they were installed (AppImage, Flatpak, tar.gz or a distribution's package). To
+Eden and Ryubing should be found however they were installed (AppImage, Flatpak, tar.gz or a distribution's package). To
 import NSP files, download the Linux NSTool from [its releases page](https://github.com/jakcron/nstool/releases/latest)
 (`ubuntu_x86_64`), unzip it, and leave `nstool` in Downloads or put it on your PATH.
+
+Linux support is **experimental**: the program is tested on Linux, but reading the game from the real emulators there
+hasn't been confirmed yet. If it isn't found, please [open an issue](https://github.com/adombs/Divine-Pulse/issues)
+with your distribution, the emulator's version and how it was installed (AppImage, Flatpak and so on), and
+`tracker.log` from the data folder (Settings > About > Open). It says what was found; it holds folder names, so look
+it over first.
 
 On all of them, close the window to exit the app. Divine Pulse finds the emulator on its own (Settings > General > Game is
 **Auto** by default). macOS lets another program read an app's memory only when the app allows debugging, as Astris's

@@ -43,6 +43,8 @@ const READERS: [Settings["memory_reader"], string][] = [["auto", "Auto"], ["eden
 /** Readers a computer can't use (Eden is read on Windows and Linux, and FE3H Recomp is a Windows program): left out
  * there, unless already chosen (settings brought over from another computer). */
 const UNAVAILABLE_READERS: Record<Platform, Settings["memory_reader"][]> = { windows: [], macos: ["eden", "recomp"], linux: ["recomp"] };
+/** Not yet tried with the real emulators and the game. */
+const LINUX_NOTE = " Linux support is experimental: if the game isn't found, please report it with tracker.log (About > Data folder > Open).";
 /** Whose game saves are found without being asked for. */
 const SAVES_FOUND = IS_LINUX ? "Eden's and Ryubing's" : "Eden's, Astris's and Ryubing's";
 /** Astris only runs on macOS. */
@@ -466,7 +468,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
               {tab === "game-files" && <GameFilesSection desktop={desktop} heading={false} />}
               {tab === "general" && (
                 <>
-                  <Group title="Game" note={READER_NOTES[memoryReader]}>
+                  <Group title="Game" note={READER_NOTES[memoryReader] + (IS_LINUX ? LINUX_NOTE : "")}>
                     <Row label="Read the game from" hint="Save the setting, then check the connection.">
                       <Segmented label="Read the game from" value={memoryReader} onChange={setMemoryReader} options={READERS.filter(([id]) => !UNAVAILABLE_READERS[PLATFORM].includes(id) || id === settings.memory_reader).map(([id, name]) => [id, readerName(id, name)])} />
                     </Row>

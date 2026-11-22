@@ -97,6 +97,15 @@ def find_processes(exe_names: set[str]) -> list[tuple[int, str]]:
     return [(pid, min(known)) for pid, _exe, names in _all_processes() if (known := names & exe_names)]
 
 
+def similar_processes(exe_names: set[str]) -> list[str]:
+    """Running programs with one of these names somewhere in theirs: an emulator packaged in a way that isn't known
+    yet. Names only, not paths or arguments."""
+    return sorted({
+        ", ".join(sorted(names)) for pid, _exe, names in _all_processes()
+        if pid != os.getpid() and not names & exe_names and any(known in name for known in exe_names for name in names)
+    })
+
+
 def process_paths(exe_names: set[str]) -> list[str]:
     """Where the running processes with one of these names (lower case) are: the executable's path, and that name in
     the folder of the AppImage it came from and in its working folder (where a portable Eden's `user` folder is)."""
@@ -312,6 +321,26 @@ class Process:
 
     def alive(self) -> bool:
         return not self._closed and _start_time(self.pid) == self._started
+
+    def describe(self) -> str:
+        """What can be read of it, for the log: enough to see why the game wasn't found, in a player's report."""
+        with self._lock:
+            self._refresh()
+            shared: dict[tuple[int, int], list[Mapping]] = {}
+            for m in self._maps:
+                if m.shared_memory:
+                    shared.setdefault(m.key, []).append(m)
+            # The emulated memory is gigabytes: the smaller ones (windows, sound) say nothing.
+            files = [
+                f"{views[0].path} ({sum(m.end - m.base for m in views) >> 20} MiB in {len(views)} mapping(s), "
+                f"{'opened' if self._file(views[0]) is not None else 'not opened'})"
+                for views in shared.values() if sum(m.end - m.base for m in views) >= 64 << 20
+            ]
+            largest = max((m.end - m.base for m in self._maps if m.readable and m.inode == 0), default=0)
+            names = ", ".join(sorted(_process_names(PROC / str(self.pid), os.readlink(PROC / str(self.pid) / "exe"))))
+        scope = os.fsdecode(_read(PROC / "sys/kernel/yama/ptrace_scope")).strip() or "none"
+        return (f"{names}; direct reads {'allowed' if self._direct else 'refused'} (ptrace_scope {scope}); shared memory: "
+                f"{'; '.join(files) or 'none'}; largest private mapping {largest >> 20} MiB")
 
     def _visible(self, mapping: Mapping) -> bool:
         if self._file(mapping) is not None:

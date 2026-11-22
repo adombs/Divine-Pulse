@@ -134,6 +134,18 @@ def test_emulators_are_found_however_they_were_installed(proc, exe, argv, comm, 
 
 
 @posix
+def test_a_program_that_may_be_an_emulator_is_noted_in_the_log(proc, caplog):
+    process(proc, 42, "/opt/x/ryujinx-canary-launcher", ["x"], "x")
+    process(proc, 43, "/usr/bin/bash", ["bash"], "bash")
+    memory = GameMemory(emulators_for("auto"))
+    with caplog.at_level("INFO"):
+        for _ in range(3):
+            with pytest.raises(GameMemoryError):
+                memory.read()
+    assert [r.message for r in caplog.records] == ["Not recognised as an emulator: ryujinx-canary-launcher, x"]  # once
+
+
+@posix
 def test_windows_programs_are_not_looked_for_on_linux(proc):
     process(proc, 42, "/usr/bin/wine64-preloader", ["C:\\eden\\eden.exe"], "eden.exe")
     assert running(EMULATORS) == []
@@ -287,11 +299,18 @@ def test_ryubing_s_software_memory_mode_is_explained_when_it_cannot_be_read(stan
 
 
 @on_linux
-def test_an_emulator_without_the_game_is_not_a_permission_problem(stand, monkeypatch):
+def test_an_emulator_without_the_game_is_not_a_permission_problem(stand, monkeypatch, caplog):
     stand("eden", b"", [(0x8000000, 0, 0x1000, "r")])
     monkeypatch.setattr(memory_linux, "_process_vm_readv", refuse)
-    with pytest.raises(GameMemoryError, match="isn't running in Eden"):
-        GameMemory(EMULATORS).read()
+    memory = GameMemory(EMULATORS)
+    with caplog.at_level("INFO"):
+        for _ in range(2):
+            with pytest.raises(GameMemoryError, match="isn't running in Eden"):
+                memory.read()
+    # Enough in the log to see why, in a player's report.
+    (noted,) = [r.message for r in caplog.records if "wasn't found" in r.message]
+    assert "eden" in noted and "direct reads refused" in noted
+    assert "/memfd:HostMemory (deleted) (4096 MiB in 2 mapping(s), opened)" in noted
 
 
 @on_linux
