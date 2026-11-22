@@ -68,7 +68,7 @@ def server(tmp_path: Path):
 def _app_routes(routes: dict, data: Path, picture: tuple[str, bytes]) -> None:
     routes["/api/health"] = ("application/json", json.dumps({"ok": True, "app": "divine-pulse", "version": "1.2.3"}).encode())
     routes["/api/about"] = ("application/json", json.dumps({"version": "1.2.3", "data_dir": str(data), "desktop": True,
-                                                            "platform": smoke.PLATFORM}).encode())
+                                                            "platform": "macos"}).encode())
     routes["/"] = ("text/html; charset=utf-8", b'<!doctype html><div id="root"></div>')
     routes[smoke.PICTURE] = picture
 
@@ -76,7 +76,7 @@ def _app_routes(routes: dict, data: Path, picture: tuple[str, bytes]) -> None:
 def test_check_server_accepts_the_app(server, tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     base, routes = server
     _app_routes(routes, tmp_path, ("image/png", smoke.PNG_SIGNATURE + b"rest"))
-    smoke.check_server(base, "1.2.3", tmp_path)
+    smoke.check_server(base, "1.2.3", tmp_path, "macos")
 
 
 def test_check_server_rejects_the_page_served_for_a_missing_picture(server, tmp_path: Path) -> None:
@@ -85,7 +85,7 @@ def test_check_server_rejects_the_page_served_for_a_missing_picture(server, tmp_
     base, routes = server
     _app_routes(routes, tmp_path, ("text/html; charset=utf-8", b"<!doctype html>"))
     with pytest.raises(smoke.SmokeFailure, match="not a PNG"):
-        smoke.check_server(base, "1.2.3", tmp_path)
+        smoke.check_server(base, "1.2.3", tmp_path, "macos")
 
 
 @pytest.mark.parametrize(("field", "value", "message"), [
@@ -98,14 +98,14 @@ def test_check_server_rejects_another_platform_or_data_folder(server, tmp_path: 
     about = json.loads(routes["/api/about"][1])
     routes["/api/about"] = ("application/json", json.dumps({**about, field: value}).encode())
     with pytest.raises(smoke.SmokeFailure, match=message):
-        smoke.check_server(base, "1.2.3", tmp_path)
+        smoke.check_server(base, "1.2.3", tmp_path, "macos")
 
 
 def test_check_server_rejects_another_version(server, tmp_path: Path) -> None:
     base, routes = server
     _app_routes(routes, tmp_path, ("image/png", smoke.PNG_SIGNATURE))
     with pytest.raises(smoke.SmokeFailure, match="version"):
-        smoke.check_server(base, "1.2.4", tmp_path)
+        smoke.check_server(base, "1.2.4", tmp_path, "macos")
 
 
 ACCESS = '2026-11-21 15:17:29,439 INFO uvicorn.access: 127.0.0.1:63291 - "{}" 200\n'
@@ -147,12 +147,49 @@ def test_release_zip_is_this_platforms(tmp_path: Path, monkeypatch: pytest.Monke
     for name in ("Divine-Pulse-1.2.3-macos-arm64.zip", "Divine-Pulse-1.2.3-windows-portable.zip",
                  "Divine-Pulse-1.2.2-macos-arm64.zip", "Divine-Pulse-1.2.2-windows-portable.zip"):
         (tmp_path / name).write_bytes(b"")
-    monkeypatch.setattr(smoke, "MACOS", True)
-    assert smoke.release_zip("1.2.3").name == "Divine-Pulse-1.2.3-macos-arm64.zip"
-    monkeypatch.setattr(smoke, "MACOS", False)
-    assert smoke.release_zip("1.2.3").name == "Divine-Pulse-1.2.3-windows-portable.zip"
+    assert smoke.release_zip("1.2.3", smoke.MacOS()).name == "Divine-Pulse-1.2.3-macos-arm64.zip"
+    assert smoke.release_zip("1.2.3", smoke.Windows()).name == "Divine-Pulse-1.2.3-windows-portable.zip"
     with pytest.raises(smoke.SmokeFailure, match="run tools/build.py"):
-        smoke.release_zip("1.2.4")
+        smoke.release_zip("1.2.4", smoke.Windows())
+
+
+def test_the_platform_is_chosen_from_the_system(monkeypatch: pytest.MonkeyPatch) -> None:
+    for system, kind in (("win32", smoke.Windows), ("darwin", smoke.MacOS)):
+        monkeypatch.setattr(smoke.sys, "platform", system)
+        assert type(smoke.current()) is kind
+    monkeypatch.setattr(smoke.sys, "platform", "linux")
+    with pytest.raises(smoke.SmokeFailure, match="isn't built for linux yet"):
+        smoke.current()
+
+
+def _portable_zip(tmp_path: Path, files: list[str]) -> Path:
+    import zipfile
+
+    archive = tmp_path / "Divine-Pulse-1.2.3-windows-portable.zip"
+    with zipfile.ZipFile(archive, "w") as zf:
+        for name in files:
+            zf.writestr(f"Divine Pulse/{name}", b"x")
+    return archive
+
+
+@pytest.mark.skipif(smoke.sys.platform != "win32", reason="Windows alternate data streams")
+def test_windows_unzips_with_internet_zone_markers(tmp_path: Path) -> None:
+    archive = _portable_zip(tmp_path, ["Divine Pulse.exe", "_internal/a.dll"])
+    program = smoke.Windows().unzip(archive, tmp_path / "out")
+    assert "ZoneId=3" in Path(f"{program / '_internal' / 'a.dll'}:Zone.Identifier").read_text()
+
+
+def test_windows_checks_the_files_beside_the_program(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """The portable zip, unzipped without Windows' zone markers: its CLR settings and NSTool must be there."""
+    monkeypatch.setattr(smoke.Path, "write_text", lambda *a, **k: None)  # the ':Zone.Identifier' stream
+    names = ["Divine Pulse.exe", "Divine Pulse.exe.config", "tools/nstool.exe", "_internal/a.dll"]
+    program = smoke.Windows().unzip(_portable_zip(tmp_path, names), tmp_path / "full")
+    smoke.Windows().check_program(program)
+    program = smoke.Windows().unzip(_portable_zip(tmp_path, names[:1]), tmp_path / "bare")
+    with pytest.raises(smoke.SmokeFailure, match="Divine Pulse.exe.config is missing"):
+        smoke.Windows().check_program(program)
+    with pytest.raises(smoke.SmokeFailure, match="has no Divine Pulse/Divine Pulse.exe"):
+        smoke.Windows().unzip(_portable_zip(tmp_path, ["other.txt"]), tmp_path / "none")
 
 
 def _job(text: str, name: str) -> str:
@@ -165,8 +202,9 @@ def test_ci_smoke_tests_each_release_build() -> None:
     text = WORKFLOW.read_text("utf-8")
     job = _job(text, "release-build")
     assert "os: windows-latest" in job and "os: macos-latest" in job
-    assert job.index("python tools/build.py --skip-tests") < job.index("python tools/smoke_app.py") < job.index(
-        "actions/upload-artifact")
+    assert job.index("python tools/build.py --skip-tests") < job.index("python tools/release.py check") < job.index(
+        "python tools/smoke_app.py") < job.index("actions/upload-artifact")
+    assert "if: runner.os" not in job  # the same steps on both systems
 
 
 def test_ci_checks_the_frontend_and_backend_on_both_systems() -> None:

@@ -1,10 +1,24 @@
 # Releasing Divine Pulse
 
-`tools/build.py` builds Windows release artifacts on Windows, and the macOS app on macOS: `release/Divine Pulse.app`
-and `Divine-Pulse-<version>-macos-<arch>.zip` (the app zipped with `ditto`, signed ad hoc with the memory reader's
-debugger entitlement, not notarized), with `SHA256SUMS.txt`. Run it on macOS with any `python3`; it switches to a
-Python 3.12+ from Homebrew or python.org when the one it was started with is older. A release's files are the ones
-`tools/release.py finalize` builds and uploads (step 4), on Windows and on a Mac, never files from an ordinary build.
+`tools/build.py` builds this computer's release files: run `python tools/build.py` on Windows and
+`python3 tools/build.py` on a Mac (started with an older Python, it switches to a 3.12+ one: the `py` launcher's on
+Windows, Homebrew's or python.org's on macOS). Both take the same steps, and only a per-system *target* in the script
+differs:
+
+| Step | Windows | macOS |
+|---|---|---|
+| Build environment | `build/venv`, NSTool present in `vendor/nstool` | `build/venv`, Xcode's command-line tools |
+| Web UI, tests | shared | shared |
+| Program | PyInstaller (shared), then the notes and licenses, `Divine Pulse.exe.config` and NSTool beside the program | the app icon, PyInstaller (shared), then the notes and licenses in `Contents/Resources` and the memory reader helper |
+| Sign | none (not code-signed) | ad hoc, the helper with the debugger entitlement; `codesign --verify --strict` and the entitlement checked |
+| Desktop check | `--check-desktop` from a copy with Internet-zone markers on its DLLs | `--check-desktop` from a read-only copy, as App Translocation runs a downloaded app |
+| Package | the portable ZIP, and the installer with Inno Setup 6 | `release/Divine Pulse.app` and its ZIP (`ditto`) |
+| Checksums | `SHA256SUMS.txt` | `SHA256SUMS.txt` |
+
+Linux has a stub target that stops with "not supported yet"; adding it means filling in that target (and the matching
+parts of `tools/smoke_app.py`, the spec and CI). A release's files are the ones `tools/release.py finalize` builds and
+uploads (step 4), on Windows and on a Mac, never files from an ordinary build. `python tools/release.py check` runs
+finalize's checks of the built files (names, checksums, game-content scan) without tagging or uploading; CI runs it.
 
 | File | For |
 |---|---|
@@ -94,12 +108,15 @@ or later on Apple silicon. All bundle their Python and frontend runtimes.
    pictures, waits for the window to load the page, and quits it through `/api/quit`. Inspect
    the draft's version, notes, files, and checksums before publishing it manually on GitHub.
 
-   The build also runs the packaged executable with `--check-desktop`: it opens and closes a hidden WebView2
-   window, without the server, game reader or user data. It tests a temporary copy with Internet-zone markers on
-   the DLLs, as Windows Explorer creates when extracting a downloaded zip. A failed or timed-out desktop check
-   stops packaging, even with `--skip-tests`. Keep `Divine Pulse.exe.config` beside the executable: its CLR setting
-   allows the app's bundled .NET assemblies to load with those markers, without unblocking files or changing
-   machine-wide settings.
+   The build also runs the packaged executable with `--check-desktop`: it opens and closes a hidden window
+   (WebView2 on Windows, WebKit on macOS), without the server, game reader or user data, from a temporary copy made
+   to look downloaded. On Windows that copy has Internet-zone markers on the DLLs, as Explorer creates when
+   extracting a downloaded zip; keep `Divine Pulse.exe.config` beside the executable: its CLR setting allows the
+   app's bundled .NET assemblies to load with those markers, without unblocking files or changing machine-wide
+   settings. On macOS the copy is read-only, as App Translocation runs a downloaded app that has been allowed to
+   open (a quarantined copy would only bring up Gatekeeper's prompt, since the app isn't notarized). A failed or
+   timed-out desktop check stops packaging, even with `--skip-tests`. `tools/smoke_app.py` unzips the release the
+   same way before starting it.
 
    On clean Windows, test the installer and the portable build. Import your own files through the app, start a run,
    check tracking with Eden running and stopped, play a battle, close the window, and restart. Check that the
@@ -111,11 +128,11 @@ patch version. Review the local and remote tag and draft state before retrying a
 
 ## Where an installed copy keeps things
 
-| What | Where |
-|---|---|
-| Program | `%LOCALAPPDATA%\Programs\Divine Pulse` (installer) or wherever the zip was unpacked |
-| Runs, battles, settings, log | `%LOCALAPPDATA%\Divine Pulse`, or a `data` folder next to the program if one exists (portable mode) |
-| Override | the `DIVINE_PULSE_DATA_DIR` environment variable |
+| What | Windows | macOS |
+|---|---|---|
+| Program | `%LOCALAPPDATA%\Programs\Divine Pulse` (installer) or wherever the zip was unpacked | wherever `Divine Pulse.app` was put, usually Applications |
+| Runs, battles, settings, log | `%LOCALAPPDATA%\Divine Pulse`, or a `data` folder next to the program if one exists (portable mode) | `~/Library/Application Support/Divine Pulse` |
+| Override | the `DIVINE_PULSE_DATA_DIR` environment variable | the same |
 
 Settings → About shows the version and the data folder, with a button to open it. Settings that don't fit the new
 PC are fixed on start:
@@ -127,6 +144,9 @@ PC are fixed on start:
 - **SmartScreen.** The program isn't code-signed, so Windows SmartScreen shows "Windows protected your PC" on first
   run (*More info → Run anyway*). Some antivirus tools also flag unsigned PyInstaller programs. Signing the exe and
   installer with a code-signing certificate removes both.
+- **Gatekeeper.** The macOS app is signed ad hoc, not notarized, so the first launch of a downloaded copy needs
+  right-click > Open or System Settings → Privacy & Security → Open Anyway. A Developer ID certificate and
+  notarization remove that.
 - **WebView2.** The window uses Microsoft Edge WebView2, which Windows 11 includes and most Windows 10 PCs have via
   Edge. Install WebView2 before running Divine Pulse.
 - **Content.** The release must contain no game content. The release script scans the built zip using

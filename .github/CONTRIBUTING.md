@@ -9,35 +9,52 @@ go through [the security policy](SECURITY.md), not an issue.
 
 ## Prerequisites
 
-- Windows 10/11 for the supported development and release workflow. macOS (Apple silicon) works for development and
-  for running from source: use `tools/setup.sh` and `tools/launch.sh`, with Xcode's command-line tools installed (the
-  memory reader helper is compiled and signed locally). The release packaging is Windows-only.
-- Python 3.12 or newer and Node.js 24.x on `PATH` (Node 24.15 has been verified). The locked Vite version accepts
-  Node `^20.19.0 || >=22.12.0`; the native TypeScript test scripts also need Node's `--experimental-strip-types`,
-  so use Node 22.12+ or 24.x rather than an earlier Node 20 release.
-- Git. Inno Setup 6 is optional for local installer builds; without it, the Windows portable archive can still be
-  built. The GitHub CLI is only needed when creating a draft release with the release script.
+Windows 10/11 and macOS 12+ (Apple silicon) are both supported for development, running from source and building
+releases, with the same steps. Each needs:
+
+| | Windows | macOS |
+|---|---|---|
+| Python | 3.12 or newer (python.org; the `py` launcher finds it) | 3.12 or newer (`brew install python@3.13`; macOS's own `python3` is 3.9) |
+| Node.js | 22.12+ or 24.x (24.15 has been verified) | the same (`brew install node`) |
+| System tools | none; [Inno Setup 6](https://jrsoftware.org/isinfo.php) only for building the installer | Xcode's command-line tools (`xcode-select --install`): the memory reader helper is compiled and signed locally |
+| Git, and the GitHub CLI for releases | yes | yes |
+
+The locked Vite version accepts Node `^20.19.0 || >=22.12.0`; the native TypeScript test scripts also need Node's
+`--experimental-strip-types`, so use Node 22.12+ or 24.x rather than an earlier Node 20 release. Without Inno Setup,
+the Windows portable archive can still be built.
 
 App builds contain no game data and fetch none. Installing Python and Node dependencies may require network access.
 
 ## Local setup
 
-From the repository root, run `tools\setup.bat` on Windows. It creates `backend/.venv`, installs runtime dependencies,
-builds the frontend, and creates a source shortcut. It does not install the development test and lint dependencies;
-install those as shown below before running checks. To set up manually:
+The setup scripts take the same steps, in the same order, on both systems: they find Python 3.12+ and Node.js 22.12+,
+create `backend/.venv` with the runtime dependencies, build the macOS memory reader (Windows needs nothing), build the
+frontend, and put a *Divine Pulse (source)* shortcut on the desktop. Run them again after pulling changes. The launch
+scripts check that setup ran and the frontend is built, then start the app from `backend/`.
 
-```powershell
+| | Windows | macOS |
+|---|---|---|
+| Set up | `tools\setup.bat` | `tools/setup.sh` |
+| Start | the desktop shortcut, or `tools\launch.bat` | the desktop shortcut, or `tools/launch.sh` |
+| The project's Python | `backend\.venv\Scripts\python` | `backend/.venv/bin/python` |
+
+Setup doesn't install the development test and lint dependencies; install those as below before running checks. To
+set up by hand (`<python>` is the project's Python from the table):
+
+```
 cd backend
-python -m venv .venv
-.venv\Scripts\python -m pip install -r requirements-dev.txt
-cd ..\frontend
+python -m venv .venv            # python3.13 -m venv .venv on macOS
+<python> -m pip install -r requirements-dev.txt
+cd ../frontend
 npm ci
 npm test
 npm run build
 ```
 
 Source-mode data is stored in the repository's `data/` directory; set `DIVINE_PULSE_DATA_DIR` to use another location.
-Run the desktop app from the `backend` folder with `.venv\Scripts\python -m app` after building the frontend.
+Run the desktop app from the `backend` folder with `<python> -m app` after building the frontend. On macOS, the memory
+reader's tests read a real process: allow developer tools once (`sudo DevToolsSecurity -enable`), or they wait on a
+password prompt.
 
 ## No game files in the repository
 
@@ -48,15 +65,15 @@ it. Players import their own dump, and the only images in the repository are the
 rows.
 
 Keep personal dumps, NSPs, keys, captures and imported assets outside Git. Use the app's **Game files** screen to
-import for local testing. To run the desktop app from the source checkout, use the shortcut created by setup or
-run `tools\\launch.bat`. Windows, Eden, and FE3H v1.2.0 are required.
+import for local testing. To run the desktop app from the source checkout, use the shortcut created by setup or the
+launch script. Tracking needs FE3H v1.2.0 in Eden (Windows) or Astris (macOS).
 
 ## Optional test inputs
 
 CI runs the checks on Windows and macOS, each with Python 3.12 and 3.14, and a release build on each, which it unzips,
 starts and quits (`tools/smoke_app.py`) and keeps for a week as the run's artifacts; all use synthetic data and project
 files. To run additional local tests, set the appropriate
-PowerShell environment variable and run pytest from the backend directory with the project virtual environment.
+environment variable and run pytest from the backend directory with the project's Python.
 
 | Variable | Points at |
 |---|---|
@@ -64,6 +81,9 @@ PowerShell environment variable and run pytest from the backend directory with t
 | DIVINE_PULSE_GAME_DUMP | An extracted FE3H v1.2.0 dump |
 | DIVINE_PULSE_CAPTURES | Private recorded test fixtures |
 | DIVINE_PULSE_TEST_PACKAGED_DIR | A built Windows program folder. Inno Setup 6 is required for these tests. |
+
+To try a release build as CI does, build it and run `python tools/release.py check` (the files, their checksums and
+the game-content scan) and `python tools/smoke_app.py` (unzips, starts and quits it) on either system.
 
 Use DIVINE_PULSE_DATA_DIR to keep source experiments away from your real runs.
 
@@ -100,12 +120,13 @@ branches are named `release/<version>` and urgent hotfix branches `hotfix/<versi
 2. Add a line under `## Unreleased` in `CHANGELOG.md` for anything a player would notice.
 3. Run the local checks before opening a pull request. CI runs the same ones on every pull request, with no game files.
    A first-time contributor's run starts once a maintainer has read the change and approved it. Use the project venv
-   explicitly so the commands do not depend on whichever Python happens to be on `PATH`:
+   explicitly so the commands do not depend on whichever Python happens to be on `PATH` (`<python>` is
+   `.venv\Scripts\python` on Windows, `.venv/bin/python` on macOS):
 
 ```
 cd backend
-.venv\Scripts\python -m ruff check --config pyproject.toml . ../tools ../packaging
-.venv\Scripts\python -m pytest -q
+<python> -m ruff check --config pyproject.toml . ../tools ../packaging
+<python> -m pytest -q
 cd ../frontend
 npm test
 npm run build
@@ -114,10 +135,11 @@ npm run build
 `ruff check ... --fix` fixes most lint findings itself. Lint rules are in `backend/pyproject.toml`.
 
 Backend responsibilities and extension examples are in [Backend architecture](../docs/BACKEND_ARCHITECTURE.md).
-The backend tests enforce layer dependency direction; run `.venv\Scripts\python -B architecture.py` from `backend/`
+The backend tests enforce layer dependency direction; run `<python> -B architecture.py` from `backend/`
 for that check alone.
 
 ## Releasing
 
 Only a maintainer runs a release. Merge the reviewed release or hotfix branch into `main` through a pull request,
-then follow [the release guide](../docs/releasing.md) to tag and publish the tested commit.
+then follow [the release guide](../docs/releasing.md) to tag and publish the tested commit: `tools/release.py
+finalize` runs on Windows and on a Mac, each building and adding its own files to the same draft.

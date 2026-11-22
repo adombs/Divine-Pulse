@@ -1,22 +1,35 @@
 Divine Pulse {version}
 =====================
 
-1. Drag "Divine Pulse.app" to your Applications folder (or run it from anywhere).
-2. Open it. The app isn't notarized by Apple: if macOS says it can't be opened,
-   go to System Settings > Privacy & Security and choose "Open Anyway", or
-   right-click the app and choose Open.
-3. In the app, import an extracted game folder, or select NSPs and your prod.keys
-   (NSP import needs NSTool: https://github.com/jakcron/nstool/releases/latest).
-   Include the base game and update 1.2.0. Create or load a run and start the
-   game in Astris.
+Install
+  Drag "Divine Pulse.app" to your Applications folder (or run it from anywhere).
 
-Your runs, battles and settings are saved in
-~/Library/Application Support/Divine Pulse (Settings > About > Open).
+First launch
+  Open it. The app isn't notarized by Apple: if macOS says it can't be opened,
+  go to System Settings > Privacy & Security and choose "Open Anyway", or
+  right-click the app and choose Open.
 
-Close the app window to quit. To remove it, drag the app to the Trash. Export any
-records you want to keep before deleting its data folder.
+Import your game
+  In the app, import an extracted game folder, or select NSPs and your prod.keys
+  (NSP import needs NSTool: https://github.com/jakcron/nstool/releases/latest;
+  leave it in Applications or Downloads). Include the base game and update 1.2.0.
+  Create or load a run and start the game in Astris.
 
-Requires macOS 12 or newer, and Astris (or Ryubing/Ryujinx) running
-Fire Emblem: Three Houses v1.2.0.
+Your data
+  Your runs, battles and settings are saved in
+  ~/Library/Application Support/Divine Pulse (Settings > About > Open).
+
+Updating
+  Quit the app and replace "Divine Pulse.app" in Applications with the newer one.
+  Your data folder is kept. macOS asks once more to open the new copy.
+
+Removing
+  Close the app window to quit. Drag the app to the Trash. Export any records you
+  want to keep, then delete ~/Library/Application Support/Divine Pulse to remove
+  your runs, battle history, imported game files and settings too.
+
+Requirements
+  macOS 12 or newer on Apple silicon, and Astris (or Ryubing/Ryujinx) running
+  Fire Emblem: Three Houses v1.2.0.
 
 Player guide: https://github.com/adombs/Divine-Pulse#readme

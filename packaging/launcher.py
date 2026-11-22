@@ -1,4 +1,4 @@
-"""Entry point of the packaged program (Divine Pulse.exe): the same as `python -m app`."""
+"""Entry point of the packaged program (Divine Pulse.exe, Divine Pulse.app): the same as `python -m app`."""
 
 from app.__main__ import main
 

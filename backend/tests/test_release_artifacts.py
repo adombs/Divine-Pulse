@@ -19,7 +19,7 @@ SPEC.loader.exec_module(release_script)
 @pytest.fixture(autouse=True)
 def windows_release(monkeypatch: pytest.MonkeyPatch) -> None:
     """These tests use the Windows file names, whichever computer runs them."""
-    monkeypatch.setattr(release_script, "MACOS", False)
+    monkeypatch.setattr(release_script, "target", release_script.build.Windows)
 
 
 def _release_fixture(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> dict[str, Path]:
@@ -164,8 +164,8 @@ def test_an_annotated_tag_on_head_counts_as_on_head(tmp_path: Path, monkeypatch:
 
 def test_release_files_on_macos_is_the_app_zip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(release_script, "ROOT", tmp_path)
-    monkeypatch.setattr(release_script, "MACOS", True)
-    monkeypatch.setattr(release_script.platform, "machine", lambda: "arm64")
+    monkeypatch.setattr(release_script, "target", release_script.build.MacOS)
+    monkeypatch.setattr(release_script.build.platform, "machine", lambda: "arm64")
     (tmp_path / "release").mkdir()
     archive = tmp_path / "release" / "Divine-Pulse-1.2.3-macos-arm64.zip"
     archive.write_bytes(b"app")
@@ -181,8 +181,8 @@ def test_release_files_on_macos_takes_the_zip_the_build_named(tmp_path: Path, mo
     """build.py names the zip by build/venv's architecture, which an x86_64 (Rosetta) Python running this script
     wouldn't report. More than one for the version can't be told apart."""
     monkeypatch.setattr(release_script, "ROOT", tmp_path)
-    monkeypatch.setattr(release_script, "MACOS", True)
-    monkeypatch.setattr(release_script.platform, "machine", lambda: "x86_64")
+    monkeypatch.setattr(release_script, "target", release_script.build.MacOS)
+    monkeypatch.setattr(release_script.build.platform, "machine", lambda: "x86_64")
     (tmp_path / "release").mkdir()
     archive = tmp_path / "release" / "Divine-Pulse-1.2.3-macos-arm64.zip"
     archive.write_bytes(b"app")
@@ -197,8 +197,8 @@ def test_release_files_on_macos_takes_the_zip_the_build_named(tmp_path: Path, mo
 
 def test_release_files_on_macos_names_the_missing_zip(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(release_script, "ROOT", tmp_path)
-    monkeypatch.setattr(release_script, "MACOS", True)
-    monkeypatch.setattr(release_script.platform, "machine", lambda: "arm64")
+    monkeypatch.setattr(release_script, "target", release_script.build.MacOS)
+    monkeypatch.setattr(release_script.build.platform, "machine", lambda: "arm64")
     (tmp_path / "release").mkdir()
     with pytest.raises(RuntimeError, match=r"did not create Divine-Pulse-1\.2\.3-macos-arm64\.zip, SHA256SUMS\.txt$"):
         release_script.release_files("1.2.3")
@@ -208,7 +208,7 @@ def test_build_and_check_on_macos_uses_the_build_venvs_ruff_and_scans_the_app_zi
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(release_script, "ROOT", tmp_path)
-    monkeypatch.setattr(release_script, "MACOS", True)
+    monkeypatch.setattr(release_script, "target", release_script.build.MacOS)
     commands = []
     monkeypatch.setattr(release_script, "run", lambda *command, cwd=tmp_path: commands.append(([*command], cwd)))
     archive, sums = tmp_path / "release" / "Divine-Pulse-1.2.3-macos-arm64.zip", tmp_path / "release" / "SHA256SUMS.txt"
@@ -273,3 +273,56 @@ def test_add_to_draft_merges_the_checksums_and_checks_the_upload(
                         [str(part) for part in command] else None)
     with pytest.raises(RuntimeError, match="differs"):
         release_script.add_to_draft("v1.2.3", [archive, local_sums])
+
+
+def test_build_and_check_on_windows_uses_the_build_venvs_ruff_and_scans_the_portable_zip(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(release_script, "ROOT", tmp_path)
+    commands = []
+    monkeypatch.setattr(release_script, "run", lambda *command, cwd=tmp_path: commands.append(([*command], cwd)))
+    release = tmp_path / "release"
+    files = [release / "Divine-Pulse-1.2.3-windows-portable.zip", release / "Divine-Pulse-1.2.3-setup.exe",
+             release / "SHA256SUMS.txt"]
+    monkeypatch.setattr(release_script, "release_files", lambda version: files)
+    scanned = []
+    monkeypatch.setattr(release_script.game_content, "check_zip", lambda path: scanned.append(path) or [])
+
+    assert release_script.build_and_check("1.2.3") == files
+    (_, _), (ruff, _) = commands
+    assert ruff[0] == tmp_path / "build" / "venv" / "Scripts" / "python.exe"
+    assert scanned == [files[0]]
+
+
+def test_a_missing_installer_says_to_install_inno_setup(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    artifacts = _release_fixture(tmp_path, monkeypatch)
+    _write_manifest(artifacts, tmp_path / "release" / "SHA256SUMS.txt")
+    artifacts["Divine-Pulse-1.2.3-setup.exe"].unlink()
+    with pytest.raises(RuntimeError, match="setup.exe; install Inno Setup 6"):
+        release_script.release_files("1.2.3")
+
+
+def test_check_validates_the_built_files_with_the_apps_version_by_default(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture,
+) -> None:
+    artifacts = _release_fixture(tmp_path, monkeypatch)
+    _write_manifest(artifacts, tmp_path / "release" / "SHA256SUMS.txt")
+    monkeypatch.setattr(release_script, "app_version", lambda: "1.2.3")
+    scanned = []
+    monkeypatch.setattr(release_script.game_content, "check_zip", lambda path: scanned.append(path.name) or [])
+    monkeypatch.setattr(release_script.sys, "argv", ["release.py", "check"])
+    release_script.main()
+    assert scanned == ["Divine-Pulse-1.2.3-windows-portable.zip"]
+    assert "Release files OK: Divine-Pulse-1.2.3-windows-portable.zip" in capsys.readouterr().out
+    monkeypatch.setattr(release_script.game_content, "check_zip", lambda path: ["game.bin: game data"])
+    with pytest.raises(SystemExit, match="game content"):
+        release_script.main()
+    monkeypatch.setattr(release_script.sys, "argv", ["release.py", "finalize"])
+    with pytest.raises(SystemExit):
+        release_script.main()
+
+
+def test_finalize_runs_only_where_releases_are_built(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(release_script.sys, "platform", "linux")
+    with pytest.raises(SystemExit, match="Windows or macOS release files"):
+        release_script.preflight("v1.2.3")

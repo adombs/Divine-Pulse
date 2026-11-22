@@ -2,12 +2,14 @@
 
     python tools/smoke_app.py [--zip release/Divine-Pulse-1.5.3-macos-arm64.zip] [--port 8799] [--keep]
 
-Without --zip it takes this version's release zip from release/ (tools/build.py's output). It unzips it into a
-temporary folder (macOS: with ditto, as Finder and Archive Utility do; Windows: with Internet-zone markers on the
-DLLs, as Explorer leaves them after a download), then:
+Without --zip it takes this version's release zip from release/ (tools/build.py's output). The same steps run on
+each system; a Platform (Windows, MacOS) supplies the system's part, as tools/build.py's Targets do:
 
-- macOS: checks the app's signature (codesign --verify --deep --strict) and that the memory reader helper beside the
-  program still has its debugger entitlement;
+- unzips it into a temporary folder the way a download ends up (Windows: with Internet-zone markers on the DLLs, as
+  Explorer leaves them; macOS: with ditto, as Finder and Archive Utility do, then read-only, as App Translocation
+  runs a downloaded app);
+- checks the program's own files (Windows: the CLR settings beside the executable and the bundled NSTool; macOS: the
+  app's signature, codesign --verify --deep --strict, and the memory reader helper's debugger entitlement);
 - starts the app with a new, empty data folder (DIVINE_PULSE_DATA_DIR) set to use --port, which opens its window;
 - checks /api/health, /api/about (this platform, that data folder), the page (GET /) and a picture the page loads
   (/brand/home-lockup-cream.png, which must be a PNG, not the page served in its place);
@@ -38,8 +40,6 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 RELEASE = ROOT / "release"
 APP_NAME = "Divine Pulse"
-MACOS = sys.platform == "darwin"
-PLATFORM = "macos" if MACOS else "windows"
 HELPER = "dp-memreader"  # app.system.memory_macos.HELPER_NAME
 DEBUGGER_ENTITLEMENT = "com.apple.security.cs.debugger"
 PICTURE = "/brand/home-lockup-cream.png"
@@ -65,35 +65,97 @@ def version() -> str:
     return found.group(1)
 
 
-def release_zip(v: str) -> Path:
-    """This version's release zip for this platform, in release/."""
-    pattern = f"Divine-Pulse-{v}-macos-*.zip" if MACOS else f"Divine-Pulse-{v}-windows-portable.zip"
-    found = sorted(RELEASE.glob(pattern))
-    if len(found) != 1:
-        raise SmokeFailure(f"expected one {pattern} in {RELEASE}, found {len(found)}; run tools/build.py first")
-    return found[0]
+class Platform:
+    """What one system's smoke test does differently."""
+
+    key = ""  # /api/about's platform
+
+    def zip_pattern(self, v: str) -> str:
+        raise NotImplementedError
+
+    def unzip(self, archive: Path, into: Path) -> Path:
+        """Extract like a player's download ends up; returns the program."""
+        raise NotImplementedError
+
+    def executable(self, program: Path) -> Path:
+        raise NotImplementedError
+
+    def check_program(self, program: Path) -> None:
+        """The program's own files, before it's started."""
+
+    def cleanup(self, program: Path) -> None:
+        """Undo what unzip did that would stop the folder from being deleted."""
 
 
-def unzip(archive: Path, into: Path) -> Path:
-    """Extract like a player would; returns the program to start."""
-    if MACOS:
+class Windows(Platform):
+    key = "windows"
+
+    def zip_pattern(self, v: str) -> str:
+        return f"Divine-Pulse-{v}-windows-portable.zip"
+
+    def unzip(self, archive: Path, into: Path) -> Path:
+        with zipfile.ZipFile(archive) as zf:
+            zf.extractall(into)
+        folder = into / APP_NAME
+        if not self.executable(folder).is_file():
+            raise SmokeFailure(f"{archive.name} has no {APP_NAME}/{APP_NAME}.exe")
+        for dll in folder.rglob("*.dll"):  # what Explorer marks on files from a downloaded zip
+            Path(f"{dll}:Zone.Identifier").write_text("[ZoneTransfer]\nZoneId=3\n", encoding="utf-8")
+        return folder
+
+    def executable(self, program: Path) -> Path:
+        return program / f"{APP_NAME}.exe"
+
+    def check_program(self, program: Path) -> None:
+        step("Program files")
+        for name in (f"{APP_NAME}.exe.config", "tools/nstool.exe"):
+            if not (program / name).is_file():
+                raise SmokeFailure(f"{name} is missing beside {APP_NAME}.exe")
+            ok(name)
+
+
+class MacOS(Platform):
+    key = "macos"
+
+    def zip_pattern(self, v: str) -> str:
+        return f"Divine-Pulse-{v}-macos-*.zip"
+
+    def unzip(self, archive: Path, into: Path) -> Path:
         subprocess.run(["ditto", "-x", "-k", str(archive), str(into)], check=True)
         app = into / f"{APP_NAME}.app"
         if not app.is_dir():
             raise SmokeFailure(f"{archive.name} has no {APP_NAME}.app at its top level")
+        # Read-only, as App Translocation runs a downloaded app. (Quarantining it would only bring up Gatekeeper's
+        # prompt: the app isn't notarized.)
+        subprocess.run(["chmod", "-R", "a-w", str(app)], check=True)
         return app
-    with zipfile.ZipFile(archive) as zf:
-        zf.extractall(into)
-    folder = into / APP_NAME
-    for dll in folder.rglob("*.dll"):  # what Explorer marks on files from a downloaded zip
-        Path(f"{dll}:Zone.Identifier").write_text("[ZoneTransfer]\nZoneId=3\n", encoding="utf-8")
-    if not (folder / f"{APP_NAME}.exe").is_file():
-        raise SmokeFailure(f"{archive.name} has no {APP_NAME}/{APP_NAME}.exe")
-    return folder
+
+    def executable(self, program: Path) -> Path:
+        return program / "Contents" / "MacOS" / APP_NAME
+
+    def check_program(self, program: Path) -> None:
+        check_signature(program)
+
+    def cleanup(self, program: Path) -> None:
+        subprocess.run(["chmod", "-R", "u+w", str(program)], check=False)
 
 
-def executable(program: Path) -> Path:
-    return program / "Contents" / "MacOS" / APP_NAME if MACOS else program / f"{APP_NAME}.exe"
+PLATFORMS = {"win32": Windows, "darwin": MacOS}  # Linux: not built yet (tools/build.py)
+
+
+def current() -> Platform:
+    if sys.platform not in PLATFORMS:
+        raise SmokeFailure(f"the release isn't built for {sys.platform} yet; it runs on Windows or macOS")
+    return PLATFORMS[sys.platform]()
+
+
+def release_zip(v: str, system: Platform | None = None) -> Path:
+    """This version's release zip for this platform, in release/."""
+    pattern = (system or current()).zip_pattern(v)
+    found = sorted(RELEASE.glob(pattern))
+    if len(found) != 1:
+        raise SmokeFailure(f"expected one {pattern} in {RELEASE}, found {len(found)}; run tools/build.py first")
+    return found[0]
 
 
 def check_signature(app: Path) -> None:
@@ -161,7 +223,7 @@ def wait_for_server(process: subprocess.Popen, data: Path, port: int, timeout: f
     raise SmokeFailure(f"the app's server didn't answer within {timeout:.0f} s")
 
 
-def check_server(base: str, v: str, data: Path) -> None:
+def check_server(base: str, v: str, data: Path, platform: str | None = None) -> None:
     step(f"Server ({base})")
     health = get_json(f"{base}/api/health")
     if health.get("app") != "divine-pulse":
@@ -170,8 +232,9 @@ def check_server(base: str, v: str, data: Path) -> None:
         raise SmokeFailure(f"/api/health reports version {health.get('version')}, expected {v}")
     ok(f"/api/health {health}")
     about = get_json(f"{base}/api/about")
-    if about.get("platform") != PLATFORM:
-        raise SmokeFailure(f"/api/about reports platform {about.get('platform')!r}, expected {PLATFORM!r}")
+    platform = platform or current().key
+    if about.get("platform") != platform:
+        raise SmokeFailure(f"/api/about reports platform {about.get('platform')!r}, expected {platform!r}")
     if Path(about.get("data_dir", "")).resolve() != data.resolve():
         raise SmokeFailure(f"/api/about reports data folder {about.get('data_dir')}, expected {data}")
     ok(f"/api/about platform={about['platform']} desktop={about.get('desktop')} data_dir={about['data_dir']}")
@@ -240,29 +303,30 @@ def show_output(output: Path, data: Path) -> None:
 def smoke(archive: Path, port: int, start_timeout: float, window_timeout: float, quit_timeout: float,
           keep: bool) -> None:
     v = version()
+    system = current()
     scratch = Path(tempfile.mkdtemp(prefix="divine-pulse-smoke-"))
     process: subprocess.Popen | None = None
     data = scratch / "data"
     output = scratch / "app-output.txt"
+    program: Path | None = None
     try:
         step(f"Unzip {archive.name}")
-        program = unzip(archive, scratch / "unzipped")
+        program = system.unzip(archive, scratch / "unzipped")
         ok(str(program))
-        if MACOS:
-            check_signature(program)
+        system.check_program(program)
         if port_in_use(port):
             raise SmokeFailure(f"port {port} is already in use; pick a free one with --port")
         data.mkdir()
         (data / "settings.json").write_text(json.dumps({"port": port}), "utf-8")
-        step(f"Start ({executable(program).name}, data folder {data})")
+        step(f"Start ({system.executable(program).name}, data folder {data})")
         env = {**os.environ, "DIVINE_PULSE_DATA_DIR": str(data)}
         started = time.monotonic()
         with output.open("wb") as sink:
-            process = subprocess.Popen([str(executable(program))], env=env, stdout=sink, stderr=subprocess.STDOUT,
+            process = subprocess.Popen([str(system.executable(program))], env=env, stdout=sink, stderr=subprocess.STDOUT,
                                        stdin=subprocess.DEVNULL)
         base = wait_for_server(process, data, port, start_timeout)
         ok(f"server answered after {time.monotonic() - started:.1f} s (pid {process.pid})")
-        check_server(base, v, data)
+        check_server(base, v, data, system.key)
         wait_for_window(process, data, window_timeout)
         quit_app(process, base, quit_timeout)
         process = None
@@ -273,6 +337,8 @@ def smoke(archive: Path, port: int, start_timeout: float, window_timeout: float,
         show_output(output, data)
         raise
     finally:
+        if program is not None and not keep:
+            system.cleanup(program)
         if keep:
             print(f"Kept {scratch}")
         else:
@@ -288,8 +354,6 @@ def main() -> None:
     parser.add_argument("--quit-timeout", type=float, default=20, help="seconds to wait for the app to exit")
     parser.add_argument("--keep", action="store_true", help="keep the unzipped app and its data folder")
     args = parser.parse_args()
-    if sys.platform not in {"darwin", "win32"}:
-        sys.exit("smoke_app: the release runs on Windows or macOS")
     try:
         archive = (args.zip or release_zip(version())).resolve()
         smoke(archive, args.port, args.start_timeout, args.window_timeout, args.quit_timeout, args.keep)

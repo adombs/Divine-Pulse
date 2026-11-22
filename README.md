@@ -4,12 +4,12 @@
 
 Divine Pulse is a free, offline companion for players who emulate **Fire Emblem: Three Houses** on Windows or macOS. It reads the game while you play and keeps your runs and battles on your computer.
 
-[Download for Windows](https://github.com/adombs/Divine-Pulse/releases/latest) · [Contributing](.github/CONTRIBUTING.md)
+[Download for Windows or macOS](https://github.com/adombs/Divine-Pulse/releases/latest) · [Contributing](.github/CONTRIBUTING.md)
 
 ## Requirements
 
 - Windows 10 or 11, 64-bit, with Microsoft Edge WebView2; or macOS 12 or newer on Apple silicon (see
-  [macOS](#macos)).
+  [Install](#install)).
 - One of these, found automatically (or picked under Settings > General > Game): **Eden** with fastmem enabled
   (Windows), **Astris** (macOS) or **Ryubing**/Ryujinx, or **FE3H Recomp by onerag90** (Windows); and
   **Fire Emblem: Three Houses v1.2.0**.
@@ -17,29 +17,25 @@ Divine Pulse is a free, offline companion for players who emulate **Fire Emblem:
 
 Divine Pulse reads game memory. It does not write to the emulator or game. It has no accounts, telemetry, update check, or network service beyond its own local window.
 
-## macOS
+## Install
 
-Build the app with `python3 tools/build.py --skip-tests`: it makes **release/Divine Pulse.app** (open it, or drag it to
-Applications) and a zip of it to share. You need Python 3.12 or newer (`brew install python@3.13`; the build finds it
-even when `python3` is macOS's older one), Node.js, and Xcode's command-line tools (`xcode-select --install`). The app
-is signed ad hoc, not notarized: on another Mac, open it the first time with right-click > Open, or allow it in System
-Settings > Privacy & Security. Its data folder is ~/Library/Application Support/Divine Pulse.
+**Windows.** Run the installer (`Divine-Pulse-<version>-setup.exe`) or unpack the portable ZIP, then open
+**Divine Pulse.exe**. The program isn't code-signed: if SmartScreen warns about an unknown publisher, choose
+*More info > Run anyway*. NSTool, for importing NSP files, comes with it.
 
-To run from the source checkout instead, run `tools/setup.sh` once, then `tools/launch.sh`.
+**macOS.** Unzip `Divine-Pulse-<version>-macos-arm64.zip` and drag **Divine Pulse.app** to Applications, then open
+it. The app is signed ad hoc, not notarized: the first time, right-click it and choose Open, or allow it in System
+Settings > Privacy & Security. To import NSP files, download the latest macOS NSTool from
+[its releases page](https://github.com/jakcron/nstool/releases/latest) (`macos_arm64` for Apple silicon), unzip it,
+and leave `nstool` in Applications or Downloads: Divine Pulse finds it there. The first time it runs, macOS may block
+it as a download; allow it in System Settings > Privacy & Security, then import again.
 
-Divine Pulse finds Astris on its own (Settings > General > Game is **Auto** by default). macOS lets another program read an
-app's memory only when the app allows debugging, as Astris's releases do; Divine Pulse builds and signs a small
-reader for this (`backend/app/system/macos`), included in the built app. It only reads.
+On both, close the window to exit the app. Divine Pulse finds the emulator on its own (Settings > General > Game is
+**Auto** by default). macOS lets another program read an app's memory only when the app allows debugging, as Astris's
+releases do; Divine Pulse includes a small reader for this (`backend/app/system/macos`), signed to be allowed to. It
+only reads.
 
-To import NSP files, download the latest macOS NSTool from
-[its releases page](https://github.com/jakcron/nstool/releases/latest) (`macos_arm64` for Apple silicon), unzip it, and
-leave `nstool` in Applications or Downloads: Divine Pulse finds it there. The first time it runs, macOS may block it
-as a download; allow it in System Settings > Privacy & Security, then import again. Importing a dump folder needs
-nothing extra.
-
-## Install and import
-
-Run the Windows installer or unpack the portable ZIP. Open **Divine Pulse.exe** in either case. Close the window to exit the app.
+## Import your game
 
 Import your files in Divine Pulse. The installer only installs the program. Choose one of the following:
 
@@ -63,11 +59,38 @@ If you resume the same battle in the emulator, including from a bookmark, Divine
 
 ## Your files and settings
 
-**Settings → About** opens the app's data folder. Installed copies normally use %LOCALAPPDATA%\Divine Pulse. A portable copy uses a data folder next to the executable if you create one.
+**Settings → About** opens the app's data folder:
+
+| | Windows | macOS |
+|---|---|---|
+| Data folder | %LOCALAPPDATA%\Divine Pulse, or a `data` folder next to Divine Pulse.exe if you create one (portable) | ~/Library/Application Support/Divine Pulse |
 
 Appearance and spoiler preferences apply to this installation. **Settings → General** controls how many raw battle recordings to retain, from 0 to 1000. The default is three, and zero turns raw recording off. Saved replays in History are separate from raw recordings.
 
-To update, run the newer installer over your installation or uninstall and reinstall. For a portable copy, replace the program files. On first launch with existing records and during an interactive uninstall, you can choose whether to keep your runs and battle history. Uninstall also removes the application's imported assets, settings, and raw recordings. Use the export command to back up runs separately.
+| | Windows | macOS |
+|---|---|---|
+| Update | Run the newer installer over your installation, or replace the portable copy's program files | Quit the app and replace Divine Pulse.app with the newer one |
+| Remove | Uninstall from the Start menu or Windows Settings > Apps; delete a portable copy's folder | Drag the app to the Trash, then delete its data folder |
+
+The data folder is kept when you update. On first launch with existing records, and during an interactive uninstall
+on Windows, you can choose whether to keep your runs and battle history; uninstalling also removes the imported game
+files, settings and raw recordings. Use the export command on Runs to back up runs separately.
+
+## Build or run from source
+
+The same steps on Windows and macOS; [Contributing](.github/CONTRIBUTING.md) has the details.
+
+| | Windows | macOS |
+|---|---|---|
+| Needs | Python 3.12+, Node.js 22.12+; Inno Setup 6 for the installer | Python 3.12+ (`brew install python@3.13`), Node.js 22.12+, Xcode's command-line tools (`xcode-select --install`) |
+| Set up once (and after pulling changes) | `tools\setup.bat` | `tools/setup.sh` |
+| Run from source | the *Divine Pulse (source)* desktop shortcut, or `tools\launch.bat` | the *Divine Pulse (source)* desktop shortcut, or `tools/launch.sh` |
+| Build the release | `python tools/build.py` | `python3 tools/build.py` |
+| What the build makes, in `release/` | `Divine-Pulse-<version>-windows-portable.zip`, `Divine-Pulse-<version>-setup.exe`, `SHA256SUMS.txt` | `Divine Pulse.app`, `Divine-Pulse-<version>-macos-<arch>.zip`, `SHA256SUMS.txt` |
+
+`tools/build.py` finds a Python 3.12+ itself when started with an older one (the `py` launcher on Windows, Homebrew's
+or python.org's on macOS) and builds in its own environment. Add `--skip-tests` to skip the tests, and on Windows
+`--no-installer` for only the portable ZIP.
 
 ## Credits
 

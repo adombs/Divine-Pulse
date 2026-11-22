@@ -2,11 +2,15 @@
 
     python tools/release.py prepare 1.2.10
     python tools/release.py finalize 1.2.10
+    python tools/release.py check [1.2.10]
 
 Preparation commits version and changelog changes on the matching release or hotfix branch.
 Finalization checks the clean current main against origin and builds this computer's release files (Windows: the
 installer and portable zip; macOS: the app zip). Run it on each: the first pushes only the tag and creates a draft
-with its files, the next adds its files to that draft. Either may go first.
+with its files, the next adds its files to that draft. Either may go first. Check only validates this computer's
+built release files (names, checksums, the zip's game-content scan), as finalize does before uploading.
+
+The system's part (which files, where the build environment is) comes from tools/build.py's Target.
 """
 
 from __future__ import annotations
@@ -16,7 +20,6 @@ import datetime
 import hashlib
 import json
 import os
-import platform
 import re
 import subprocess
 import sys
@@ -24,10 +27,10 @@ import tempfile
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-if sys.version_info < (3, 12):  # noqa: UP036 (macOS's own python3 is 3.9, which lacks tomllib)
-    from build import newer_python
+import build  # noqa: E402 (this system's release files and build environment: build.target())
 
-    if newer := newer_python():
+if sys.version_info < (3, 12):  # noqa: UP036 (macOS's own python3 is 3.9, which lacks tomllib)
+    if newer := build.newer_python():
         print(f"Python {sys.version.split()[0]} is too old for the release script: using {newer}", flush=True)
         os.execv(newer, [newer, __file__, *sys.argv[1:]])
     sys.exit(f"release: Python 3.12 or newer is needed (this is {sys.version.split()[0]}).")
@@ -36,7 +39,7 @@ import tomllib  # noqa: E402
 import game_content  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
-MACOS = sys.platform == "darwin"
+RELEASED_ON = {"win32": "Windows", "darwin": "macOS"}  # each finalizes its own files onto the same draft
 VERSION_FILES = (
     ROOT / "backend/app/__init__.py",
     ROOT / "backend/pyproject.toml",
@@ -93,11 +96,16 @@ def run(*command: str | Path, cwd: Path = ROOT) -> None:
     subprocess.run([str(part) for part in command], cwd=cwd, check=True)
 
 
+def target() -> build.Target:
+    """This computer's build target: which release files it makes and where its build environment is."""
+    return build.target()
+
+
 def preflight(tag: str) -> list[str] | None:
     """None when `tag` is new: nothing on origin and no release yet. When the other computer already finalized, the
     names of the files on its draft (the tag must be this commit and the release still a draft)."""
-    if sys.platform not in {"win32", "darwin"}:
-        fail("finalize builds the Windows or macOS release files and must run on one of them")
+    if sys.platform not in RELEASED_ON:
+        fail(f"finalize builds the {' or '.join(RELEASED_ON.values())} release files and must run on one of them")
     if subprocess.run(["gh", "auth", "status"], cwd=ROOT, capture_output=True).returncode:
         fail("GitHub CLI is not authenticated; run 'gh auth login' and try again")
     remote_tag = subprocess.run(
@@ -127,14 +135,8 @@ def preflight(tag: str) -> list[str] | None:
 
 
 def artifact_names(version: str) -> list[str]:
-    """This computer's release files, without the checksum file."""
-    if MACOS:
-        # Named by the build's own Python (build/venv), which needn't be this one's architecture: look for it.
-        found = sorted(path.name for path in (ROOT / "release").glob(f"Divine-Pulse-{version}-macos-*.zip"))
-        if len(found) > 1:
-            raise RuntimeError(f"more than one macOS zip for {version} in release/: {', '.join(found)}")
-        return found or [f"Divine-Pulse-{version}-macos-{platform.machine()}.zip"]
-    return [f"Divine-Pulse-{version}-windows-portable.zip", f"Divine-Pulse-{version}-setup.exe"]
+    """This computer's release files, without the checksum file, the zip first."""
+    return target().artifact_names(version, ROOT / "release")
 
 
 def release_files(version: str) -> list[Path]:
@@ -142,8 +144,7 @@ def release_files(version: str) -> list[Path]:
     expected = [*(release / name for name in artifact_names(version)), release / "SHA256SUMS.txt"]
     missing = [path.name for path in expected if not path.is_file()]
     if missing:
-        hint = "" if MACOS else "; install Inno Setup 6 and try again"
-        raise RuntimeError("local build did not create " + ", ".join(missing) + hint)
+        raise RuntimeError("local build did not create " + ", ".join(missing) + target().missing_hint())
     try:
         checksums = expected[-1].read_text("ascii")
     except UnicodeDecodeError as error:
@@ -216,8 +217,14 @@ def app_version() -> str | None:
 
 def build_and_check(version: str) -> list[Path]:
     run(sys.executable, ROOT / "tools/build.py")
-    python = ROOT / ("build/venv/bin/python" if MACOS else "build/venv/Scripts/python.exe")
+    python = target().venv_python(ROOT / "build" / "venv")
     run(python, "-m", "ruff", "check", "--config", "pyproject.toml", ".", "../tools", "../packaging", cwd=ROOT / "backend")
+    return check_release(version)
+
+
+def check_release(version: str) -> list[Path]:
+    """This computer's built release files and checksums, and the zip's game-content scan: what finalize uploads
+    (CI runs it on each system's build as `release.py check`)."""
     files = release_files(version)
     problems = game_content.check_zip(files[0])
     if problems:
@@ -354,18 +361,28 @@ def add_to_draft(tag: str, files: list[Path]) -> None:
     check_uploaded(tag, artifacts)
     print(f"Added {', '.join(sorted(names))} to the {tag} draft.")
 
+
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Prepare a release branch or finalize a merged release on main.")
-    parser.add_argument("action", choices=("prepare", "finalize"))
-    parser.add_argument("version", help="e.g. 1.2.10")
+    parser = argparse.ArgumentParser(description="Prepare a release branch, finalize a merged release on main, or "
+                                                 "check this computer's built release files.")
+    parser.add_argument("action", choices=("prepare", "finalize", "check"))
+    parser.add_argument("version", nargs="?", help="e.g. 1.2.10 (check: the app's version by default)")
     args = parser.parse_args()
-    version = args.version.removeprefix("v")
+    if args.version is None and args.action != "check":
+        parser.error(f"{args.action} needs the version")
+    version = (args.version or app_version() or "").removeprefix("v")
     if not re.fullmatch(r"\d+\.\d+\.\d+", version):
         fail("version must look like 1.2.3")
     if args.action == "prepare":
         prepare(version)
-    else:
+    elif args.action == "finalize":
         finalize(version)
+    else:
+        try:
+            files = check_release(version)
+        except RuntimeError as error:
+            fail(str(error))
+        print("Release files OK: " + ", ".join(path.name for path in files))
 
 
 if __name__ == "__main__":

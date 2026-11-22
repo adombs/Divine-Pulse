@@ -1,5 +1,6 @@
 # The checks from .github/CONTRIBUTING.md, on the oldest and the recommended supported versions, on Windows and macOS,
-# and a release build on each (the files tools/release.py finalize would upload). No game files needed.
+# and a release build on each (the files tools/release.py finalize would upload). Both systems run the same steps;
+# the only system-specific one is allowing developer tools on macOS. No game files needed.
 # Pull requests from forks run with a read-only token and no secrets. Don't switch this to pull_request_target, which
 # would run contributors' code with access to this repository.
 name: CI
@@ -84,9 +85,10 @@ jobs:
         run: python -m pytest -q
 
   release-build:
-    # tools/build.py as tools/release.py finalize runs it (the tests ran above): the Windows installer and portable
-    # zip, or the signed macOS app and its zip, each opened once with --check-desktop. Then the release's game-content
-    # scan, a smoke test of the zip (tools/smoke_app.py), and the files kept for a week to try out.
+    # The same steps on each system, as tools/release.py finalize runs them (the tests ran above): tools/build.py
+    # (Windows: the portable zip and the installer; macOS: the signed app and its zip, each opened once with
+    # --check-desktop from a copy made to look downloaded), release.py's checks of the files, a smoke test of the
+    # zip (tools/smoke_app.py), and the files kept for a week to try out.
     name: release build (${{ matrix.label }})
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
@@ -110,28 +112,15 @@ jobs:
           node-version: "24"
       - name: Build
         run: python tools/build.py --skip-tests
+      # What finalize checks before uploading: this system's release files (Windows: the portable zip and the
+      # installer; macOS: the app zip), their lines in SHA256SUMS.txt, and the zip's game-content scan.
       - name: Release checks
-        shell: python
-        run: |
-          import hashlib, sys
-          from pathlib import Path
-          sys.path.insert(0, "tools")
-          import game_content
-          release = Path("release")
-          zips = sorted(release.glob("Divine-Pulse-*-windows-portable.zip")) + sorted(release.glob("Divine-Pulse-*-macos-*.zip"))
-          assert zips, "the build made no release zip"
-          sums = (release / "SHA256SUMS.txt").read_text("ascii")
-          problems = []
-          for path in [*zips, *release.glob("Divine-Pulse-*-setup.exe")]:
-              if f"{hashlib.sha256(path.read_bytes()).hexdigest()}  {path.name}" not in sums.splitlines():
-                  problems.append(f"{path.name}: no matching line in SHA256SUMS.txt")
-          for path in zips:
-              problems += game_content.check_zip(path)
-          print("\n".join(problems) or "Release files OK: " + ", ".join(p.name for p in zips))
-          sys.exit(1 if problems else 0)
-      # The release zip unzipped as a player would and started with a new data folder: its signature and the memory
-      # reader's entitlement (macOS), the server, the page and a picture, the window loading the page, and a clean
-      # quit. The runners have a desktop session, so the window really opens.
+        run: python tools/release.py check
+      # The release zip unzipped as a download ends up (Windows: Internet-zone markers on the DLLs; macOS: read-only,
+      # as App Translocation runs it) and started with a new data folder: the program's own files (Windows: the CLR
+      # settings and NSTool; macOS: the signature and the memory reader's entitlement), the server, the page and a
+      # picture, the window loading the page, and a clean quit. The runners have a desktop session, so the window
+      # really opens.
       - name: Smoke test the release
         id: smoke
         run: python tools/smoke_app.py --port 8799
