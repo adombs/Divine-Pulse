@@ -13,6 +13,7 @@ import { useNav } from "../nav";
 import { IS_MAC, keyLabel } from "../platform";
 import { DuplicateWarning } from "./DuplicateBattles";
 import { PopupActions, useInPopup } from "./CharacterPopup";
+import { clampShare, shareTone } from "../share";
 
 export interface Tab<T extends string> {
   id: T;
@@ -279,8 +280,8 @@ export function Tile({
 
 /** A thin bar for a share (0-1): HP, magic left. Low shares turn red, middling amber. */
 export function Meter({ value, label }: { value: number; label?: string }) {
-  const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
-  const tone = pct <= 30 ? "bad" : pct <= 60 ? "warn" : "good";
+  const pct = Math.round(clampShare(value) * 100);
+  const tone = shareTone(value);
   return (
     <span className={`meter ${tone}`} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={label}>
       <span style={{ width: `${pct}%` }} />
