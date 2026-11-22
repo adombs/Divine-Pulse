@@ -10,6 +10,7 @@ from app.battle import STEP_ATTACK, ArmySample, Battle, BattleSample, BattleTrac
 from app.gamemem import battle as pool
 from app.gamemem.fe3h import BATTLE_MARKER, BATTLE_MARKER_TO_COPY
 from app.domain.battle import LogEntry
+from app.domain.combat import BattleUnit
 from app.domain.outlook import outlook
 from app.storage import BattleStore, NotFound
 
@@ -474,6 +475,58 @@ def test_a_rewind_takes_back_spells_and_weapon_uses_together():
     tracker.update(BattleSample((acting(spells=(10, 8), items=((22, 40),)),)), "run", at(9))  # all undone
     unit = tracker.battle.units[0]
     assert (unit.spells_cast, unit.weapon_uses, tracker.battle.divine_pulses) == (0, 0, 1)
+
+
+def test_the_outlook_follows_orders_given_as_a_phase_begins_until_someone_acts(monkeypatch):
+    # A boss holding its tile (order 3) is set off (1) by the map's script after the enemy phase begins.
+    tracker = BattleTracker()
+    worked_out = []  # (boss's order, boss's tile) each time
+
+    def threats(units, grid, spent):
+        boss = next(u for u in units if u.slot == 2)
+        worked_out.append((boss.order, (boss.x, boss.y)))
+        return {1: ((2,), 20, 10.0, 0.5 if boss.order == 1 else 0.0)}
+
+    monkeypatch.setattr(tracker.support, "threats", threats)
+    log = []
+
+    def read(second, phase, order, tile=(9, 9), acted=False, army_acted=True):
+        monkeypatch.setattr(tracker, "_phase_now", lambda: phase)
+        units = (
+            BattleUnit(0, True, 1, 0, STATS, hp=30, x=1, y=1, slot=1, team=0, acted=army_acted),
+            BattleUnit(43, False, 1, 0, STATS, hp=30, x=tile[0], y=tile[1], slot=2, team=1, acted=acted, order=order),
+        )
+        tracker.update(BattleSample((replace(army("byleth"), hp=20, x=1, y=1),), units=units, army_slots={1: "byleth"}), "run", at(second))
+        log.append(tracker.battle.outlook_at["chance"])
+
+    read(0, 0, 3, army_acted=False)
+    read(1, 0, 3)  # your unit acts: the outlook holds whatever orders change after that
+    read(2, 0, 1)
+    read(3, 0, 3)
+    assert worked_out == [(3, (9, 9))] and log[-1] == 0.99
+    read(4, 1, 3, army_acted=False)  # the enemy phase begins (your units' acted flags clear)
+    read(5, 1, 3, army_acted=False)
+    assert worked_out == [(3, (9, 9))] * 2
+    read(13, 1, 1, army_acted=False)  # the script sets the boss off
+    assert worked_out[-1] == (1, (9, 9)) and log[-1] == pytest.approx(0.5)
+    read(14, 1, 1, tile=(5, 5), army_acted=False)  # it moves: from here on the outlook holds
+    read(15, 1, 3, tile=(5, 5), acted=True, army_acted=False)
+    assert len(worked_out) == 3 and log[-1] == pytest.approx(0.5)
+
+
+def test_the_outlook_takes_orders_given_in_the_read_the_phase_begins_in(monkeypatch):
+    tracker = BattleTracker()
+    orders = []
+    monkeypatch.setattr(tracker.support, "threats", lambda units, grid, spent: orders.append(units[0].order) or {})
+
+    def read(second, phase, order):
+        monkeypatch.setattr(tracker, "_phase_now", lambda: phase)
+        boss = BattleUnit(42, False, 1, 0, STATS, hp=30, x=9, y=9, slot=2, team=1, acted=False, order=order)
+        tracker.update(BattleSample((army("byleth"),), units=(boss,)), "run", at(second))
+
+    read(0, 0, 21)
+    read(1, 1, 22)  # the Death Knight, held (21) until he's attacked (22)
+    assert orders[-1] == 22
 
 
 def test_outlook_trend_follows_the_battle():

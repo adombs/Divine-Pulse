@@ -134,9 +134,20 @@ range, the AI and the unit screens all call:
 
 A unit's order starts as `+0x1F` of its 44-byte row in the map's starting units (DATA entries 83, 85, 87… for each
 story map; `+0x00` character + 1, `+0x04` class + 1, `+0x19` / `+0x1A` x / y, `+0x1D` team) and scripts change it (the
-map's next DATA entry, command `0xA0`). Kostas has 3 in The Red Canyon (entry 87) and 2 in the prologue (entry 83);
-Lonato, Miklan and Cornelia have 3. Seen live (3 recordings of the Mock Battle): every unit's `0xF6` matched its row,
-orders 1, 11 and 18 moved, and 2 stayed put until the script changed it. Order 3 wasn't seen live.
+map's next DATA entry; the interpreter is main + `0x5480C0`): command `0x1B8` (unit's row, order), `0x172` (order 1),
+`0x17C` (order 11), `0x23A` (order 10) and `0x2B2` (order 18) with their targets. Kostas has 3 in The Red Canyon (entry
+87; a script makes it 2 on Maddening) and 2 in the prologue (entry 83); Lonato, Miklan and Cornelia have 3. The Death
+Knight has 3 in the Rite of Rebirth (entry 91) until a script makes it 1 (condition `0x168`, with him and 80: not
+decoded; 2 from the start on Maddening), and 21 in entry 177 until one makes it 22 (condition `0x15E`, with him and
+"anyone": taken as being in a fight).
+
+Orders change as a phase begins too, not only when something happens: in a recording the enemy phase's history entry
+came at 315.8 s, eight enemies' orders changed at 325.2 s (after the script's conversation) and the first enemy acted
+at 327.3 s. Of the script events that make a holding enemy move, 107 are of type 2000 (they look checked after each
+action), 32 of type 10000 (setting the battle up) and 24 of type 14000 (your phase's end).
+
+Seen live (3 recordings of the Mock Battle): every unit's `0xF6` matched its row, orders 1, 11 and 18 moved, and 2
+stayed put until the script changed it. Order 3 wasn't seen live.
 
 ## Battle globals (offsets from main + `0x19E4000`)
 
