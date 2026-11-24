@@ -22,6 +22,7 @@ from .ports import (
     BattleRepository,
     EventPublisher,
     GameMemoryCheck,
+    LaunchWithGameSync,
     MissingRecord,
     RunRepository,
     ScannerOperations,
@@ -79,6 +80,7 @@ class BackendOperations:
     quest_battles: frozenset[int] = frozenset()
     updates: UpdateChecks | None = None
     save_backups: SaveBackupOperations | None = None
+    launch_with_game: LaunchWithGameSync | None = None
 
     def _unique_name(self, name: str, run_id: str | None = None) -> None:
         taken = next(
@@ -273,6 +275,8 @@ class BackendOperations:
             self.updates.settings_changed()
         if self.save_backups is not None:
             self.save_backups.settings_changed()
+        if self.launch_with_game is not None:
+            self.launch_with_game.settings_changed()
         if self.window is not None:
             self.window.set_mode(saved.window_mode)
         return saved.model_dump()

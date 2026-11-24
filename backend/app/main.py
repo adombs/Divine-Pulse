@@ -32,6 +32,7 @@ def create_app(data_dir: Path = DATA_DIR, background: bool = True, settings: Set
             state.scanner.start()
             state.runtime.updates.start()
             state.runtime.save_backups.start()
+            state.runtime.launch_with_game.start()
         try:
             yield
         finally:

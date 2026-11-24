@@ -330,6 +330,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const [memoryReader, setMemoryReader] = useState<Settings["memory_reader"]>("auto");
   const [duplicates, setDuplicates] = useState<Settings["duplicate_battles"]>("keep_best");
   const [checkUpdates, setCheckUpdates] = useState(true);
+  const [launchWithGame, setLaunchWithGame] = useState(false);
   const [backupLimit, setBackupLimit] = useState("3");
   const [saveFolder, setSaveFolder] = useState("");
   // The window mode only applies to the desktop window, not the browser.
@@ -344,6 +345,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
     setMemoryReader(s.memory_reader);
     setDuplicates(s.duplicate_battles ?? "keep_best");
     setCheckUpdates(s.check_updates ?? true);
+    setLaunchWithGame(s.launch_with_game ?? false);
     setRecordingLimit(String(s.max_recordings));
     setBackupLimit(String(s.save_backups ?? 3));
     setSaveFolder(s.save_folder ?? "");
@@ -377,6 +379,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
         memory_reader: memoryReader,
         duplicate_battles: duplicates,
         check_updates: checkUpdates,
+        launch_with_game: launchWithGame,
         max_recordings: count,
         save_backups: backups,
         save_folder: saveFolder.trim(),
@@ -397,6 +400,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
 
   const changed: Partial<Record<SettingsTab, boolean>> = {
     general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader || duplicates !== (settings.duplicate_battles ?? "keep_best") || checkUpdates !== (settings.check_updates ?? true)
+      || launchWithGame !== (settings.launch_with_game ?? false)
       || backups !== (settings.save_backups ?? 3) || saveFolder.trim() !== (settings.save_folder ?? ""),
   };
   const dirty = Object.values(changed).some(Boolean);
@@ -475,6 +479,11 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                     <Row label="Connection">
                       <MemoryCheck key={settings.memory_reader} />
                     </Row>
+                    {PLATFORM === "windows" && (
+                      <Row label="Launch with Game" hint="Opens Divine Pulse when Eden, Ryubing/Ryujinx or FE3H Recomp starts, even after you close it.">
+                        <Segmented label="Launch with Game" value={launchWithGame ? "on" : "off"} onChange={(v) => setLaunchWithGame(v === "on")} options={[["on", "On"], ["off", "Off"]]} />
+                      </Row>
+                    )}
                   </Group>
                   <SaveBackupsGroup key={`${settings.save_folder ?? ""}|${settings.save_backups}`} toasts={toasts} id={ids + "-backups"}
                     limit={backupLimit} setLimit={setBackupLimit} invalid={backupsInvalid}

@@ -79,11 +79,58 @@ begin
   DataToClean := Folder;
 end;
 
+function OpenEvent(Access: DWORD; Inherit: BOOL; Name: String): THandle;
+  external 'OpenEventW@kernel32.dll stdcall';
+function OpenMutex(Access: DWORD; Inherit: BOOL; Name: String): THandle;
+  external 'OpenMutexW@kernel32.dll stdcall';
+function SetEvent(Handle: THandle): BOOL;
+  external 'SetEvent@kernel32.dll stdcall';
+function CloseHandle(Handle: THandle): BOOL;
+  external 'CloseHandle@kernel32.dll stdcall';
+
+// Launch with Game runs a hidden copy of the program that waits for the game. Ask it to stop (the names are in
+// backend/app/infrastructure/launch_with_game.py) and give it a few seconds, so it doesn't hold the program files.
+procedure StopGameWatcher;
+var
+  Handle: THandle;
+  I: Integer;
+begin
+  Handle := OpenEvent($0002, False, 'Local\DivinePulseGameWatcherStop');
+  if Handle = 0 then Exit;
+  SetEvent(Handle);
+  CloseHandle(Handle);
+  for I := 1 to 50 do begin
+    Handle := OpenMutex($00100000, False, 'Local\DivinePulseGameWatcher');
+    if Handle = 0 then Exit;
+    CloseHandle(Handle);
+    Sleep(100);
+  end;
+end;
+
+// The sign-in entry Launch with Game adds, when it starts this installation's program.
+procedure RemoveLaunchWithGame;
+var
+  Command: String;
+begin
+  if RegQueryStringValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Divine Pulse (Launch with Game)', Command)
+      and (Pos(Lowercase(ExpandConstant('{app}\')), Lowercase(Command)) > 0) then
+    RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', 'Divine Pulse (Launch with Game)');
+end;
+
+// An update replaces the program files: the watcher goes first. The program starts it again when it next opens.
+function PrepareToInstall(var NeedsRestart: Boolean): String;
+begin
+  StopGameWatcher;
+  Result := '';
+end;
+
 // Close the application before uninstalling.
 procedure CloseTracker;
 var
   Code: Integer;
 begin
+  StopGameWatcher;
+  RemoveLaunchWithGame;
   if Exec(ExpandConstant('{app}\{#AppExe}'), '--quit', '', SW_HIDE, ewWaitUntilTerminated, Code) and (Code = 0) then Exit;
   if not UninstallSilent then
     MsgBox('Divine Pulse is still running and could not be closed.' + #13#10#13#10 +
