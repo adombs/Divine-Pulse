@@ -2,6 +2,7 @@
 
 ## Unreleased
 
+- The battle log follows the battle: each new action scrolls into view as it happens. Scroll up to read and it stays where you are; scroll back to the bottom to follow again.
 - The Planner can delete a plan: the trash button at the bottom of the window asks first, then clears the plan and its notes, for units on the Roster and characters not recruited yet.
 - The Planner's class list leaves out classes the unit can never take (the other gender's, another character's own) until you type; searching still finds every class. Skill ranks aren't considered.
 - The outlook uses how far each enemy can really move, read from the unit as the game works it out. A boss that holds its tile (Kostas in The Red Canyon, Lonato, Miklan…) only threatens what its weapon reaches from there, where it used to count as walking up to Byleth with its class's Mv; it counts as moving again when the game sets it off (the Death Knight once he's attacked), including as the enemy phase begins. Rattled units don't move either, and Mv bonuses and penalties count. The simpler estimate without the game files imported follows it too, and assumes 5 only where it isn't known.
