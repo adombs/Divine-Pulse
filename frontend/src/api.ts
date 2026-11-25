@@ -171,6 +171,11 @@ export interface SaveSnapshot {
   size: number;
   /** The files that differ from the snapshot before it; null for the oldest. */
   changed: string[] | null;
+  /** Of those, the ones the snapshot before it didn't have, and the ones this one no longer has; null for the oldest. */
+  added: string[] | null;
+  removed: string[] | null;
+  /** The save folder holds exactly this snapshot now. */
+  current: boolean;
 }
 
 /** A save folder and its snapshots, newest first. */
@@ -179,6 +184,8 @@ export interface SaveFolderBackups {
   path: string;
   /** False when the folder is gone (its snapshots can still be restored to it). */
   found: boolean;
+  /** The save files in the folder now, and when the game last wrote one (null when there are none). */
+  current: { files: string[]; time: string | null };
   snapshots: SaveSnapshot[];
 }
 

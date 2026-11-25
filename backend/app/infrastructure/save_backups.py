@@ -270,14 +270,19 @@ class SaveBackups:
         return known
 
     def status(self) -> dict[str, Any]:
-        """The save folders and each one's snapshots, newest first."""
+        """The save folders, the saves in each now, and each one's snapshots, newest first. A snapshot is "current"
+        when every file in it is in the folder now as it was then (same time and size), and no other file is."""
         saves = []
         for source in self.known_sources():
             dest = self.folder / _label(source)
             if not source.is_dir() and not self._snapshots(dest):
                 continue
-            saves.append({"id": _label(source), "path": str(source), "found": source.is_dir(),
-                          "snapshots": self._records(dest)})
+            marks = _marks(_save_files(source)) if source.is_dir() else {}
+            newest = max((mtime for mtime, _ in marks.values()), default=None)
+            current = {"files": sorted(marks),
+                       "time": datetime.fromtimestamp(newest / 1e9).isoformat(timespec="seconds") if newest else None}
+            saves.append({"id": _label(source), "path": str(source), "found": source.is_dir(), "current": current,
+                          "snapshots": self._records(dest, marks)})
         return {"sources": [str(p) for p in self.sources()], "folder": str(self.folder),
                 "game_running": self._game_running(), "saves": saves}
 
@@ -466,22 +471,27 @@ class SaveBackups:
                 continue
         return sorted(found, key=lambda s: (str(s[1].get("time", "")), str(s[1].get("taken", "")), s[0].name))
 
-    def _records(self, dest: Path) -> list[dict[str, Any]]:
+    def _records(self, dest: Path, marks: dict[str, tuple[int, int]] | None = None) -> list[dict[str, Any]]:
         snapshots = self._snapshots(dest)
-        return [self._record(folder, snapshots) for folder, _ in reversed(snapshots)]
+        return [self._record(folder, snapshots, marks) for folder, _ in reversed(snapshots)]
 
     @staticmethod
-    def _record(folder: Path, snapshots: list[tuple[Path, dict[str, Any]]]) -> dict[str, Any]:
-        """A snapshot for the page, with the saves that changed since the one before it."""
+    def _record(folder: Path, snapshots: list[tuple[Path, dict[str, Any]]],
+                marks: dict[str, tuple[int, int]] | None = None) -> dict[str, Any]:
+        """A snapshot for the page: the saves that changed since the one before it (`added` and `removed` are the
+        files that weren't, or aren't any more, in the folder), and whether the folder holds exactly it now."""
         at = next(i for i, (f, _) in enumerate(snapshots) if f == folder)
         record = snapshots[at][1]
         files = record["files"]
-        changed = None
+        changed = added = removed = None
         if at > 0:
             earlier = _checksums(snapshots[at - 1][1]["files"])
             changed = sorted(n for n in set(files) | set(earlier) if earlier.get(n) != files.get(n, {}).get("sha256"))
+            added, removed = sorted(set(files) - set(earlier)), sorted(set(earlier) - set(files))
+        current = bool(marks) and marks == {n: (int(f.get("mtime_ns", 0)), int(f.get("size", 0))) for n, f in files.items()}
         return {"id": folder.name, "kind": record["kind"], "time": record.get("time"), "files": sorted(files),
-                "size": sum(int(f.get("size", 0)) for f in files.values()), "changed": changed}
+                "size": sum(int(f.get("size", 0)) for f in files.values()), "changed": changed, "added": added,
+                "removed": removed, "current": current}
 
     def _find(self, dest: Path, snapshot_id: str) -> tuple[Path, dict[str, Any]]:
         for folder, record in self._snapshots(dest):

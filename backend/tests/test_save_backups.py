@@ -260,6 +260,13 @@ def test_the_page_lists_snapshots_newest_first_with_what_changed(tmp_path):
     newest, oldest = save["snapshots"]
     assert newest["changed"] == ["slot00"] and oldest["changed"] is None
     assert newest["size"] == 2 and newest["files"] == ["slot00", "system"]
+    # The folder holds the newest now; a new slot is told apart from a changed one.
+    assert newest["current"] and not oldest["current"]
+    assert save["current"]["files"] == ["slot00", "system"] and save["current"]["time"]
+    write(saves / "slot01", b"n", 1_000_200)
+    backups.back_up()
+    added = backups.status()["saves"][0]["snapshots"][0]
+    assert added["added"] == ["slot01"] and added["removed"] == [] and added["changed"] == ["slot01"]
 
 
 def test_no_restore_while_the_game_runs(tmp_path):

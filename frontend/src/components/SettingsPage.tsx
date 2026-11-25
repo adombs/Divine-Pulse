@@ -552,22 +552,50 @@ function saveName(file: string): string {
 }
 const SAVE_NAMES: Record<string, string> = { auto: "Autosave", suspend: "Suspend", system: "System" };
 const KIND_LABEL: Record<SaveSnapshot["kind"], string> = { auto: "Automatic", manual: "Manual", restore: "Before restore" };
+/** Rows shown before "Show older". */
+const SNAPSHOTS_SHOWN = 8;
 
 function listNames(files: string[], most = 4): string {
   const names = files.map(saveName);
   return names.length <= most ? names.join(", ") : `${names.slice(0, most).join(", ")} and ${names.length - most} more`;
 }
 
-function snapshotTime(time: string): string {
+function snapshotTime(time: string, seconds = false): string {
   const when = new Date(time);
-  return Number.isNaN(when.getTime()) ? time : when.toLocaleString(undefined, { weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit" });
+  return Number.isNaN(when.getTime()) ? time : when.toLocaleString(undefined, {
+    weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", ...(seconds ? { second: "2-digit" } : {}),
+  });
 }
 
-/** What a snapshot holds, against the one before it. */
+const RELATIVE = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+/** "2 minutes ago", "yesterday". */
+function timeAgo(time: string, now = Date.now()): string {
+  const seconds = (new Date(time).getTime() - now) / 1000;
+  if (Number.isNaN(seconds)) return "";
+  if (Math.abs(seconds) < 45) return "just now";
+  const steps: [Intl.RelativeTimeFormatUnit, number][] = [["minute", 60], ["hour", 3600], ["day", 86400], ["week", 604800], ["month", 2629800], ["year", 31557600]];
+  let unit = steps[0];
+  for (const step of steps) if (Math.abs(seconds) >= step[1]) unit = step;
+  return RELATIVE.format(Math.round(seconds / unit[1]), unit[0]);
+}
+
+/** What a snapshot holds, against the one before it: changed saves, and slots that are new or gone. */
 function snapshotSummary(s: SaveSnapshot): string {
   if (s.changed === null) return `${s.files.length} save files`;
-  if (s.changed.length === 0) return "Same saves as the snapshot before";
-  return `Changed: ${listNames(s.changed)}`;
+  if (s.changed.length === 0) return "No saves changed since the snapshot before";
+  const added = new Set(s.added ?? []);
+  const removed = new Set(s.removed ?? []);
+  const changed = s.changed.filter((f) => !added.has(f) && !removed.has(f));
+  return [
+    changed.length ? `Changed: ${listNames(changed)}` : "",
+    added.size ? `New: ${listNames([...added])}` : "",
+    removed.size ? `Gone: ${listNames([...removed])}` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+/** Snapshots taken within the same minute need their seconds to be told apart. */
+function sameMinute(a: string, b: string): boolean {
+  return a.slice(0, 16) === b.slice(0, 16);
 }
 
 /** Game Saves: snapshots of the whole save folder (every slot, the autosave, the suspend save and the system file
@@ -584,7 +612,9 @@ function GameSavesSection({ toasts, id, limit, setLimit, invalid, folder, setFol
   const [status, setStatus] = useState<SaveBackupStatus | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [restoring, setRestoring] = useState<{ save: SaveFolderBackups; snapshot: SaveSnapshot } | null>(null);
+  const [restored, setRestored] = useState<{ time: string; kept: boolean } | null>(null);
   const [deleting, setDeleting] = useState<{ save: SaveFolderBackups; snapshot: SaveSnapshot } | null>(null);
+  const [showAll, setShowAll] = useState<Record<string, boolean>>({});
   const refresh = () => api.saveBackups().then(setStatus, () => setStatus(null));
   // New snapshots appear as the game saves, and the game opening or closing changes whether a restore can run.
   useEffect(() => {
@@ -618,12 +648,7 @@ function GameSavesSection({ toasts, id, limit, setLimit, invalid, folder, setFol
     setBusy(restoring.snapshot.id);
     try {
       const done = await api.restoreSaveSnapshot(restoring.save.id, restoring.snapshot.id);
-      toasts.push({
-        kind: "ok",
-        title: "Saves restored",
-        body: `Your saves are as they were on ${snapshotTime(done.restored.time)}.${done.kept ? " The saves you had are kept as “Before restore”." : ""}`,
-      });
-      setRestoring(null);
+      setRestored({ time: done.restored.time, kept: done.kept !== null });
       await refresh();
     } catch (e) {
       toasts.push({ kind: "error", title: "Couldn't restore the saves", body: (e as Error).message });
@@ -631,6 +656,11 @@ function GameSavesSection({ toasts, id, limit, setLimit, invalid, folder, setFol
     } finally {
       setBusy(null);
     }
+  };
+  const closeRestore = () => {
+    if (busy) return;
+    setRestoring(null);
+    setRestored(null);
   };
   const remove = async () => {
     if (!deleting) return;
@@ -647,61 +677,84 @@ function GameSavesSection({ toasts, id, limit, setLimit, invalid, folder, setFol
   };
   const found = status?.sources ?? [];
   const gameOpen = status?.game_running ?? false;
+  const now = Date.now();
+  // What a restore would remove: save files there now that the snapshot doesn't have.
+  const removedByRestore = restoring ? restoring.save.current.files.filter((f) => !restoring.snapshot.files.includes(f)) : [];
   return (
     <>
-      {status?.saves.map((save) => (
-        <Group
-          key={save.id}
-          title={status.saves.length > 1 ? `Snapshots: ${save.id}` : "Snapshots"}
-          right={(
-            <button type="button" className="btn small" disabled={!save.found || busy !== null} onClick={() => void backUpNow(save)}>
-              {busy === save.id ? "Backing up…" : "Back Up Now"}
-            </button>
-          )}
-          note={<>
-            Each snapshot holds every save in <code className="path">{save.path}</code> at one moment, and restoring puts all of them back together.
-            {!save.found && " The folder isn't there now: restoring a snapshot makes it again."}
-          </>}
-        >
-          {gameOpen && (
-            <div className="snap-warning" role="status">
-              <Icon name={CONCEPT_ICON.warning} /> Close the game to restore a snapshot: it keeps its saves in memory while it runs and would write over them.
-            </div>
-          )}
-          {save.snapshots.length === 0 ? (
-            <div className="set-row wide"><span className="set-hint">No snapshots yet. One is taken whenever the game saves, or press Back Up Now.</span></div>
-          ) : (
-            <ul className="snap-list">
-              {save.snapshots.map((snap, i) => (
-                <li key={snap.id} className="snap-row">
-                  <div className="snap-text">
-                    <span className="snap-time">
-                      {snapshotTime(snap.time)}
-                      <span className={`snap-kind kind-${snap.kind}`}>{KIND_LABEL[snap.kind]}</span>
-                      {i === 0 && snap.kind === "auto" && <span className="snap-kind kind-now">Latest</span>}
-                    </span>
-                    <span className="set-hint" title={listNames(snap.files, snap.files.length)}>{snapshotSummary(snap)}</span>
-                  </div>
-                  <div className="snap-actions">
-                    <button type="button" className="btn small" disabled={gameOpen || busy !== null}
-                      title={gameOpen ? "Close the game first" : "Put every save back as it was then"}
-                      onClick={() => setRestoring({ save, snapshot: snap })}>
-                      Restore
+      {status?.saves.map((save) => {
+        const shown = showAll[save.id] ? save.snapshots : save.snapshots.slice(0, SNAPSHOTS_SHOWN);
+        const hidden = save.snapshots.length - shown.length;
+        // Several snapshots can hold the saves as they are now: the newest of them says so.
+        const nowId = save.snapshots.find((s) => s.current)?.id;
+        return (
+          <Group
+            key={save.id}
+            title={status.saves.length > 1 ? `Snapshots: ${save.id}` : "Snapshots"}
+            right={(
+              <button type="button" className="btn small" disabled={!save.found || busy !== null} onClick={() => void backUpNow(save)}>
+                {busy === save.id ? "Backing up…" : "Back Up Now"}
+              </button>
+            )}
+            note={<>
+              A snapshot holds all your saves at one moment: every slot, the autosave, the suspend save and the system file. Restoring one puts
+              them all back together, with the game closed.
+              {status.saves.length > 1 && <> From <code className="path">{save.path}</code>.</>}
+              {!save.found && " The save folder isn't there now: restoring a snapshot makes it again."}
+            </>}
+          >
+            {gameOpen && (
+              <div className="snap-warning" role="status">
+                <Icon name={CONCEPT_ICON.warning} /> The game is open. Close it to restore a snapshot: it keeps your saves in memory and would write over them.
+              </div>
+            )}
+            {save.snapshots.length === 0 ? (
+              <div className="set-row wide"><span className="set-hint">No snapshots yet. One is taken the next time the game saves, or press Back Up Now.</span></div>
+            ) : (
+              <ul className="snap-list">
+                {shown.map((snap, i) => {
+                  const neighbours = [save.snapshots[i - 1], save.snapshots[i + 1]].filter(Boolean);
+                  const time = snapshotTime(snap.time, neighbours.some((n) => sameMinute(n.time, snap.time)));
+                  return (
+                    <li key={snap.id} className={`snap-row${snap.id === nowId ? " is-current" : ""}`}>
+                      <div className="snap-text">
+                        <span className="snap-time">
+                          {time}
+                          <span className={`snap-kind kind-${snap.kind}`}>{KIND_LABEL[snap.kind]}</span>
+                          {snap.id === nowId && <span className="snap-kind kind-now">Your saves now</span>}
+                        </span>
+                        <span className="set-hint">{timeAgo(snap.time, now)} · {snapshotSummary(snap)}</span>
+                      </div>
+                      <div className="snap-actions">
+                        <button type="button" className="btn small" disabled={gameOpen || busy !== null || snap.current}
+                          aria-label={`Restore the snapshot of ${time}`}
+                          title={snap.current ? "Your saves are already as this snapshot has them" : gameOpen ? "Close the game first" : "Put every save back as it was then"}
+                          onClick={() => { setRestored(null); setRestoring({ save, snapshot: snap }); }}>
+                          Restore
+                        </button>
+                        <button type="button" className="icon-btn snap-delete" disabled={busy !== null} aria-label={`Delete the snapshot of ${time}`}
+                          title="Delete" onClick={() => setDeleting({ save, snapshot: snap })}>
+                          <Icon name={CONCEPT_ICON.delete} />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+                {(hidden > 0 || showAll[save.id]) && save.snapshots.length > SNAPSHOTS_SHOWN && (
+                  <li className="snap-more">
+                    <button type="button" className="link-btn" onClick={() => setShowAll((all) => ({ ...all, [save.id]: !all[save.id] }))}>
+                      {hidden > 0 ? `Show ${hidden} older` : "Show fewer"}
                     </button>
-                    <button type="button" className="icon-btn" disabled={busy !== null} aria-label={`Delete the snapshot of ${snapshotTime(snap.time)}`}
-                      title="Delete" onClick={() => setDeleting({ save, snapshot: snap })}>
-                      <Icon name={CONCEPT_ICON.delete} />
-                    </button>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </Group>
-      ))}
-      <Group title="Settings">
+                  </li>
+                )}
+              </ul>
+            )}
+          </Group>
+        );
+      })}
+      <Group title="Options">
         <Row label="Automatic snapshots to keep" htmlFor={id}
-          hint="A snapshot is taken whenever the game saves. The newest is kept, with this many older ones; 0 turns them off. Snapshots from Back Up Now, and from just before a restore, stay until you delete them."
+          hint="Taken whenever the game saves: the newest is kept, plus this many older ones. 0 turns them off. Back Up Now and Before restore snapshots stay until you delete them."
           error={invalid ? "Enter a whole number from 0 to 100." : undefined}>
           <input id={id} type="number" min={0} max={100} step={1}
             value={limit} onChange={(e) => setLimit(e.target.value)} aria-invalid={invalid} />
@@ -724,32 +777,65 @@ function GameSavesSection({ toasts, id, limit, setLimit, invalid, folder, setFol
           </Row>
         )}
       </Group>
-      <Modal open={restoring !== null} onClose={() => { if (!busy) setRestoring(null); }} title="Restore saves?" className="snap-confirm">
-        {restoring && (
+      <Modal open={restoring !== null} onClose={closeRestore} title={restored ? "Saves restored" : "Restore saves?"} className="snap-confirm">
+        {restoring && !restored && (
           <>
-            <p>
-              Your saves go back to how they were on <strong>{snapshotTime(restoring.snapshot.time)}</strong>: every save slot, the autosave, the
-              suspend save and the system file, together. Save files made since then are removed.
-            </p>
-            <p>The saves you have now are kept first, as a “Before restore” snapshot, so you can go back to them.</p>
+            <dl className="snap-compare">
+              <dt>Restoring</dt>
+              <dd>
+                <strong>{snapshotTime(restoring.snapshot.time, true)}</strong>
+                <span>{KIND_LABEL[restoring.snapshot.kind]} snapshot · {restoring.snapshot.files.length} save files</span>
+              </dd>
+              <dt>Replacing</dt>
+              <dd>
+                <strong>Your saves now</strong>
+                <span>{restoring.save.current.time ? `Last saved ${snapshotTime(restoring.save.current.time)} (${timeAgo(restoring.save.current.time, now)})` : "No save files"}</span>
+              </dd>
+            </dl>
+            {removedByRestore.length > 0 && (
+              <p className="snap-warning">
+                <Icon name={CONCEPT_ICON.warning} /> Removed, as they came after this snapshot: {listNames(removedByRestore, 6)}.
+              </p>
+            )}
+            <p>Every slot, the autosave, the suspend save and the system file go back together. Your saves now are kept first, as a “Before restore” snapshot, so you can go back to them.</p>
             {gameOpen && <p className="snap-warning" role="alert"><Icon name={CONCEPT_ICON.warning} /> Close the game first.</p>}
+            <div className="snap-confirm-actions">
+              <button type="button" className="btn" disabled={busy !== null} onClick={closeRestore}>Cancel</button>
+              <button type="button" className="btn primary" disabled={busy !== null || gameOpen} onClick={() => void restore()}>
+                {busy ? "Restoring…" : "Restore"}
+              </button>
+            </div>
           </>
         )}
-        <div className="snap-confirm-actions">
-          <button type="button" className="btn" disabled={busy !== null} onClick={() => setRestoring(null)}>Cancel</button>
-          <button type="button" className="btn primary" disabled={busy !== null || gameOpen} onClick={() => void restore()}>
-            {busy && restoring ? "Restoring…" : "Restore"}
-          </button>
-        </div>
+        {restored && (
+          <>
+            <p role="status">
+              Your saves are as they were on <strong>{snapshotTime(restored.time, true)}</strong>. Start the game and load a save to carry on.
+              {restored.kept && " The saves you had are kept as “Before restore”."}
+            </p>
+            <div className="snap-confirm-actions">
+              <button type="button" className="btn primary" onClick={closeRestore}>Done</button>
+            </div>
+          </>
+        )}
       </Modal>
       <Modal open={deleting !== null} onClose={() => { if (!busy) setDeleting(null); }} title="Delete snapshot?" className="snap-confirm">
-        {deleting && <p>Delete the snapshot of {snapshotTime(deleting.snapshot.time)}? This can’t be undone.</p>}
-        <div className="snap-confirm-actions">
-          <button type="button" className="btn" disabled={busy !== null} onClick={() => setDeleting(null)}>Cancel</button>
-          <button type="button" className="btn danger" disabled={busy !== null} onClick={() => void remove()}>
-            {busy && deleting ? "Deleting…" : "Delete"}
-          </button>
-        </div>
+        {deleting && (
+          <>
+            <p>
+              {deleting.snapshot.kind === "restore"
+                ? <>This is the copy of your saves from just before a restore: the way back to them. </>
+                : deleting.snapshot.kind === "manual" ? <>You took this one with Back Up Now, so it isn't replaced automatically. </> : null}
+              Delete the snapshot of {snapshotTime(deleting.snapshot.time, true)}? This can’t be undone. Your saves themselves aren’t touched.
+            </p>
+            <div className="snap-confirm-actions">
+              <button type="button" className="btn" disabled={busy !== null} onClick={() => setDeleting(null)}>Cancel</button>
+              <button type="button" className="btn danger" disabled={busy !== null} onClick={() => void remove()}>
+                {busy ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </>
+        )}
       </Modal>
     </>
   );
