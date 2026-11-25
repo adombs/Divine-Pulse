@@ -152,16 +152,43 @@ export interface Settings {
   launch_with_game: boolean;
   /** The version whose banner was dismissed (e.g. "1.4.4"); save "" to clear it. */
   update_dismissed: string | null;
-  /** Older versions of each game save to keep (0: no backups). */
+  /** Older automatic snapshots of the save folder to keep (0: none are taken automatically). */
   save_backups: number;
   /** The save folder to back up; null finds Eden's, Ryujinx's family's and FE3H Recomp's automatically. Save "" to go back to that. */
   save_folder: string | null;
 }
 
-/** The save folders being backed up, and where the copies go (GET /api/save-backups). */
+/** A snapshot of a save folder: every save in it at one moment (GET /api/save-backups). */
+export interface SaveSnapshot {
+  /** Its folder's name, which identifies it. */
+  id: string;
+  /** auto: taken when the game saved; manual: Back Up Now; restore: the saves as they were just before a restore. */
+  kind: "auto" | "manual" | "restore";
+  /** When the game wrote the saves (auto), or when it was taken; local time, ISO 8601. */
+  time: string;
+  /** The files in it, by their path in the save folder ("slot00", "system"). */
+  files: string[];
+  size: number;
+  /** The files that differ from the snapshot before it; null for the oldest. */
+  changed: string[] | null;
+}
+
+/** A save folder and its snapshots, newest first. */
+export interface SaveFolderBackups {
+  id: string;
+  path: string;
+  /** False when the folder is gone (its snapshots can still be restored to it). */
+  found: boolean;
+  snapshots: SaveSnapshot[];
+}
+
+/** The save folders being backed up, where the snapshots go, and whether the game is open (GET /api/save-backups). */
 export interface SaveBackupStatus {
   sources: string[];
   folder: string;
+  /** Eden, Ryubing/Ryujinx or FE3H Recomp is running: restoring waits until it's closed. */
+  game_running: boolean;
+  saves: SaveFolderBackups[];
 }
 
 export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader" | "duplicate_battles" | "check_updates" | "launch_with_game" | "update_dismissed" | "save_backups">> & { save_folder?: string };
@@ -715,4 +742,8 @@ export const api = {
   openDataFolder: () => request<void>("POST", "/about/open-data-folder"),
   saveBackups: () => request<SaveBackupStatus>("GET", "/save-backups"),
   openSaveBackups: () => request<void>("POST", "/save-backups/open"),
+  takeSaveSnapshot: (save: string) => request<SaveSnapshot>("POST", "/save-backups/snapshots", { save }),
+  restoreSaveSnapshot: (save: string, snapshot: string) =>
+    request<{ restored: SaveSnapshot; kept: SaveSnapshot | null }>("POST", "/save-backups/restore", { save, snapshot }),
+  deleteSaveSnapshot: (save: string, snapshot: string) => request<void>("POST", "/save-backups/delete", { save, snapshot }),
 };

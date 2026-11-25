@@ -20,7 +20,19 @@ from ..application.operations import (
     RunNameTaken,
     UnitMissing,
 )
-from .inputs import DuplicatesResolveIn, MarksIn, RestoreIn, EbstIn, PlanIn, RulesetIn, GameDumpIn, GameNspsIn, RunName, SettingsIn
+from .inputs import (
+    DuplicatesResolveIn,
+    EbstIn,
+    GameDumpIn,
+    GameNspsIn,
+    MarksIn,
+    PlanIn,
+    RestoreIn,
+    RulesetIn,
+    RunName,
+    SaveSnapshotIn,
+    SettingsIn,
+)
 from ..domain.ebst import EbstConfig
 from ..domain.runs import RunSummary
 from ..domain.runs import Rule, Run
@@ -392,6 +404,31 @@ def open_save_backups(request: Request) -> None:
         _state(request).operations.open_save_backups()
     except OSError as exc:
         raise HTTPException(500, str(exc)) from exc
+
+
+def _snapshot_call[**P, R](operation: Callable[P, R], *args: P.args, **kwargs: P.kwargs) -> R:
+    """A snapshot that can't be taken, found or restored (or the game is running) is a 409 with the reason."""
+    try:
+        return operation(*args, **kwargs)
+    except RuntimeError as exc:
+        raise HTTPException(409, str(exc)) from exc
+    except OSError as exc:
+        raise HTTPException(500, f"Couldn't reach the files: {exc}") from exc
+
+
+@router.post("/save-backups/snapshots")
+def take_save_snapshot(request: Request, body: SaveSnapshotIn) -> dict:
+    return _snapshot_call(_state(request).operations.take_save_snapshot, body.save)
+
+
+@router.post("/save-backups/restore")
+def restore_save_snapshot(request: Request, body: SaveSnapshotIn) -> dict:
+    return _snapshot_call(_state(request).operations.restore_save_snapshot, body.save, body.snapshot)
+
+
+@router.post("/save-backups/delete")
+def delete_save_snapshot(request: Request, body: SaveSnapshotIn) -> None:
+    _snapshot_call(_state(request).operations.delete_save_snapshot, body.save, body.snapshot)
 
 
 @router.get("/events")

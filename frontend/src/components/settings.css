@@ -135,3 +135,24 @@
   .settings-body, .settings-save { animation: none; }
   .rail-tab, .rail-icon { transition: none; }
 }
+
+/* Game Saves: snapshots of the save folder */
+.snap-list { list-style: none; margin: 0; padding: 0; display: grid; }
+.snap-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 0.4rem 1rem; padding: 0.6rem 0.95rem; }
+.snap-row + .snap-row, .snap-warning + .snap-list .snap-row:first-child { border-top: 1px solid var(--line); }
+.snap-text { display: grid; gap: 0.1rem; min-width: 0; }
+.snap-time { display: flex; flex-wrap: wrap; align-items: center; gap: 0.3rem 0.5rem; font: 600 1.02rem/1.3 var(--display); color: var(--ink); }
+.snap-kind {
+  font: 600 0.7rem var(--ui); letter-spacing: 0.05em; text-transform: uppercase; padding: 0.08rem 0.45rem; border-radius: 999px;
+  border: 1px solid var(--line); color: var(--ink-soft);
+}
+.snap-kind.kind-manual { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.snap-kind.kind-restore { color: var(--gold, var(--ink)); border-color: color-mix(in srgb, var(--gold, var(--ink)) 45%, transparent); }
+.snap-kind.kind-now { color: var(--ink); border-color: var(--row-border); }
+.snap-actions { display: flex; align-items: center; gap: 0.35rem; }
+.snap-actions .btn.small { height: auto; min-height: 0; padding: 0.15rem 0.7rem; }
+.snap-warning { display: flex; align-items: center; gap: 0.45rem; margin: 0; padding: 0.55rem 0.95rem; font: 0.88rem/1.4 var(--ui); color: var(--ink); background: color-mix(in srgb, var(--red) 10%, transparent); }
+.snap-warning svg { flex: none; color: var(--red); }
+.modal.snap-confirm { width: min(460px, 100%); }
+.snap-confirm p { margin: 0 0 0.8rem; line-height: 1.45; }
+.snap-confirm-actions { display: flex; justify-content: flex-end; gap: 0.5rem; margin-top: 0.4rem; }

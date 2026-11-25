@@ -165,6 +165,13 @@ class SettingsIn(Body):
     update_dismissed: str | None = Field(None, max_length=32)
 
 
+class SaveSnapshotIn(Body):
+    """A save folder (its id in GET /save-backups) and, to restore or delete, one of its snapshots."""
+
+    save: str = Field(min_length=1, max_length=512)
+    snapshot: str = Field("", max_length=256)
+
+
 def describe_errors(errors: list[dict]) -> str:
     """Pydantic errors as one readable sentence for the UI."""
     parts = []
