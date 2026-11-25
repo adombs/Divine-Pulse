@@ -25,6 +25,19 @@ def pytest_collection_modifyitems(items):
 
 
 @pytest.fixture
+def as_platform(monkeypatch):
+    """Act as another OS: as_platform("darwin") makes system.platform.current() the macOS module for this test."""
+    from app.system import platform
+
+    def use(name: str):
+        module = platform.for_platform(name)
+        monkeypatch.setattr(platform, "_selected", module)
+        return module
+
+    return use
+
+
+@pytest.fixture
 def fake_import(tmp_path, monkeypatch):
     from app.infrastructure import game_tables
     from app.infrastructure.game_assets import GameAssets

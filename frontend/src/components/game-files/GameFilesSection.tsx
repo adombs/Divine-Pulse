@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { api, type GameFilesScan, type GameFilesStatus, type GameFilesVerify } from "../../api";
+import { api, type GameAssetsJob, type GameFilesScan, type GameFilesStatus, type GameFilesVerify } from "../../api";
 import { loadGameAssetsStatus } from "../../gameAssets";
 import { useEvents } from "../../useEvents";
 import { CONCEPT_ICON } from "../../icons/concepts";
@@ -7,6 +7,7 @@ import { Icon } from "../Icon";
 import { Modal } from "../Modal";
 import { SectionHead } from "../ui";
 import { mergeNspPaths } from "./selection";
+import { formatElapsed, importSteps } from "./progress";
 import "../settings-game-files.css";
 
 const DLC_NAMES: Record<string, string> = {
@@ -15,7 +16,32 @@ const DLC_NAMES: Record<string, string> = {
   officers_academy_uniform: "Officers Academy Uniform",
 };
 const dlcName = (id: string) => DLC_NAMES[id] ?? id;
-const phases: Record<string, string> = { exe_tables: "Reading game data", text: "Importing text", data: "Importing data", portraits: "Importing portraits", icons: "Importing icons", map: "Importing maps", verify: "Checking imported files" };
+function ImportProgress({ job }: { job: GameAssetsJob }) {
+  const [now, setNow] = useState(() => Date.now() / 1000);
+  useEffect(() => {
+    const timer = window.setInterval(() => setNow(Date.now() / 1000), 1000);
+    return () => window.clearInterval(timer);
+  }, []);
+  const { steps, current, detail, done, total, note } = importSteps(job);
+  return <>
+    <div className="game-files-progress-head">
+      <strong>Importing game files</strong>
+      {job.started && <span className="hint" title="Time since the import started">{formatElapsed(now - job.started)}</span>}
+    </div>
+    <ol className="game-files-steps">
+      {steps.map((step, i) => <li key={step} className={i < current ? "done" : i === current ? "current" : "pending"} aria-current={i === current ? "step" : undefined}>
+        <span className="game-files-step-mark" aria-hidden="true">{i < current ? <Icon name={CONCEPT_ICON.done} /> : i + 1}</span>
+        <span>{step}{i < current && <span className="sr-only"> (done)</span>}</span>
+      </li>)}
+    </ol>
+    <div className="game-files-step-detail">
+      <span>{detail}</span>
+      <progress aria-label={detail} max={total || 1} value={total ? Math.min(done, total) : undefined} />
+      {note && <span className="hint game-files-path">{note}</span>}
+    </div>
+    <p className="hint">{job.source === "nsp" ? "Unpacking NSP files can take 10 minutes or more. " : "This can take a few minutes. "}Keep Divine Pulse open until it finishes.</p>
+  </>;
+}
 
 export function GameFilesSection({ desktop, heading = true }: { desktop: boolean; heading?: boolean }) {
   const [status, setStatus] = useState<GameFilesStatus | null>(null);
@@ -41,7 +67,6 @@ export function GameFilesSection({ desktop, heading = true }: { desktop: boolean
     if (next && typeof next.available === "boolean") setStatus(next);
   } });
   const running = status?.job?.state === "running";
-  const phaseLabel = phases[status?.job?.phase ?? ""] ?? "Importing game files";
   useEffect(() => {
     if (!running) return;
     const timer = window.setInterval(() => {
@@ -131,8 +156,7 @@ export function GameFilesSection({ desktop, heading = true }: { desktop: boolean
         <div className="game-files-import"><div>{source === "dump" ? <><button type="button" className="btn primary" disabled={busy || scanning || !importable} onClick={() => action(async () => { const result = await api.importGameFiles(dump); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{reason && <p className="hint">{reason}</p>}</> : <><button type="button" className="btn primary" disabled={busy || !!nspReason} onClick={() => action(async () => { const result = await api.importGameFilesNsps(nsps, keys, keepDumps ? destination.trim() : undefined); setStatus((old) => old ? { ...old, job: result.job } : old); })}>{status.available ? "Re-import game files" : "Import game files"}</button>{nspReason && <p className="hint">{nspReason}</p>}</>}</div>{status.available && reimport && <button type="button" className="link-btn" disabled={busy} onClick={() => setReimport(false)}>Cancel re-import</button>}</div>
       </div>}
       {status?.job && status.job.state !== "idle" && <div className="game-files-card game-files-progress" aria-live="polite">
-        <strong>{running ? phaseLabel : status.job.state === "done" ? "Import complete" : "Import failed"}</strong>
-        {running && <><progress aria-label={phaseLabel} max={status.job.total || 1} value={status.job.total ? Math.min(status.job.done, Math.max(0, status.job.total - 1)) : undefined} />{status.job.total > 0 && status.job.phase !== "verify" && <span>{Math.min(status.job.done, Math.max(0, status.job.total - 1))} / {status.job.total}</span>}</>}
+        {running ? <ImportProgress job={status.job} /> : <strong>{status.job.state === "done" ? "Import complete" : "Import failed"}</strong>}
         {status.job.state === "failed" && <><span>{status.job.error || "The game files could not be imported."}</span><span>{status.available ? "Your previous import is still available." : "Check your selected files and try again."}</span></>}
         {status.job.state === "done" && <span>{[status.version, `${status.files ?? 0} files`, status.created && new Date(status.created).toLocaleString()].filter(Boolean).join(" \u00b7 ")}</span>}
       </div>}

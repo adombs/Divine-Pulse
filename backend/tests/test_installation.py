@@ -8,7 +8,8 @@ from app.infrastructure.settings import SettingsStore
     ("answers", "keep_records", "keep_assets", "replace"),
     [([YES, YES], True, True, False), ([YES, NO, NO], True, True, True), ([NO, NO, YES], False, False, False)],
 )
-def test_first_launch_retains_only_selected_data(tmp_path, answers, keep_records, keep_assets, replace):
+def test_first_launch_retains_only_selected_data(tmp_path, answers, keep_records, keep_assets, replace, as_platform):
+    as_platform("win32")  # WebView2's caches, in the data folder
     settings = SettingsStore(tmp_path / "settings.json")
     settings.update(active_run_id="saved", max_recordings=8)
     assets = tmp_path / "game-assets"
@@ -50,3 +51,11 @@ def test_cancelling_asset_choice_also_cancels_record_cleanup(tmp_path):
     assert (runs / "saved.json").is_file()
     assert assets.is_dir()
     assert settings.get().installation_version is None
+
+
+def test_folders_holding_only_finders_files_are_not_records(tmp_path):
+    settings = SettingsStore(tmp_path / "settings.json")
+    for name in ("runs", "battles"):
+        (tmp_path / name).mkdir()
+        (tmp_path / name / ".DS_Store").write_bytes(b"Bud1")
+    assert prepare_installation(settings, tmp_path / "game-assets", "new", lambda _: pytest.fail("nothing to keep"))

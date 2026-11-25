@@ -1,9 +1,8 @@
-"""Launch the Divine Pulse desktop window on Windows."""
+"""Launch the Divine Pulse desktop window (Windows, macOS; what differs is in system/platform/)."""
 
 from __future__ import annotations
 
 import json
-import ctypes
 import logging
 import socket
 import sys
@@ -19,7 +18,8 @@ from logging.handlers import RotatingFileHandler
 from . import __version__
 from .config import DATA_DIR, FROZEN, SettingsStore
 from .domain.settings import DEFAULT_PORT
-from .system import error_box, wait_for_exit
+from .infrastructure.installation import NO, YES
+from .system import error_box, platform, wait_for_exit
 
 HOST = "127.0.0.1"
 log = logging.getLogger("app")
@@ -72,6 +72,11 @@ def quit_running(timeout_s: float = 20.0) -> int:
 
 def _port_free(port: int) -> bool:
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+        if platform.current().PORT_CHECK_REUSES_ADDRESS:
+            # As the server binds (uvicorn sets it too): a port this app let go a moment ago, still in TIME_WAIT, is
+            # free, so quitting and opening again keeps the same port. A program listening on it still makes the
+            # bind fail. (On Windows the option would let a bind take a port another program is listening on.)
+            s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         try:
             s.bind((HOST, port))
             return True
@@ -86,7 +91,9 @@ def _any_free_port() -> int:
 
 
 def _setup_choice(message: str) -> int:
-    return ctypes.windll.user32.MessageBoxW(None, message, "Divine Pulse setup", 0x23)
+    """A setup question (prepare_installation), asked with the platform's own dialog."""
+    answer = platform.current().ask(message, "Divine Pulse setup")
+    return {"yes": YES, "no": NO}.get(answer, 0)
 
 
 def main() -> None:
@@ -96,6 +103,11 @@ def main() -> None:
         sys.exit(0 if check_desktop() else 1)
     if "--quit" in sys.argv[1:]:
         sys.exit(quit_running())
+    if "--watch-game" in sys.argv[1:]:
+        from .infrastructure.launch_with_game import run_watcher
+
+        # No logging setup: the watcher must not share tracker.log with the app it opens.
+        sys.exit(run_watcher(DATA_DIR / "settings.json", lambda: _already_running(f"http://{HOST}:{_saved_port()}")))
     try:
         DATA_DIR.mkdir(parents=True, exist_ok=True)
     except OSError as exc:
@@ -110,7 +122,7 @@ def main() -> None:
     from . import desktop
 
     if not desktop.available():
-        error_box("Divine Pulse requires Microsoft Edge WebView2 on Windows.")
+        error_box(platform.current().WEBVIEW_MISSING)
         return
 
     if FROZEN:
@@ -129,7 +141,8 @@ def main() -> None:
         handlers.append(logging.StreamHandler(sys.stderr))
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s", handlers=handlers)
 
-    log.info("Divine Pulse %s starting (%s, Windows); data folder: %s", __version__, "packaged" if FROZEN else "from source", DATA_DIR)
+    log.info("Divine Pulse %s starting (%s, %s); data folder: %s", __version__, "packaged" if FROZEN else "from source",
+             platform.current().NAME, DATA_DIR)
     url = f"http://{HOST}:{settings.get().port}"
     if not _port_free(settings.get().port):
         # Another program has the port: move to a free one and remember it.

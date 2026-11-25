@@ -22,6 +22,8 @@ from collections.abc import Iterator
 from dataclasses import dataclass
 from pathlib import Path
 
+from ..system.files import is_os_metadata
+
 log = logging.getLogger(__name__)
 
 MAGIC = b"FRM1"
@@ -174,7 +176,7 @@ class BattleRecorder:
 
 def find_recordings(folder: Path) -> list[Path]:
     """The recordings in a folder, oldest first, under the current and the old file extension."""
-    found = [p for suffix in (SUFFIX, LEGACY_SUFFIX) for p in folder.glob(f"*{suffix}")]
+    found = [p for suffix in (SUFFIX, LEGACY_SUFFIX) for p in folder.glob(f"*{suffix}") if not is_os_metadata(p.name)]
     return sorted(found, key=lambda p: p.stat().st_mtime)
 
 

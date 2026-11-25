@@ -4,18 +4,19 @@
  * unit's fights and opponents. Pure functions: the components only render these.
  */
 import { CONCEPT_ICON } from "../../icons/concepts";
+import { LABELS } from "../../api";
 import type { Battle, BattleEvent, BattleUnit, Branch, EnemyStats, LogEntry, ValueKey } from "../../api";
 import { clock, plural } from "../../format";
 import { battleName, KIND_LABEL } from "./scenarios";
 import type { IconName } from "../Icon";
+import { LOW_SHARE } from "../../share";
 
 export const STAT_ORDER: ValueKey[] = ["hp", "str", "mag", "dex", "spd", "lck", "def", "res", "cha", "mv"];
-export const STAT_LABEL: Record<ValueKey, string> = {
-  hp: "HP", mv: "Mv", str: "Str", mag: "Mag", dex: "Dex", spd: "Spd", lck: "Lck", def: "Def", res: "Res", cha: "Cha",
-};
+/** The stats' short names (one table for the whole app: api.ts's LABELS). */
+export const STAT_LABEL: Record<ValueKey, string> = LABELS;
 /** A weapon with this many uses left or fewer is running low; a unit at this share of its max HP or less is in danger. */
 export const LOW_WEAPON = 3;
-export const LOW_HP = 0.3;
+export const LOW_HP = LOW_SHARE;
 
 export const TEXT = {
   actions: "Counted from what the unit spent: weapon durability, items and spell uses.",

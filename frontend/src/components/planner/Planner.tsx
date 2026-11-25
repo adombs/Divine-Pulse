@@ -10,7 +10,7 @@ import { api, EMPTY_PLAN, PLAN_MAX, type PlanSupportRank, type Unit, type UnitPl
 import { CONCEPT_ICON } from "../../icons/concepts";
 import { useNav } from "../../nav";
 import { planIsEmpty } from "../../planTransfer";
-import { linkRoute, rankIndex, reaches, targetsForClasses, type ArchiveEntry, type LinkKind } from "../../planner";
+import { canTakeClass, linkRoute, rankIndex, reaches, targetsForClasses, type ArchiveEntry, type LinkKind } from "../../planner";
 import { characterKeyOfUnit, portraitKey } from "../../portraits";
 import { SKILL_KEYS, SKILL_LABEL, type Aptitude, type Character, type ReferenceData, type SkillKey } from "../../reference/types";
 import { WEAPON_RANKS } from "../../reference/weaponRanks";
@@ -22,6 +22,7 @@ import { Icon, IconButton, type IconName } from "../Icon";
 import { Modal } from "../Modal";
 import { SkillIcon } from "../SkillIcon";
 import { RankIcon, RankPicker } from "../RankIcon";
+import { useSpoiler } from "../../spoilers";
 import type { ToastState } from "../Toasts";
 import { EntryIcon, EntryPicker, useArchiveEntries } from "./entries";
 import { NotesEditor } from "./NotesEditor";
@@ -80,7 +81,11 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
   const [offRoster, setOffRoster] = useState<Record<string, UnitPlan> | null>(null);
   const [confirm, setConfirm] = useState(false);
   const [status, setStatus] = useState<SaveStatus>("idle");
-  const reset = useRef<() => void>(() => {});
+  const [confirmDelete, setConfirmDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  // Deleting a plan starts the body over, so it shows what a new plan would.
+  const [generation, setGeneration] = useState(0);
+  const body = useRef<BodyHandle | null>(null);
   useEffect(() => {
     if (!open) return;
     setSubject({ kind: "unit", key: start.key });
@@ -138,9 +143,33 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
     const u = rosterByCharacter.get(e.id);
     go(u ? { kind: "unit", key: u.key } : { kind: "character", key: e.id });
   };
-  const save = useCallback((plan: UnitPlan) => (subject.kind === "unit"
-    ? api.setUnitPlan(runId, subject.key, plan).then(() => { savedPlans.set(`${runId}:${subject.key}`, plan); })
-    : api.setPlan(runId, subject.key, plan).then(() => setOffRoster((p) => ({ ...p, [subject.key]: plan })))), [runId, subject]);
+  // One save at a time, in order: an edit still on its way can't land after the plan is deleted.
+  const lastSave = useRef<Promise<unknown>>(Promise.resolve());
+  const save = useCallback((plan: UnitPlan) => {
+    const send = () => (subject.kind === "unit"
+      ? api.setUnitPlan(runId, subject.key, plan).then(() => { savedPlans.set(`${runId}:${subject.key}`, plan); })
+      : api.setPlan(runId, subject.key, plan).then(() => setOffRoster((p) => ({ ...p, [subject.key]: plan }))));
+    const sent = lastSave.current.then(send, send);
+    lastSave.current = sent;
+    return sent;
+  }, [runId, subject]);
+  // An empty plan is no plan (the server forgets it).
+  const deletePlan = async () => {
+    const from = body.current;
+    const unsaved = from?.cancel() ?? null;
+    setDeleting(true);
+    try {
+      await save({ ...EMPTY_PLAN });
+      setGeneration((g) => g + 1);
+      setConfirmDelete(false);
+      toasts.push({ kind: "ok", title: `Deleted ${name}’s plan` });
+    } catch (error) {
+      if (unsaved) from?.queue(unsaved);
+      toasts.push({ kind: "error", title: "Couldn't delete the plan", body: (error as Error).message });
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   return (
     <>
@@ -178,18 +207,28 @@ function PlannerWindow({ open, onClose, start, units, runId, toasts }: {
               <Icon name={CONCEPT_ICON.reset} />
             </button>
           )}
+          <button type="button" className="plan-nav-step plan-delete" aria-label="Delete plan" title="Delete plan" onClick={() => setConfirmDelete(true)} disabled={planIsEmpty(initial)}>
+            <Icon name={CONCEPT_ICON.delete} />
+          </button>
         </>}
       >
         {open && shown && (unit || offRoster) && (
-          <PlannerBody key={`${runId}:${subject.kind}:${subject.key}`} unit={shown} units={units} onRoster={!!unit} initial={initial} toasts={toasts}
-            onStatus={setStatus} resetRef={reset} save={save} />
+          <PlannerBody key={`${runId}:${subject.kind}:${subject.key}:${generation}`} unit={shown} units={units} onRoster={!!unit} initial={initial} toasts={toasts}
+            onStatus={setStatus} handle={body} save={save} />
         )}
       </Modal>
       <Modal open={confirm} onClose={() => setConfirm(false)} title="Reset plan?" className="planner-confirm">
         <p>Replace {name}’s plan with what they have now? Notes are kept.</p>
         <div className="planner-confirm-actions">
           <button type="button" className="btn" onClick={() => setConfirm(false)}>Cancel</button>
-          <button type="button" className="btn primary" onClick={() => { reset.current(); setConfirm(false); }}>Reset</button>
+          <button type="button" className="btn primary" onClick={() => { body.current?.reset(); setConfirm(false); }}>Reset</button>
+        </div>
+      </Modal>
+      <Modal open={confirmDelete} onClose={() => { if (!deleting) setConfirmDelete(false); }} title="Delete plan?" className="planner-confirm">
+        <p>Delete {name}’s plan, notes included? This can’t be undone.</p>
+        <div className="planner-confirm-actions">
+          <button type="button" className="btn" disabled={deleting} onClick={() => setConfirmDelete(false)}>Cancel</button>
+          <button type="button" className="btn danger" disabled={deleting} onClick={() => void deletePlan()}>{deleting ? "Deleting…" : "Delete"}</button>
         </div>
       </Modal>
     </>
@@ -210,9 +249,17 @@ export function currentKit(unit: Unit): UnitPlan {
   };
 }
 
-function PlannerBody({ unit, units, onRoster, initial, toasts, onStatus, resetRef, save: send }: {
+/** What the window's own buttons ask of the plan it shows. */
+interface BodyHandle {
+  reset: () => void;
+  /** Drops the change waiting to be saved, and returns it. */
+  cancel: () => UnitPlan | null;
+  queue: (plan: UnitPlan) => void;
+}
+
+function PlannerBody({ unit, units, onRoster, initial, toasts, onStatus, handle, save: send }: {
   unit: Unit; units: Unit[]; onRoster: boolean; initial: UnitPlan | undefined; toasts: ToastState; onStatus: (s: SaveStatus) => void;
-  resetRef: React.MutableRefObject<() => void>; save: (plan: UnitPlan) => Promise<unknown>;
+  handle: React.MutableRefObject<BodyHandle | null>; save: (plan: UnitPlan) => Promise<unknown>;
 }) {
   const { ref, entries } = useArchiveEntries();
   // A character off the Roster has nothing yet to start from.
@@ -224,11 +271,15 @@ function PlannerBody({ unit, units, onRoster, initial, toasts, onStatus, resetRe
     save.queue(next);
     return next;
   }), [save]);
-  resetRef.current = () => setPlan((p) => {
-    const next = { ...currentKit(unit), notes: p.notes };
-    save.queue(next);
-    return next;
-  });
+  handle.current = {
+    reset: () => setPlan((p) => {
+      const next = { ...currentKit(unit), notes: p.notes };
+      save.queue(next);
+      return next;
+    }),
+    cancel: save.cancel,
+    queue: save.queue,
+  };
 
   const byKind = useMemo(() => {
     const m = new Map<LinkKind, ArchiveEntry[]>();
@@ -248,7 +299,7 @@ function PlannerBody({ unit, units, onRoster, initial, toasts, onStatus, resetRe
     <div className="planner-body">
       <div className="planner-grid">
         <div className="planner-col">
-          <ClassTargets unit={unit} plan={plan} update={update} entries={byKind.get("class") ?? []} data={ref} />
+          <ClassTargets unit={unit} plan={plan} update={update} entries={byKind.get("class") ?? []} data={ref} character={character} />
           <SkillTargets unit={unit} plan={plan} update={update} data={ref} character={character} />
         </div>
         <div className="planner-col">
@@ -341,10 +392,16 @@ function useSaver(send: (plan: UnitPlan) => Promise<unknown>, toasts: ToastState
     window.clearTimeout(timer.current);
     timer.current = window.setTimeout(flush, SAVE_MS);
   }, [flush]);
+  const cancel = useCallback(() => {
+    window.clearTimeout(timer.current);
+    const plan = pending.current;
+    pending.current = null;
+    return plan;
+  }, []);
   const flushRef = useRef(flush);
   flushRef.current = flush;
   useEffect(() => () => flushRef.current(), []);
-  return useMemo(() => ({ state, queue }), [state, queue]);
+  return useMemo(() => ({ state, queue, cancel }), [state, queue, cancel]);
 }
 
 function SaveState({ state }: { state: SaveStatus }) {
@@ -497,8 +554,25 @@ function EntryList({
   );
 }
 
-function ClassTargets({ unit, plan, update, entries, data }: { unit: Unit; plan: UnitPlan; update: Update; entries: ArchiveEntry[]; data: ReferenceData | null }) {
+function ClassTargets({ unit, plan, update, entries, data, character }: { unit: Unit; plan: UnitPlan; update: Update; entries: ArchiveEntry[]; data: ReferenceData | null; character: Character | undefined }) {
   const mastered = new Set(unit.mastered_classes ?? []);
+  const [identities] = useSpoiler("identities");
+  // Opened empty, the list leaves out classes the unit can never take; typing still finds them. While hidden
+  // identities are, whose class Death Knight is isn't told either.
+  const suggested = useMemo(() => {
+    const who = {
+      key: characterKeyOfUnit(unit),
+      gender: unit.gender || (character && character.gender !== "Either" ? character.gender : ""),
+      house: character?.house,
+      startClass: character?.start_class,
+      has: [unit.class_name, ...(unit.mastered_classes ?? [])],
+    };
+    return entries.filter((e) => {
+      const c = data?.classes.find((x) => x.name === e.id);
+      if (e.id === "Death Knight" && !identities && !who.has.includes(e.id)) return false;
+      return !c || canTakeClass(who, c);
+    }).map((entry) => ({ entry, note: "" }));
+  }, [unit, character, entries, data, identities]);
   return (
     <section className="plan-block">
       <Head icon={CONCEPT_ICON.classes} count={plan.classes.length}>Classes</Head>
@@ -534,7 +608,7 @@ function ClassTargets({ unit, plan, update, entries, data }: { unit: Unit; plan:
           }}
         />
       )}
-      <EntryPicker entries={entries} placeholder="Add class" exclude={plan.classes} onPick={(e) => update({ classes: [...plan.classes, e.id] })} />
+      <EntryPicker entries={entries} suggested={suggested} placeholder="Add class" exclude={plan.classes} onPick={(e) => update({ classes: [...plan.classes, e.id] })} />
     </section>
   );
 }

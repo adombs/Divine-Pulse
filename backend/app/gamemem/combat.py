@@ -82,6 +82,13 @@ BREAKER = (3, 14)  # wielding skill +0x0D against a foe wielding skill +0x0E (0x
 ANY_MAGIC = 0x65
 # Abilities that change the order of strikes, by their effect code (+0x0A), and Canto (move again after acting).
 VANTAGE, DESPERATION, QUICK_RIPOSTE, CLOSE_COUNTER, CANTO = 28, 59, 60, 65, 46
+# What the game's own Mv (the stat function at main+0xB0240, which its movement, AI and unit screens all use) takes
+# from the unit beyond its stats. It is 0 under these orders (battle.ORDER; main+0x405180: byte +4 of the order's row is
+# 0 or 2) and these statuses (battle.STATUSES; 7 is Rattled); other statuses add to it (the best and the worst one).
+HOLD_ORDERS = frozenset({0, 3, 19, 20, 21, 23, 24})
+HOLD_STATUSES = frozenset({7, 15, 78})
+MV_STATUSES = {4: -5, 13: 5, 26: 1, 35: -1, 79: -3}
+MAX_MV = 19
 
 
 def _signed(b: int) -> int:
@@ -260,6 +267,15 @@ class Fighter:
     @property
     def mv(self) -> int:
         return self.stats.get("mv", 4)
+
+    @property
+    def movement(self) -> int:
+        """How many spaces it can move now: its Mv, with what keeps it where it stands or slows it (its order and
+        statuses) counted as the game does."""
+        if holds_its_tile(self.unit):
+            return 0
+        changes = [MV_STATUSES[s] for s in self.unit.statuses if s in MV_STATUSES]
+        return min(MAX_MV, max(0, self.mv + max([0, *changes]) + min([0, *changes])))
 
     def has(self, code: int) -> bool:
         return any(code in e.codes for e in self.effects)
@@ -624,6 +640,19 @@ def outcomes(fc: Forecast, a_hp: int, d_hp: int) -> dict[Outcome, float]:
 
 
 WEAPON_KINDS = {SWORD: "sword", LANCE: "lance", AXE: "axe", BOW: "bow", BRAWL: "gauntlets", REASON: "reason", FAITH: "faith", DARK: "dark"}
+
+
+def holds_its_tile(unit: BattleUnit) -> bool:
+    """Whether the game keeps the unit where it stands, whatever its Mv (a boss ordered to hold, a rattled unit)."""
+    return unit.order in HOLD_ORDERS or bool(unit.statuses & HOLD_STATUSES)
+
+
+def movement(unit: BattleUnit, data: CombatData | None = None) -> int | None:
+    """How many spaces the unit can move now (Fighter.movement); None if its class isn't known (nothing imported)."""
+    data = data or combat_data()
+    if holds_its_tile(unit):
+        return 0
+    return Fighter.from_unit(unit, data).movement if unit.class_id in data.classes else None
 
 
 def weapon_kind(unit: BattleUnit, data: CombatData | None = None) -> str:

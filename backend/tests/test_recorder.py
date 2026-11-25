@@ -160,3 +160,11 @@ def test_a_resumed_battle_carries_on_with_its_recording(tmp_path):
     rec.record(capture(1), 10)
     frames = list(read_recording(rec.path))
     assert [f.t for f in frames] == [0, 10] and frames[1].globals == capture(1)["globals"]
+
+
+def test_appledouble_twins_are_not_recordings(tmp_path):
+    rec = BattleRecorder(tmp_path, keep=1)
+    rec.start("a")
+    rec.record(capture(0), 0)
+    (tmp_path / f"._{rec.path.name}").write_bytes(b"\0\5\x16\7")
+    assert find_recordings(tmp_path) == [rec.path]

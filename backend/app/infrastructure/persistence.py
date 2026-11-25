@@ -166,6 +166,8 @@ class RunStore:
             for path in self.dir.glob("*.json"):
                 try:
                     runs.append(self.get(path.stem))
+                except NotFound:
+                    continue  # not named as a run is: Finder's "<id> copy.json", or an AppleDouble "._<id>.json"
                 except (OSError, ValueError, TypeError):
                     log.exception("Could not load run %s", path)
             runs.sort(key=lambda r: r.updated_at, reverse=True)

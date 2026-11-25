@@ -2,24 +2,20 @@
 
 from __future__ import annotations
 
-import os
-import re
 import shutil
 import tempfile
 from contextlib import contextmanager
 from pathlib import Path
+
+from ..system import platform
 
 
 def validate_destination(destination: Path, protected: tuple[Path, ...] = ()) -> None:
     """Check a new child of an existing parent without modifying existing files."""
     if not destination.is_absolute() or ".." in destination.parts:
         raise ValueError("Choose an absolute path for a new dump folder inside an existing folder.")
-    if os.name == "nt" and any(
-        re.search(r'[<>:"|?*\x00-\x1f]', part) or part.endswith((".", " "))
-        or re.fullmatch(r"(?i:con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\..*)?", part)
-        for part in destination.parts[1:]
-    ):
-        raise ValueError("Choose a valid Windows folder name for the new dump folder.")
+    if problem := platform.current().folder_name_problem(destination.parts[1:]):
+        raise ValueError(problem)
     if destination.exists() or destination.is_symlink() or destination.is_junction():
         raise ValueError("The dump destination already exists. Choose a new child folder; existing folders are never reused.")
     if not destination.parent.is_dir():

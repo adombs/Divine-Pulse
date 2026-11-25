@@ -156,7 +156,7 @@ def operations(tmp_path):
         events=events,
         scanner=MemoryScanner(),
         memory_check=SimpleNamespace(check=lambda: {"ok": True}),
-        system=SimpleNamespace(open_folder=lambda _folder: None),
+        system=SimpleNamespace(open_folder=lambda _folder: None, platform="linux"),
         data_dir=tmp_path,
         version="0.1.0",
     )
@@ -248,4 +248,5 @@ def test_setting_operation_returns_saved_values_and_data_folder_path(operations)
     assert result["max_recordings"] == 8
     assert ops.about(desktop=False)["data_dir"] == str(ops.data_dir)
     assert ops.about(desktop=False)["desktop"] is False
+    assert ops.about(desktop=False)["platform"] == "linux"  # as the system adapter says
     assert isinstance(ops.get_settings(), dict)

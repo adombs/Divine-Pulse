@@ -10,8 +10,10 @@ import { ScopeTag, type CharacterScope } from "./character/CharacterHero";
 import { Accordion, Collapse, NoAccordion, useDisclosure, useInAccordion } from "./disclosure";
 import { Icon, IconName } from "./Icon";
 import { useNav } from "../nav";
+import { IS_MAC, keyLabel } from "../platform";
 import { DuplicateWarning } from "./DuplicateBattles";
 import { PopupActions, useInPopup } from "./CharacterPopup";
+import { clampShare, shareTone } from "../share";
 
 export interface Tab<T extends string> {
   id: T;
@@ -59,7 +61,8 @@ export function PageHeader<T extends string>({
   );
 }
 
-/** Back to where you were (also Alt+← and the mouse's back button); at the right end of every page header. */
+/** Back to where you were (also Alt+←, ⌘[ on a Mac, and the mouse's back button); at the right end of every page
+ * header. */
 export function BackButton() {
   const nav = useNav();
   return (
@@ -68,7 +71,7 @@ export function BackButton() {
       className="btn small page-back"
       onClick={nav.back}
       disabled={!nav.canBack}
-      title="Back to where you were (Alt+←)"
+      title={`Back to where you were (${IS_MAC ? keyLabel(["Cmd", "["]) : keyLabel(["Alt", "←"])})`}
     >
       <Icon name={CONCEPT_ICON.back} />
       Back
@@ -277,8 +280,8 @@ export function Tile({
 
 /** A thin bar for a share (0-1): HP, magic left. Low shares turn red, middling amber. */
 export function Meter({ value, label }: { value: number; label?: string }) {
-  const pct = Math.round(Math.max(0, Math.min(1, value)) * 100);
-  const tone = pct <= 30 ? "bad" : pct <= 60 ? "warn" : "good";
+  const pct = Math.round(clampShare(value) * 100);
+  const tone = shareTone(value);
   return (
     <span className={`meter ${tone}`} role="meter" aria-valuemin={0} aria-valuemax={100} aria-valuenow={pct} aria-label={label}>
       <span style={{ width: `${pct}%` }} />

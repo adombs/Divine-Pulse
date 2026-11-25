@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import sys
 from pathlib import Path
 import struct
 import zlib
@@ -73,6 +74,13 @@ def test_archive_entries_overrides_and_loose_files(tmp_path):
     assert found.read(1) == b"packed entry" * 50
     assert found.read_file("nx/data/override.bin") == b"newer entry"
     assert found.resolve("nx/data/missing.bin") is None
+
+
+def test_archive_finds_a_patch_folder_in_any_case(tmp_path):
+    """dump.find accepts "Patch4" (its pattern ignores case); the archive must read it too, on macOS as on Windows."""
+    romfs = make_romfs(tmp_path)
+    (romfs / "patch4").rename(romfs / "Patch4")
+    assert archive.Archive(romfs).patches == [romfs / "Patch4"]
 
 
 def test_archive_combines_separate_update_roots(tmp_path):
@@ -191,3 +199,17 @@ def test_maybe_unchunk_leaves_plain_files_alone():
     assert archive.maybe_unchunk(b"GT1G" + b"\0" * 60).startswith(b"GT1G")
     data = b"chunked" * 40
     assert archive.maybe_unchunk(chunked(data, 0x40, {4})) == data
+
+
+def test_verify_ignores_files_macos_adds_to_folders(tmp_path):
+    out = Output(tmp_path / "out")
+    out.json("data/b.json", {"x": 1}, source="test")
+    out.write_manifest(dump={"version": "1.2.0"}, families={})
+    names = [".DS_Store", "data/.DS_Store", "data/._b.json", ".localized", "__MACOSX/data/._b.json"]
+    for name in names + (["Icon\r"] if sys.platform != "win32" else []):  # (Windows doesn't allow \r in a name)
+        (out.root / name).parent.mkdir(parents=True, exist_ok=True)
+        (out.root / name).write_bytes(b"\0\0\0\1Bud1")
+    (out.root / "data" / "extra.json").write_text("{}")
+    report = verify.check(out.root)
+    assert report.ok and report.checked == 1
+    assert report.warnings == ["data/extra.json: not in the manifest"]

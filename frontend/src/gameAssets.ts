@@ -14,6 +14,7 @@ export interface GameAssetsStatus {
 
 let status: GameAssetsStatus = { available: false };
 let statusRequest: Promise<GameAssetsStatus> | null = null;
+let statusGeneration = 0;
 const jsonCache = new Map<string, Promise<unknown>>();
 const listeners = new Set<(status: GameAssetsStatus) => void>();
 
@@ -28,10 +29,13 @@ export function gameAssetsAvailable(): boolean {
 /** Ask the backend once (or again with refresh), e.g. at start and after an import finishes. */
 export function loadGameAssetsStatus(refresh = false): Promise<GameAssetsStatus> {
   if (statusRequest && !refresh) return statusRequest;
+  const request = ++statusGeneration;
   statusRequest = fetch("/api/game-assets/status")
     .then((response) => (response.ok ? response.json() : null))
     .catch(() => null)
     .then((loaded: GameAssetsStatus | null) => {
+      // A newer request started meanwhile: its answer is the one that counts, not this older one.
+      if (request !== statusGeneration) return statusRequest!;
       const next = loaded && typeof loaded.available === "boolean" ? loaded : { available: false };
       const changed = next.available !== status.available || next.created !== status.created;
       status = next;
@@ -43,6 +47,13 @@ export function loadGameAssetsStatus(refresh = false): Promise<GameAssetsStatus>
       return status;
     });
   return statusRequest;
+}
+
+/** Whether a `game_assets` event means the imported files changed: an import finished, or they were removed. Progress
+ * updates during an import (every half second) don't, and reloading on them would reload every game index. */
+export function gameAssetsChanged(data: unknown): boolean {
+  const d = data as { available?: unknown; job?: { state?: unknown } } | null;
+  return d?.job?.state === "done" || (d?.available === false && d?.job?.state !== "running");
 }
 
 /** Called with the new status whenever an import adds, replaces or removes the assets. */

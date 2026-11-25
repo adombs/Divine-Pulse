@@ -1,3 +1,4 @@
+
 import pytest
 from fastapi.testclient import TestClient
 
@@ -139,11 +140,22 @@ def test_recording_limit_is_validated(client):
     assert client.put("/api/settings", json={"auto_interval_s": 0.05}).status_code == 422
 
 
-def test_memory_check_requires_eden(client, monkeypatch):
+def test_memory_check_requires_the_emulator(client, monkeypatch):
+    from app.domain.settings import DEFAULT_MEMORY_READER
     from app.gamemem import fe3h
+    from app.gamemem.emulators import names
+    from app.gamemem.readers import emulators_for
 
     monkeypatch.setattr(fe3h, "running", lambda emulators: [])
-    assert client.get("/api/memory/check").json() == {"ok": False, "message": "Eden isn't running."}
+    assert DEFAULT_MEMORY_READER == "auto"
+    message = client.get("/api/memory/check").json()["message"]
+    if len(emulators_for("auto")) > 1:
+        assert message.startswith("No supported program is running.")
+        assert all(e.name in message for e in emulators_for("auto"))
+    else:  # macOS: only Ryujinx's family runs there
+        assert message == f"{names(emulators_for('auto'))} isn't running."
+    client.put("/api/settings", json={"memory_reader": "eden"})
+    assert client.get("/api/memory/check").json() == {"ok": False, "message": f"{names(emulators_for('eden'))} isn't running."}
 
 
 def test_battle_endpoints(client):
@@ -206,7 +218,10 @@ def test_window_mode_is_saved_and_applied_to_the_desktop_window(client):
 
 def test_about_says_where_the_data_lives(client, tmp_path):
     about = client.get("/api/about").json()
-    assert about == {"version": __version__, "data_dir": str(tmp_path), "desktop": False}
+    from app.system.platform import current
+
+    platform = current().ID
+    assert about == {"version": __version__, "data_dir": str(tmp_path), "desktop": False, "platform": platform}
 
 
 def test_run_ruleset_round_trip(client):
@@ -249,3 +264,37 @@ def test_runs_saved_before_rulesets_load_with_none(tmp_path):
     store = RunStore(tmp_path)
     (tmp_path / "old.json").write_text('{"schema_version": 1, "id": "old", "name": "Old"}', encoding="utf-8")
     assert store.get("old").ruleset == []
+
+
+def test_frontend_files_served_through_a_symlinked_folder(tmp_path, monkeypatch):
+    """The macOS app reaches its frontend through Frameworks/frontend_dist -> ../Resources/frontend_dist."""
+    import app.main as main
+
+    real = tmp_path / "Resources" / "frontend_dist"
+    (real / "assets").mkdir(parents=True)
+    (real / "brand").mkdir()
+    (real / "index.html").write_text("<html>page</html>")
+    (real / "brand" / "logo.png").write_bytes(b"PNGDATA")
+    (tmp_path / "Frameworks").mkdir()
+    linked = tmp_path / "Frameworks" / "frontend_dist"
+    linked.symlink_to(real, target_is_directory=True)
+    monkeypatch.setattr(main, "FRONTEND_DIST", linked)
+    data = tmp_path / "data"
+    data.mkdir()
+
+    with TestClient(main.create_app(data, background=False)) as c:
+        assert c.get("/brand/logo.png").content == b"PNGDATA"
+        assert "page" in c.get("/settings").text
+
+
+def test_files_not_named_as_runs_are_skipped(tmp_path):
+    """A data folder on an exFAT drive or a network share gets a "._<name>" twin beside each file macOS writes, and
+    Finder's Duplicate names a copy "<name> copy.json": neither stops the runs from loading."""
+    from app.infrastructure.persistence import RunStore
+
+    store = RunStore(tmp_path)
+    run = store.create("Mine")
+    (tmp_path / f"._{run.id}.json").write_bytes(b"\0\5\x16\7")
+    (tmp_path / f"{run.id} copy.json").write_bytes((tmp_path / f"{run.id}.json").read_bytes())  # Finder's Duplicate
+    assert [r.id for r in store.list()] == [run.id]
+    assert [r.id for r in store.save_lineages()] == [run.id]

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+import ssl
 import threading
 import urllib.request
 from collections.abc import Callable
@@ -11,6 +12,7 @@ from typing import Any
 
 from ..application.ports import EventPublisher, SettingsRepository
 from ..domain.updates import is_newer, parse_version, release_url
+from ..system import platform
 
 log = logging.getLogger(__name__)
 
@@ -18,6 +20,18 @@ LATEST_RELEASE_API = "https://api.github.com/repos/adombs/Divine-Pulse/releases/
 TIMEOUT_S = 5
 
 Fetcher = Callable[[str], dict[str, Any]]
+def https_context(roots: Callable[[], str | None] | None = None) -> ssl.SSLContext:
+    """A context that can check GitHub's certificate. When Python has no certificates of its own (the macOS app's
+    Python looks only where the build machine's OpenSSL kept them), the platform's trusted roots are used."""
+    context = ssl.create_default_context()
+    if not context.get_ca_certs():
+        pem = (roots or platform.current().trusted_roots)()
+        if pem:
+            try:
+                context.load_verify_locations(cadata=pem)
+            except ssl.SSLError as exc:
+                log.info("Couldn't load the system's trusted certificates (%s).", exc)
+    return context
 
 
 def fetch_latest_release(version: str) -> dict[str, Any]:
@@ -26,7 +40,7 @@ def fetch_latest_release(version: str) -> dict[str, Any]:
         "Accept": "application/vnd.github+json",
         "User-Agent": f"Divine-Pulse/{version}",
     })
-    with urllib.request.urlopen(request, timeout=TIMEOUT_S) as response:
+    with urllib.request.urlopen(request, timeout=TIMEOUT_S, context=https_context()) as response:
         data = json.loads(response.read().decode("utf-8"))
     if not isinstance(data, dict):
         raise ValueError("unexpected release response")

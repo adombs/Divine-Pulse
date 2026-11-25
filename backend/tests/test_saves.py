@@ -89,9 +89,11 @@ class FakeMemory:
         self.roster = bytearray(DATA[:ROSTER_SIZE])
         self.name = DATA[ROSTER_SIZE:]
         self.in_battle: tuple[int, ...] = ()
+        self.on_title = False
 
     def read(self):
-        return Snapshot(bytes(self.roster), self.name, in_battle=self.in_battle, battle_key="k" if self.in_battle else "")
+        return Snapshot(bytes(self.roster), self.name, in_battle=self.in_battle, battle_key="k" if self.in_battle else "",
+                        on_title=self.on_title)
 
     def set_counts(self, character, battles, fights):
         base = SLOT_OF[character] * SLOT_SIZE
@@ -298,3 +300,54 @@ def test_a_battle_with_the_stand_in_byleth_asks_when_the_run_has_a_save(scanner)
     sync(scanner, 3)
     assert scanner.auto_status()["save_prompt"] == {"run_id": a, "matches": []}
     assert scanner.store.get(a).units == units
+
+
+def title_screen(memory):
+    """The title screen as read in Astris: no save loaded, but a stand-in Byleth whose battle count changes as the
+    title plays its cutscenes, so the roster alone looks like a save (not blank)."""
+    no_save_loaded(memory)
+    memory.set_counts(0, 1, 0)
+    memory.on_title = True
+
+
+def test_the_title_screen_neither_asks_nor_syncs(scanner):
+    memory = scanner.memory
+    memory.set_counts(22, 3, 5)
+    sync(scanner)
+    a = scanner.settings.get().active_run_id
+    units = scanner.store.get(a).units
+    title_screen(memory)
+    assert not save_fingerprint(memory.read().roster, memory.name).blank  # the roster alone would ask
+    sync(scanner, 3)
+    status = scanner.auto_status()
+    assert status["save_prompt"] is None and status["state"] == "watching" and status["message"]
+    assert scanner.store.get(a).units == units
+    # Nor for a run that follows whatever save is loaded (the player chose it), nor in a new run.
+    scanner._job("sync")
+    sync(scanner, 3)
+    assert scanner.store.get(a).units == units
+    b = scanner.store.create("Run B")
+    scanner.settings.update(active_run_id=b.id)
+    sync(scanner, 3)
+    assert scanner.auto_status()["save_prompt"] is None
+    assert scanner.store.get(b.id).units == {} and not scanner.store.get(b.id).saves.checkpoints
+
+
+def test_a_question_about_a_save_goes_once_the_game_is_back_at_its_title(scanner):
+    memory = scanner.memory
+    memory.set_counts(22, 3, 5)
+    sync(scanner)
+    a = scanner.settings.get().active_run_id
+    other_playthrough(memory)
+    sync(scanner, 3)
+    assert scanner.auto_status()["save_prompt"] is not None  # another playthrough's save: asked about
+    title_screen(memory)
+    sync(scanner, 3)
+    assert scanner.auto_status()["save_prompt"] is None
+    # Loading the run's own save again syncs it, with nothing to ask.
+    memory.on_title = False
+    memory.roster = bytearray(DATA[:ROSTER_SIZE])
+    memory.set_counts(22, 3, 5)
+    sync(scanner, 3)
+    assert scanner.auto_status()["save_prompt"] is None and scanner.auto_status()["state"] == "watching"
+    assert scanner.store.get(a).units

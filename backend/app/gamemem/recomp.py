@@ -12,7 +12,7 @@ from __future__ import annotations
 from collections.abc import Iterable
 
 from ..system.memory import ProcessMemory, Region
-from .emulators import Emulator
+from .emulators import Emulator, region_starts
 
 # The window the recomp reserves for the game (rt.h: GUEST_LO ... GUEST_HI is 0x7000000000-0x7320000000; the runtime
 # itself accepts pointers up to 0x7800000000). Everything outside it is the host program's: graphics buffers,
@@ -32,6 +32,9 @@ class Native:
 
     def module_regions(self, process: ProcessMemory) -> Iterable[Region]:
         return (r for r in process.regions() if _in_guest_window(r))
+
+    def main_candidates(self, process: ProcessMemory, header: bytes) -> Iterable[int]:
+        return region_starts(self, process)
 
     def heap_regions(self, process: ProcessMemory) -> Iterable[Region]:
         return (r for r in process.regions() if _in_guest_window(r) and r.size >= MIN_HEAP_REGION)

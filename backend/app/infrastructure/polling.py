@@ -37,7 +37,7 @@ from ..events import EventBus
 from .game_assets import game_assets
 from . import game_tables
 from ..gamemem.battle import FlagWatch
-from ..gamemem.combat import weapon_kind
+from ..gamemem.combat import movement, weapon_kind
 from ..gamemem.fe3h import EQUIPPED_WEAPON, ROSTER_SIZE, GameMemory, GameMemoryError, Snapshot, decode_dead, decode_player_birthday, decode_player_name, decode_roster, save_fingerprint
 from ..gamemem.readers import emulators_for
 from ..gamemem.recorder import BattleRecorder
@@ -61,6 +61,7 @@ log = logging.getLogger(__name__)
 
 NEEDS_IMPORT = "Import your game files first"
 HELD_MESSAGE = "The game has a save from another run loaded: nothing is synced until you choose."
+TITLE_MESSAGE = "Waiting for a save to be loaded in the game."
 
 
 @dataclass(frozen=True)
@@ -345,6 +346,13 @@ class Scanner:
         if self._holding(run_id, snapshot):
             return
         self._track_battle(snapshot, run_id)
+        if snapshot.on_title and not snapshot.in_battle and not self._battles.active:
+            # The title screen: no save is loaded, whatever its stand-in roster holds (it changes as the title plays its
+            # cutscenes). Nothing to sync and nothing to ask about, even for a run that follows any save.
+            self._mem_pending, self._mem_applied = None, (run_id, snapshot)
+            self._set_save_prompt(None)
+            self._publish_status("watching", MEMORY_TITLE, message=TITLE_MESSAGE)
+            return
         if self._mem_applied == (run_id, snapshot):
             self._publish_status("watching", MEMORY_TITLE, self._mem_seeing)
             return
@@ -742,6 +750,7 @@ class Scanner:
                     spell_ids=other.spells,
                     equipped_weapon=other.equipped == EQUIPPED_WEAPON,
                     equipped_item_id=other.item_slot_0,
+                    movement=_movement(other),
                 )
             )
         terrain_of = getattr(self.memory, "battle_terrain", None)
@@ -890,6 +899,11 @@ class Scanner:
         held = self._held
         if held is None:
             return False
+        if snapshot.on_title and not snapshot.in_battle:
+            # Back at the title screen: the save asked about isn't loaded any more. Ask again if one is loaded.
+            self._held, self._mem_applied = None, (run_id, snapshot)
+            self._set_save_prompt(None)
+            return True
         if held.run_id != run_id or (snapshot.in_battle and not held.save.blank):
             if held.run_id == run_id:
                 self._forced = run_id  # a battle started with the save: the run follows it
@@ -1026,6 +1040,14 @@ def _other_name(character: int, data: GameData) -> tuple[str, int | None]:
     if character in data.npc_names:
         return data.npc_names[character], character
     return data.generic_names.get(character, ""), None
+
+
+def _movement(unit) -> int | None:
+    """How many spaces a unit can move now (combat.movement), None if the game data can't say."""
+    try:
+        return movement(unit)
+    except Exception:
+        return None
 
 
 def _weapon(unit) -> str:

@@ -2,21 +2,53 @@
 
 <img src="branding/icons/app-icon-rounded-1024.png" alt="" width="96" align="right">
 
-Divine Pulse is a free, offline Windows companion for players who emulate **Fire Emblem: Three Houses**. It reads the game while you play and keeps your runs and battles on your PC.
+Divine Pulse is a free, offline companion for players who emulate **Fire Emblem: Three Houses** on Windows, macOS or Linux (experimental). It reads the game while you play and keeps your runs and battles on your computer.
 
-[Download for Windows](https://github.com/adombs/Divine-Pulse/releases/latest) · [Contributing](.github/CONTRIBUTING.md)
+[Download for Windows, macOS or Linux](https://github.com/adombs/Divine-Pulse/releases/latest) · [Contributing](.github/CONTRIBUTING.md)
 
 ## Requirements
 
-- Windows 10 or 11, 64-bit, with Microsoft Edge WebView2.
-- **Eden** with fastmem enabled, or **FE3H Recomp by onerag90** (pick one under Settings > General > Game), and **Fire Emblem: Three Houses v1.2.0**.
+- Windows 10 or 11, 64-bit, with Microsoft Edge WebView2; macOS 12 or newer on Apple silicon; or
+  64-bit Linux with glibc 2.35 or newer (Ubuntu 22.04, Debian 12, SteamOS 3.5 and later; experimental). See [Install](#install).
+- One of these, found automatically (or picked under Settings > General > Game): **Eden** with fastmem enabled
+  (Windows or Linux), **Astris** (macOS), **Ryubing**/Ryujinx (Windows, macOS or Linux), or **FE3H Recomp by onerag90** (Windows); and
+  **Fire Emblem: Three Houses v1.2.0**.
 - Your own base game and 1.2.0 update files, with optional DLC.
 
 Divine Pulse reads game memory. It does not write to the emulator or game. It has no accounts, telemetry, update check, or network service beyond its own local window.
 
-## Install and import
+## Install
 
-Run the Windows installer or unpack the portable ZIP. Open **Divine Pulse.exe** in either case. Close the window to exit the app.
+**Windows.** Run the installer (`Divine-Pulse-<version>-setup.exe`) or unpack the portable ZIP, then open
+**Divine Pulse.exe**. The program isn't code-signed: if SmartScreen warns about an unknown publisher, choose
+*More info > Run anyway*. NSTool, for importing NSP files, comes with it.
+
+**macOS.** Unzip `Divine-Pulse-<version>-macos-arm64.zip` and drag **Divine Pulse.app** to Applications, then open
+it. The app is signed ad hoc, not notarized: the first time, right-click it and choose Open, or allow it in System
+Settings > Privacy & Security. To import NSP files, download the latest macOS NSTool from
+[its releases page](https://github.com/jakcron/nstool/releases/latest) (`macos_arm64` for Apple silicon), unzip it,
+and leave `nstool` in Applications or Downloads: Divine Pulse finds it there. The first time it runs, macOS may block
+it as a download; allow it in System Settings > Privacy & Security, then import again.
+
+**Linux.** Unpack `Divine-Pulse-<version>-linux-x86_64.tar.gz` and run **Divine Pulse** in its folder, or run
+`./install.sh` there to copy it to `~/.local/opt` and add it to your applications menu (no administrator rights).
+Eden and Ryubing should be found however they were installed (AppImage, Flatpak, tar.gz or a distribution's package). To
+import NSP files, download the Linux NSTool from [its releases page](https://github.com/jakcron/nstool/releases/latest)
+(`ubuntu_x86_64`), unzip it, and leave `nstool` in Downloads or put it on your PATH.
+
+Linux support is **experimental**: the program is tested on Linux, but reading the game from the real emulators there
+hasn't been confirmed yet. If it isn't found, please [open an issue](https://github.com/adombs/Divine-Pulse/issues)
+with your distribution, the emulator's version and how it was installed (AppImage, Flatpak and so on), and
+`tracker.log` from the data folder (Settings > About > Open). It says what was found; it holds folder names, so look
+it over first.
+
+On all of them, close the window to exit the app. Divine Pulse finds the emulator on its own (Settings > General > Game is
+**Auto** by default). macOS lets another program read an app's memory only when the app allows debugging, as Astris's
+releases do; Divine Pulse includes a small reader for this (`backend/app/system/macos`), signed to be allowed to. It
+only reads. On Linux it opens, read-only, the memory file the emulator keeps the Switch's memory in, which needs neither
+root nor a change to `ptrace_scope`.
+
+## Import your game
 
 Import your files in Divine Pulse. The installer only installs the program. Choose one of the following:
 
@@ -29,22 +61,51 @@ To replace, verify or remove an import later, open **Settings → Game files**. 
 
 ## Play with Divine Pulse
 
-Create or load a run from Home before you start playing. The active run is the one that receives the units and battles read from Eden. Choose a different run when you change playthroughs.
+Create or load a run from Home before you start playing. The active run is the one that receives the units and battles read from the emulator. Choose a different run when you change playthroughs.
 
 - **Unit Tracker.** See your army's stats, classes, skills, inventory, abilities and battalions. Switch between the displayed and base stats. eBST compares your units using the offense, defense and other stats you choose.
 - **Battle Companion.** Follow turn order, units, HP, status, supplies, terrain, and the action log. The Battle page opens automatically when a battle starts. The roster automatically filters to deployed units and the app notifies you about departures and Divine Pulse.
 - **Replay Viewer.** Open a battle from History and step through its map and log. Rewinds remain visible as separate branches. Run totals and records use completed battles and the timeline that stood when each battle ended.
 - **Offline Reference.** Archive and Supports use the files you imported for characters, classes, abilities, weapons, spells, items, battalions, support pairings, gifts and other reference information.
 
-If you resume the same battle in Eden, including from a bookmark, Divine Pulse continues its existing record. You can delete individual battles from History. Use the import and export controls on Runs to move run or battle records between installations.
+If you resume the same battle in the emulator, including from a bookmark, Divine Pulse continues its existing record. You can delete individual battles from History. Use the import and export controls on Runs to move run or battle records between installations.
 
 ## Your files and settings
 
-**Settings → About** opens the app's data folder. Installed copies normally use %LOCALAPPDATA%\Divine Pulse. A portable copy uses a data folder next to the executable if you create one.
+**Settings → About** opens the app's data folder:
+
+| | Windows | macOS | Linux |
+|---|---|---|---|
+| Data folder | %LOCALAPPDATA%\Divine Pulse, or a `data` folder next to Divine Pulse.exe if you create one (portable) | ~/Library/Application Support/Divine Pulse | ~/.local/share/Divine Pulse (`$XDG_DATA_HOME`), or a `data` folder next to the program (portable) |
+
+Turn on **Launch with Game** under **Settings → General** (Windows) to have Divine Pulse open whenever Eden, Ryubing/Ryujinx or FE3H Recomp starts. A small hidden copy of Divine Pulse starts when you sign in to Windows and waits for the game; turning the setting off stops it.
 
 Appearance and spoiler preferences apply to this installation. **Settings → General** controls how many raw battle recordings to retain, from 0 to 1000. The default is three, and zero turns raw recording off. Saved replays in History are separate from raw recordings.
 
-To update, run the newer installer over your installation or uninstall and reinstall. For a portable copy, replace the program files. On first launch with existing records and during an interactive uninstall, you can choose whether to keep your runs and battle history. Uninstall also removes the application's imported assets, settings, and raw recordings. Use the export command to back up runs separately.
+| | Windows | macOS | Linux |
+|---|---|---|---|
+| Update | Run the newer installer over your installation, or replace the portable copy's program files | Quit the app and replace Divine Pulse.app with the newer one | Quit the app and run the newer version's `./install.sh`, or replace the folder |
+| Remove | Uninstall from the Start menu or Windows Settings > Apps; delete a portable copy's folder | Drag the app to the Trash, then delete its data folder | `./install.sh --uninstall`, or delete the program's folder; then its data folder |
+
+The data folder is kept when you update. On first launch with existing records, and during an interactive uninstall
+on Windows, you can choose whether to keep your runs and battle history; uninstalling also removes the imported game
+files, settings and raw recordings. Use the export command on Runs to back up runs separately.
+
+## Build or run from source
+
+The same steps on Windows, macOS and Linux; [Contributing](.github/CONTRIBUTING.md) has the details.
+
+| | Windows | macOS | Linux |
+|---|---|---|---|
+| Needs | Python 3.12+, Node.js 22.12+; Inno Setup 6 for the installer | Python 3.12+ (`brew install python@3.13`), Node.js 22.12+, Xcode's command-line tools (`xcode-select --install`) | Python 3.12+ with venv, Node.js 22.12+; for a build also binutils and Qt's X11 libraries (the build names them) |
+| Set up once (and after pulling changes) | `tools\setup.bat` | `tools/setup.sh` | `tools/setup.sh` |
+| Run from source | the *Divine Pulse (source)* desktop shortcut, or `tools\launch.bat` | the *Divine Pulse (source)* desktop shortcut, or `tools/launch.sh` | the *Divine Pulse (source)* shortcut, or `tools/launch.sh` |
+| Build the release | `python tools/build.py` | `python3 tools/build.py` | `python3 tools/build.py` |
+| What the build makes, in `release/` | `Divine-Pulse-<version>-windows-portable.zip`, `Divine-Pulse-<version>-setup.exe`, `SHA256SUMS.txt` | `Divine Pulse.app`, `Divine-Pulse-<version>-macos-<arch>.zip`, `SHA256SUMS.txt` | `Divine-Pulse-<version>-linux-<arch>.tar.gz`, `SHA256SUMS.txt` |
+
+`tools/build.py` finds a Python 3.12+ itself when started with an older one (the `py` launcher on Windows, Homebrew's
+or python.org's on macOS) and builds in its own environment. Add `--skip-tests` to skip the tests, and on Windows
+`--no-installer` for only the portable ZIP.
 
 ## Credits
 

@@ -47,6 +47,8 @@ class BattleUnit:
     battalion_endurance: int | None = None
     gambit_uses: int | None = None
     rattled: bool | None = None  # hit by a gambit: no battalion benefits (fe3h.RATTLED); None: not read
+    order: int | None = None  # how the game plays it (battle.ORDER: advance, wait, hold its tile...); None: not read
+    statuses: frozenset[int] = frozenset()  # IDs of the status effects on it (battle.STATUSES)
 
     @property
     def max_hp(self) -> int:

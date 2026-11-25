@@ -5,7 +5,6 @@ Vendored from nsp-unpacker fddf01efbb6e9cf28a447ff73adf5a8334c2acfa.
 from __future__ import annotations
 
 import json
-import os
 from pathlib import Path, PurePosixPath
 import re
 import shutil
@@ -14,6 +13,9 @@ import subprocess
 import tempfile
 import threading
 from dataclasses import dataclass
+
+from ..system import platform
+from ..system.files import has_entries, user_files
 
 
 @dataclass
@@ -154,11 +156,11 @@ class Extractor:
         for ticket in self.tickets:
             command += ['--tik', str(ticket)]
         command += [str(a) for a in args] + [str(source)]
-        flags = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
+        flags = platform.current().HIDDEN_CONSOLE_FLAGS
         # Poll without blocking the GUI; no shell and no keys in command output.
         with tempfile.TemporaryFile(mode='w+b') as capture:
             with subprocess.Popen(command, stdout=capture, stderr=subprocess.STDOUT,
-                                  creationflags=flags) as process:
+                                  creationflags=flags, env=platform.current().child_env()) as process:
                 while process.poll() is None:
                     if on_tick:
                         try:
@@ -214,7 +216,7 @@ class Extractor:
             args += ['--basenca', base.path]
         label = 'ExeFS' if destination.name == 'exefs' else 'RomFS'
         self.extract_files(content.path, destination, f'{label} - {destination.parent.name}', args, number)
-        if not any(p.is_file() for p in destination.rglob('*')):
+        if not user_files(destination):
             raise RuntimeError(f'No files extracted to {destination}. Check keys and selected content.')
 
     def extract(self, inputs: list[Path]):
@@ -225,7 +227,7 @@ class Extractor:
                 raise ValueError(f'File not found: {path}')
         if any(path.suffix.lower() != '.nsp' for path in inputs):
             raise ValueError('All inputs must be .nsp files (compressed .nsz files are unsupported).')
-        if self.output.exists() and (not self.output.is_dir() or any(self.output.iterdir())):
+        if self.output.exists() and (not self.output.is_dir() or has_entries(self.output)):
             raise ValueError('Choose a new or empty output folder to avoid mixing dumps.')
         self.output.mkdir(parents=True, exist_ok=True)
         self.work = Path(tempfile.mkdtemp(prefix='_nsp_work_', dir=self.output))
@@ -236,15 +238,20 @@ class Extractor:
             folder = self.work / f'nsp-{i}'
             self.extract_files(source, folder, f'NSP {i}/{len(inputs)} - {source.name}')
             folders.append(folder)
-        self.tickets = [ticket for folder in folders for ticket in folder.rglob('*.tik')]
+        self.tickets = [ticket for folder in folders for ticket in user_files(folder, '*.tik')]
         ncas: dict[str, Path] = {}
         metas = []
         for folder in folders:
-            for path in folder.rglob('*'):
+            for path in user_files(folder):
                 if path.suffix.lower() == '.nca':
-                    ncas[path.name.split('.')[0].lower()] = path
+                    key = path.name.split('.')[0].lower()
+                    # A content's own NCA wins over a metadata NCA of the same ID, whatever order the folder
+                    # lists them in (it differs between Windows and macOS).
                     if path.name.lower().endswith('.cnmt.nca'):
                         metas.append(path)
+                        ncas.setdefault(key, path)
+                    else:
+                        ncas[key] = path
         if not metas:
             raise RuntimeError('No .cnmt.nca metadata found. These NSPs may be incomplete or unsupported.')
         titles = []
@@ -253,7 +260,7 @@ class Extractor:
             self.progress({'stage': f'Reading metadata {i + 1}/{len(metas)}', 'total': None})
             folder = self.work / f'meta-{i}'
             self.run(['-x', folder], meta, partition=True)
-            cnmts = list(folder.rglob('*.cnmt'))
+            cnmts = user_files(folder, '*.cnmt')
             if not cnmts:
                 raise RuntimeError(f'No readable CNMT in {meta.name}. Check prod.keys.')
             titles.extend(parse_cnmt(path, ncas) for path in cnmts)
@@ -314,9 +321,11 @@ class Extractor:
 
 
 
-def extract_nsps(inputs: list[Path], tool: Path, keys: Path, output: Path, *, cancelled: threading.Event) -> None:
-    """Extract selected packages into a new or empty folder using NSTool."""
-    Extractor(tool, keys, output, lambda _: None, cancelled).extract(inputs)
+def extract_nsps(inputs: list[Path], tool: Path, keys: Path, output: Path, *, cancelled: threading.Event,
+                 progress=None) -> None:
+    """Extract selected packages into a new or empty folder using NSTool. `progress` gets the Extractor's events:
+    {'stage', 'total', and while files are written 'completed', 'current', 'current_bytes'}."""
+    Extractor(tool, keys, output, lambda _: None, cancelled, progress).extract(inputs)
 
 
 # NSP Unpacker license:

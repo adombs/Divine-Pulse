@@ -59,6 +59,22 @@
 .game-files-card progress { max-width:100%; width:100%; }
 .game-files-progress { display:grid; gap:.35rem; min-width:0; overflow-wrap:anywhere; }
 .game-files-progress progress { accent-color:var(--accent); }
+.game-files-progress { gap:.75rem; }
+.game-files-progress progress { width:100%; }
+.game-files-progress-head { display:flex; align-items:baseline; justify-content:space-between; gap:1rem; }
+.game-files-progress-head .hint { font-variant-numeric:tabular-nums; }
+.game-files-steps { display:flex; flex-wrap:wrap; gap:.35rem 1.25rem; margin:0; padding:0; list-style:none; }
+.game-files-steps li { display:flex; align-items:center; gap:.45rem; color:var(--ink-soft); }
+.game-files-steps li.current { color:var(--ink); font-weight:600; }
+.game-files-steps li.done { color:var(--ink); }
+.game-files-step-mark { display:inline-grid; place-items:center; width:1.4rem; height:1.4rem; border:1px solid var(--line);
+  border-radius:50%; font-size:.8rem; font-variant-numeric:tabular-nums; flex:none; }
+.game-files-steps li.current .game-files-step-mark { border-color:var(--accent); color:var(--accent); }
+.game-files-steps li.done .game-files-step-mark { border-color:var(--accent); background:var(--accent); color:var(--paper); }
+.game-files-steps li.done .game-files-step-mark svg { width:.85rem; height:.85rem; }
+.game-files-step-detail { display:grid; gap:.35rem; }
+.game-files-progress > p.hint { margin:0; }
+.game-files-progress .sr-only { position:absolute; width:1px; height:1px; overflow:hidden; clip-path:inset(50%); white-space:nowrap; }
 .game-files-progress details { color:var(--ink-soft); }
 .game-files-progress summary { cursor:pointer; }
 .game-files-progress ul { margin:.5rem 0 0; padding-left:1.3rem; }

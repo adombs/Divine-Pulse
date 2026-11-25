@@ -2,7 +2,8 @@
 
 
 Eden maps the Switch's memory into its own address space so that a game address `a`
-lives at host address `base + a` ("fastmem"; emulators.py says where each emulator keeps it). The game's main program sits near Switch address 0x80000000 (not
+lives at host address `base + a` ("fastmem"; emulators.py says where each emulator keeps it). Ryujinx and its forks
+keep the Switch's RAM as one block instead, reached block by block (ryujinx.py). The game's main program sits near Switch address 0x80000000 (not
 at a fixed one: 0x80004000 in one session, 0x8077B000 in another), and the roster is a global inside it: 60 slots
 of 0x24C bytes, one per character the save knows about. Only the layout relative to the main program is fixed, so
 it is found again on every connect.
@@ -24,7 +25,7 @@ from dataclasses import dataclass, field
 
 from ..domain.combat import EQUIPPED_SPELL as EQUIPPED_SPELL
 from ..system import MEMORY_ACCESS_HELP
-from ..system.memory import AccessDenied, ProcessMemory, open_process
+from ..system.memory import AccessDenied, ProcessMemory, open_process, search, similar_processes
 from ..domain.battalions import valid_endurance, valid_exp, valid_uses
 from ..domain.units import SkillProgress
 from .emulators import EMULATORS, Emulator, MemoryLayout, names, running
@@ -135,6 +136,10 @@ BATTLE_COPY_READ = GAMBIT_USES + 1
 BATTLE_SCANS = 3
 BATTLE_RESCAN_S = 10.0
 NO_SCENARIO = 0xFF  # the scenario id outside a battle (seen at the title screen)
+# The story's scenarios (chapters, paralogues, Cindered Shadows) are 0-97. From this id up, no save is being played: the
+# game reads 0xFF as it starts and 210-213 while the title screen plays its cutscenes, with a stand-in Byleth in the
+# roster whose battle count even changes between them.
+TITLE_SCENARIOS = 200
 QUESTS = 151  # the quest table's rows; the battle's quest field reads this (or more) when the battle is not for a quest
 
 STAT_ORDER = ("str", "mag", "dex", "spd", "lck", "def", "res", "mv", "cha")
@@ -388,6 +393,8 @@ class Snapshot:
     scenario: int | None = None
     # (character ID, gambit uses left) for the units in the battle in progress that have a battalion.
     gambit_uses: tuple[tuple[int, int], ...] = ()
+    # The game is at its title screen (or starting): no save is loaded, whatever the roster holds (TITLE_SCENARIOS).
+    on_title: bool = False
 
 
 class GameMemory:
@@ -399,6 +406,7 @@ class GameMemory:
 
     def __init__(self, emulators: tuple[Emulator, ...] = EMULATORS) -> None:
         self.emulators = emulators
+        self._noted: set[str] = set()  # connection details already in the log
         self._process: ProcessMemory | None = None
         self._main = 0
         self.version: GameVersion | None = None
@@ -418,6 +426,10 @@ class GameMemory:
         # complete read in history order, for the battle recorder.
         self._arena: int | None = None
         self._arena_retry = 0.0  # when to look for it again after not finding it
+        # A paged layout (Ryujinx): host minus Switch address for each 2 MiB block of Switch addresses found so far
+        # (fixed while the game runs), and when to look again for blocks that weren't found.
+        self._blocks: dict[int, int] = {}
+        self._blocks_retry: dict[int, float] = {}
         self._pool_start: int | None = None
         self._history: dict[tuple[int, bytes], tuple[object, bytes]] = {}
         self._history_count = 0
@@ -433,6 +445,7 @@ class GameMemory:
         self._copies, self._counters, self._hints = {}, None, {}
         self._generation += 1
         self._arena, self._pool_start, self._history, self._history_raw = None, None, {}, []
+        self._blocks, self._blocks_retry = {}, {}
 
     def read(self, battle: bool = True) -> Snapshot:
         """The roster, with the battle in progress merged in (unless `battle` is False)."""
@@ -491,7 +504,7 @@ class GameMemory:
                 start.append((character, *struct.unpack_from("<HH", slot, _COMBATS)))
         return Snapshot(
             merged, snapshot.player_name, used, fighting, key, tuple(start), snapshot.scenario,
-            battle_gambit_uses(roster, copies),
+            battle_gambit_uses(roster, copies), snapshot.on_title,
         )
 
     def battle_units(self) -> list:
@@ -625,7 +638,9 @@ class GameMemory:
         """The decoded entry at a Switch address, the address of the next one (0 = none), and the entry's bytes."""
         from . import history as h
 
-        host = self._arena + address
+        host = self._switch_host(address)
+        if host is None:
+            return None, 0, b""
         header = self._process.read(host, h.HEADER)
         if header is None:
             return None, 0, b""
@@ -639,11 +654,45 @@ class GameMemory:
             cached = self._history[key] = (entry, data)
         return cached[0], h.next_entry(header), cached[1]
 
-    def _find_arena(self, globals_at: int, first: int) -> int | None:
-        """Where Switch address 0 is in Eden's memory, checked against the history's first entry."""
+    def _paged(self) -> bool:
+        return bool(getattr(getattr(self.emulator, "layout", None), "paged", False))
+
+    def _switch_host(self, address: int) -> int | None:
+        """The host address of a Switch address in the battle history's heap: the arena plus it, or for a paged
+        layout, through the 2 MiB block it is in, found the first time it's needed (layout.locate)."""
         from . import history as h
+        from .ryujinx import BLOCK
+
+        if not self._paged():
+            return None if self._arena is None else self._arena + address
+        block = address // BLOCK
+        if (delta := self._blocks.get(block)) is not None:
+            return address + delta
+        if time.monotonic() < self._blocks_retry.get(block, 0.0) or self._process is None or self.emulator is None:
+            return None
+        found = self.emulator.layout.locate(self._process, address - h.BLOCK_HEADER, h.BLOCK_HEADER + h.HEADER, h.looks_like_entry)
+        if found is None:
+            self._blocks_retry[block] = time.monotonic() + BATTLE_RESCAN_S
+            return None
+        self._blocks[block] = found + h.BLOCK_HEADER - address
+        return address + self._blocks[block]
+
+    def _find_arena(self, globals_at: int, first: int) -> int | None:
+        """Where Switch address 0 is in Eden's memory, checked against the history's first entry. For a paged
+        layout, where the block holding the first entry is (the offset of that block)."""
+        from . import history as h
+        from .ryujinx import BLOCK
 
         p = self._process
+        if self._paged() and self.emulator is not None:
+            found = self.emulator.layout.locate(p, first - h.BLOCK_HEADER, h.BLOCK_HEADER + h.HEADER, h.looks_like_first)
+            if found is None:
+                log.info("Battle history not found")
+                return None
+            delta = found + h.BLOCK_HEADER - first
+            self._blocks[first // BLOCK] = delta
+            log.info("Battle history found (its block at %#x)", found + h.BLOCK_HEADER - first % BLOCK)
+            return delta
         candidates = []
         own = p.read(globals_at + h.SELF_AT, 8)
         if own is not None:
@@ -728,20 +777,14 @@ class GameMemory:
         started = time.monotonic()
         best: dict[int, tuple[bytes, int]] = {}
         for region in self.emulator.layout.heap_regions(self._process):
-            for offset in range(0, region.size, 1 << 26):
-                data = self._process.read(region.base + offset, min(1 << 26, region.size - offset))
-                if data is None:
-                    continue
-                i = data.find(BATTLE_MARKER)
-                while i != -1:
-                    address = region.base + offset + i + BATTLE_MARKER_TO_COPY
-                    copy = self._process.read(address, BATTLE_COPY_READ)
-                    slot = slots.get(struct.unpack_from("<H", copy, _CHARACTER)[0]) if copy else None
-                    if slot is not None and is_live_copy(slot, copy):
-                        character = struct.unpack_from("<H", copy, _CHARACTER)[0]
-                        if character not in best or (copy[_LEVEL], sum(_numbers(copy))) > (best[character][0][_LEVEL], sum(_numbers(best[character][0]))):
-                            best[character] = (copy, address)
-                    i = data.find(BATTLE_MARKER, i + 1)
+            for marker in search(self._process, region.base, region.size, BATTLE_MARKER):
+                address = marker + BATTLE_MARKER_TO_COPY
+                copy = self._process.read(address, BATTLE_COPY_READ)
+                slot = slots.get(struct.unpack_from("<H", copy, _CHARACTER)[0]) if copy else None
+                if slot is not None and is_live_copy(slot, copy):
+                    character = struct.unpack_from("<H", copy, _CHARACTER)[0]
+                    if character not in best or (copy[_LEVEL], sum(_numbers(copy))) > (best[character][0][_LEVEL], sum(_numbers(best[character][0]))):
+                        best[character] = (copy, address)
         log.info("Battle scan: %d unit(s) in battle (%.1f s)", len(best), time.monotonic() - started)
         return {character: address for character, (_, address) in best.items()}
 
@@ -752,16 +795,29 @@ class GameMemory:
         data = p.read(self._main + v.roster_offset, ROSTER_SIZE + PLAYER_NAME_SIZE)
         if data is None or len(data) != ROSTER_SIZE + PLAYER_NAME_SIZE:
             return None
-        return Snapshot(data[:ROSTER_SIZE], data[ROSTER_SIZE:], scenario=self._scenario())
+        raw = self._scenario_id()
+        return Snapshot(data[:ROSTER_SIZE], data[ROSTER_SIZE:], scenario=raw if raw is not None and raw < NO_SCENARIO else None,
+                        on_title=raw is not None and raw >= TITLE_SCENARIOS)
 
     def _scenario(self) -> int | None:
+        scenario = self._scenario_id()
+        return scenario if scenario is not None and scenario < NO_SCENARIO else None
+
+    def _scenario_id(self) -> int | None:
+        """The scenario id as the game holds it, None when it can't be read."""
         from .battle import fields
 
         at = fields().scenario
         if self._process is None or at is None or not (data := self._process.read(self._main + self.GLOBALS[0] + at, 2)):
             return None
-        scenario = struct.unpack("<H", data)[0]
-        return scenario if scenario < NO_SCENARIO else None
+        return struct.unpack("<H", data)[0]
+
+    def _note(self, details: str) -> None:
+        """Log connection details a report of a problem needs, once each and not without end (they change as the
+        emulator starts up)."""
+        if details not in self._noted and len(self._noted) < 50:
+            self._noted.add(details)
+            log.info("%s", details)
 
     def _connect(self) -> None:
         try:
@@ -769,13 +825,19 @@ class GameMemory:
         except OSError as exc:
             raise GameMemoryError(str(exc)) from exc
         if not found:
-            raise GameMemoryError(f"{names(self.emulators[:1])} isn't running.")
+            for names_found in similar_processes({exe for e in self.emulators for exe in e.executables}):
+                self._note(f"Not recognised as an emulator: {names_found}")
+            if len(self.emulators) > 1:
+                listed = ", ".join(e.name for e in self.emulators)
+                raise GameMemoryError(f"No supported program is running. Start the game in one of: {listed}.")
+            raise GameMemoryError(f"{names(self.emulators)} isn't running.")
         denied: Emulator | None = None
         for emulator, pid in found:
             try:
                 process = open_process(pid)
-            except AccessDenied:
+            except AccessDenied as exc:
                 denied = denied or emulator
+                self._note(f"{emulator.name}: {exc}")
                 continue
             except OSError:
                 continue
@@ -784,6 +846,15 @@ class GameMemory:
                 self._process, (self.version, self._main), self.emulator = process, main, emulator
                 log.info("Reading FE3H %s from %s (process %d)", self.version.name, emulator.name, pid)
                 return
+            hidden = getattr(emulator.layout, "hidden", None)
+            if hidden is not None and hidden(process):  # its memory is there, but the system keeps it from us
+                denied = denied or emulator
+            describe = getattr(process, "describe", None)
+            if describe is not None:
+                try:
+                    self._note(f"FE3H wasn't found in {emulator.name}: {describe()}")
+                except OSError:  # it has just ended
+                    pass
             process.close()
         if denied is not None:
             raise GameMemoryError(MEMORY_ACCESS_HELP.format(emulator=denied.name))
@@ -797,10 +868,12 @@ class GameMemory:
 
 def _find_main(process: ProcessMemory, layout: MemoryLayout) -> tuple[GameVersion, int] | None:
     """The game version and host address of its main program, if this emulator is running a known FE3H."""
-    for region in layout.module_regions(process):
-        if process.read(region.base, len(MODULE_HEADER)) != MODULE_HEADER:
+    starts = getattr(layout, "main_candidates", None)
+    candidates = starts(process, MODULE_HEADER) if starts is not None else (r.base for r in layout.module_regions(process))
+    for base in candidates:
+        if process.read(base, len(MODULE_HEADER)) != MODULE_HEADER:
             continue
         for version in VERSIONS:
-            if process.read(region.base + version.build_id_offset, 16) == version.build_id:
-                return version, region.base
+            if process.read(base + version.build_id_offset, 16) == version.build_id:
+                return version, base
     return None

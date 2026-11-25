@@ -2,15 +2,46 @@
 
 from __future__ import annotations
 
+import re
 import shutil
 import threading
+import time
 from pathlib import Path
 
 from ..gamefiles import dump, verify
 from ..gamefiles.extract import Context, FAMILIES, run
 from ..gamefiles.output import Output
+from ..system import platform
 from .game_assets import game_assets
 from .nsp_workspace import extraction_workspace, validate_destination
+
+
+NSTOOL_DOWNLOAD = "https://github.com/jakcron/nstool/releases/latest"
+
+
+def nstool_name() -> str:
+    return platform.current().NSTOOL_NAME
+
+
+def nstool_missing() -> str:
+    """What to do when NSTool isn't found: reinstall (Windows bundles it), or download it (macOS, Linux)."""
+    return platform.current().NSTOOL_MISSING.format(download=NSTOOL_DOWNLOAD)
+
+
+def nstool_path(install_dir: Path | None, project_root: Path, home: Path | None = None) -> Path | None:
+    """NSTool: bundled with the packaged program (tools/), vendored for source runs (vendor/nstool/), or where the
+    platform says a user's own copy may be (macOS and Linux: PATH; macOS: where a download usually ends up). None
+    if there is none."""
+    name = nstool_name()
+    candidates = [install_dir / "tools" / name] if install_dir is not None else []
+    candidates.append(project_root / "vendor" / "nstool" / name)
+    candidates += platform.current().nstool_candidates(home)
+    return next((c for c in candidates if c.is_file()), None)
+
+
+def check_nstool(tool: Path) -> None:
+    """Raise ValueError saying how to fix it when NSTool can't run (macOS: Gatekeeper blocked a download)."""
+    platform.current().check_nstool(tool, NSTOOL_DOWNLOAD)
 
 
 class BusyError(RuntimeError):
@@ -65,6 +96,28 @@ def scan(folder: str) -> dict:
                     for name in dump.DLC_TITLES.values()}}
 
 
+_NSP_STAGE = re.compile(r"^(?:Counting files: )?NSP (\d+)/(\d+) - (.+)$")
+_METADATA_STAGE = re.compile(r"^Reading metadata (\d+)/(\d+)$")
+_PARTITION_STAGE = re.compile(r"^(?:Counting files: )?(ExeFS|RomFS) - (.+)$")
+_DLC_FOLDER = re.compile(r"^(?:[0-9A-Fa-f]{16}|content-\d+)$")
+
+
+def describe_extraction(stage: str) -> str:
+    """The NSP extractor's stage name in plain words."""
+    if found := _NSP_STAGE.match(stage):
+        return f"Unpacking {found.group(3)} ({found.group(1)} of {found.group(2)})"
+    if found := _METADATA_STAGE.match(stage):
+        return f"Reading package details ({found.group(1)} of {found.group(2)})"
+    if found := _PARTITION_STAGE.match(stage):
+        dlc = _DLC_FOLDER.match(found.group(2))
+        if found.group(1) == "ExeFS":
+            return "Extracting the game program"
+        return "Extracting DLC files" if dlc else "Extracting game files (the longest part)"
+    if stage.startswith("Finishing"):
+        return "Removing temporary files"
+    return "Unpacking NSP files"
+
+
 class GameAssetsImport:
     def __init__(self, settings, events):
         self.settings, self.events = settings, events
@@ -72,6 +125,7 @@ class GameAssetsImport:
         self.cancelled = threading.Event()
         self.worker: threading.Thread | None = None
         self.job = {"state": "idle", "phase": None, "done": 0, "total": len(FAMILIES) + 1, "error": None}
+        self._emitted = 0.0
 
     def close(self) -> None:
         with self.lock:
@@ -103,7 +157,7 @@ class GameAssetsImport:
             if found.problems:
                 raise ValueError(" ".join(found.problems))
             self.job = {"state": "running", "phase": "starting", "done": 0, "total": len(FAMILIES) + 1,
-                        "error": None}
+                        "error": None, "source": "dump", "started": time.time()}
             job = self.status()["job"]
             self.worker = threading.Thread(target=self._run, args=(found,), daemon=True, name="game-assets-import")
             self.worker.start()
@@ -115,13 +169,14 @@ class GameAssetsImport:
 
         packages = [Path(name) for name in nsps]
         key_path = Path(keys)
-        tool = (INSTALL_DIR / "tools" / "nstool.exe") if FROZEN else (PROJECT_ROOT / "vendor" / "nstool" / "nstool.exe")
+        tool = nstool_path(INSTALL_DIR if FROZEN else None, PROJECT_ROOT)
         if not packages or any(not path.is_file() or path.suffix.lower() != ".nsp" for path in packages):
             raise ValueError("Choose existing NSP files.")
         if not key_path.is_file():
             raise ValueError("Choose your prod.keys file.")
-        if not tool.is_file():
-            raise ValueError("Bundled NSTool was not found. Reinstall the application.")
+        if tool is None:
+            raise ValueError(nstool_missing())
+        check_nstool(tool)
         destination = Path(keep_dumps) if keep_dumps else None
         protected = (DATA_DIR, game_assets().root, INSTALL_DIR) if FROZEN else (DATA_DIR, game_assets().root)
         with self.lock:
@@ -131,7 +186,8 @@ class GameAssetsImport:
             if destination is not None:
                 validate_destination(destination, protected)
             self.job = {"state": "running", "phase": "extracting", "done": 0, "total": 0,
-                        "error": None}
+                        "error": None, "source": "nsp", "started": time.time(),
+                        "step": {"label": "Unpacking NSP files", "done": 0, "total": 0, "current": ""}}
             job = self.status()["job"]
             self.worker = threading.Thread(target=self._run_nsps, args=(packages, key_path, tool, destination, protected),
                                            daemon=True, name="game-assets-nsp-import")
@@ -145,17 +201,30 @@ class GameAssetsImport:
 
         try:
             with extraction_workspace(destination, protected=protected) as workspace:
-                extract_nsps(packages, tool, keys, workspace, cancelled=self.cancelled)
+                extract_nsps(packages, tool, keys, workspace, cancelled=self.cancelled, progress=self._extracting)
                 found = dump.find(workspace)
                 if found.problems:
                     raise ValueError(" ".join(found.problems))
                 with self.lock:
-                    self.job.update(total=len(FAMILIES) + 1, done=0)
+                    self.job.update(phase="starting", total=len(FAMILIES) + 1, done=0)
+                    self.job.pop("step", None)
                 self._extract(found)
         except Exception as exc:
             self._failed(exc)
         else:
             self._completed()
+
+    def _extracting(self, event: dict) -> None:
+        """The NSP extractor's progress: which package or part it is on, and how many of its files are written."""
+        step = {"label": describe_extraction(str(event.get("stage", ""))), "done": int(event.get("completed") or 0),
+                "total": int(event.get("total") or 0), "current": Path(str(event.get("current") or "")).name}
+        with self.lock:
+            changed = self.job.get("step", {}).get("label") != step["label"]
+            self.job["step"] = step
+        # The extractor reports several times a second; a new part shows at once, file counts at most twice a second.
+        if changed or time.monotonic() - self._emitted >= 0.5:
+            self._emitted = time.monotonic()
+            self.emit()
 
     def _run(self, found) -> None:
         try:

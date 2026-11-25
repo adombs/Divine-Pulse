@@ -19,3 +19,22 @@ test("cancelling the picker preserves selection and removed files can be added a
   const removed = selected.filter((path) => path !== "C:\\Games\\base.nsp");
   assert.deepEqual(mergeNspPaths(removed, ["C:\\Games\\base.nsp"]), ["D:\\Updates\\update.nsp", "C:\\Games\\base.nsp"]);
 });
+
+test("Mac paths pasted from Terminal or a shell lose their quotes and escapes; Windows paths keep backslashes", () => {
+  assert.deepEqual(mergeNspPaths([], [
+    "/Users/me/Switch/FE3H\\ Base\\ \\(1.0\\).nsp",
+    "'/Users/me/Switch/FE3H Update.nsp'",
+    "\"/Users/me/Switch/FE3H DLC.nsp\"",
+    "/users/me/switch/fe3h base (1.0).nsp",
+    "C:\\Games\\FE3H Base.nsp",
+  ]), [
+    "/Users/me/Switch/FE3H Base (1.0).nsp",
+    "/Users/me/Switch/FE3H Update.nsp",
+    "/Users/me/Switch/FE3H DLC.nsp",
+    "C:\\Games\\FE3H Base.nsp",
+  ]);
+});
+
+test("paths already selected are kept exactly as they are", () => {
+  assert.deepEqual(mergeNspPaths(["/Users/me/odd\\name.nsp"], []), ["/Users/me/odd\\name.nsp"]);
+});

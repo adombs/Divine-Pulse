@@ -1,10 +1,11 @@
 /**
  * App navigation: which page, sub-page (tab) and entry (character, class, unit) is open. Every change is a
- * browser history entry (shown in the URL hash), so the Back button, Alt+← and the mouse's back button all
- * undo an accidental click.
+ * browser history entry (shown in the URL hash), so the Back button, Alt+← (⌘[ or ⌘← on a Mac) and the mouse's
+ * back button all undo an accidental click.
  */
 import { ReactNode, createContext, useCallback, useContext, useEffect, useRef, useState } from "react";
 import { fromHash, toHash } from "./routes";
+import { historyButtonStep, historyKeyStep, isMacAppWindow } from "./platform";
 import type { Route } from "./routes";
 export type { Page } from "./routes";
 
@@ -38,6 +39,30 @@ export function useNavState(): Nav {
     };
     window.addEventListener("popstate", onPop);
     return () => window.removeEventListener("popstate", onPop);
+  }, []);
+
+  // The macOS window (WKWebView) has no Back menu: it does ⌘← itself, but not ⌘[ / ⌘] or the mouse's back and
+  // forward buttons, which WebView2 handles on Windows. Windows and browsers are left alone.
+  useEffect(() => {
+    if (!isMacAppWindow()) return;
+    const onKey = (e: KeyboardEvent) => {
+      const step = e.defaultPrevented ? null : historyKeyStep(e);
+      if (step === null) return;
+      e.preventDefault();
+      window.history.go(step);
+    };
+    const onButton = (e: MouseEvent) => {
+      const step = historyButtonStep(e.button);
+      if (step === null) return;
+      e.preventDefault();
+      window.history.go(step);
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mouseup", onButton);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mouseup", onButton);
+    };
   }, []);
 
   // The history call is a side effect, so it lives outside the state updater (which may run twice).

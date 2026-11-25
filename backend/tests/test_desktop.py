@@ -1,4 +1,4 @@
-"""The desktop window's saved place (desktop.py)."""
+"""The desktop window (desktop.py) and its place on each OS (system/platform/windows.py, macos.py)."""
 
 import ctypes
 import sys
@@ -6,7 +6,8 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.desktop import SW_SHOWMAXIMIZED, SW_SHOWMINIMIZED, WPF_RESTORETOMAXIMIZED, geometry_from_placement
+from app.system.platform import macos, windows
+from app.system.platform.windows import SW_SHOWMAXIMIZED, SW_SHOWMINIMIZED, WPF_RESTORETOMAXIMIZED, geometry_from_placement
 
 SW_SHOWNORMAL = 1
 
@@ -128,7 +129,7 @@ def test_geometry_keeps_the_normal_bounds_and_the_maximized_state():
 
 @pytest.mark.skipif(sys.platform != "win32", reason="Windows window placement")
 def test_a_window_goes_back_where_it_was_saved():
-    from app.desktop import place_window, window_geometry
+    from app.system.platform.windows import place_window, window_geometry
 
     user32 = ctypes.windll.user32
     user32.CreateWindowExW.restype = ctypes.c_void_p
@@ -144,9 +145,12 @@ def test_a_window_goes_back_where_it_was_saved():
         user32.DestroyWindow(ctypes.c_void_p(hwnd))
 
 
-def test_window_mode_switches_fullscreen_once_and_keeps_the_windowed_place(tmp_path):
+def test_window_mode_switches_fullscreen_once_and_keeps_the_windowed_place(tmp_path, monkeypatch):
     from app.config import SettingsStore
     from app.desktop import DesktopApp
+
+    # The place saved from pywebview's bounds (Windows without a handle; Linux always).
+    monkeypatch.setattr(windows.Window, "hwnd", staticmethod(lambda window: None))
 
     class FakeWindow:
         x, y, width, height = 100, 80, 1200, 800
@@ -157,7 +161,7 @@ def test_window_mode_switches_fullscreen_once_and_keeps_the_windowed_place(tmp_p
             self.x, self.y, self.width, self.height = 0, 0, 2560, 1440
 
     store = SettingsStore(tmp_path / "settings.json")
-    app = DesktopApp("http://127.0.0.1", store, None, None)
+    app = DesktopApp("http://127.0.0.1", store, None, None, windows.Window())
     app.window = w = FakeWindow()
     app.set_window_mode("windowed")
     assert w.toggles == 0
@@ -170,3 +174,104 @@ def test_window_mode_switches_fullscreen_once_and_keeps_the_windowed_place(tmp_p
     assert store.get().window == windowed
     app.set_window_mode("windowed")
     assert w.toggles == 2
+
+
+def test_macos_keeps_the_window_place_itself(tmp_path, monkeypatch):
+    """On macOS a place saved by an earlier version is never passed to pywebview (it crashed opening a window off
+    screen), nothing is saved from pywebview's bounds, and macOS's frame autosave restores and remembers it."""
+    from app.config import SettingsStore
+    from app.desktop import DesktopApp
+
+    store = SettingsStore(tmp_path / "settings.json")
+    store.update(window={"x": -1300, "y": -338, "width": 1300, "height": 850, "maximized": False})
+
+    class FakeWindow:
+        x, y, width, height = 5, 6, 1000, 700
+
+    app = DesktopApp("http://x", store, object(), None, macos.Window())
+    assert app.behaviour.saved_place(store.get().window) == {}
+    app.window = FakeWindow()
+    app._save_geometry()
+    assert store.get().window == {"x": -1300, "y": -338, "width": 1300, "height": 850, "maximized": False}
+
+    calls = []
+
+    class Native:
+        behavior, mask = 4, 0
+
+        def setFrameUsingName_(self, name):
+            calls.append(("restore", name))
+
+        def setFrameAutosaveName_(self, name):
+            calls.append(("autosave", name))
+
+        def collectionBehavior(self):
+            return self.behavior
+
+        def setCollectionBehavior_(self, value):
+            self.behavior = value
+
+        def styleMask(self):
+            return self.mask
+
+        def toggleFullScreen_(self, _sender):
+            calls.append("toggle")
+            self.mask ^= macos.NS_FULLSCREEN_MASK
+
+    native = Native()
+    macos.keep_frame(native)
+    assert calls == [("restore", "Divine Pulse"), ("autosave", "Divine Pulse")]
+    assert native.behavior == 4 | macos.NS_FULLSCREEN_PRIMARY  # its green button can go full screen
+
+    # Full screen follows the window's own state, so asking twice (or after the user left with Esc) is right.
+    calls.clear()
+    macos.fullscreen(native, True)
+    macos.fullscreen(native, True)
+    assert calls == ["toggle"]
+    native.mask = 0  # the user left full screen with its green button
+    macos.fullscreen(native, True)
+    macos.fullscreen(native, False)
+    assert calls == ["toggle", "toggle", "toggle"]
+
+
+def test_macos_tab_reaches_links_and_buttons():
+    """As in WebView2, Tab moves to every control, not only text fields (WKWebView's default without macOS's
+    Keyboard navigation setting)."""
+    set_to = []
+    preferences = SimpleNamespace(setTabFocusesLinks_=set_to.append)
+    web_view = SimpleNamespace(configuration=lambda: SimpleNamespace(preferences=lambda: preferences))
+    macos.tab_to_every_control(web_view)
+    assert set_to == [True]
+
+
+def test_each_os_window_uses_its_own_web_view(monkeypatch):
+    from app.system.platform import linux
+
+    assert windows.Window().gui == "edgechromium"
+    assert macos.Window().gui is None  # pywebview's default: WKWebView
+    monkeypatch.setattr(linux, "has_qt", lambda: True)
+    assert linux.Window().gui == "qt"
+    monkeypatch.setattr(linux, "has_qt", lambda: False)
+    for installed, gui in ((object(), "gtk"), (None, None)):
+        monkeypatch.setattr(linux.importlib.util, "find_spec", lambda name, installed=installed: installed)
+        assert linux.Window().gui == gui
+    monkeypatch.undo()
+
+
+def test_a_second_launch_brings_the_window_to_the_front():
+    from app.desktop import DesktopApp
+    from app.system.platform import linux
+
+    calls = []
+
+    class FakeWindow:
+        def show(self):
+            calls.append("show")
+
+        def __setattr__(self, name, value):
+            calls.append((name, value))
+
+    app = DesktopApp("http://x", None, None, None, linux.Window())
+    app.window = FakeWindow()
+    app.show()
+    assert calls == ["show", ("on_top", True), ("on_top", False)]

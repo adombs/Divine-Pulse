@@ -1,36 +1,22 @@
 import { useEffect, useRef, useState } from "react";
-import { EventHandlers, subscribeToEvents } from "./eventStream";
-import { loadGameAssetsStatus } from "./gameAssets";
+import { createEventHub, EVENT_NAMES, EventHandlers } from "./eventStream";
+import { gameAssetsChanged, loadGameAssetsStatus } from "./gameAssets";
 
-/** Subscribes to the backend's Server-Sent Events. Returns whether the stream is connected. */
+const hub = createEventHub(() => new EventSource("/api/events"), {
+  game_assets: (data) => { if (gameAssetsChanged(data)) void loadGameAssetsStatus(true); },
+});
+
+/** Subscribes to the backend's Server-Sent Events (one connection shared by every caller). Returns whether the
+ * stream is connected. */
 export function useEvents(handlers: EventHandlers): boolean {
   const ref = useRef(handlers);
   ref.current = handlers;
   const [connected, setConnected] = useState(false);
 
-  useEffect(() => {
-    const source = new EventSource("/api/events");
-    const gameAssets: EventListener = (event) => {
-      try {
-        const data = JSON.parse((event as MessageEvent).data);
-        if (data?.job?.state === "done" || (data?.available === false && data?.job?.state !== "running")) void loadGameAssetsStatus(true);
-        Promise.resolve(ref.current.game_assets?.(data)).catch((error) => console.error("Tracker event handler failed", error));
-      }
-      catch (error) { console.error("Tracker event handler failed", error); }
-    };
-    source.addEventListener("game_assets", gameAssets);
-    const unsubscribe = subscribeToEvents(source, {
-      hello: (data) => ref.current.hello?.(data),
-      roster_warning: (data) => ref.current.roster_warning?.(data),
-      units_changed: (data) => ref.current.units_changed?.(data),
-      runs_changed: (data) => ref.current.runs_changed?.(data),
-      auto: (data) => ref.current.auto?.(data),
-      battle: (data) => ref.current.battle?.(data),
-      duplicate_battles: (data) => ref.current.duplicate_battles?.(data),
-      update: (data) => ref.current.update?.(data),
-    }, setConnected);
-    return () => { source.removeEventListener("game_assets", gameAssets); unsubscribe(); };
-  }, []);
+  useEffect(() => hub.subscribe(
+    Object.fromEntries(EVENT_NAMES.map((name) => [name, (data: unknown) => ref.current[name]?.(data)])),
+    setConnected,
+  ), []);
 
   return connected;
 }

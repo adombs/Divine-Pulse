@@ -1,5 +1,5 @@
 /**
- * Encodes frames drawn on a canvas as an H.264 MP4 video, with the browser's own encoder (WebCodecs) and Mediabunny
+ * Encodes frames drawn on a canvas as an H.264 MP4 video (VP9 where the browser has no H.264 encoder), with the browser's own encoder (WebCodecs) and Mediabunny
  * to write the file. Frames are drawn one at a time by the caller, as fast as they can be drawn, so a video takes as
  * long to make as its frames take to draw, not as long as it plays.
  *
@@ -8,6 +8,7 @@
  * storage as it is made (with its metadata space reserved at the start, so it still plays at once from the web)
  * instead of being kept whole in memory. Only where the browser has no such storage is the file built in memory.
  */
+import { isSafariEngine } from "./engine.ts";
 import { AudioBufferSource, BufferTarget, canEncode as canEncodeCodec, CanvasSource, Mp4OutputFormat, Output, QUALITY_HIGH, QUALITY_MEDIUM, QUALITY_VERY_HIGH, StreamTarget, type Target } from "mediabunny";
 
 /** The H.264 High profile level a video needs: 4.0 up to 1080p at 30 frames a second, 4.2 at 60, 5.1 and 5.2 beyond. */
@@ -17,15 +18,41 @@ export function videoCodec(width: number, height: number, fps: number): string {
   return `avc1.6400${level}`;
 }
 
-/** Whether this browser can encode the video (the desktop app's WebView2 can). */
-export async function canEncode(width: number, height: number, fps: number): Promise<boolean> {
-  if (typeof VideoEncoder === "undefined") return false;
-  try {
-    const { supported } = await VideoEncoder.isConfigSupported({ codec: videoCodec(width, height, fps), width, height, framerate: fps, bitrate: 8_000_000 });
-    return !!supported;
-  } catch {
-    return false;
+/**
+ * Safari's engine (the macOS app's window) never returns a frame from its H.264 High profile encoder in the default
+ * "quality" mode: it takes frames and waits forever, so an export stalls at 0%. Its "realtime" mode encodes every frame,
+ * in order. Other engines (the Windows app's WebView2) keep "quality", which lets the encoder plan ahead.
+ */
+export function encoderLatency(userAgent?: string): "quality" | "realtime" {
+  return isSafariEngine(userAgent) ? "realtime" : "quality";
+}
+
+/** The VP9 (profile 0, 8 bit) level a video needs, by its pixels per second and frame size. */
+export function vp9Codec(width: number, height: number, fps: number): string {
+  const rate = width * height * fps;
+  const frame = width * height;
+  const level = frame <= 2_228_224 && rate <= 83_558_400 ? "40" : frame <= 2_228_224 && rate <= 160_432_128 ? "41" : frame <= 8_912_896 && rate <= 311_951_360 ? "50" : frame <= 8_912_896 && rate <= 588_251_136 ? "51" : "52";
+  return `vp09.00.${level}.08`;
+}
+
+/** The codec this browser can encode the video with, or null: H.264, which plays everywhere (WebView2, WebKit), else
+ * VP9 (the Linux app's QtWebEngine has no H.264 encoder). */
+export async function encodableCodec(width: number, height: number, fps: number): Promise<"avc" | "vp9" | null> {
+  if (typeof VideoEncoder === "undefined") return null;
+  for (const [name, codec] of [["avc", videoCodec(width, height, fps)], ["vp9", vp9Codec(width, height, fps)]] as const) {
+    try {
+      const { supported } = await VideoEncoder.isConfigSupported({ codec, width, height, framerate: fps, bitrate: 8_000_000, latencyMode: encoderLatency() });
+      if (supported) return name;
+    } catch {
+      // not a codec this browser knows: try the next
+    }
   }
+  return null;
+}
+
+/** Whether this browser can encode the video. */
+export async function canEncode(width: number, height: number, fps: number): Promise<boolean> {
+  return (await encodableCodec(width, height, fps)) !== null;
 }
 
 /** How much detail the video keeps (its bitrate): smaller files, or sharper ones. */
@@ -100,7 +127,7 @@ export async function encodeVideo({ width, height, fps, frames, draw, onProgress
   // each track can have: a frame each, and for sound an Opus or AAC packet for every 20 ms at most, with some to spare).
   const seconds = frames / fps;
   const output = new Output({ format: new Mp4OutputFormat({ fastStart: spool ? "reserve" : "in-memory" }), target });
-  const source = new CanvasSource(canvas, { codec: "avc", bitrate: QUALITY[quality], keyFrameInterval: 2 });
+  const source = new CanvasSource(canvas, { codec: (await encodableCodec(width, height, fps)) ?? "avc", bitrate: QUALITY[quality], keyFrameInterval: 2, latencyMode: encoderLatency() });
   output.addVideoTrack(source, { frameRate: fps, maximumPacketCount: frames + 16 });
   let sound: AudioBufferSource | null = null;
   if (audio) {

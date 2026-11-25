@@ -1,7 +1,9 @@
 """Keep copies of the game's save files (Settings > General > Backup Game Saves).
 
-The save folders are found automatically: Eden's (%APPDATA%/eden, or a portable Eden's `user` folder) and FE3H
-Recomp's (the `save` folder beside fe3hrecomp.exe, found while it runs and remembered), unless one is set in Settings.
+The save folders are found automatically (where each OS keeps them: system/platform/): Eden's (%APPDATA%/eden;
+~/Library/Application Support/eden or ~/.local/share/eden; or a portable Eden's `user` folder), Ryujinx's family's
+(Ryubing's and Ryujinx's Ryujinx folder, Astris's inside its macOS container, or a portable one beside Ryujinx.exe) and FE3H Recomp's (the `save` folder beside fe3hrecomp.exe, found while it runs and
+remembered), unless one is set in Settings.
 
 Every save file in the save folder is copied as soon as it is seen, so when the game overwrites it the version it
 replaced is already kept. Each file keeps its newest copy (the save as it is now) and up to `save_backups` older
@@ -14,12 +16,16 @@ from __future__ import annotations
 import json
 import logging
 import os
+import struct
 import threading
 import time
 from collections.abc import Callable
 from datetime import datetime
 from pathlib import Path
 from typing import Any
+
+from ..system import platform
+from ..system.files import in_os_metadata, is_os_metadata
 
 log = logging.getLogger(__name__)
 
@@ -28,25 +34,76 @@ TITLE_ID = "010055D009F78000"
 INTERVAL = 10.0
 # A file written this recently may still be being written: it's copied on a later pass.
 SETTLE_SECONDS = 2.0
+# Ryujinx's family's executables (gamemem/ryujinx.py), whose portable data folder is beside them.
+EDEN_PROGRAMS = frozenset({"eden.exe", "eden", "eden-cli"})
+RYUJINX_PROGRAMS = frozenset({"ryujinx.exe", "ryujinx", "astris", "astris.exe"})
 
 
 def eden_save_folders(appdata: str | None = None) -> list[Path]:
-    """FE3H's save folders in Eden's user folder (%APPDATA%/eden), one per emulated user profile."""
-    appdata = appdata if appdata is not None else os.environ.get("APPDATA")
-    return _eden_saves(Path(appdata) / "eden") if appdata else []
+    """FE3H's save folders in Eden's user folder (platform.eden_user_dirs: %APPDATA%/eden on Windows; on macOS
+    ~/Library/Application Support/eden and ~/.local/share/eden; on Linux ~/.local/share/eden, and the Flatpak's), one per
+    emulated user profile. `appdata`: a Windows %APPDATA% folder to look in instead."""
+    users = [Path(appdata) / "eden"] if appdata is not None else platform.current().eden_user_dirs()
+    found: list[Path] = []
+    for user in users:
+        found += [f for f in _eden_saves(user) if f not in found]
+    return found
+
+
+# Ryujinx's save index (bis/system/save/8000000000000000/0/imkvdb.arc): "IMKV", u32 reserved, u32 entry count,
+# then per entry "IMEN", u32 key size, u32 value size, the key (a save data attribute: u64 program ID first) and the
+# value (u64 save data ID first). A save's files are in bis/user/save/<save data ID as 16 hex digits>/0 (the
+# committed copy; Ryujinx writes to 1 and then swaps).
+_IMKVDB = Path("bis") / "system" / "save" / "8000000000000000" / "0" / "imkvdb.arc"
+
+
+def ryujinx_roots(home: Path | None = None, appdata: str | None = None) -> list[Path]:
+    """Where Ryujinx and its forks keep their data on this computer (platform.ryujinx_roots): %APPDATA%/Ryujinx
+    (Ryubing, Ryujinx) on Windows; ~/Library/Application Support/Ryujinx (Ryubing) and Astris's sandbox container's
+    on macOS; ~/.config/Ryujinx and the Flatpaks' on Linux."""
+    env = {"APPDATA": appdata} if appdata is not None else None
+    return platform.current().ryujinx_roots(env=env, home=home)
+
+
+def ryujinx_save_folders(root: Path) -> list[Path]:
+    """FE3H's save folders in a Ryujinx data folder (one per user profile), from its save index."""
+    try:
+        data = (root / _IMKVDB).read_bytes()
+    except OSError:
+        return []
+    if data[:4] != b"IMKV" or len(data) < 12:
+        return []
+    count, at, found = struct.unpack_from("<I", data, 8)[0], 12, []
+    title = int(TITLE_ID, 16)
+    for _ in range(count):
+        if data[at : at + 4] != b"IMEN" or at + 12 > len(data):
+            break
+        key_size, value_size = struct.unpack_from("<II", data, at + 4)
+        key, value = at + 12, at + 12 + key_size
+        at = value + value_size
+        if key_size < 8 or value_size < 8 or at > len(data):
+            break
+        if struct.unpack_from("<Q", data, key)[0] == title:
+            folder = root / "bis" / "user" / "save" / f"{struct.unpack_from('<Q', data, value)[0]:016x}" / "0"
+            if folder.is_dir() and folder not in found:
+                found.append(folder)
+    return found
 
 
 def program_save_folders(programs: list[str]) -> list[Path]:
     """The save folders of running programs, given their executable paths: a portable Eden's (a `user` folder beside
-    eden.exe), and FE3H Recomp's (the `save` folder beside fe3hrecomp.exe, one `save_N` folder per profile)."""
+    eden.exe, or on Linux beside its AppImage or in the folder it was started from), a portable Ryujinx's or Ryubing's (a `portable` folder beside Ryujinx.exe), and FE3H Recomp's (the `save`
+    folder beside fe3hrecomp.exe, one `save_N` folder per profile)."""
     found: list[Path] = []
     for program in programs:
         exe = Path(program)
         if exe.name.lower() == "fe3hrecomp.exe":
             found += [exe.parent / "save"] if (exe.parent / "save").is_dir() else []
+        elif exe.name.lower() in RYUJINX_PROGRAMS:
+            found += ryujinx_save_folders(exe.parent / "portable")
         else:
             found += _eden_saves(exe.parent / "user")
-    return found
+    return list(dict.fromkeys(found))
 
 
 def _eden_saves(user: Path) -> list[Path]:
@@ -65,22 +122,25 @@ def _eden_saves(user: Path) -> list[Path]:
 
 
 def running_save_folders() -> list[Path]:
-    """The save folders of Eden or FE3H Recomp, if one is running."""
+    """The save folders of Eden, Ryujinx's family or FE3H Recomp, if one is running."""
     from ..system.memory import process_paths
 
     try:
-        return program_save_folders(sorted(set(process_paths({"eden.exe", "fe3hrecomp.exe"}))))
+        return program_save_folders(sorted(set(process_paths({"fe3hrecomp.exe", *EDEN_PROGRAMS, *RYUJINX_PROGRAMS}))))
     except OSError:
         return []
 
 
 def find_save_folders() -> list[Path]:
-    return eden_save_folders() + running_save_folders()
+    found = eden_save_folders() + [f for root in ryujinx_roots() for f in ryujinx_save_folders(root)]
+    return found + [f for f in running_save_folders() if f not in found]
 
 
 def _label(source: Path) -> str:
     """The backup folder for a save folder: its last two folder names, e.g. "<profile> - 010055D009F78000", or
-    "FE3H Recomp v0.1.8 - save"."""
+    "FE3H Recomp v0.1.8 - save". A Ryujinx save (".../save/<ID>/0") is "Ryujinx - <ID>", or "Astris - <ID>"."""
+    if source.name == "0" and source.parent.parent.name == "save" and "bis" in source.parts:
+        return f"{'Astris' if 'V380-Ori.Astris' in source.parts else 'Ryujinx'} - {source.parent.name}"
     parts = [p for p in source.parts[-2:] if p not in ("", "/", "\\")]
     name = " - ".join(p.rstrip(":\\/") for p in parts) or "saves"
     return "".join("_" if c in '<>:"/\\|?*' else c for c in name)
@@ -184,7 +244,7 @@ class SaveBackups:
         made = 0
         for file in sorted(source.rglob("*")):
             try:
-                if not file.is_file():
+                if in_os_metadata(file, source) or not file.is_file():
                     continue
                 stat = file.stat()
                 versions = dest / file.relative_to(source)
@@ -209,7 +269,8 @@ class SaveBackups:
     @staticmethod
     def _versions(versions: Path) -> list[Path]:
         try:
-            return sorted((p for p in versions.iterdir() if p.is_file() and not p.name.endswith(".partial")), key=lambda p: (p.stat().st_mtime_ns, p.name))
+            return sorted((p for p in versions.iterdir()
+                           if p.is_file() and not p.name.endswith(".partial") and not is_os_metadata(p.name)), key=lambda p: (p.stat().st_mtime_ns, p.name))
         except OSError:
             return []
 

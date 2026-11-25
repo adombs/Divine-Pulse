@@ -119,8 +119,8 @@ def test_fetch_uses_the_release_api_with_a_timeout_and_plain_headers(monkeypatch
         def read(self):
             return json.dumps({"tag_name": "v9.9.9"}).encode()
 
-    def urlopen(request, timeout):
-        seen["request"], seen["timeout"] = request, timeout
+    def urlopen(request, timeout, context=None):
+        seen["request"], seen["timeout"], seen["context"] = request, timeout, context
         return Response()
 
     monkeypatch.setattr(urllib.request, "urlopen", urlopen)
@@ -159,3 +159,38 @@ def test_update_settings_round_trip(client, tmp_path):
     assert client.put("/api/settings", json={"max_recordings": 2}).json()["update_dismissed"] == "1.4.4"
     assert client.put("/api/settings", json={"update_dismissed": ""}).json()["update_dismissed"] is None
     assert client.put("/api/settings", json={"check_updates": "maybe"}).status_code == 422
+
+
+def test_https_uses_macos_roots_when_python_has_no_certificates(monkeypatch):
+    """The macOS app's Python only knows the build machine's Homebrew certificate folder; on other Macs it finds
+    none, and macOS's own trusted roots are loaded instead."""
+    import subprocess
+
+    from app.infrastructure import update_check
+
+    loaded = []
+
+    class Bare:
+        def get_ca_certs(self):
+            return []
+
+        def load_verify_locations(self, cadata=None):
+            loaded.append(cadata)
+
+    monkeypatch.setattr(update_check.ssl, "create_default_context", lambda: Bare())
+    pem = "-----BEGIN CERTIFICATE-----\nAAAA\n-----END CERTIFICATE-----\n"
+    calls = []
+    from types import SimpleNamespace
+
+    from app.system.platform import linux, macos, windows
+
+    monkeypatch.setattr(macos.subprocess, "run",
+                        lambda command, **kw: calls.append(command) or subprocess.CompletedProcess(command, 0, pem, ""))
+    update_check.https_context(macos.trusted_roots)
+    assert loaded == [pem] and calls[0][:3] == ["/usr/bin/security", "find-certificate", "-a"]
+    loaded.clear()
+    update_check.https_context(windows.trusted_roots)  # Windows' Python reads the system store itself
+    assert loaded == [] and len(calls) == 1
+    monkeypatch.setattr(linux, "Path", lambda path: SimpleNamespace(read_text=lambda *a, **k: pem))
+    update_check.https_context(linux.trusted_roots)  # the distribution's bundle
+    assert loaded == [pem]

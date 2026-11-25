@@ -38,6 +38,9 @@ const HistoryPage = lazy(() => import("./components/HistoryPage").then((module) 
 const ArchivePage = lazy(() => import("./components/reference/ArchivePage").then((module) => ({ default: module.ArchivePage })));
 const SupportsPage = lazy(() => import("./components/reference/SupportsPage").then((module) => ({ default: module.SupportsPage })));
 
+/** How long a unit's row on the Roster flashes after the tracker changes it (tr.flash in styles.css). */
+const FLASH_MS = 1600;
+
 /** Units whose loss ends the battle in defeat (as CRITICAL in backend/app/domain/battle.py). */
 const CRITICAL_UNITS = new Set(["byleth", "edelgard", "dimitri", "claude"]);
 
@@ -61,7 +64,8 @@ function statusText(a: AutoStatus | null): string {
     case "no_run": return "No active run";
     case "error": return "Tracking unavailable";
     case "off": return "Tracking off";
-    case "watching": return a.seeing ? `Tracking · ${a.seeing}` : "Tracking game";
+    // At the game's title screen the tracker says so (no save loaded yet), with nothing seen.
+    case "watching": return a.seeing ? `Tracking · ${a.seeing}` : a.message ? "Waiting for a save" : "Tracking game";
     case "held": return "Paused · save from another run";
   }
 }
@@ -74,11 +78,9 @@ export default function App() {
   useEffect(() => {
     let live = true;
     const unsubscribe = onGameAssetsChange((status) => { setAssetsVersion((v) => v + 1); setAssetsAvailable(status.available); });
+    // useEvents reloads the status when an import finishes or the files are removed.
     void loadGameAssetsStatus().then((status) => { if (live) setAssetsAvailable(status.available); });
-    const events = new EventSource("/api/events");
-    const refresh = () => { void loadGameAssetsStatus(true); };
-    events.addEventListener("game_assets", refresh);
-    return () => { live = false; events.close(); unsubscribe(); };
+    return () => { live = false; unsubscribe(); };
   }, []);
   useEffect(() => {
     let generation = 0;
@@ -129,6 +131,8 @@ export default function App() {
   const { loadRuns, loadUnits, loadAuto, retryStartup } = bootstrap;
   const peopleFilters = usePeopleFiltersState(loaded);
   const [flashKey, setFlashKey] = useState<string | null>(null);
+  const flashTimer = useRef<number | undefined>(undefined);
+  useEffect(() => () => window.clearTimeout(flashTimer.current), []);
   const appearance = useAppearance();
   const toasts = useToasts();
   const { push: pushToast } = toasts;
@@ -231,8 +235,10 @@ export default function App() {
         loadRuns(),
       ]).then(() => undefined);
       if (d?.unit_key) {
+        // A second change restarts the flash: the first one's timer mustn't end the new one early.
         setFlashKey(d.unit_key);
-        window.setTimeout(() => setFlashKey(null), 1600);
+        window.clearTimeout(flashTimer.current);
+        flashTimer.current = window.setTimeout(() => setFlashKey(null), FLASH_MS);
       }
       return refresh;
     },

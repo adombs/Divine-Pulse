@@ -37,3 +37,6 @@ DATA1.bin
 # Battle recordings and memory captures
 *.dprec
 *.fe3hrec
+
+# macOS Finder metadata
+.DS_Store

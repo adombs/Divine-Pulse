@@ -89,8 +89,28 @@ def violations_for(source: str, module: str) -> list[str]:
     return violations
 
 
+# Only the platform layer knows which OS this is: everything else asks app.system.platform.current().
+PLATFORM_MODULES = ("app.system.platform", "app.system.memory_windows", "app.system.memory_macos", "app.system.memory_linux")
+PLATFORM_CHECKS = {("sys", "platform"), ("os", "name"), ("ctypes", "windll"), ("subprocess", "CREATE_NO_WINDOW")}
+
+
+def platform_checks(source: str, module: str) -> list[str]:
+    """OS checks (sys.platform, os.name) and Windows-only APIs outside the platform layer."""
+    if any(module == name or module.startswith(name + ".") for name in PLATFORM_MODULES):
+        return []
+    return [
+        f"{module}:{node.lineno} checks the OS ({node.value.id}.{node.attr}): ask app.system.platform instead"
+        for node in ast.walk(ast.parse(source))
+        if isinstance(node, ast.Attribute) and isinstance(node.value, ast.Name)
+        and (node.value.id, node.attr) in PLATFORM_CHECKS
+    ]
+
+
 def check(root: Path) -> list[str]:
     violations = []
+    for path in sorted((root / "app").rglob("*.py")):
+        module = ".".join(path.relative_to(root).with_suffix("").parts)
+        violations.extend(platform_checks(path.read_text("utf-8"), module))
     for layer in ("domain", "application", "infrastructure", "interface", "gamemem", "system"):
         for path in sorted((root / "app" / layer).rglob("*.py")):
             module = ".".join(path.relative_to(root).with_suffix("").parts)

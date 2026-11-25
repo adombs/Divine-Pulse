@@ -17,6 +17,26 @@ Conventions: offsets are hex. "Seen live" means checked against the running game
 | Main program | Starts with `00000000 08000000 "MOD0"`; not at a fixed address (Switch `0x80004000` one session, `0x8077B000` another). Version is matched by GNU build-id at main + `0x19E3840`. | `_find_main`, `VERSIONS` in `gamemem/fe3h.py` |
 | Global data | main + `0x19E4000` to main + `0x1BCC000` (`.data`/`.bss`). Offsets below marked "globals" are from main + `0x19E4000`. | `GameMemory.GLOBALS` |
 
+On Linux (from Eden's `host_memory.cpp`; checked against test programs that map memory the same way, not yet seen live
+with the game):
+
+| What | Where | Code |
+| --- | --- | --- |
+| Process | `eden` or `eden-cli`, by executable, argument or process name (an AppImage's loader hides the executable) | `system/memory_linux.py` |
+| Switch memory | One memfd, `HostMemory`: mapped whole (the 4 GiB or larger block, skipped) and as shared views at `arena + a`. Read through `/proc/<pid>/fd`, read-only: that isn't limited by `ptrace_scope`, as `process_vm_readv` is. | `memory_linux.Process` |
+| Main program | As on Windows; searched for in the views too, as Linux may list a module's view together with the one before it. | `Fastmem.main_candidates` |
+
+### Ryujinx's family (Astris on macOS, Ryubing, Ryujinx)
+
+| What | Where | Code |
+| --- | --- | --- |
+| Process | `Astris` (macOS), `Ryujinx.exe` / `Ryujinx` (Ryubing, Ryujinx). On macOS through a helper signed with the debugger entitlement (`system/macos/dp_memreader.c`); the emulator must allow debugging (`get-task-allow`, as Astris 1.0.32 does). | `system/memory_macos.py`, `gamemem/ryujinx.py` |
+| On Linux | The RAM block is one mapping of an unlinked `/dev/shm/Ryujinx-*` file in the Host memory manager modes (the default), read through `/proc/<pid>/fd` as Eden's. In Software mode it is private memory, readable only where `ptrace_scope` is 0. (From Ryubing's `MemoryManagementUnix.cs` and test programs, not yet seen live with the game.) | `system/memory_linux.py` |
+| Switch memory | No single arena. The emulated RAM is one block (4 GiB, or 6/8/12 with expanded DRAM): physical address `pa` at `ram + pa`. Seen on Astris 1.0.32 (Hypervisor): `ram` = `0x7000000000`, listed by macOS as 128 MiB regions whose share mode varies (copy-on-write where untouched). | `GuestRam` |
+| Main program | Searched for in the largest stretch of writable memory first (page-aligned `MOD0` header, then the build-id). Not at a region start: seen at `ram + 0x34004000` for virtual `0x8004000`. Physically contiguous, so the roster and globals are read at the same offsets as on Eden. | `GuestRam.main_candidates` |
+| Battle copies | Searched for in the RAM block, as on Eden. | `GuestRam.heap_regions` |
+| Battle history | Virtual addresses (seen: `0x21_4510_1FD0`). The self-pointer (`SELF_AT`) gives the main program's offset only. Each 2 MiB block of virtual addresses has its own offset into the RAM (virtual and physical agree below 2 MiB): found by trying every 2 MiB-aligned place an entry could be, then kept while the game runs. Seen: the whole history in one block. | `GuestRam.locate`, `GameMemory._switch_host` |
+
 ## Roster (main + `0x1B127E4`)
 
 60 slots of `0x24C` bytes, one per character the save knows. Empty slot: character `0xFFFF`. During a battle the game
@@ -83,7 +103,10 @@ re-read cheaply. Cleared when the battle ends (level 0).
 | `0xF0` | u8 | Pool index (the history names units by it) |
 | `0xF1` | u8 | **Team**: 0 yours, 1 enemy, 2 ally, 3 third army, 4 objects (breakable walls) |
 | `0xF2` / `0xF3` | u8 / u8 | Map x / y |
+| `0xE0` | 96 bits | Status effects, a bit per ID (`fixed_data.bin` section 10). Rattled is ID 7 |
 | `0xF5` | u8 | Gambit uses left (battle copies only) |
+| `0xF6` | u8 | **Order** (how the AI plays it): a row of the AI order table. See below |
+| `0xF7` | 6 × u8 | The order's target: a unit (order 18) or tiles (order 11); `0xFF` = none |
 | `0x100` | u8 | On an adjutant: the pool index of the unit it's attached to |
 | `0x109` | u8 | Allegiance (an ID in `data/factions.json`: 0 Church, 1 Empire, 2 Kingdom, 3 Alliance, 9 Thieves…) |
 
@@ -96,6 +119,35 @@ The tracker logs any on-map team-0 record that is not an army/roster unit as a g
 (`BattleUnitStats.guest`, `a:<key>` ids), by the rule alone: team 0 and not in the roster. Its key is the run unit's
 whose `game_id` is the character, else the name's key, so its stats carry over if the character joins later or
 leaves and comes back. Guests never create or change run units, the roster or deaths. Teams 1-4 are unchanged.
+
+### How far a unit can move
+
+The game's Mv is stat 7 of the function at main + `0xB0240` (unit, stat, in battle, with statuses), which the movement
+range, the AI and the unit screens all call:
+
+- 0 if its order doesn't move (main + `0x405180`: byte `+4` of the order's row is 0 or 2): orders **0, 3, 19, 20, 21, 23
+  and 24**. The order table is DATA entry 14, section 0: 25 rows of `0x14` bytes. Order 1 advances, 2 waits until it
+  can reach someone, 3 holds its tile, 5 is on your units, 11 goes to a tile, 18 goes for a unit.
+- 0 with status 7 (Rattled), 15 or 78.
+- Otherwise raw Mv + the class's boost (+ the mounted one, unless bit 5 of `0xAC` is set: dismounted) + abilities + the
+  best and the worst Mv status (4: -5, 13: +5, 26: +1, 35: -1, 79: -3), from 0 to 19.
+
+A unit's order starts as `+0x1F` of its 44-byte row in the map's starting units (DATA entries 83, 85, 87… for each
+story map; `+0x00` character + 1, `+0x04` class + 1, `+0x19` / `+0x1A` x / y, `+0x1D` team) and scripts change it (the
+map's next DATA entry; the interpreter is main + `0x5480C0`): command `0x1B8` (unit's row, order), `0x172` (order 1),
+`0x17C` (order 11), `0x23A` (order 10) and `0x2B2` (order 18) with their targets. Kostas has 3 in The Red Canyon (entry
+87; a script makes it 2 on Maddening) and 2 in the prologue (entry 83); Lonato, Miklan and Cornelia have 3. The Death
+Knight has 3 in the Rite of Rebirth (entry 91) until a script makes it 1 (condition `0x168`, with him and 80: not
+decoded; 2 from the start on Maddening), and 21 in entry 177 until one makes it 22 (condition `0x15E`, with him and
+"anyone": taken as being in a fight).
+
+Orders change as a phase begins too, not only when something happens: in a recording the enemy phase's history entry
+came at 315.8 s, eight enemies' orders changed at 325.2 s (after the script's conversation) and the first enemy acted
+at 327.3 s. Of the script events that make a holding enemy move, 107 are of type 2000 (they look checked after each
+action), 32 of type 10000 (setting the battle up) and 24 of type 14000 (your phase's end).
+
+Seen live (3 recordings of the Mock Battle): every unit's `0xF6` matched its row, orders 1, 11 and 18 moved, and 2
+stayed put until the script changed it. Order 3 wasn't seen live.
 
 ## Battle globals (offsets from main + `0x19E4000`)
 

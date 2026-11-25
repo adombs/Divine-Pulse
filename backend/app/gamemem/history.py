@@ -9,7 +9,7 @@ Pulse simply cuts the list back.
 Layout (FE3H 1.2.0, seen live and checked against the Divine Pulse screen):
 - The entries sit in a heap of their own, one linked list per turn. The game's global data (GameMemory.GLOBALS)
   holds the number of entries and an array of pointers to each turn's first entry (see COUNT_AT). Pointers are
-  Switch addresses (see GameMemory._find_arena).
+  Switch addresses (see GameMemory._find_arena and GameMemory._switch_host).
 - An entry: a 0x40-byte header, then "full" records for the player's units (the first 0x10C bytes of a battle
   record, same layout) and "compact" 0x64-byte records for the other units (which name their pool index).
 - A phase start (and the first entry, "Fight!") holds every unit; an action holds the units it changed. Not
@@ -197,6 +197,18 @@ def looks_like_first(block: bytes) -> bool:
     entry = block[BLOCK_HEADER:]
     used = entry_size(entry)
     return entry[TYPE] == TYPE_PHASE and entry[PHASE] == 0 and allocated == (used + 15) & ~15 and used >= HEADER
+
+
+def looks_like_entry(block: bytes) -> bool:
+    """Whether `block` (the heap header then the entry header) is a history entry: its heap block is the size the
+    entry says it uses, and it is a phase start or an action. Used to find where an entry is when Switch addresses
+    can't be turned into host addresses by a single offset (gamemem/ryujinx.py)."""
+    if len(block) < BLOCK_HEADER + HEADER:
+        return False
+    allocated = -struct.unpack_from("<q", block, 8)[0]
+    entry = block[BLOCK_HEADER:]
+    used = entry_size(entry)
+    return entry[TYPE] in (TYPE_PHASE, TYPE_ACTION) and entry[PHASE] <= 2 and allocated == (used + 15) & ~15 and used >= HEADER
 
 
 def latest_positions(entries: list[HistoryEntry]) -> dict[int, tuple[int, int, int]]:

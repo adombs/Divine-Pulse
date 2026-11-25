@@ -13,6 +13,7 @@
 }
 .plan-nav-step:hover:not(:disabled) { background: rgb(255 255 255 / 0.24); border-color: rgb(255 255 255 / 0.5); color: #fff; }
 .plan-nav-step:disabled { opacity: 0.4; cursor: default; }
+.plan-delete:hover:not(:disabled) { background: var(--red); border-color: var(--red); }
 .plan-find { margin-left: 0.35rem; }
 .plan-find input { width: 13rem; min-height: 1.85rem; border: 1px solid rgb(255 255 255 / 0.3); background: rgb(255 255 255 / 0.12); color: #fbf8f1; }
 .plan-find input::placeholder { color: rgb(251 248 241 / 0.65); }

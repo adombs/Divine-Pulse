@@ -38,6 +38,7 @@ import { CameraTools, DEFAULT_ZOOM, view, ZOOM_TILES, zoomText, useMapCamera } f
 import { Replay, ReplayBanner, ReplayBar, StepAnimation } from "./replay";
 import { CondensedLog } from "./CondensedLog";
 import { RewindIndicator } from "./RewindIndicator";
+import { clampShare, shareTone } from "../../share";
 
 interface Props {
   board: Board;
@@ -553,8 +554,8 @@ const Token = memo(function Token({
   onPick?: (id: string) => void;
   onKey?: (e: KeyboardEvent, id: string) => void;
 }) {
-  const hp = hpNow === null || !p.max ? null : Math.max(0, Math.min(1, hpNow / p.max));
-  const tone = hp === null ? "" : hp <= 0.3 ? "bad" : hp <= 0.6 ? "warn" : "good";
+  const hp = hpNow === null || !p.max ? null : clampShare(hpNow / p.max);
+  const tone = hp === null ? "" : shareTone(hp);
   // Down once the blow that felled it lands (until then, in a replay step, it shows the HP it had).
   const down = p.down && (hpNow ?? 0) <= 0;
   const low = !down && hp !== null && hp <= LOW_HP;

@@ -109,9 +109,10 @@ def test_finalize_checks_remote_main_and_pushes_only_the_tag(
         return real_git(*args)
 
     monkeypatch.setattr(release, "git", stub_git)
-    monkeypatch.setattr(release, "preflight_push", lambda tag: None)
+    monkeypatch.setattr(release, "preflight", lambda tag: None)
     monkeypatch.setattr(release, "build_and_check", lambda version: artifacts)
     monkeypatch.setattr(release, "create_draft", lambda *args: drafts.append(args))
+    monkeypatch.setattr(release, "check_uploaded", lambda tag, files: None)
     monkeypatch.setattr(release, "published_notes", lambda version: f"Notes of {version}.")
     release.finalize("1.2.10")
 
@@ -130,7 +131,7 @@ def test_finalize_stops_before_building_when_the_previous_notes_cannot_be_read(
     built = []
     monkeypatch.setattr(release, "git", lambda *args: f"{head}\trefs/heads/main" if args[0] == "ls-remote"
                         else real_git(*args))
-    monkeypatch.setattr(release, "preflight_push", lambda tag: None)
+    monkeypatch.setattr(release, "preflight", lambda tag: None)
     monkeypatch.setattr(release, "build_and_check", lambda version: built.append(version) or [])
     monkeypatch.setattr(release, "published_notes", lambda version: None)
     with pytest.raises(SystemExit, match="v1.2.9"):
@@ -168,9 +169,77 @@ def test_finalize_does_not_tag_when_remote_main_changes_during_build(
         return real_git(*args)
 
     monkeypatch.setattr(release, "git", stub_git)
-    monkeypatch.setattr(release, "preflight_push", lambda tag: None)
+    monkeypatch.setattr(release, "preflight", lambda tag: None)
     monkeypatch.setattr(release, "build_and_check", lambda version: [])
     monkeypatch.setattr(release, "published_notes", lambda version: f"Notes of {version}.")
     with pytest.raises(SystemExit, match="origin/main"):
         release.finalize("1.2.10")
     assert repo_git(release_repo, "tag", "--list") == ""
+
+
+def test_finalize_adds_its_files_to_the_draft_the_other_computer_made(
+    release_repo: Path, monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Windows and macOS each run finalize; the second builds the same commit and adds its files without tagging."""
+    _prepared_main(release_repo)
+    head = repo_git(release_repo, "rev-parse", "HEAD")
+    real_git = release.git
+    calls = []
+    artifacts = [release_repo / "Divine-Pulse-1.2.10-macos-arm64.zip", release_repo / "SHA256SUMS.txt"]
+    added = []
+
+    def stub_git(*args: str) -> str:
+        calls.append(args)
+        if args[0] == "ls-remote":
+            return f"{head}\trefs/heads/main"
+        return real_git(*args)
+
+    monkeypatch.setattr(release, "git", stub_git)
+    monkeypatch.setattr(release, "preflight", lambda tag: ["Divine-Pulse-1.2.10-setup.exe", "SHA256SUMS.txt"])
+    monkeypatch.setattr(release, "build_and_check", lambda version: artifacts)
+    monkeypatch.setattr(release, "add_to_draft", lambda tag, files: added.append((tag, files)))
+    monkeypatch.setattr(release, "create_draft", lambda *args: pytest.fail("the draft already exists"))
+    monkeypatch.setattr(release, "published_notes", lambda version: pytest.fail("notes are already on the draft"))
+    release.finalize("1.2.10")
+
+    assert added == [("v1.2.10", artifacts)]
+    assert not [call for call in calls if call[0] in {"push", "tag"} and call[1:2] != ("--list",)]
+    assert repo_git(release_repo, "tag", "--list") == ""
+
+
+@pytest.mark.parametrize(("tag_commit", "draft", "expected"), [
+    (None, None, None),                                     # first computer: new tag, new draft
+    ("HEAD", {"isDraft": True, "assets": [{"name": "SHA256SUMS.txt"}]}, ["SHA256SUMS.txt"]),
+    ("HEAD", {"isDraft": False, "assets": []}, "already published"),
+    ("0" * 40, {"isDraft": True, "assets": []}, "isn't this commit"),
+    ("HEAD", None, "has no GitHub release"),
+    (None, {"isDraft": True, "assets": []}, "already exists"),
+])
+def test_preflight_tells_a_new_release_from_the_other_computers_draft(
+    release_repo: Path, monkeypatch: pytest.MonkeyPatch, tag_commit, draft, expected,
+) -> None:
+    head = repo_git(release_repo, "rev-parse", "HEAD")
+    real_run = subprocess.run
+
+    def fake_run(command, *args, **kwargs):
+        if command[:2] == ["gh", "auth"]:
+            return subprocess.CompletedProcess(command, 0, "", "")
+        if command[:2] == ["git", "ls-remote"]:
+            if tag_commit is None:
+                return subprocess.CompletedProcess(command, 2, "", "")
+            commit = head if tag_commit == "HEAD" else tag_commit
+            return subprocess.CompletedProcess(command, 0, f"{'f' * 40}\trefs/tags/v1.2.10\n"
+                                               f"{commit}\trefs/tags/v1.2.10^{{}}\n", "")
+        if command[:3] == ["gh", "release", "view"]:
+            if draft is None:
+                return subprocess.CompletedProcess(command, 1, "", "release not found")
+            return subprocess.CompletedProcess(command, 0, json.dumps(draft), "")
+        return real_run(command, *args, **kwargs)
+
+    monkeypatch.setattr(release.sys, "platform", "darwin")
+    monkeypatch.setattr(release.subprocess, "run", fake_run)
+    if isinstance(expected, str):
+        with pytest.raises(SystemExit, match=expected):
+            release.preflight("v1.2.10")
+    else:
+        assert release.preflight("v1.2.10") == expected

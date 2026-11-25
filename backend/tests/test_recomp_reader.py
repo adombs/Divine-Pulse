@@ -1,16 +1,20 @@
 """Reading the game from FE3H Recomp (the native Windows recompilation) instead of Eden, on the made-up army of
 helpers/synthetic_roster.py, and the setting that chooses between the two."""
 
+import sys
+
 import pytest
 from fastapi.testclient import TestClient
 
 from app.bonuses import BonusTable
 from app.config import BONUSES_FILE, SettingsStore
 from app.gamemem import fe3h
+from app.domain.settings import DEFAULT_MEMORY_READER
 from app.gamemem.emulators import EMULATORS
 from app.gamemem.fe3h import GameMemory, GameMemoryError
 from app.gamemem.readers import emulators_for
 from app.gamemem.recomp import GUEST_HI, GUEST_LO, MIN_HEAP_REGION, RECOMP, RECOMP_EMULATORS
+from app.gamemem.ryujinx import RYUJINX_EMULATORS
 from app.infrastructure.events import EventBus
 from app.infrastructure.polling import Scanner
 from app.infrastructure.persistence import RunStore
@@ -56,7 +60,7 @@ def recomp(monkeypatch):
             raise process
         return process
 
-    monkeypatch.setattr(fe3h, "running", lambda emulators: [(emulators[0], pid) for pid in processes] if emulators[0] is RECOMP else [])
+    monkeypatch.setattr(fe3h, "running", lambda emulators: [(RECOMP, pid) for pid in processes] if RECOMP in emulators else [])
     monkeypatch.setattr(fe3h, "open_process", open_process)
     return processes
 
@@ -107,13 +111,27 @@ def test_only_the_games_own_memory_is_searched_for_battles():
 
 def test_each_setting_names_its_reader():
     assert emulators_for("eden") is EMULATORS and emulators_for("recomp") is RECOMP_EMULATORS
-    assert emulators_for("something else") is EMULATORS
+    assert emulators_for("something else") is emulators_for("auto")
+    assert set(emulators_for("auto")) == (
+        {"win32": {*EMULATORS, *RECOMP_EMULATORS, *RYUJINX_EMULATORS}, "linux": {*EMULATORS, *RYUJINX_EMULATORS}}
+        .get(sys.platform, {*RYUJINX_EMULATORS})
+    )
 
 
-def test_the_setting_defaults_to_eden_and_is_saved(tmp_path):
+@pytest.mark.parametrize(("platform", "expected"), [("win32", "Eden, Astris or Ryubing, FE3H Recomp"),
+                                                    ("darwin", "Astris or Ryubing"), ("linux", "Eden, Astris or Ryubing")])
+def test_auto_looks_only_for_the_programs_that_run_on_this_computer(as_platform, platform, expected):
+    """A Mac can't run Eden for Windows (eden.exe) or FE3H Recomp (fe3hrecomp.exe): its message doesn't name them."""
+    as_platform(platform)
+    assert ", ".join(e.name for e in emulators_for("auto")) == expected
+    assert emulators_for("auto") is emulators_for("auto")
+    assert emulators_for("recomp") is RECOMP_EMULATORS  # a program chosen in Settings is still looked for
+
+
+def test_the_setting_defaults_to_the_platform_s_emulator_and_is_saved(tmp_path):
     app = create_app(tmp_path, background=False)
     with TestClient(app) as client:
-        assert client.get("/api/settings").json()["memory_reader"] == "eden"
+        assert client.get("/api/settings").json()["memory_reader"] == DEFAULT_MEMORY_READER
         assert client.put("/api/settings", json={"memory_reader": "recomp"}).json()["memory_reader"] == "recomp"
         assert client.put("/api/settings", json={"memory_reader": "yuzu"}).status_code == 422
         assert client.get("/api/settings").json()["memory_reader"] == "recomp"
@@ -124,6 +142,7 @@ def test_the_connection_check_uses_the_chosen_reader(tmp_path, recomp):
     recomp[7] = recomp_process()
     app = create_app(tmp_path, background=False)
     with TestClient(app) as client:
+        client.put("/api/settings", json={"memory_reader": "eden"})
         assert client.get("/api/memory/check").json() == {"ok": False, "message": "Eden isn't running."}
         client.put("/api/settings", json={"memory_reader": "recomp"})
         check = client.get("/api/memory/check").json()
@@ -133,11 +152,12 @@ def test_the_connection_check_uses_the_chosen_reader(tmp_path, recomp):
 def test_the_scanner_changes_reader_when_the_setting_changes(tmp_path):
     settings = SettingsStore(tmp_path / "settings.json")
     scanner = Scanner(RunStore(tmp_path / "runs"), settings, EventBus(), BonusTable.load(BONUSES_FILE))
-    assert scanner.memory.emulators is EMULATORS
+    default = emulators_for(DEFAULT_MEMORY_READER)
+    assert scanner.memory.emulators is default
     closed = []
     scanner.memory.close = lambda: closed.append(True)
     scanner._tick()
-    assert closed == [] and scanner.memory.emulators is EMULATORS  # nothing changed: the connection is kept
+    assert closed == [] and scanner.memory.emulators is default  # nothing changed: the connection is kept
     settings.update(memory_reader="recomp")
     scanner._tick()
     assert scanner.memory.emulators is RECOMP_EMULATORS and closed == [True]
@@ -146,6 +166,22 @@ def test_the_scanner_changes_reader_when_the_setting_changes(tmp_path):
     settings.update(memory_reader="eden")
     scanner._tick()
     assert scanner.memory.emulators is EMULATORS and closed == [True, True]
+
+
+def test_auto_finds_whichever_program_is_running(tmp_path, recomp):
+    """The default reader needs no choice: with FE3H Recomp running, Auto connects to it (on Windows: elsewhere it
+    can't run, and Auto doesn't look for it)."""
+    recomp[7] = recomp_process()
+    with TestClient(create_app(tmp_path, background=False)) as client:
+        assert client.get("/api/settings").json()["memory_reader"] == "auto"
+        check = client.get("/api/memory/check").json()
+        if sys.platform == "win32":
+            assert check["ok"] and "FE3H 1.2.0 in FE3H Recomp" in check["message"]
+        elif sys.platform == "linux":
+            assert check == {"ok": False, "message": "No supported program is running. Start the game in one of: Eden, "
+                                                     "Astris or Ryubing."}
+        else:
+            assert check == {"ok": False, "message": "Astris or Ryubing isn't running."}
 
 
 def test_a_scanner_starts_with_the_saved_reader(tmp_path):

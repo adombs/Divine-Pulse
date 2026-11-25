@@ -8,8 +8,10 @@ DEFAULT_PORT = 8765
 DEFAULT_ROSTER_INTERVAL = 1.0
 DEFAULT_BATTLE_INTERVAL = 0.1
 WindowMode = Literal["windowed", "fullscreen"]
-# Where the game is read from: Eden (the emulator) or FE3H Recomp (the native Windows recompilation).
-MemoryReader = Literal["eden", "recomp"]
+# Where the game is read from: whichever supported program is running (auto), or only Eden (the emulator), FE3H
+# Recomp (the native Windows recompilation), or Ryujinx's family (Astris on macOS, Ryubing).
+MemoryReader = Literal["auto", "eden", "recomp", "ryujinx"]
+DEFAULT_MEMORY_READER: MemoryReader = "auto"
 # What to do with another copy of a one-time battle in a run: keep the best copy automatically, or ask.
 DuplicateBattles = Literal["keep_best", "keep_latest", "ask"]
 GameLanguage = Literal["JP", "ENG_E", "ENG_U", "GER", "FRA_E", "FRA_U", "ESP_E", "ESP_U", "ITA", "KOR", "TWN", "CHN"]
@@ -40,9 +42,11 @@ class Settings(BaseModel):
     port: int = Field(DEFAULT_PORT, ge=1024, le=65535)
     window: WindowGeometry | None = None
     window_mode: WindowMode = "windowed"
-    memory_reader: MemoryReader = "eden"
+    memory_reader: MemoryReader = DEFAULT_MEMORY_READER
     duplicate_battles: DuplicateBattles = "keep_best"
     check_updates: bool = True
+    # Open Divine Pulse when Eden or FE3H Recomp starts (a hidden watcher, started at sign-in).
+    launch_with_game: bool = False
     # How many older versions of each game save to keep (0: no backups), and the save folder to back up
     # (None: found automatically, Eden's and FE3H Recomp's).
     save_backups: int = Field(3, ge=0, le=100)

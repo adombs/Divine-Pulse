@@ -89,3 +89,17 @@ def test_missing_base_returns_parts(tmp_path):
     assert "Base game not found" in report["problems"]
     assert not next(p for p in report["parts"] if p["id"] == "base")["found"]
     assert next(p for p in report["parts"] if p["id"] == "update")["found"]
+
+
+def test_folders_macos_makes_are_not_searched(tmp_path):
+    """A volume's trash (or a zip's __MACOSX folder) can hold another dump, which mustn't be picked over the real one."""
+    real = tmp_path / "Switch" / "FE3H"
+    real.mkdir(parents=True)
+    fake_dump(real)
+    (real / ".DS_Store").write_bytes(b"Bud1")
+    (real / "._main").write_bytes(b"\0\5\x16\7")
+    for junk in (".Trashes/501/old", "__MACOSX/old", ".Trash/old"):
+        fake_dump(tmp_path / junk)
+    found = dump.find(tmp_path)
+    assert found.romfs == real and found.exefs == real and found.updates == [real]
+    assert scan(str(tmp_path))["importable"]

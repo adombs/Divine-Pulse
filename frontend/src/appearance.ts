@@ -1,6 +1,7 @@
 import { createContext, useEffect, useState } from "react";
 import type { PortraitPhase } from "./portraits";
 import { useSpoilers } from "./spoilers";
+import { PLATFORM, type Platform } from "./platform";
 import { FACE_LOOKS, type MapLook, UNIT_LOOKS } from "./components/battle/mapIcons";
 
 export const PortraitPhaseContext = createContext<PortraitPhase>("auto");
@@ -23,6 +24,12 @@ export interface FontOption {
 
 const SERIF_FALLBACK = "Garamond, Georgia, 'Times New Roman', serif";
 const SANS_FALLBACK = "system-ui, 'Segoe UI', sans-serif";
+
+const SYSTEM_FONT: Record<Platform, { label: string; whose: string }> = {
+  windows: { label: "System (Segoe UI)", whose: "Windows'" },
+  macos: { label: "System (San Francisco)", whose: "macOS's" },
+  linux: { label: "System", whose: "Your desktop's" },
+};
 
 export const FONTS: FontOption[] = [
   {
@@ -87,8 +94,9 @@ export const FONTS: FontOption[] = [
   },
   {
     id: "system",
-    label: "System (Segoe UI)",
-    description: "Windows' own interface font. Nothing to download, works offline.",
+    // system-ui: Segoe UI on Windows, San Francisco on a Mac, the desktop's choice on Linux.
+    label: SYSTEM_FONT[PLATFORM].label,
+    description: `${SYSTEM_FONT[PLATFORM].whose} own interface font. Nothing to download, works offline.`,
     heading: SANS_FALLBACK,
     text: SANS_FALLBACK,
     nums: SANS_FALLBACK,

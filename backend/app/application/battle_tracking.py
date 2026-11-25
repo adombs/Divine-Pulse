@@ -46,7 +46,7 @@ from ..domain.battle import (
 )
 from ..domain.outlook import outlook, turn_phase
 from ..domain.units import VALUE_KEYS, byleth_look, now
-from ..domain.combat import EQUIPMENT
+from ..domain.combat import EQUIPMENT, BattleUnit
 from .battle_support import BattleSupport
 
 
@@ -71,6 +71,13 @@ def _with_guests(sample: BattleSample) -> list:
         replace(u, army=True) if not u.army and u.slot in sample.army_slots else u
         for u in sample.units
     ]
+
+
+def _acted_since(before: BattleUnit, after: BattleUnit, phase: int) -> bool:
+    """Whether a unit has acted between two reads of `phase` (your units only act in yours, 0)."""
+    if (before.team == 0) == (phase == 0) and after.acted and not before.acted:
+        return True
+    return before.team != 0 and not after.off_map and (before.x, before.y) != (after.x, after.y)
 
 
 class BattleTracker:
@@ -110,10 +117,12 @@ class BattleTracker:
         self._filed: tuple[BattleSample, float] | None = None
         self._unfiled: tuple[float, BattleSample, dict[str, int]] | None = None
         self._phase: int | None = None  # the phase in progress as of the last read (0 your phase)
+        # The read the outlook was last worked out from and the phase it's for, until someone acts (_follow_orders).
+        self._outlook_from: tuple[BattleSample, int] | None = None
 
     def resume(self, battle: Battle) -> None:
         """Carry on with a battle saved before the tracker restarted (see storage.BattleStore.load_active)."""
-        self.battle, self._last = battle, None
+        self.battle, self._last, self._outlook_from = battle, None, None
         self._reset_history()
         self._presence_seen = set(battle.map_presence) | {f"e:{slot}" for slot in battle.enemy_stats}
         # Keep when each action happened and where time was turned back to: the history is read afresh.
@@ -257,7 +266,7 @@ class BattleTracker:
             self._apply_history(sample, 0, rewound=False)
             self._track_presence(sample)
         self._phase = self._phase_now()
-        self._evaluate_outlook(sample)
+        self._evaluate_outlook(sample, self._phase)
         self._last = sample
 
     def _step(self, sample: BattleSample, at: datetime) -> bool:
@@ -380,9 +389,12 @@ class BattleTracker:
         # before the other armies move), and holds in between.
         phase = self._phase_now()
         if went_back:
-            changed = self._evaluate_outlook(sample) or changed
+            changed = self._evaluate_outlook(sample, phase) or changed
         elif self._phase == 0 and phase != 0:
-            changed = self._evaluate_outlook(self._last or sample) or changed
+            changed = self._evaluate_outlook(self._last or sample, phase) or changed
+            changed = self._follow_orders(sample, phase) or changed
+        else:
+            changed = self._follow_orders(sample, phase) or changed
         self._phase = phase
         self._last = sample
         return changed
@@ -701,14 +713,15 @@ class BattleTracker:
             return 1 if self._enemy_phase else 0
         return phase
 
-    def _evaluate_outlook(self, sample: BattleSample | None) -> bool:
+    def _evaluate_outlook(self, sample: BattleSample, phase: int) -> bool:
         """Work out the outlook (Battle.outlook_at) from where everyone stands in `sample`: what the other armies could
         do to each of your units before your next turn (Battle.threats), all of them still to act. Only at the start
-        of the battle, when your phase ends and after a Divine Pulse: it holds in between. Returns whether it
-        changed."""
+        of the battle, when your phase ends and after a Divine Pulse (and again when orders change before anyone
+        acts: _follow_orders): it holds in between. Returns whether it changed."""
         battle = self.battle
         assert battle is not None
-        if sample is not None and sample.units:
+        self._outlook_from = (sample, phase)
+        if sample.units:
             found = self.support.threats(list(sample.units), battle.terrain, frozenset())
             battle.threats = {
                 sample.army_slots[slot]: UnitThreat(
@@ -721,6 +734,24 @@ class BattleTracker:
         battle.outlook_at = None
         battle.outlook_at = outlook(battle)
         return battle.outlook_at != before
+
+    def _follow_orders(self, sample: BattleSample, phase: int) -> bool:
+        """Work the outlook out again if the game has given other units new orders (a boss set off) since it was worked
+        out and before anyone acts. Map scripts do so as a phase begins: seen live 9 s into an enemy phase, after the
+        script's conversation and before the first enemy moved. Everyone stays where they stood. Returns whether it
+        changed."""
+        if self._outlook_from is None:
+            return False
+        base, worked_out_for = self._outlook_from
+        now = {u.slot: u for u in sample.units}
+        if phase != worked_out_for or any(_acted_since(u, now[u.slot], phase) for u in base.units if u.slot in now):
+            self._outlook_from = None
+            return False
+        units = tuple(
+            replace(u, order=now[u.slot].order) if u.team != 0 and u.slot in now and now[u.slot].character == u.character else u
+            for u in base.units
+        )
+        return units != base.units and self._evaluate_outlook(replace(base, units=units), phase)
 
     def _off_history(self, sample: BattleSample) -> dict[str, int] | None:
         """The units whose HP in this read isn't what the game's history last left it at (uid -> HP now). None when
@@ -856,6 +887,7 @@ class BattleTracker:
                 stats.x,
                 stats.y,
                 stats.weapon,
+                stats.movement,
                 stats.class_id,
                 stats.female,
                 stats.side,
@@ -885,6 +917,7 @@ class BattleTracker:
             stats.on_map, stats.left = e.alive, False
             if e.weapon:
                 stats.weapon = e.weapon
+            stats.movement = e.movement
             if e.items or e.spells:
                 stats.inventory = self.support.inventory(
                     e.items,

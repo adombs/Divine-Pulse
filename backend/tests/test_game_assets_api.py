@@ -1,5 +1,6 @@
 import json
 import os
+import sys
 import threading
 import time
 
@@ -7,9 +8,17 @@ import pytest
 from fastapi.testclient import TestClient
 
 from helpers.fake_import import fake_dump
+from app.infrastructure.game_assets_import import nstool_name
 from app.infrastructure import game_assets as assets_module
 from app.infrastructure import game_assets_import as importer
 from app.main import create_app
+
+
+@pytest.fixture(autouse=True)
+def _fake_nstool_runs(monkeypatch):
+    """The tests' NSTool is an empty file standing in for it: skip the check that it starts."""
+    monkeypatch.setattr("app.infrastructure.game_assets_import.check_nstool", lambda tool: None)
+
 
 
 @pytest.fixture
@@ -171,7 +180,7 @@ def test_real_import(tmp_path, assets):
 def test_nsp_import_success_and_picker_routes(tmp_path, assets, monkeypatch):
     from app.infrastructure import nsp_extractor, paths
 
-    tool = tmp_path / "vendor" / "nstool" / "nstool.exe"
+    tool = tmp_path / "vendor" / "nstool" / nstool_name()
     tool.parent.mkdir(parents=True)
     tool.touch()
     monkeypatch.setattr(paths, "FROZEN", False)
@@ -181,11 +190,15 @@ def test_nsp_import_success_and_picker_routes(tmp_path, assets, monkeypatch):
     for file in [*packages, keys]:
         file.touch()
     extraction = []
+    steps = []
 
-    def extract(inputs, executable, key_path, output, *, cancelled):
+    def extract(inputs, executable, key_path, output, *, cancelled, progress=None):
         extraction.append(output)
         assert inputs == packages and executable == tool and key_path == keys
         assert not cancelled.is_set()
+        progress({"stage": "NSP 1/2 - base.nsp", "completed": 3, "total": 9, "current": "a/b/data.nca",
+                  "current_bytes": 10})
+        steps.append(client.get("/api/game-assets/status").json()["job"])
 
     monkeypatch.setattr(nsp_extractor, "extract_nsps", extract)
     monkeypatch.setattr(importer.dump, "find", lambda _: fake_dump(tmp_path))
@@ -202,6 +215,24 @@ def test_nsp_import_success_and_picker_routes(tmp_path, assets, monkeypatch):
         assert response.status_code == 202
         assert wait_job(client)["state"] == "done"
     assert extraction and not extraction[0].exists()
+    assert steps[0]["source"] == "nsp" and steps[0]["phase"] == "extracting" and steps[0]["started"] > 0
+    assert steps[0]["step"] == {"label": "Unpacking base.nsp (1 of 2)", "done": 3, "total": 9, "current": "data.nca"}
+
+
+@pytest.mark.parametrize(("stage", "label"), [
+    ("Counting files: NSP 2/3 - Update v1.2.0.nsp", "Unpacking Update v1.2.0.nsp (2 of 3)"),
+    ("Reading metadata 1/4", "Reading package details (1 of 4)"),
+    ("ExeFS - nsp-extract-abc", "Extracting the game program"),
+    ("RomFS - nsp-extract-abc", "Extracting game files (the longest part)"),
+    ("Counting files: RomFS - 01005E5013863001", "Extracting DLC files"),
+    ("RomFS - content-2", "Extracting DLC files"),
+    ("Finishing and removing temporary NCAs", "Removing temporary files"),
+    ("Complete", "Unpacking NSP files"),
+])
+def test_nsp_stages_read_as_plain_steps(stage, label):
+    from app.infrastructure.game_assets_import import describe_extraction
+
+    assert describe_extraction(stage) == label
 
 
 def test_nsp_extraction_failure_preserves_existing_assets(tmp_path, assets, monkeypatch):
@@ -209,7 +240,7 @@ def test_nsp_extraction_failure_preserves_existing_assets(tmp_path, assets, monk
 
     assets.root.mkdir()
     (assets.root / "old.txt").write_text("old")
-    tool = tmp_path / "vendor" / "nstool" / "nstool.exe"
+    tool = tmp_path / "vendor" / "nstool" / nstool_name()
     tool.parent.mkdir(parents=True)
     tool.touch()
     monkeypatch.setattr(paths, "FROZEN", False)
@@ -226,3 +257,47 @@ def test_nsp_extraction_failure_preserves_existing_assets(tmp_path, assets, monk
         assert job["state"] == "failed" and job["error"] == "bad keys"
         assert client.post("/api/game-assets/import-nsps", json={"nsps": ["missing.nsp"], "keys": str(keys)}).status_code == 400
     assert (assets.root / "old.txt").read_text() == "old"
+
+
+def test_nstool_is_found_where_mac_downloads_go(tmp_path, monkeypatch, as_platform):
+    from app.infrastructure import game_assets_import as gi
+
+    mac = as_platform("darwin")
+    monkeypatch.setattr(mac.shutil, "which", lambda name: None)
+    unzipped = tmp_path / "Downloads" / "nstool-v1.9.2-macos_arm64" / "nstool"
+    unzipped.parent.mkdir(parents=True)
+    # (only this test's home: not the /Applications or Homebrew copy this computer may have)
+    monkeypatch.setattr(mac, "download_spots", lambda home, real=mac.download_spots: [
+        p for p in real(home) if str(p).startswith(str(tmp_path))])
+    assert gi.nstool_path(None, tmp_path, home=tmp_path) is None
+    unzipped.write_bytes(b"")
+    assert gi.nstool_path(None, tmp_path, home=tmp_path) == unzipped
+    assert "releases/latest" in gi.nstool_missing()
+
+
+def test_each_os_says_where_nstool_comes_from(as_platform):
+    from app.infrastructure import game_assets_import as gi
+
+    as_platform("win32")
+    assert gi.nstool_name() == "nstool.exe" and "Reinstall" in gi.nstool_missing()
+    for name in ("darwin", "linux"):
+        as_platform(name)
+        assert gi.nstool_name() == "nstool" and gi.NSTOOL_DOWNLOAD in gi.nstool_missing()
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="runs a shell script as the stand-in NSTool")
+def test_a_gatekeeper_blocked_nstool_says_how_to_allow_it(tmp_path, monkeypatch, as_platform):
+    from app.infrastructure import game_assets_import as gi
+
+    monkeypatch.undo()  # the real check, not this file's stand-in
+    as_platform("darwin")
+    tool = tmp_path / "nstool"
+    tool.write_text("#!/bin/sh\nkill -9 $$\n")  # what Gatekeeper does to an unapproved download
+    tool.chmod(0o755)
+    with pytest.raises(ValueError, match="Privacy & Security"):
+        gi.check_nstool(tool)
+    tool.write_text("#!/bin/sh\nexit 1\n")  # NSTool's usage message
+    gi.check_nstool(tool)
+    tool.chmod(0o644)
+    with pytest.raises(ValueError, match="isn't executable"):
+        gi.check_nstool(tool)

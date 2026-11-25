@@ -141,17 +141,20 @@ export interface Settings {
   active_run_id: string | null;
   max_recordings: number;
   window_mode: "windowed" | "fullscreen";
-  /** Where the game is read from: the Eden emulator, or FE3H Recomp (the native Windows recompilation). */
-  memory_reader: "eden" | "recomp";
+  /** Where the game is read from: the Eden emulator, FE3H Recomp (the native Windows recompilation), or Ryujinx's
+   * family (Astris on macOS, Ryubing). */
+  memory_reader: "auto" | "eden" | "recomp" | "ryujinx";
   /** What happens when a one-time battle is fought again: keep the best copy, or ask. */
   duplicate_battles: "keep_best" | "keep_latest" | "ask";
   /** Look for a newer release on GitHub when the app starts. */
   check_updates: boolean;
+  /** Open Divine Pulse when Eden or FE3H Recomp starts. */
+  launch_with_game: boolean;
   /** The version whose banner was dismissed (e.g. "1.4.4"); save "" to clear it. */
   update_dismissed: string | null;
   /** Older versions of each game save to keep (0: no backups). */
   save_backups: number;
-  /** The save folder to back up; null finds Eden's and FE3H Recomp's automatically. Save "" to go back to that. */
+  /** The save folder to back up; null finds Eden's, Ryujinx's family's and FE3H Recomp's automatically. Save "" to go back to that. */
   save_folder: string | null;
 }
 
@@ -161,7 +164,7 @@ export interface SaveBackupStatus {
   folder: string;
 }
 
-export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader" | "duplicate_battles" | "check_updates" | "update_dismissed" | "save_backups">> & { save_folder?: string };
+export type SettingsInput = Partial<Pick<Settings, "max_recordings" | "window_mode" | "memory_reader" | "duplicate_battles" | "check_updates" | "launch_with_game" | "update_dismissed" | "save_backups">> & { save_folder?: string };
 
 /** The startup check for a newer release (GET /api/update, SSE `update`). */
 export interface UpdateStatus {
@@ -573,11 +576,21 @@ export interface About {
   data_dir: string;
   /** Shown in the desktop window (not the browser), where window_mode applies. */
   desktop: boolean;
+  /** The operating system the tracker runs on. */
+  platform: "windows" | "macos" | "linux";
 }
 
 export interface GameAssetsJob {
   state: "idle" | "running" | "done" | "failed";
   phase: string | null; done: number; total: number; error: string | null;
+  /** Where the files come from; NSP files are unpacked first. */
+  source?: "dump" | "nsp";
+  /** When the import started (seconds since 1970). */
+  started?: number;
+  /** Files written so far by the import step. */
+  files?: number;
+  /** While NSP files are unpacked: the part being unpacked and how many of its files are written. */
+  step?: { label: string; done: number; total: number; current: string };
 }
 export interface GameFilesStatus {
   available: boolean; version?: string | null; dlc?: string[];
@@ -592,24 +605,48 @@ export interface GameFilesPart { id: string; name: string; found: boolean; detai
 export interface GameFilesVerify { ok: boolean; checked: number; errors: string[]; warnings: string[] }
 
 export class ApiError extends Error {
-  constructor(message: string, readonly status?: number) { super(message); }
+  readonly status?: number;
+  constructor(message: string, status?: number) {
+    super(message);
+    this.status = status;
+  }
+}
+
+/** Said when the tracker can't be reached at all. The engines word it differently ("Failed to fetch" in WebView2,
+ * "Load failed" in WKWebView), so the app says it one way on both. */
+export const UNREACHABLE = "The tracker isn't responding. Check that Divine Pulse is still running.";
+
+/** The message for a failed reply: the server's `detail` (a string, or FastAPI's list of validation errors), else
+ * the status text, else the status code. */
+export function errorDetail(data: unknown, status: number, statusText: string): string {
+  const detail = (data as { detail?: unknown } | null)?.detail;
+  if (typeof detail === "string" && detail) return detail;
+  if (Array.isArray(detail)) {
+    const messages = detail.map((d) => (d as { msg?: unknown })?.msg).filter((m): m is string => typeof m === "string" && !!m);
+    if (messages.length) return messages.join("; ");
+  }
+  return statusText || `Request failed (${status})`;
 }
 
 async function request<T>(method: string, path: string, body?: unknown): Promise<T> {
-  const res = await fetch(`/api${path}`, {
-    method,
-    headers: body === undefined ? undefined : { "Content-Type": "application/json" },
-    body: body === undefined ? undefined : JSON.stringify(body),
-  });
+  let res: Response;
+  try {
+    res = await fetch(`/api${path}`, {
+      method,
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    });
+  } catch {
+    throw new ApiError(UNREACHABLE);
+  }
   if (!res.ok) {
-    let detail = res.statusText;
+    let data: unknown = null;
     try {
-      const data = await res.json();
-      detail = typeof data.detail === "string" ? data.detail : JSON.stringify(data.detail);
+      data = await res.json();
     } catch {
-      /* keep statusText */
+      /* not JSON: the status text says it */
     }
-    throw new ApiError(res.status === 404 && path.startsWith("/game-assets") ? "Not available" : detail, res.status);
+    throw new ApiError(res.status === 404 && path.startsWith("/game-assets") ? "Not available" : errorDetail(data, res.status, res.statusText), res.status);
   }
   const text = await res.text();
   return (text ? JSON.parse(text) : null) as T;

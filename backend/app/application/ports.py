@@ -63,6 +63,10 @@ class EventPublisher(Protocol):
     def publish(self, event: str, data: Any = None) -> None: ...
 
 
+class LaunchWithGameSync(Protocol):
+    def settings_changed(self) -> None: ...
+
+
 class UpdateChecks(Protocol):
     def status(self) -> dict[str, Any]: ...
     def settings_changed(self) -> None: ...
@@ -92,4 +96,6 @@ class GameMemoryCheck(Protocol):
 
 
 class SystemInformation(Protocol):
+    platform: str  # "windows", "macos", "linux"
+
     def open_folder(self, folder: Path) -> None: ...
