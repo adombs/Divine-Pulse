@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+## 1.5.3 (2026-11-24)
+
 - The battle log follows the battle: each new action scrolls into view as it happens. Scroll up to read and it stays where you are; scroll back to the bottom to follow again.
 - The Planner can delete a plan: the trash button at the bottom of the window asks first, then clears the plan and its notes, for units on the Roster and characters not recruited yet.
 - The Planner's class list leaves out classes the unit can never take (the other gender's, another character's own) until you type; searching still finds every class. Skill ranks aren't considered.
