@@ -7,7 +7,7 @@
  */
 import { CONCEPT_ICON } from "../icons/concepts";
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useId, useRef, useState } from "react";
-import { About, api, LABELS, SaveBackupStatus, Settings } from "../api";
+import { About, api, LABELS, SaveBackupStatus, SaveFolderBackups, SaveSnapshot, Settings } from "../api";
 import { DEFAULT_CONFIG, EBST_TYPES, EbstConfig, OTHER_KEYS } from "../ebst";
 import { SPOILER_CATEGORIES, SpoilerCategory, setAllSpoilers, useSpoilers } from "../spoilers";
 import { ToastState } from "./Toasts";
@@ -18,6 +18,7 @@ import { IS_LINUX, IS_MAC, PLATFORM, PLATFORM_NAME, type Platform } from "../pla
 import { PageHeader } from "./layout";
 import { Icon, IconName } from "./Icon";
 import { MemoryCheck } from "./MemoryCheck";
+import { Modal } from "./Modal";
 import { StaggerSlider } from "./battle/replay";
 import { PanSensitivitySlider, PanSpeedSlider } from "./battle/camera";
 import { BattleReplaySettings } from "./battle/OverlaySettings";
@@ -50,9 +51,10 @@ const SAVES_FOUND = IS_LINUX ? "Eden's and Ryubing's" : "Eden's, Astris's and Ry
 /** Astris only runs on macOS. */
 const readerName = (id: Settings["memory_reader"], name: string) => (id === "ryujinx" && IS_LINUX ? "Ryubing / Ryujinx" : name);
 
-type SettingsTab ="game-files" | "general" | "ebst" | "spoilers" | "appearance" | "battle-replay" | "about";
+type SettingsTab = "game-files" | "general" | "saves" | "ebst" | "spoilers" | "appearance" | "battle-replay" | "about";
 const TABS: { id: SettingsTab; label: string; icon: IconName; blurb: string }[] = [
   { id: "general", label: "General", icon: CONCEPT_ICON.settings, blurb: "Game connection and window" },
+  { id: "saves", label: "Game Saves", icon: CONCEPT_ICON.archive, blurb: "Snapshots of your saves, to restore" },
   { id: "game-files", label: "Game files", icon: CONCEPT_ICON.item, blurb: "Import from your own game" },
   { id: "ebst", label: "eBST", icon: CONCEPT_ICON.statUp, blurb: "How effective stats are counted" },
   { id: "spoilers", label: "Spoilers", icon: CONCEPT_ICON.hide, blurb: "What stays hidden for now" },
@@ -368,7 +370,7 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   const invalid = !recordingLimit.trim() || !Number.isInteger(count) || count < 0 || count > 1000;
   const backups = Number(backupLimit);
   const backupsInvalid = !backupLimit.trim() || !Number.isInteger(backups) || backups < 0 || backups > 100;
-  const problems: Partial<Record<SettingsTab, boolean>> = { general: invalid || backupsInvalid };
+  const problems: Partial<Record<SettingsTab, boolean>> = { general: invalid, saves: backupsInvalid };
 
   const save = async (e: FormEvent) => {
     e.preventDefault();
@@ -400,8 +402,8 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
 
   const changed: Partial<Record<SettingsTab, boolean>> = {
     general: count !== settings.max_recordings || windowMode !== settings.window_mode || memoryReader !== settings.memory_reader || duplicates !== (settings.duplicate_battles ?? "keep_best") || checkUpdates !== (settings.check_updates ?? true)
-      || launchWithGame !== (settings.launch_with_game ?? false)
-      || backups !== (settings.save_backups ?? 3) || saveFolder.trim() !== (settings.save_folder ?? ""),
+      || launchWithGame !== (settings.launch_with_game ?? false),
+    saves: backups !== (settings.save_backups ?? 3) || saveFolder.trim() !== (settings.save_folder ?? ""),
   };
   const dirty = Object.values(changed).some(Boolean);
 
@@ -485,9 +487,6 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                       </Row>
                     )}
                   </Group>
-                  <SaveBackupsGroup key={`${settings.save_folder ?? ""}|${settings.save_backups}`} toasts={toasts} id={ids + "-backups"}
-                    limit={backupLimit} setLimit={setBackupLimit} invalid={backupsInvalid}
-                    folder={saveFolder} setFolder={setSaveFolder} />
                   <Group title="Battle recordings">
                     <Row label="Maximum raw recordings" htmlFor={ids + "-recordings"}
                       hint="0 turns it off. The oldest are removed first."
@@ -515,6 +514,11 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
                   )}
                 </>
               )}
+              {tab === "saves" && (
+                <GameSavesSection key={`${settings.save_folder ?? ""}|${settings.save_backups}`} toasts={toasts} id={ids + "-backups"}
+                  limit={backupLimit} setLimit={setBackupLimit} invalid={backupsInvalid}
+                  folder={saveFolder} setFolder={setSaveFolder} />
+              )}
               {tab === "spoilers" && <SpoilerSection />}
               {tab === "ebst" && <EbstSection key={settings.active_run_id} runId={settings.active_run_id} toasts={toasts} />}
               {tab === "appearance" && <AppearanceSection state={appearance} />}
@@ -523,11 +527,11 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
             </div>
           </div>
           {dirty && (
-            <div className={`settings-save${invalid ? " invalid" : ""}`} role="status">
+            <div className={`settings-save${invalid || backupsInvalid ? " invalid" : ""}`} role="status">
               <span className="settings-save-text">
-                {invalid ? <>Fix the fields marked in red on {tabNames(problems)} to save</> : <>Unsaved changes on {tabNames(changed)}</>}
+                {invalid || backupsInvalid ? <>Fix the fields marked in red on {tabNames(problems)} to save</> : <>Unsaved changes on {tabNames(changed)}</>}
               </span>
-              <button className="btn primary" type="submit" disabled={invalid}>
+              <button className="btn primary" type="submit" disabled={invalid || backupsInvalid}>
                 Save Settings
               </button>
             </div>
@@ -538,8 +542,65 @@ export function SettingsPage({ toasts, onSaved, appearance }: SettingsProps) {
   );
 }
 
-/** Backup Game Saves: how many older versions of each save to keep, which save folder, and where the copies are. */
-function SaveBackupsGroup({ toasts, id, limit, setLimit, invalid, folder, setFolder }: {
+/** A save file's name as the game's menus would say it: "slot00" is Slot 1, "suspend" the suspend save. FE3H Recomp
+ * keeps each profile's saves in a folder of their own ("save_0/slot00"). */
+function saveName(file: string): string {
+  const [folder, name] = file.includes("/") ? [file.slice(0, file.lastIndexOf("/")), file.slice(file.lastIndexOf("/") + 1)] : ["", file];
+  const slot = /^slot(\d+)$/i.exec(name);
+  const label = slot ? `Slot ${Number(slot[1]) + 1}` : SAVE_NAMES[name.toLowerCase()] ?? name;
+  return folder ? `${folder}: ${label}` : label;
+}
+const SAVE_NAMES: Record<string, string> = { auto: "Autosave", suspend: "Suspend", system: "System" };
+const KIND_LABEL: Record<SaveSnapshot["kind"], string> = { auto: "Automatic", manual: "Manual", restore: "Before restore" };
+/** Rows shown before "Show older". */
+const SNAPSHOTS_SHOWN = 8;
+
+function listNames(files: string[], most = 4): string {
+  const names = files.map(saveName);
+  return names.length <= most ? names.join(", ") : `${names.slice(0, most).join(", ")} and ${names.length - most} more`;
+}
+
+function snapshotTime(time: string, seconds = false): string {
+  const when = new Date(time);
+  return Number.isNaN(when.getTime()) ? time : when.toLocaleString(undefined, {
+    weekday: "short", day: "numeric", month: "short", year: "numeric", hour: "numeric", minute: "2-digit", ...(seconds ? { second: "2-digit" } : {}),
+  });
+}
+
+const RELATIVE = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
+/** "2 minutes ago", "yesterday". */
+function timeAgo(time: string, now = Date.now()): string {
+  const seconds = (new Date(time).getTime() - now) / 1000;
+  if (Number.isNaN(seconds)) return "";
+  if (Math.abs(seconds) < 45) return "just now";
+  const steps: [Intl.RelativeTimeFormatUnit, number][] = [["minute", 60], ["hour", 3600], ["day", 86400], ["week", 604800], ["month", 2629800], ["year", 31557600]];
+  let unit = steps[0];
+  for (const step of steps) if (Math.abs(seconds) >= step[1]) unit = step;
+  return RELATIVE.format(Math.round(seconds / unit[1]), unit[0]);
+}
+
+/** What a snapshot holds, against the one before it: changed saves, and slots that are new or gone. */
+function snapshotSummary(s: SaveSnapshot): string {
+  if (s.changed === null) return `${s.files.length} save files`;
+  if (s.changed.length === 0) return "No saves changed since the snapshot before";
+  const added = new Set(s.added ?? []);
+  const removed = new Set(s.removed ?? []);
+  const changed = s.changed.filter((f) => !added.has(f) && !removed.has(f));
+  return [
+    changed.length ? `Changed: ${listNames(changed)}` : "",
+    added.size ? `New: ${listNames([...added])}` : "",
+    removed.size ? `Gone: ${listNames([...removed])}` : "",
+  ].filter(Boolean).join(" · ");
+}
+
+/** Snapshots taken within the same minute need their seconds to be told apart. */
+function sameMinute(a: string, b: string): boolean {
+  return a.slice(0, 16) === b.slice(0, 16);
+}
+
+/** Game Saves: snapshots of the whole save folder (every slot, the autosave, the suspend save and the system file
+ * together), taken when the game saves or with Back Up Now, and restored together. */
+function GameSavesSection({ toasts, id, limit, setLimit, invalid, folder, setFolder }: {
   toasts: ToastState;
   id: string;
   limit: string;
@@ -549,10 +610,19 @@ function SaveBackupsGroup({ toasts, id, limit, setLimit, invalid, folder, setFol
   setFolder: (v: string) => void;
 }) {
   const [status, setStatus] = useState<SaveBackupStatus | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [restoring, setRestoring] = useState<{ save: SaveFolderBackups; snapshot: SaveSnapshot } | null>(null);
+  const [restored, setRestored] = useState<{ time: string; kept: boolean } | null>(null);
+  const [deleting, setDeleting] = useState<{ save: SaveFolderBackups; snapshot: SaveSnapshot } | null>(null);
+  const [showAll, setShowAll] = useState<Record<string, boolean>>({});
+  const refresh = () => api.saveBackups().then(setStatus, () => setStatus(null));
+  // New snapshots appear as the game saves, and the game opening or closing changes whether a restore can run.
   useEffect(() => {
     let live = true;
-    api.saveBackups().then((s) => { if (live) setStatus(s); }, () => { if (live) setStatus(null); });
-    return () => { live = false; };
+    const load = () => api.saveBackups().then((s) => { if (live) setStatus(s); }, () => { if (live) setStatus(null); });
+    void load();
+    const timer = window.setInterval(load, 5000);
+    return () => { live = false; window.clearInterval(timer); };
   }, []);
   const open = async () => {
     try {
@@ -561,33 +631,213 @@ function SaveBackupsGroup({ toasts, id, limit, setLimit, invalid, folder, setFol
       toasts.push({ kind: "error", title: "Couldn't open the folder", body: (e as Error).message });
     }
   };
+  const backUpNow = async (save: SaveFolderBackups) => {
+    setBusy(save.id);
+    try {
+      await api.takeSaveSnapshot(save.id);
+      toasts.push({ kind: "ok", title: "Saves backed up", body: "This snapshot stays until you delete it." });
+      await refresh();
+    } catch (e) {
+      toasts.push({ kind: "error", title: "Couldn't back up the saves", body: (e as Error).message });
+    } finally {
+      setBusy(null);
+    }
+  };
+  const restore = async () => {
+    if (!restoring) return;
+    setBusy(restoring.snapshot.id);
+    try {
+      const done = await api.restoreSaveSnapshot(restoring.save.id, restoring.snapshot.id);
+      setRestored({ time: done.restored.time, kept: done.kept !== null });
+      await refresh();
+    } catch (e) {
+      toasts.push({ kind: "error", title: "Couldn't restore the saves", body: (e as Error).message });
+      await refresh();
+    } finally {
+      setBusy(null);
+    }
+  };
+  const closeRestore = () => {
+    if (busy) return;
+    setRestoring(null);
+    setRestored(null);
+  };
+  const remove = async () => {
+    if (!deleting) return;
+    setBusy(deleting.snapshot.id);
+    try {
+      await api.deleteSaveSnapshot(deleting.save.id, deleting.snapshot.id);
+      setDeleting(null);
+      await refresh();
+    } catch (e) {
+      toasts.push({ kind: "error", title: "Couldn't delete the snapshot", body: (e as Error).message });
+    } finally {
+      setBusy(null);
+    }
+  };
   const found = status?.sources ?? [];
+  const gameOpen = status?.game_running ?? false;
+  const now = Date.now();
+  // What a restore would remove: save files there now that the snapshot doesn't have.
+  const removedByRestore = restoring ? restoring.save.current.files.filter((f) => !restoring.snapshot.files.includes(f)) : [];
   return (
-    <Group title="Backup Game Saves">
-      <Row label="Older versions to keep" htmlFor={id}
-        hint="Each save is copied, and when the game overwrites it, up to this many earlier versions are kept. 0 turns backups off."
-        error={invalid ? "Enter a whole number from 0 to 100." : undefined}>
-        <input id={id} type="number" min={0} max={100} step={1}
-          value={limit} onChange={(e) => setLimit(e.target.value)} aria-invalid={invalid} />
-      </Row>
-      <Row label="Save folder" htmlFor={id + "-folder"} wide
-        // FE3H Recomp only runs on Windows, and Astris only on a Mac.
-        hint={folder.trim() ? `Leave empty to find ${SAVES_FOUND}${PLATFORM === "windows" ? " and FE3H Recomp's" : ""} saves automatically.`
-          : found.length ? <>Found: {found.map((f) => <code key={f} className="path">{f}</code>)}</>
-          : `None found yet. ${SAVES_FOUND} are found automatically${PLATFORM === "windows" ? ", and FE3H Recomp's once it has run with Divine Pulse open" : ""}. Or paste the folder here.`}>
-        <input id={id + "-folder"} type="text" value={folder} placeholder="Automatic" onChange={(e) => setFolder(e.target.value)} />
-      </Row>
-      {status && (
-        <Row label="Backups" wide hint="To restore one, copy it back into the save folder under the save's own name, with the game closed.">
-          <span className="with-unit set-path">
-            <code className="path">{status.folder}</code>
-            <button type="button" className="btn small" onClick={open}>
-              Open
-            </button>
-          </span>
+    <>
+      {status?.saves.map((save) => {
+        const shown = showAll[save.id] ? save.snapshots : save.snapshots.slice(0, SNAPSHOTS_SHOWN);
+        const hidden = save.snapshots.length - shown.length;
+        // Several snapshots can hold the saves as they are now: the newest of them says so.
+        const nowId = save.snapshots.find((s) => s.current)?.id;
+        return (
+          <Group
+            key={save.id}
+            title={status.saves.length > 1 ? `Snapshots: ${save.id}` : "Snapshots"}
+            right={(
+              <button type="button" className="btn small" disabled={!save.found || busy !== null} onClick={() => void backUpNow(save)}>
+                {busy === save.id ? "Backing up…" : "Back Up Now"}
+              </button>
+            )}
+            note={<>
+              A snapshot holds all your saves at one moment: every slot, the autosave, the suspend save and the system file. Restoring one puts
+              them all back together, with the game closed.
+              {status.saves.length > 1 && <> From <code className="path">{save.path}</code>.</>}
+              {!save.found && " The save folder isn't there now: restoring a snapshot makes it again."}
+            </>}
+          >
+            {gameOpen && (
+              <div className="snap-warning" role="status">
+                <Icon name={CONCEPT_ICON.warning} /> The game is open. Close it to restore a snapshot: it keeps your saves in memory and would write over them.
+              </div>
+            )}
+            {save.snapshots.length === 0 ? (
+              <div className="set-row wide"><span className="set-hint">No snapshots yet. One is taken the next time the game saves, or press Back Up Now.</span></div>
+            ) : (
+              <ul className="snap-list">
+                {shown.map((snap, i) => {
+                  const neighbours = [save.snapshots[i - 1], save.snapshots[i + 1]].filter(Boolean);
+                  const time = snapshotTime(snap.time, neighbours.some((n) => sameMinute(n.time, snap.time)));
+                  return (
+                    <li key={snap.id} className={`snap-row${snap.id === nowId ? " is-current" : ""}`}>
+                      <div className="snap-text">
+                        <span className="snap-time">
+                          {time}
+                          <span className={`snap-kind kind-${snap.kind}`}>{KIND_LABEL[snap.kind]}</span>
+                          {snap.id === nowId && <span className="snap-kind kind-now">Your saves now</span>}
+                        </span>
+                        <span className="set-hint">{timeAgo(snap.time, now)} · {snapshotSummary(snap)}</span>
+                      </div>
+                      <div className="snap-actions">
+                        <button type="button" className="btn small" disabled={gameOpen || busy !== null || snap.current}
+                          aria-label={`Restore the snapshot of ${time}`}
+                          title={snap.current ? "Your saves are already as this snapshot has them" : gameOpen ? "Close the game first" : "Put every save back as it was then"}
+                          onClick={() => { setRestored(null); setRestoring({ save, snapshot: snap }); }}>
+                          Restore
+                        </button>
+                        <button type="button" className="icon-btn snap-delete" disabled={busy !== null} aria-label={`Delete the snapshot of ${time}`}
+                          title="Delete" onClick={() => setDeleting({ save, snapshot: snap })}>
+                          <Icon name={CONCEPT_ICON.delete} />
+                        </button>
+                      </div>
+                    </li>
+                  );
+                })}
+                {(hidden > 0 || showAll[save.id]) && save.snapshots.length > SNAPSHOTS_SHOWN && (
+                  <li className="snap-more">
+                    <button type="button" className="link-btn" onClick={() => setShowAll((all) => ({ ...all, [save.id]: !all[save.id] }))}>
+                      {hidden > 0 ? `Show ${hidden} older` : "Show fewer"}
+                    </button>
+                  </li>
+                )}
+              </ul>
+            )}
+          </Group>
+        );
+      })}
+      <Group title="Options">
+        <Row label="Automatic snapshots to keep" htmlFor={id}
+          hint="Taken whenever the game saves: the newest is kept, plus this many older ones. 0 turns them off. Back Up Now and Before restore snapshots stay until you delete them."
+          error={invalid ? "Enter a whole number from 0 to 100." : undefined}>
+          <input id={id} type="number" min={0} max={100} step={1}
+            value={limit} onChange={(e) => setLimit(e.target.value)} aria-invalid={invalid} />
         </Row>
-      )}
-    </Group>
+        <Row label="Save folder" htmlFor={id + "-folder"} wide
+          // FE3H Recomp only runs on Windows, and Astris only on a Mac.
+          hint={folder.trim() ? `Leave empty to find ${SAVES_FOUND}${PLATFORM === "windows" ? " and FE3H Recomp's" : ""} saves automatically.`
+            : found.length ? <>Found: {found.map((f) => <code key={f} className="path">{f}</code>)}</>
+            : `None found yet. ${SAVES_FOUND} are found automatically${PLATFORM === "windows" ? ", and FE3H Recomp's once it has run with Divine Pulse open" : ""}. Or paste the folder here.`}>
+          <input id={id + "-folder"} type="text" value={folder} placeholder="Automatic" onChange={(e) => setFolder(e.target.value)} />
+        </Row>
+        {status && (
+          <Row label="Snapshots folder" wide hint="Where the snapshots are kept, one folder each.">
+            <span className="with-unit set-path">
+              <code className="path">{status.folder}</code>
+              <button type="button" className="btn small" onClick={open}>
+                Open
+              </button>
+            </span>
+          </Row>
+        )}
+      </Group>
+      <Modal open={restoring !== null} onClose={closeRestore} title={restored ? "Saves restored" : "Restore saves?"} className="snap-confirm">
+        {restoring && !restored && (
+          <>
+            <dl className="snap-compare">
+              <dt>Restoring</dt>
+              <dd>
+                <strong>{snapshotTime(restoring.snapshot.time, true)}</strong>
+                <span>{KIND_LABEL[restoring.snapshot.kind]} snapshot · {restoring.snapshot.files.length} save files</span>
+              </dd>
+              <dt>Replacing</dt>
+              <dd>
+                <strong>Your saves now</strong>
+                <span>{restoring.save.current.time ? `Last saved ${snapshotTime(restoring.save.current.time)} (${timeAgo(restoring.save.current.time, now)})` : "No save files"}</span>
+              </dd>
+            </dl>
+            {removedByRestore.length > 0 && (
+              <p className="snap-warning">
+                <Icon name={CONCEPT_ICON.warning} /> Removed, as they came after this snapshot: {listNames(removedByRestore, 6)}.
+              </p>
+            )}
+            <p>Every slot, the autosave, the suspend save and the system file go back together. Your saves now are kept first, as a “Before restore” snapshot, so you can go back to them.</p>
+            {gameOpen && <p className="snap-warning" role="alert"><Icon name={CONCEPT_ICON.warning} /> Close the game first.</p>}
+            <div className="snap-confirm-actions">
+              <button type="button" className="btn" disabled={busy !== null} onClick={closeRestore}>Cancel</button>
+              <button type="button" className="btn primary" disabled={busy !== null || gameOpen} onClick={() => void restore()}>
+                {busy ? "Restoring…" : "Restore"}
+              </button>
+            </div>
+          </>
+        )}
+        {restored && (
+          <>
+            <p role="status">
+              Your saves are as they were on <strong>{snapshotTime(restored.time, true)}</strong>. Start the game and load a save to carry on.
+              {restored.kept && " The saves you had are kept as “Before restore”."}
+            </p>
+            <div className="snap-confirm-actions">
+              <button type="button" className="btn primary" onClick={closeRestore}>Done</button>
+            </div>
+          </>
+        )}
+      </Modal>
+      <Modal open={deleting !== null} onClose={() => { if (!busy) setDeleting(null); }} title="Delete snapshot?" className="snap-confirm">
+        {deleting && (
+          <>
+            <p>
+              {deleting.snapshot.kind === "restore"
+                ? <>This is the copy of your saves from just before a restore: the way back to them. </>
+                : deleting.snapshot.kind === "manual" ? <>You took this one with Back Up Now, so it isn't replaced automatically. </> : null}
+              Delete the snapshot of {snapshotTime(deleting.snapshot.time, true)}? This can’t be undone. Your saves themselves aren’t touched.
+            </p>
+            <div className="snap-confirm-actions">
+              <button type="button" className="btn" disabled={busy !== null} onClick={() => setDeleting(null)}>Cancel</button>
+              <button type="button" className="btn danger" disabled={busy !== null} onClick={() => void remove()}>
+                {busy ? "Deleting…" : "Delete"}
+              </button>
+            </div>
+          </>
+        )}
+      </Modal>
+    </>
   );
 }
 

@@ -4,13 +4,16 @@
 
 ## 1.5.3 (2026-11-24)
 
+- Game save backups are snapshots: each one holds every save slot, the autosave, the suspend save and the system file as they were at one moment, and restoring one puts all of them back together. They're in Settings → Game Saves (moved from General), listed newest first with which saves changed.
+- Restore your saves from the app: Restore on a snapshot puts the save folder back as it was (save files made since are removed), after keeping the saves you have now as a "Before restore" snapshot. Close the game first: restoring waits while Eden, Ryubing/Ryujinx or FE3H Recomp is open.
+- Back Up Now takes a snapshot whenever you like; it stays until you delete it. A snapshot is also taken automatically whenever the game saves, keeping the newest and 3 older ones by default. 1.5.2's copies of single files are moved to a "Single-file copies (1.5.2)" folder.
 - The battle log follows the battle: each new action scrolls into view as it happens. Scroll up to read and it stays where you are; scroll back to the bottom to follow again.
 - The Planner can delete a plan: the trash button at the bottom of the window asks first, then clears the plan and its notes, for units on the Roster and characters not recruited yet.
 - The Planner's class list leaves out classes the unit can never take (the other gender's, another character's own) until you type; searching still finds every class. Skill ranks aren't considered.
 - The outlook uses how far each enemy can really move, read from the unit as the game works it out. A boss that holds its tile (Kostas in The Red Canyon, Lonato, Miklan…) only threatens what its weapon reaches from there, where it used to count as walking up to Byleth with its class's Mv; it counts as moving again when the game sets it off (the Death Knight once he's attacked), including as the enemy phase begins. Rattled units don't move either, and Mv bonuses and penalties count. The simpler estimate without the game files imported follows it too, and assumes 5 only where it isn't known.
 - Experimental: Divine Pulse runs on Linux. Reading the game from the real emulators there hasn't been confirmed yet: please report how it goes, with tracker.log (Settings → About → Open). It needs a 64-bit PC (x86-64, glibc 2.35 or newer: Ubuntu 22.04, Debian 12, SteamOS 3.5 and later). Unpack `Divine-Pulse-<version>-linux-x86_64.tar.gz` and run it, or run its `install.sh` to add it to your applications menu. Or run from source with `tools/setup.sh`, then `tools/launch.sh`. Its data folder is ~/.local/share/Divine Pulse.
 - Experimental: on Linux the game is read from Eden (with fastmem enabled) and from Ryubing or Ryujinx (in the default Host memory manager modes), installed as an AppImage, a Flatpak, an unpacked folder or a distribution's package. It needs no root access and no change to ptrace_scope.
-- Backup Game Saves finds Eden's, Ryubing's and Ryujinx's saves on Linux, including Flatpaks' and a portable Eden's.
+- Game save backups find Eden's, Ryubing's and Ryujinx's saves on Linux, including Flatpaks' and a portable Eden's.
 - Export Video makes VP9 videos where the window can't encode H.264 (the Linux app).
 - No more "sync this save?" questions before a save is loaded: at the game's title screen (and while it plays its cutscenes) the tracker waits for a save, and a question already showing goes away there.
 - On macOS the window opens where you left it, on whichever monitor, using macOS's own window memory: with two monitors the saved place drifted off screen and the app could fail to open. Settings → Window → Fullscreen (and the window's green button) now go full screen.
@@ -22,7 +25,7 @@
 - The Windows and macOS releases' Read me.txt have the same sections: install, first launch, importing, the data folder, updating and removing. Setting up from source takes the same steps on both (`tools\setup.bat`, `tools/setup.sh`), checks for Python 3.12+ and Node.js 22.12+ first, and adds a *Divine Pulse (source)* desktop shortcut on macOS too; the launch scripts say when setup or the frontend build is missing. `tools/build_windows.ps1` is gone: `python tools/build.py` finds a Python 3.12+ itself on both.
 - Read the game from Astris on macOS, or from Ryubing or Ryujinx. The battle history (Divine Pulse list, replays) is read too.
 - Settings → General → Game has a new **Auto** choice, the default for new installs: Divine Pulse finds the game in whichever of Eden, Astris, Ryubing/Ryujinx or FE3H Recomp is running. Choosing one program still works as before.
-- Backup Game Saves finds Astris's, Ryubing's and Ryujinx's FE3H saves automatically, including a portable Ryubing's, and Eden's on macOS.
+- Game save backups find Astris's, Ryubing's and Ryujinx's FE3H saves automatically, including a portable Ryubing's, and Eden's on macOS.
 - Importing NSP files on macOS uses NSTool: download the latest macOS release from https://github.com/jakcron/nstool/releases/latest and put it in Applications or Downloads (unzipped). If macOS blocks it, the import says how to allow it. Importing a dump folder needs nothing extra.
 - Launch with Game (Windows), in Settings → General → Game: when it's on, Divine Pulse opens by itself when Eden, Ryubing/Ryujinx or FE3H Recomp starts.
 

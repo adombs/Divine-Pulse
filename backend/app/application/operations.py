@@ -412,8 +412,22 @@ class BackendOperations:
 
     def save_backup_status(self) -> dict[str, Any]:
         if self.save_backups is None:
-            return {"sources": [], "folder": str(self.data_dir / "save-backups")}
+            return {"sources": [], "folder": str(self.data_dir / "save-backups"), "game_running": False, "saves": []}
         return self.save_backups.status()
+
+    def take_save_snapshot(self, source_id: str) -> dict[str, Any]:
+        return self._save_backups().take(source_id)
+
+    def restore_save_snapshot(self, source_id: str, snapshot_id: str) -> dict[str, Any]:
+        return self._save_backups().restore(source_id, snapshot_id)
+
+    def delete_save_snapshot(self, source_id: str, snapshot_id: str) -> None:
+        self._save_backups().delete(source_id, snapshot_id)
+
+    def _save_backups(self) -> SaveBackupOperations:
+        if self.save_backups is None:
+            raise RuntimeError("Game save backups aren't available here.")
+        return self.save_backups
 
     def open_save_backups(self) -> None:
         self.system.open_folder(self.save_backups.folder if self.save_backups is not None else self.data_dir / "save-backups")
