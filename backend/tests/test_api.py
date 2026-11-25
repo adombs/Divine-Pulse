@@ -277,7 +277,10 @@ def test_frontend_files_served_through_a_symlinked_folder(tmp_path, monkeypatch)
     (real / "brand" / "logo.png").write_bytes(b"PNGDATA")
     (tmp_path / "Frameworks").mkdir()
     linked = tmp_path / "Frameworks" / "frontend_dist"
-    linked.symlink_to(real, target_is_directory=True)
+    try:
+        linked.symlink_to(real, target_is_directory=True)
+    except OSError as error:  # Windows allows symlinks only to administrators or with Developer Mode on
+        pytest.skip(f"can't create a symlink here: {error}")
     monkeypatch.setattr(main, "FRONTEND_DIST", linked)
     data = tmp_path / "data"
     data.mkdir()
